@@ -90,9 +90,12 @@ test('streaming chunk replaces message content', () => {
   expect(assistantMsgs[0].text).toBe('hello');
 });
 
-// T-4: send() sends JSON message over WebSocket
+// T-4: send() sends JSON message over WebSocket and adds optimistic user message
 //
-// Expected: ws.sent contains one message with type=='message' and correct agent_id/text
+// Expected:
+//   - ws.sent has 1 message with type=='message', correct agent_id/text
+//   - messages array has 1 user message with text=='hello world' (optimistic)
+//   - no assistant message added (only user message optimistically)
 test('send() sends message over WebSocket', () => {
   const { result } = renderHook(() =>
     useChatSocket({ agentId: 'agent-1', serverUrl: 'ws://localhost:8080', apiKey: 'key-1' })
@@ -106,4 +109,11 @@ test('send() sends message over WebSocket', () => {
   expect(sent.type).toBe('message');
   expect(sent.payload.agent_id).toBe('agent-1');
   expect(sent.payload.text).toBe('hello world');
+
+  const userMsgs = result.current.messages.filter(m => m.role === 'user');
+  expect(userMsgs).toHaveLength(1);
+  expect(userMsgs[0].text).toBe('hello world');
+
+  const assistantMsgs = result.current.messages.filter(m => m.role === 'assistant');
+  expect(assistantMsgs).toHaveLength(0);
 });

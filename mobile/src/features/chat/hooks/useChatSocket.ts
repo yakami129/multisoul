@@ -24,6 +24,7 @@ export function useChatSocket({ agentId, serverUrl, apiKey }: Options) {
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectDelay = useRef(1_000);
   const unmounted = useRef(false);
+  const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleMessage = useCallback((envelope: { type: string; payload: any }) => {
     if (envelope.type === 'history') {
@@ -80,7 +81,7 @@ export function useChatSocket({ agentId, serverUrl, apiKey }: Options) {
       setStatus('reconnecting');
       const delay = reconnectDelay.current;
       reconnectDelay.current = Math.min(delay * 2, MAX_RECONNECT_DELAY);
-      setTimeout(connect, delay);
+      reconnectTimer.current = setTimeout(connect, delay);
     };
   }, [agentId, serverUrl, apiKey, handleMessage]);
 
@@ -105,6 +106,7 @@ export function useChatSocket({ agentId, serverUrl, apiKey }: Options) {
     connect();
     return () => {
       unmounted.current = true;
+      if (reconnectTimer.current) clearTimeout(reconnectTimer.current);
       wsRef.current?.close();
     };
   }, [connect]);
