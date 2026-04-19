@@ -22,7 +22,8 @@ import java.util.UUID;
 public class WsChatHandler extends TextWebSocketHandler {
 
     private static final Logger log = LoggerFactory.getLogger(WsChatHandler.class);
-    static final String ATTR_API_KEY = "apiKey";
+    static final String ATTR_API_KEY  = "apiKey";
+    static final String ATTR_AGENT_ID = "agentId";
 
     private final ChatSessionRegistry registry;
     private final ChatMessageRepository messageRepo;
@@ -48,6 +49,15 @@ public class WsChatHandler extends TextWebSocketHandler {
         }
         registry.registerMobile(apiKey.getUserId(), session);
         log.info("mobile connected: userId={}", apiKey.getUserId());
+
+        String agentIdStr = (String) session.getAttributes().get(ATTR_AGENT_ID);
+        if (agentIdStr != null) {
+            try {
+                sendHistory(session, UUID.fromString(agentIdStr), apiKey.getUserId());
+            } catch (Exception e) {
+                log.warn("failed to send history: {}", e.getMessage());
+            }
+        }
     }
 
     @Override
@@ -64,7 +74,13 @@ public class WsChatHandler extends TextWebSocketHandler {
 
         if (text.isBlank() || agentIdStr.isBlank()) return;
 
-        UUID agentId = UUID.fromString(agentIdStr);
+        UUID agentId;
+        try {
+            agentId = UUID.fromString(agentIdStr);
+        } catch (IllegalArgumentException e) {
+            sendError(session, "INVALID_REQUEST", "Invalid agent_id");
+            return;
+        }
         UUID userId  = apiKey.getUserId();
 
         // Verify agent belongs to this user
@@ -101,6 +117,19 @@ public class WsChatHandler extends TextWebSocketHandler {
             registry.removeMobile(apiKey.getUserId());
             log.info("mobile disconnected: userId={}", apiKey.getUserId());
         }
+    }
+
+    private void sendHistory(WebSocketSession session, UUID agentId, UUID userId) throws Exception {
+        var messages = messageRepo.findByAgentIdAndUserIdOrderByCreatedAtAsc(agentId, userId);
+        var history = messages.stream().map(m -> Map.of(
+            "role", m.getRole(),
+            "text", m.getText(),
+            "created_at", m.getCreatedAt().toString()
+        )).toList();
+        session.sendMessage(new TextMessage(mapper.writeValueAsString(Map.of(
+            "type", "history",
+            "payload", Map.of("messages", history)
+        ))));
     }
 
     private void sendError(WebSocketSession session, String code, String msg) throws Exception {

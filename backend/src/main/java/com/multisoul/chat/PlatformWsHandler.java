@@ -60,8 +60,15 @@ public class PlatformWsHandler extends TextWebSocketHandler {
             log.warn("invalid session_key: {}", sessionKey);
             return;
         }
-        UUID agentId = UUID.fromString(parts[1]);
-        UUID userId  = UUID.fromString(parts[2]);
+        UUID agentId;
+        UUID userId;
+        try {
+            agentId = UUID.fromString(parts[1]);
+            userId  = UUID.fromString(parts[2]);
+        } catch (IllegalArgumentException e) {
+            log.warn("invalid UUID in session_key: {}", sessionKey);
+            return;
+        }
 
         // Forward chunk to mobile
         WebSocketSession mobile = registry.getMobile(userId);

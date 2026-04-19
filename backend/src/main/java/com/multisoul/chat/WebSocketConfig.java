@@ -53,6 +53,10 @@ public class WebSocketConfig implements WebSocketConfigurer {
                 if (token == null) return false;
                 try {
                     attrs.put(WsChatHandler.ATTR_API_KEY, apiKeyService.validateKey(token));
+                    String agentId = extractParam(req, "agent_id");
+                    if (agentId != null) {
+                        attrs.put(WsChatHandler.ATTR_AGENT_ID, agentId);
+                    }
                     return true;
                 } catch (AppException e) {
                     return false;
@@ -84,6 +88,18 @@ public class WebSocketConfig implements WebSocketConfigurer {
         for (String param : query.split("&")) {
             if (param.startsWith("token=")) {
                 return param.substring(6);
+            }
+        }
+        return null;
+    }
+
+    private static String extractParam(ServerHttpRequest req, String name) {
+        String query = req.getURI().getQuery();
+        if (query == null) return null;
+        String prefix = name + "=";
+        for (String param : query.split("&")) {
+            if (param.startsWith(prefix)) {
+                return param.substring(prefix.length());
             }
         }
         return null;
