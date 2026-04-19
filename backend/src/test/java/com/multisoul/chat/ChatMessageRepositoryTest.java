@@ -28,14 +28,16 @@ class ChatMessageRepositoryTest extends BaseIntegrationTest {
     ChatMessageRepository repo;
 
     @Test
-    void savesAndQueriesBySession() {
+    void savesAndQueriesBySession() throws InterruptedException {
         UUID agent1 = UUID.randomUUID();
         UUID agent2 = UUID.randomUUID();
         UUID user1  = UUID.randomUUID();
         UUID user2  = UUID.randomUUID();
 
         repo.save(new ChatMessage(agent1, user1, "user", "hello"));
+        Thread.sleep(1);
         repo.save(new ChatMessage(agent1, user1, "assistant", "hi there"));
+        Thread.sleep(1);
         repo.save(new ChatMessage(agent2, user1, "user", "other agent"));
 
         List<ChatMessage> session1 = repo.findByAgentIdAndUserIdOrderByCreatedAtAsc(agent1, user1);
