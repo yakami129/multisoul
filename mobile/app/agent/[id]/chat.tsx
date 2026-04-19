@@ -10,7 +10,7 @@ import { useSettingsStore } from '../../../src/store/settingsStore';
 export default function ChatRoute() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const { serverUrl, apiKey } = useSettingsStore.getState().settings;
+  const { serverUrl, apiKey } = useSettingsStore((s) => s.settings);
   const client = getApiClient();
 
   const { data: agent } = useQuery({
