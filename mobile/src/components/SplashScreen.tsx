@@ -7,6 +7,45 @@ import {
   View,
 } from 'react-native';
 
+// ─── Glyph pools ──────────────────────────────────────────────────────────────
+
+const HEX = '0123456789ABCDEF';
+const BRAILLE =
+  '⠿⠾⣿⣾⢿⡿⣻⢻⡻⠻⣽⢽⡽⠽⣺⢺⡺⠺⣹⢹⡹⠹⣸⢸⡸⢰⡰⠰⣯⢯⡯⣮⢮⡮';
+const BLOCKS = '░▒▓█▄▀■□▪';
+
+const pick = (s: string) => s[Math.floor(Math.random() * s.length)];
+
+// Sparse static — most cells empty, with occasional glyph for a "signal noise" feel
+function noiseLine(source: string): string {
+  return [...source]
+    .map((ch) => {
+      if (ch === ' ' || ch === '⠀') return ch;
+      const r = Math.random();
+      if (r < 0.55) return '⠀';
+      if (r < 0.85) return pick(BRAILLE);
+      if (r < 0.97) return pick(HEX);
+      return pick(BLOCKS);
+    })
+    .join('');
+}
+
+// Partial decode — rate% correct chars, rest are random braille (signal-lock effect)
+function partialDecode(source: string, rate: number): string {
+  return [...source]
+    .map((ch) => {
+      if (ch === ' ' || ch === '⠀') return ch;
+      return Math.random() < rate ? ch : pick(BRAILLE);
+    })
+    .join('');
+}
+
+function randomHexAddr(): string {
+  let a = '';
+  for (let i = 0; i < 8; i++) a += pick(HEX);
+  return `0x${a.slice(0, 4)}_${a.slice(4)}`;
+}
+
 // ─── ASCII art ────────────────────────────────────────────────────────────────
 
 const ART_SM = [
@@ -51,24 +90,25 @@ const ART_MD = [
   '⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠉⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀',
 ];
 
-const POOL = '⠿⠾⣿⣾⢿⡿⣻⢻⡻⠻⣽⢽⡽⠽⣺⢺⡺⠺⣹⢹⡹⠹⣸⢸⡸⢰⡰⠰⣯⢯⡯⣮⢮⡮░▒▓█▄▀■□▪';
+// ─── Boot lines (Pip-Boy / RobCo TermLink flavor) ─────────────────────────────
 
 const BOOT_LINES = [
-  'VAULT-TEC INDUSTRIES  ─  MULTISOUL v1.0.0',
-  'ROBCO CERTIFIED OPERATING SYSTEM 7',
+  '[0.001] ROBCO TERMLINK ░ RIT V2.1.5 KERNEL UP',
+  '[0.014] VAULT-TEC BIOS 7.04 // KRN 0xA77F4C',
+  '[0.029] MMAP 0x4F0C_A300 → 0x4F0F_FFFF  [ OK ]',
+  '[0.041] HOLOTAPE MOUNT /dev/vault/0...... OK',
   '──────────────────────────────────────────',
-  'INITIALIZING AGENT REGISTRY...      [ OK ]',
-  'ENCRYPTION MODULE (AES-256-GCM)...  [ OK ]',
-  'AUTHENTICATION SERVICE...           [ OK ]',
-  'DATABASE CONNECTION POOL...         [ OK ]',
+  '[0.082] daemon: agent-registry  ▓▓▓▓▓▓▓▓ UP',
+  '[0.108] daemon: cipher.aes-gcm  ▓▓▓▓▓▓▓▓ UP',
+  '[0.137] daemon: auth.handshake  ░ RETRY 1/3',
+  '[0.149] daemon: auth.handshake  ░ PID 1337 UP',
+  '[0.187] ICE-BREAKER  CHL 0x4FA7 ░░░░░░░ ACK',
+  '[0.214] BIO-ID SCAN  ▓▓▓▓▓▓▓▓░░ MATCH 99.7%',
+  '[0.246] G.E.C.K. INTEGRITY ░ CRC 0xC0DECAFE',
   '──────────────────────────────────────────',
+  '[0.301] NEURAL UPLINK ESTABLISHED ░ CRC OK',
+  '[0.318] >>> WELCOME, DWELLER 111',
 ];
-
-function scrambleLine(source: string): string {
-  return [...source]
-    .map((ch) => (ch === ' ' || ch === '⠀' ? ch : POOL[Math.floor(Math.random() * POOL.length)]))
-    .join('');
-}
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -77,6 +117,10 @@ interface Props {
 }
 
 type Phase = 'scan' | 'brand' | 'boot' | 'progress' | 'ready' | 'exit';
+type RowState = 'pending' | 'active' | 'decoded';
+
+const SCAN_TICK_MS = 30;
+const NOISE_INTERVAL_MS = 180;
 
 export function SplashScreen({ onComplete }: Props) {
   const screenWidth = Dimensions.get('window').width;
@@ -86,84 +130,151 @@ export function SplashScreen({ onComplete }: Props) {
   const exitOpacity = useRef(new Animated.Value(1)).current;
   const progressAnim = useRef(new Animated.Value(0)).current;
   const brandOpacity = useRef(new Animated.Value(0)).current;
-  const brandOffsetX = useRef(new Animated.Value(0)).current;
   const readyOpacity = useRef(new Animated.Value(0)).current;
+  const beamOpacity = useRef(new Animated.Value(0.4)).current;
+  const headerCursorOpacity = useRef(new Animated.Value(1)).current;
 
-  const [rows, setRows] = useState<(string | null)[]>(() => art.map(() => null));
-  const [activeRow, setActiveRow] = useState(-1);
+  const [rows, setRows] = useState<string[]>(() => art.map((line) => noiseLine(line)));
+  const [scanRow, setScanRow] = useState(0);
   const [phase, setPhase] = useState<Phase>('scan');
   const [bootCount, setBootCount] = useState(0);
   const [showProgress, setShowProgress] = useState(false);
+  const [hexAddr, setHexAddr] = useState(() => randomHexAddr());
+  const [progressPct, setProgressPct] = useState(0);
 
   const scanRowRef = useRef(0);
-  const scrambleTickRef = useRef(0);
-  const SCRAMBLE_TICKS = 3;
+  const scanTickRef = useRef(0);
 
-  const glitchBrand = useCallback(() => {
-    const glitchOffsets = [8, -6, 4, -3, 0];
-    let i = 0;
-    const fire = () => {
-      if (i >= glitchOffsets.length) return;
-      brandOffsetX.setValue(glitchOffsets[i]);
-      i++;
-      setTimeout(fire, 60);
-    };
-    Animated.timing(brandOpacity, { toValue: 1, duration: 80, useNativeDriver: true }).start(fire);
-  }, [brandOpacity, brandOffsetX]);
+  const getRowState = useCallback(
+    (i: number, current: number): RowState => {
+      if (phase !== 'scan') return 'decoded';
+      if (i < current) return 'decoded';
+      if (i === current && current < art.length) return 'active';
+      return 'pending';
+    },
+    [phase, art.length]
+  );
 
+  // Root fade-in
   useEffect(() => {
     Animated.timing(rootOpacity, {
       toValue: 1,
       duration: 280,
       useNativeDriver: true,
     }).start();
+  }, [rootOpacity]);
 
+  // Header cursor blink
+  useEffect(() => {
+    if (phase !== 'scan') return;
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(headerCursorOpacity, { toValue: 0.1, duration: 320, useNativeDriver: true }),
+        Animated.timing(headerCursorOpacity, { toValue: 1, duration: 320, useNativeDriver: true }),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [phase, headerCursorOpacity]);
+
+  // Scan-beam glow pulse
+  useEffect(() => {
+    if (phase !== 'scan') return;
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(beamOpacity, { toValue: 1, duration: 380, useNativeDriver: true }),
+        Animated.timing(beamOpacity, { toValue: 0.5, duration: 380, useNativeDriver: true }),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [phase, beamOpacity]);
+
+  // ── Scan loop: row-by-row decode + background noise ───────────────────────
+  useEffect(() => {
     let interval: ReturnType<typeof setInterval> | null = null;
+    let noiseInterval: ReturnType<typeof setInterval> | null = null;
+
     const startDelay = setTimeout(() => {
+      // Background noise on pending rows (re-noise random pending rows for live signal feel)
+      noiseInterval = setInterval(() => {
+        const start = scanRowRef.current + 1;
+        const remaining = art.length - start;
+        if (remaining <= 0) return;
+        const count = Math.min(2, remaining);
+        const targets: number[] = [];
+        for (let k = 0; k < count; k++) {
+          targets.push(start + Math.floor(Math.random() * remaining));
+        }
+        setRows((prev) => {
+          const next = [...prev];
+          for (const i of targets) next[i] = noiseLine(art[i]);
+          return next;
+        });
+      }, NOISE_INTERVAL_MS);
+
+      // Sequential row decode
       interval = setInterval(() => {
         const row = scanRowRef.current;
-        const tick = scrambleTickRef.current;
+        const tick = scanTickRef.current;
 
         if (row >= art.length) {
           if (interval) clearInterval(interval);
+          if (noiseInterval) clearInterval(noiseInterval);
           interval = null;
-          setActiveRow(-1);
+          noiseInterval = null;
           setPhase('brand');
           return;
         }
 
-        if (tick < SCRAMBLE_TICKS) {
+        // Live hex address rotation (terminal "ticking" feel)
+        setHexAddr(randomHexAddr());
+
+        if (tick === 0) {
           setRows((prev) => {
             const next = [...prev];
-            next[row] = scrambleLine(art[row]);
+            next[row] = partialDecode(art[row], 0.4);
             return next;
           });
-          setActiveRow(row);
-          scrambleTickRef.current += 1;
+          setScanRow(row);
+          scanTickRef.current = 1;
+        } else if (tick === 1) {
+          setRows((prev) => {
+            const next = [...prev];
+            next[row] = partialDecode(art[row], 0.75);
+            return next;
+          });
+          scanTickRef.current = 2;
         } else {
           setRows((prev) => {
             const next = [...prev];
             next[row] = art[row];
             return next;
           });
-          scanRowRef.current += 1;
-          scrambleTickRef.current = 0;
+          scanRowRef.current = row + 1;
+          setScanRow(row + 1);
+          scanTickRef.current = 0;
         }
-      }, 32);
+      }, SCAN_TICK_MS);
     }, 200);
 
     return () => {
       clearTimeout(startDelay);
       if (interval) clearInterval(interval);
+      if (noiseInterval) clearInterval(noiseInterval);
     };
-  }, [art, rootOpacity]);
+  }, [art]);
 
   useEffect(() => {
     if (phase !== 'brand') return;
-    glitchBrand();
-    const t = setTimeout(() => setPhase('boot'), 500);
+    Animated.timing(brandOpacity, {
+      toValue: 1,
+      duration: 520,
+      useNativeDriver: true,
+    }).start();
+    const t = setTimeout(() => setPhase('boot'), 620);
     return () => clearTimeout(t);
-  }, [phase, glitchBrand]);
+  }, [phase, brandOpacity]);
 
   useEffect(() => {
     if (phase !== 'boot') return;
@@ -176,17 +287,26 @@ export function SplashScreen({ onComplete }: Props) {
         setShowProgress(true);
         setPhase('progress');
       }
-    }, 70);
+    }, 65);
     return () => clearInterval(t);
   }, [phase]);
 
   useEffect(() => {
     if (phase !== 'progress') return;
+    progressAnim.setValue(0);
+    const id = progressAnim.addListener(({ value }) => {
+      setProgressPct(Math.floor(value * 100));
+    });
     Animated.timing(progressAnim, {
       toValue: 1,
-      duration: 800,
+      duration: 900,
       useNativeDriver: false,
-    }).start(() => setPhase('ready'));
+    }).start(() => {
+      progressAnim.removeListener(id);
+      setProgressPct(100);
+      setPhase('ready');
+    });
+    return () => progressAnim.removeListener(id);
   }, [phase, progressAnim]);
 
   useEffect(() => {
@@ -217,46 +337,86 @@ export function SplashScreen({ onComplete }: Props) {
     outputRange: ['0%', '100%'],
   });
 
+  // Live decryption telemetry
+  const decodePct = Math.min(100, Math.floor((scanRow / art.length) * 100));
+  const total = art.length;
+  const beamRow = phase === 'scan' && scanRow < total ? scanRow : -1;
+
+  const padPct = (n: number) => String(n).padStart(3, ' ');
+  const hexRow = (n: number) => `0x${n.toString(16).toUpperCase().padStart(2, '0')}`;
+
   return (
     <Animated.View style={[s.root, { opacity: Animated.multiply(rootOpacity, exitOpacity) }]}>
-      <Text style={s.corner} allowFontScaling={false}>
-        ┌{' ─'.repeat(6)}
+      {/* Corners */}
+      <Text style={s.cornerTL} allowFontScaling={false}>┌{' ─'.repeat(6)}</Text>
+      <Text style={s.cornerTR} allowFontScaling={false}>{'─ '.repeat(6)}┐</Text>
+      <Text style={s.cornerBL} allowFontScaling={false}>└{' ─'.repeat(6)}</Text>
+      <Text style={s.cornerBR} allowFontScaling={false}>{'─ '.repeat(6)}┘</Text>
+
+      {/* Stamps */}
+      <Text style={s.stampTL} allowFontScaling={false}>
+        VAULT 111 // ROBCO TERMLINK
       </Text>
-      <Text style={[s.corner, s.cornerTR]} allowFontScaling={false}>
-        {'─ '.repeat(6)}┐
-      </Text>
-      <Text style={[s.corner, s.cornerBL]} allowFontScaling={false}>
-        └{' ─'.repeat(6)}
-      </Text>
-      <Text style={[s.corner, s.cornerBR]} allowFontScaling={false}>
-        {'─ '.repeat(6)}┘
+      <Text style={s.stampTR} allowFontScaling={false}>
+        [ CLASSIFIED ]
       </Text>
 
+      {/* Decryption telemetry header */}
+      {phase === 'scan' && (
+        <View style={s.scanHeader}>
+          <View style={s.scanHeaderRow}>
+            <Animated.Text
+              style={[s.scanHeaderCursor, { opacity: headerCursorOpacity }]}
+              allowFontScaling={false}
+            >
+              ▶
+            </Animated.Text>
+            <Text style={s.scanHeaderText} allowFontScaling={false}>
+              {`DECRYPT  ${hexAddr}  ░  ${hexRow(scanRow)}/${hexRow(total)}  ░  ${padPct(decodePct)}%`}
+            </Text>
+          </View>
+        </View>
+      )}
+
+      {/* ASCII art with row-state coloring + scan-beam arrow */}
       <View style={s.artWrap}>
         {rows.map((row, i) => {
-          if (row === null) {
-            return (
-              <Text key={i} style={s.artHidden} allowFontScaling={false}>
-                {' '}
-              </Text>
-            );
-          }
-          const isBeam = i === activeRow;
+          const state = getRowState(i, scanRow);
+          const style = [
+            s.artLine,
+            state === 'pending' && s.artPending,
+            state === 'active' && s.artActive,
+            state === 'decoded' && s.artDecoded,
+          ];
           return (
-            <Text key={i} style={[s.artLine, isBeam && s.artBeam]} allowFontScaling={false}>
+            <Text key={i} style={style} allowFontScaling={false}>
               {row}
             </Text>
           );
         })}
+        {beamRow >= 0 && (
+          <Animated.Text
+            style={[s.beamArrow, { top: beamRow * 10, opacity: beamOpacity }]}
+            allowFontScaling={false}
+          >
+            ▶
+          </Animated.Text>
+        )}
       </View>
 
+      {/* Authentication footer (only during scan) */}
+      {phase === 'scan' && (
+        <Text style={s.footerStamp} allowFontScaling={false}>
+          // VAULT-TEC INDUSTRIES ─ AUTHENTICATED
+        </Text>
+      )}
+
+      {/* Brand */}
       {phase !== 'scan' && (
-        <Animated.View
-          style={[
-            s.brandWrap,
-            { opacity: brandOpacity, transform: [{ translateX: brandOffsetX }] },
-          ]}
-        >
+        <Animated.View style={[s.brandWrap, { opacity: brandOpacity }]}>
+          <Text style={s.brandEyebrow} allowFontScaling={false}>
+            VAULT-TEC ░ AGENT NETWORK
+          </Text>
           <Text style={s.brandTitle} allowFontScaling={false}>
             MULTISOUL
           </Text>
@@ -266,39 +426,58 @@ export function SplashScreen({ onComplete }: Props) {
         </Animated.View>
       )}
 
+      {/* Boot log */}
       {bootCount > 0 && (
         <View style={s.bootWrap}>
-          {BOOT_LINES.slice(0, bootCount).map((line, i) => (
-            <Text
-              key={i}
-              style={[
-                s.bootLine,
-                line.startsWith('─') && s.bootDivider,
-                (line.startsWith('VAULT') || line.startsWith('ROBCO')) && s.bootHeader,
-                line.includes('[ OK ]') && s.bootOk,
-              ]}
-              allowFontScaling={false}
-            >
-              {line}
-            </Text>
-          ))}
+          <Text style={s.bootHeading} allowFontScaling={false}>
+            ░░ SYS.LOG  STREAM 0xA77F4C  PID 0001 ░░
+          </Text>
+          {BOOT_LINES.slice(0, bootCount).map((line, i) => {
+            const hasUp = / UP$/.test(line) || line.includes('[ OK ]') || line.endsWith(' OK');
+            const hasAck = line.includes(' ACK') || line.includes('MATCH');
+            const hasRetry = line.includes('RETRY') || line.includes('FAIL');
+            const hasHero = line.includes('>>>');
+            const hasHex = line.includes('0x');
+            return (
+              <Text
+                key={i}
+                style={[
+                  s.bootLine,
+                  line.startsWith('─') && s.bootDivider,
+                  hasHex && s.bootHex,
+                  (hasUp || hasAck) && s.bootOk,
+                  hasRetry && s.bootWarn,
+                  line.startsWith('[0.001]') && s.bootHeaderLine,
+                  line.startsWith('[0.301]') && s.bootOk,
+                  hasHero && s.bootHero,
+                ]}
+                allowFontScaling={false}
+              >
+                {line}
+              </Text>
+            );
+          })}
           {bootCount < BOOT_LINES.length && (
-            <Text style={s.cursor} allowFontScaling={false}>
-              █
-            </Text>
+            <Text style={s.cursor} allowFontScaling={false}>█</Text>
           )}
         </View>
       )}
 
+      {/* Progress bar with live percentage */}
       {showProgress && (
         <View style={s.progressWrap}>
           <View style={s.progressTrack}>
             <Animated.View style={[s.progressFill, { width: progressWidth }]} />
             <Animated.View style={[s.progressGlow, { width: progressWidth }]} />
           </View>
-          <Text style={s.progressLabel} allowFontScaling={false}>
-            LOADING SYSTEM
-          </Text>
+          <View style={s.progressMeta}>
+            <Text style={s.progressLabel} allowFontScaling={false}>
+              LOADING SYSTEM
+            </Text>
+            <Text style={s.progressPct} allowFontScaling={false}>
+              {`${progressPct}%`}
+            </Text>
+          </View>
         </View>
       )}
 
@@ -317,7 +496,9 @@ const s = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 16,
   },
-  corner: {
+
+  // Corners
+  cornerTL: {
     position: 'absolute',
     top: 52,
     left: 10,
@@ -325,52 +506,145 @@ const s = StyleSheet.create({
     fontSize: 11,
     color: '#0F2B0F',
   },
-  cornerTR: { top: 52, left: undefined, right: 10 },
-  cornerBL: { top: undefined, bottom: 52, left: 10 },
-  cornerBR: { top: undefined, bottom: 52, left: undefined, right: 10 },
+  cornerTR: {
+    position: 'absolute',
+    top: 52,
+    right: 10,
+    fontFamily: 'Geist Mono',
+    fontSize: 11,
+    color: '#0F2B0F',
+  },
+  cornerBL: {
+    position: 'absolute',
+    bottom: 52,
+    left: 10,
+    fontFamily: 'Geist Mono',
+    fontSize: 11,
+    color: '#0F2B0F',
+  },
+  cornerBR: {
+    position: 'absolute',
+    bottom: 52,
+    right: 10,
+    fontFamily: 'Geist Mono',
+    fontSize: 11,
+    color: '#0F2B0F',
+  },
+
+  stampTL: {
+    position: 'absolute',
+    top: 70,
+    left: 18,
+    fontFamily: 'Geist Mono',
+    fontSize: 9,
+    color: '#0F6B0F',
+    letterSpacing: 1.2,
+  },
+  stampTR: {
+    position: 'absolute',
+    top: 70,
+    right: 18,
+    fontFamily: 'Geist Mono',
+    fontSize: 9,
+    color: '#33FF33',
+    letterSpacing: 1.5,
+  },
+
+  // Scan telemetry header
+  scanHeader: {
+    width: '100%',
+    paddingVertical: 5,
+    marginBottom: 10,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: '#0F2B0F',
+  },
+  scanHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  scanHeaderCursor: {
+    fontFamily: 'Geist Mono',
+    fontSize: 10,
+    color: '#33FF33',
+  },
+  scanHeaderText: {
+    fontFamily: 'Geist Mono',
+    fontSize: 10,
+    color: '#2D8B2D',
+    letterSpacing: 1.2,
+  },
+
+  // ASCII art
   artWrap: {
     alignItems: 'flex-start',
     marginBottom: 14,
+    position: 'relative',
   },
   artLine: {
     fontFamily: 'Geist Mono',
     fontSize: 8,
-    color: '#20C20E',
     lineHeight: 10,
     letterSpacing: 0,
   },
-  artBeam: {
+  artPending: { color: '#0F4D0F' },
+  artActive: {
     color: '#AFFFAF',
-    textShadowColor: '#33FF3399',
+    textShadowColor: '#33FF33AA',
     textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 6,
+    textShadowRadius: 8,
   },
-  artHidden: {
+  artDecoded: { color: '#20C20E' },
+  beamArrow: {
+    position: 'absolute',
+    left: -14,
     fontFamily: 'Geist Mono',
     fontSize: 8,
     lineHeight: 10,
-    color: 'transparent',
+    color: '#33FF33',
+    textShadowColor: '#33FF33CC',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 6,
   },
+
+  footerStamp: {
+    fontFamily: 'Geist Mono',
+    fontSize: 9,
+    color: '#0F6B0F',
+    letterSpacing: 1.5,
+    marginBottom: 12,
+  },
+
+  // Brand
   brandWrap: {
     alignItems: 'center',
     marginBottom: 18,
     gap: 4,
   },
+  brandEyebrow: {
+    fontFamily: 'Inter',
+    fontSize: 10,
+    color: '#0F6B0F',
+    letterSpacing: 4,
+    marginBottom: 2,
+  },
   brandTitle: {
     fontFamily: 'Anton',
     fontSize: 38,
-    color: '#33FF33',
+    color: '#20C20E',
     letterSpacing: 7,
-    textShadowColor: '#20C20E99',
-    textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 20,
+    opacity: 0.85,
   },
   brandSub: {
     fontFamily: 'Inter',
     fontSize: 11,
-    color: '#2D8B2D',
+    color: '#147A16',
     letterSpacing: 3.5,
   },
+
+  // Boot
   bootWrap: {
     width: '100%',
     backgroundColor: '#040D04',
@@ -381,6 +655,14 @@ const s = StyleSheet.create({
     gap: 1,
     marginBottom: 10,
   },
+  bootHeading: {
+    fontFamily: 'Geist Mono',
+    fontSize: 9,
+    color: '#0F6B0F',
+    letterSpacing: 2,
+    marginBottom: 4,
+    textAlign: 'center',
+  },
   bootLine: {
     fontFamily: 'Geist Mono',
     fontSize: 10,
@@ -388,18 +670,28 @@ const s = StyleSheet.create({
     lineHeight: 15,
   },
   bootDivider: { color: '#0F2B0F' },
-  bootHeader: { color: '#2D8B2D' },
+  bootHeaderLine: { color: '#33FF33' },
   bootOk: { color: '#20C20E' },
+  bootHex: { color: '#2D8B2D' },
+  bootWarn: { color: '#147A16', opacity: 0.65 },
+  bootHero: {
+    color: '#AFFFAF',
+    textShadowColor: '#33FF3399',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 6,
+  },
   cursor: {
     fontFamily: 'Geist Mono',
     fontSize: 10,
     color: '#33FF33',
     lineHeight: 15,
   },
+
+  // Progress
   progressWrap: {
     width: '100%',
     gap: 5,
-    alignItems: 'center',
+    alignItems: 'stretch',
     marginBottom: 12,
   },
   progressTrack: {
@@ -426,12 +718,24 @@ const s = StyleSheet.create({
     backgroundColor: '#33FF33',
     opacity: 0.4,
   },
+  progressMeta: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
   progressLabel: {
     fontFamily: 'Inter',
     fontSize: 9,
     color: '#0F6B0F',
     letterSpacing: 2.5,
   },
+  progressPct: {
+    fontFamily: 'Geist Mono',
+    fontSize: 10,
+    color: '#33FF33',
+    letterSpacing: 1,
+  },
+
   readyText: {
     fontFamily: 'Anton',
     fontSize: 15,
