@@ -1,36 +1,52 @@
 import { Tabs } from 'expo-router';
-import { Settings, Zap } from 'lucide-react-native';
-import React from 'react';
-import { useColorScheme } from 'react-native';
+import { Zap, Settings, MessageCircle, Inbox } from 'lucide-react-native';
 
 export default function TabLayout() {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
-
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: '#007AFF',
-        tabBarInactiveTintColor: isDark ? '#64748b' : '#8e8e93',
-        tabBarStyle: {
-          backgroundColor: isDark ? '#0f172a' : '#ffffff',
-          borderTopColor: isDark ? '#1e293b' : '#e2e8f0',
-        },
         headerShown: false,
+        tabBarStyle: {
+          backgroundColor: '#061206',
+          borderTopColor: '#0F2B0F',
+          borderTopWidth: 1,
+          height: 83,
+          paddingTop: 8,
+        },
+        tabBarActiveTintColor: '#33FF33',
+        tabBarInactiveTintColor: '#2D8B2D',
+        tabBarLabelStyle: {
+          fontFamily: 'Inter',
+          fontSize: 10,
+        },
       }}
     >
       <Tabs.Screen
         name="index"
         options={{
           title: 'Agents',
-          tabBarIcon: ({ color, size }) => <Zap color={color} size={size} />,
+          tabBarIcon: ({ color }) => <Zap size={24} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="chat"
+        options={{
+          title: 'Chat',
+          tabBarIcon: ({ color }) => <MessageCircle size={24} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="inbox"
+        options={{
+          title: 'Inbox',
+          tabBarIcon: ({ color }) => <Inbox size={24} color={color} />,
         }}
       />
       <Tabs.Screen
         name="settings"
         options={{
           title: 'Settings',
-          tabBarIcon: ({ color, size }) => <Settings color={color} size={size} />,
+          tabBarIcon: ({ color }) => <Settings size={24} color={color} />,
         }}
       />
     </Tabs>
