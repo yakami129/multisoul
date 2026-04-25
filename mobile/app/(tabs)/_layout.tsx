@@ -1,5 +1,5 @@
 import { Tabs } from 'expo-router';
-import { Zap, Settings, MessageCircle, Inbox } from 'lucide-react-native';
+import { Zap, MessageCircle, Inbox } from 'lucide-react-native';
 
 export default function TabLayout() {
   return (
@@ -45,8 +45,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="settings"
         options={{
-          title: 'Settings',
-          tabBarIcon: ({ color }) => <Settings size={24} color={color} />,
+          href: null,
         }}
       />
     </Tabs>

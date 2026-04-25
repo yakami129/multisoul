@@ -7,25 +7,19 @@ import {
   TextInput,
   StyleSheet,
 } from 'react-native';
-import { MessageCircle, Inbox, User, Search, Pencil } from 'lucide-react-native';
+import { Search, Pencil } from 'lucide-react-native';
 import { Conversation } from '../types';
 
 interface Props {
   conversations: Conversation[];
   onPressConversation: (id: string) => void;
   onPressNewChat: () => void;
-  activeTab?: 'chat' | 'inbox' | 'profile';
-  onPressTab?: (tab: 'chat' | 'inbox' | 'profile') => void;
-  inboxBadgeCount?: number;
 }
 
 export default function ChatHomeScreen({
   conversations,
   onPressConversation,
   onPressNewChat,
-  activeTab = 'chat',
-  onPressTab,
-  inboxBadgeCount = 0,
 }: Props) {
   const [search, setSearch] = useState('');
 
@@ -37,7 +31,7 @@ export default function ChatHomeScreen({
     <View style={s.root}>
       {/* Header */}
       <View style={s.header}>
-        <Text style={s.headerTitle}>GROK</Text>
+        <Text style={s.headerTitle}>MULTISOUL</Text>
         <TouchableOpacity onPress={onPressNewChat}>
           <Pencil size={20} color="#20C20E" />
         </TouchableOpacity>
@@ -88,37 +82,6 @@ export default function ChatHomeScreen({
         )}
       />
 
-      {/* Tab bar */}
-      <View style={s.tabBar}>
-        <TouchableOpacity style={s.tab} onPress={() => onPressTab?.('chat')}>
-          <MessageCircle
-            size={24}
-            color={activeTab === 'chat' ? '#33FF33' : '#2D8B2D'}
-          />
-          <Text style={[s.tabLabel, activeTab === 'chat' && s.tabLabelActive]}>
-            Chat
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={s.tab} onPress={() => onPressTab?.('inbox')}>
-          <View>
-            <Inbox size={24} color={activeTab === 'inbox' ? '#33FF33' : '#2D8B2D'} />
-            {inboxBadgeCount > 0 && (
-              <View style={s.badge}>
-                <Text style={s.badgeText}>{inboxBadgeCount}</Text>
-              </View>
-            )}
-          </View>
-          <Text style={[s.tabLabel, activeTab === 'inbox' && s.tabLabelActive]}>
-            Inbox
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={s.tab} onPress={() => onPressTab?.('profile')}>
-          <User size={24} color={activeTab === 'profile' ? '#33FF33' : '#2D8B2D'} />
-          <Text style={[s.tabLabel, activeTab === 'profile' && s.tabLabelActive]}>
-            Profile
-          </Text>
-        </TouchableOpacity>
-      </View>
     </View>
   );
 }
@@ -239,46 +202,5 @@ const s = StyleSheet.create({
     fontFamily: 'Geist',
     fontSize: 13,
     color: '#2D8B2D',
-  },
-  tabBar: {
-    height: 83,
-    backgroundColor: '#061206',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    paddingTop: 8,
-    paddingHorizontal: 16,
-    borderTopWidth: 1,
-    borderTopColor: '#0F2B0F',
-  },
-  tab: {
-    flex: 1,
-    alignItems: 'center',
-    gap: 4,
-  },
-  tabLabel: {
-    fontFamily: 'Inter',
-    fontSize: 10,
-    color: '#2D8B2D',
-  },
-  tabLabelActive: {
-    color: '#33FF33',
-  },
-  badge: {
-    position: 'absolute',
-    top: -4,
-    right: -4,
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: '#FFB000',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  badgeText: {
-    fontFamily: 'Inter',
-    fontSize: 9,
-    fontWeight: '700',
-    color: '#040D04',
   },
 });

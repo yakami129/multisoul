@@ -2,9 +2,10 @@ import '../global.css';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ErrorBoundary } from '../src/components/ErrorBoundary';
+import { SplashScreen } from '../src/components/SplashScreen';
 import { useSettingsStore } from '../src/store/settingsStore';
 
 const queryClient = new QueryClient({
@@ -18,6 +19,7 @@ const queryClient = new QueryClient({
 
 export default function RootLayout() {
   const load = useSettingsStore((s) => s.load);
+  const [splashDone, setSplashDone] = useState(false);
 
   useEffect(() => {
     load();
@@ -27,11 +29,16 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <ErrorBoundary>
         <QueryClientProvider client={queryClient}>
-          <StatusBar style="auto" />
-          <Stack>
-            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-            <Stack.Screen name="agent/[id]" options={{ headerShown: false }} />
-          </Stack>
+          <StatusBar style="light" backgroundColor="#040D04" />
+          {!splashDone ? (
+            <SplashScreen onComplete={() => setSplashDone(true)} />
+          ) : (
+            <Stack>
+              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+              <Stack.Screen name="agent/[id]" options={{ headerShown: false }} />
+              <Stack.Screen name="chat/[id]" options={{ headerShown: false }} />
+            </Stack>
+          )}
         </QueryClientProvider>
       </ErrorBoundary>
     </SafeAreaProvider>
