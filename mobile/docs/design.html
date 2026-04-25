@@ -1,0 +1,829 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MultiSoul — Vault-Tec Terminal UI Design System</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600;700&family=Geist+Mono&display=swap');
+
+  :root {
+    --bg-primary: #040D04;
+    --bg-card: #061206;
+    --bg-deep: #0A1A0A;
+    --border: #0F2B0F;
+    --text-main: #20C20E;
+    --text-bright: #33FF33;
+    --text-secondary: #2D8B2D;
+    --text-body: #147A16;
+    --text-muted: #0F6B0F;
+    --btn-text: #040D04;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg-primary);
+    color: var(--text-main);
+    font-family: 'Inter', monospace;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  /* ── Page Header ── */
+  .page-header {
+    background: var(--bg-card);
+    border-bottom: 1px solid var(--border);
+    padding: 48px 80px;
+  }
+  .page-header h1 {
+    font-family: 'Anton', sans-serif;
+    font-size: 48px;
+    font-weight: normal;
+    color: var(--text-main);
+    letter-spacing: 4px;
+    text-shadow: 0 0 24px #20C20E88;
+  }
+  .page-header p {
+    color: var(--text-body);
+    font-size: 13px;
+    letter-spacing: 2px;
+    margin-top: 8px;
+  }
+
+  /* ── Section ── */
+  .section {
+    padding: 60px 80px;
+    border-bottom: 1px solid var(--border);
+  }
+  .section-title {
+    font-family: 'Inter', sans-serif;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    margin-bottom: 32px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .section-title::before { content: '//'; color: var(--border); }
+
+  /* ── Screen Preview ── */
+  .screen-preview {
+    width: 100%;
+    border: 1px solid var(--border);
+    display: block;
+    margin-bottom: 16px;
+  }
+  .screen-label {
+    font-size: 11px;
+    color: var(--text-muted);
+    letter-spacing: 1px;
+    margin-bottom: 32px;
+  }
+
+  /* ── Color Palette ── */
+  .palette-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 16px;
+  }
+  .color-swatch {
+    border: 1px solid var(--border);
+  }
+  .color-block {
+    height: 64px;
+  }
+  .color-info {
+    background: var(--bg-card);
+    padding: 10px 12px;
+  }
+  .color-name {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text-main);
+    letter-spacing: 0.5px;
+  }
+  .color-hex {
+    font-family: 'Geist Mono', monospace;
+    font-size: 11px;
+    color: var(--text-secondary);
+    margin-top: 2px;
+  }
+  .color-role {
+    font-size: 10px;
+    color: var(--text-muted);
+    margin-top: 4px;
+    letter-spacing: 0.5px;
+  }
+
+  /* ── Typography ── */
+  .type-samples { display: flex; flex-direction: column; gap: 24px; }
+  .type-row {
+    display: flex;
+    align-items: baseline;
+    gap: 32px;
+    padding: 20px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+  }
+  .type-meta {
+    min-width: 200px;
+    font-size: 10px;
+    color: var(--text-muted);
+    letter-spacing: 0.5px;
+    line-height: 1.8;
+  }
+  .type-meta strong { color: var(--text-secondary); display: block; font-size: 11px; }
+
+  /* ── Component Showcase ── */
+  .component-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 24px;
+  }
+  .component-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+  }
+  .component-card-header {
+    background: var(--bg-deep);
+    padding: 0 16px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--border);
+  }
+  .component-card-title {
+    font-family: 'Anton', sans-serif;
+    font-size: 13px;
+    font-weight: normal;
+    color: var(--text-main);
+    letter-spacing: 1px;
+  }
+  .component-card-body { padding: 20px; }
+  .component-label {
+    font-size: 10px;
+    color: var(--text-muted);
+    letter-spacing: 1px;
+    margin-bottom: 12px;
+    text-transform: uppercase;
+  }
+
+  /* ── Buttons ── */
+  .btn-primary {
+    background: var(--text-main);
+    color: var(--btn-text);
+    font-family: 'Anton', sans-serif;
+    font-size: 13px;
+    font-weight: normal;
+    letter-spacing: 1px;
+    padding: 12px 24px;
+    border: none;
+    border-radius: 2px;
+    cursor: pointer;
+    display: inline-block;
+  }
+  .btn-group { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+  .text-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--text-secondary);
+    font-size: 13px;
+    letter-spacing: 0.5px;
+    text-decoration: none;
+  }
+  .text-link::after { content: '→'; }
+
+  /* ── Eyebrow ── */
+  .eyebrow {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--text-secondary);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+  .eyebrow-icon { font-size: 14px; }
+
+  /* ── Badge ── */
+  .badge {
+    background: var(--border);
+    color: var(--text-bright);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 1.5px;
+    padding: 4px 10px;
+    border-radius: 2px;
+  }
+
+  /* ── Terminal Box ── */
+  .terminal-box {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    padding: 16px 20px;
+    font-family: 'Geist Mono', monospace;
+    font-size: 16px;
+    color: var(--text-main);
+    letter-spacing: 1px;
+    width: 100%;
+  }
+
+  /* ── Progress Bar ── */
+  .metric-row { display: flex; flex-direction: column; gap: 6px; width: 100%; }
+  .metric-label-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: var(--text-secondary);
+    letter-spacing: 0.5px;
+  }
+  .metric-bar-bg {
+    height: 8px;
+    background: var(--bg-deep);
+    border-radius: 1px;
+    overflow: hidden;
+  }
+  .metric-bar-fill {
+    height: 100%;
+    background: var(--text-main);
+    border-radius: 1px;
+  }
+
+  /* ── Settings Row ── */
+  .settings-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 44px;
+    padding: 0 16px;
+    font-size: 13px;
+    color: var(--text-main);
+    font-family: 'Inter', sans-serif;
+  }
+  .settings-row:nth-child(even) { background: var(--bg-primary); }
+  .settings-val { color: var(--text-bright); }
+
+  /* ── Status Bar ── */
+  .status-bar {
+    background: var(--bg-card);
+    border-top: 1px solid var(--border);
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 32px;
+    font-size: 12px;
+    color: var(--text-main);
+    letter-spacing: 1px;
+  }
+  .status-divider { color: var(--border); }
+
+  /* ── Spacing Table ── */
+  .spacing-grid { display: flex; flex-direction: column; gap: 8px; }
+  .spacing-row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .spacing-visual {
+    background: var(--text-secondary);
+    height: 8px;
+    border-radius: 1px;
+    flex-shrink: 0;
+  }
+  .spacing-label { font-size: 11px; color: var(--text-muted); letter-spacing: 0.5px; min-width: 80px; }
+  .spacing-desc { font-size: 11px; color: var(--text-body); }
+
+  /* ── Layout Diagram ── */
+  .layout-diagram {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    padding: 24px;
+    font-family: 'Geist Mono', monospace;
+    font-size: 12px;
+    color: var(--text-body);
+    line-height: 1.8;
+    white-space: pre;
+    overflow-x: auto;
+  }
+
+  /* ── Divider ── */
+  .divider { height: 1px; background: var(--border); }
+
+  /* ── Footer ── */
+  .page-footer {
+    background: var(--bg-card);
+    border-top: 1px solid var(--border);
+    padding: 0 80px;
+    height: 80px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .footer-brand { display: flex; flex-direction: column; gap: 4px; }
+  .footer-brand-name {
+    font-family: 'Anton', sans-serif;
+    font-size: 14px;
+    font-weight: normal;
+    color: var(--text-main);
+    letter-spacing: 2px;
+  }
+  .footer-tagline { font-size: 10px; color: var(--text-muted); letter-spacing: 1.5px; }
+  .footer-links { display: flex; gap: 32px; }
+  .footer-link { font-size: 11px; color: var(--text-secondary); letter-spacing: 1px; text-decoration: none; }
+
+  /* ── Scanlines effect ── */
+  .scanlines-demo {
+    position: relative;
+    overflow: hidden;
+  }
+  .scanlines-demo::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,0.08) 2px,
+      rgba(0,0,0,0.08) 4px
+    );
+    pointer-events: none;
+  }
+
+  /* ── Tip item ── */
+  .tip-item { display: flex; gap: 12px; width: 100%; }
+  .tip-dot { color: var(--text-main); font-size: 10px; flex-shrink: 0; padding-top: 2px; }
+  .tip-text { font-family: 'Inter', sans-serif; font-size: 13px; color: var(--text-body); line-height: 1.5; }
+
+  /* ── Glow text ── */
+  .glow { text-shadow: 0 0 24px #20C20E88; }
+
+  /* ── Nav demo ── */
+  .nav-demo {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 32px;
+  }
+  .nav-logo {
+    font-family: 'Anton', sans-serif;
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text-main);
+    letter-spacing: 2px;
+  }
+  .nav-right { display: flex; align-items: center; gap: 24px; }
+  .nav-item { font-size: 13px; color: var(--text-body); letter-spacing: 1px; }
+  .nav-sep { color: var(--border); }
+  .nav-btn {
+    background: var(--text-main);
+    color: var(--btn-text);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    padding: 8px 16px;
+    border-radius: 2px;
+    border: none;
+    cursor: pointer;
+  }
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════════════════════
+     PAGE HEADER
+══════════════════════════════════════════════════════════════ -->
+<div class="page-header scanlines-demo">
+  <h1 class="glow">VAULT-TEC TERMINAL UI</h1>
+  <p>MULTISOUL — PIP-BOY 3000 MKIV DESIGN SYSTEM DOCUMENTATION</p>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     SECTION 1: SCREEN PREVIEWS
+══════════════════════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-title">01 SCREEN PREVIEWS</div>
+
+  <div style="margin-bottom:8px;font-size:11px;color:var(--text-secondary);letter-spacing:1px;">HERO SECTION — 1440×900px</div>
+  <img src="dTC73.png" alt="Hero Section" class="screen-preview">
+  <div class="screen-label">dTC73 · Hero Section · Full-screen landing with NavBar, centered VAULT-TEC heading, terminal input, and status bar</div>
+
+  <div style="margin-bottom:8px;font-size:11px;color:var(--text-secondary);letter-spacing:1px;">CONTENT SECTION — 1440×1800px</div>
+  <img src="6yDen.png" alt="Content Section" class="screen-preview">
+  <div class="screen-label">6yDen · Content Section · Three alternating feature rows (PIP-BOY Monitor, Settings, Tips) + Footer</div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     SECTION 2: COLOR PALETTE
+══════════════════════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-title">02 COLOR PALETTE</div>
+
+  <div style="margin-bottom:16px;font-size:11px;color:var(--text-secondary);letter-spacing:1px;">BACKGROUND COLORS</div>
+  <div class="palette-grid" style="margin-bottom:32px;">
+    <div class="color-swatch">
+      <div class="color-block" style="background:#040D04;"></div>
+      <div class="color-info">
+        <div class="color-name">BG PRIMARY</div>
+        <div class="color-hex">#040D04</div>
+        <div class="color-role">Page background, text panels</div>
+      </div>
+    </div>
+    <div class="color-swatch">
+      <div class="color-block" style="background:#061206;"></div>
+      <div class="color-info">
+        <div class="color-name">BG CARD</div>
+        <div class="color-hex">#061206</div>
+        <div class="color-role">Cards, NavBar, StatusBar, Footer</div>
+      </div>
+    </div>
+    <div class="color-swatch">
+      <div class="color-block" style="background:#0A1A0A;"></div>
+      <div class="color-info">
+        <div class="color-name">BG DEEP</div>
+        <div class="color-hex">#0A1A0A</div>
+        <div class="color-role">Card headers, alternate rows</div>
+      </div>
+    </div>
+    <div class="color-swatch">
+      <div class="color-block" style="background:#0F2B0F; border:1px solid #1a3a1a;"></div>
+      <div class="color-info">
+        <div class="color-name">BORDER</div>
+        <div class="color-hex">#0F2B0F</div>
+        <div class="color-role">All borders, dividers, separators</div>
+      </div>
+    </div>
+  </div>
+
+  <div style="margin-bottom:16px;font-size:11px;color:var(--text-secondary);letter-spacing:1px;">TEXT COLORS</div>
+  <div class="palette-grid">
+    <div class="color-swatch">
+      <div class="color-block" style="background:#20C20E;"></div>
+      <div class="color-info">
+        <div class="color-name">TEXT MAIN</div>
+        <div class="color-hex">#20C20E</div>
+        <div class="color-role">Headings, primary content, active</div>
+      </div>
+    </div>
+    <div class="color-swatch">
+      <div class="color-block" style="background:#33FF33;"></div>
+      <div class="color-info">
+        <div class="color-name">TEXT BRIGHT</div>
+        <div class="color-hex">#33FF33</div>
+        <div class="color-role">Values, badges, live data</div>
+      </div>
+    </div>
+    <div class="color-swatch">
+      <div class="color-block" style="background:#2D8B2D;"></div>
+      <div class="color-info">
+        <div class="color-name">TEXT SECONDARY</div>
+        <div class="color-hex">#2D8B2D</div>
+        <div class="color-role">Icons, eyebrow labels, links</div>
+      </div>
+    </div>
+    <div class="color-swatch">
+      <div class="color-block" style="background:#147A16;"></div>
+      <div class="color-info">
+        <div class="color-name">TEXT BODY</div>
+        <div class="color-hex">#147A16</div>
+        <div class="color-role">Paragraphs, nav items, descriptions</div>
+      </div>
+    </div>
+    <div class="color-swatch">
+      <div class="color-block" style="background:#0F6B0F;"></div>
+      <div class="color-info">
+        <div class="color-name">TEXT MUTED</div>
+        <div class="color-hex">#0F6B0F</div>
+        <div class="color-role">Footer text, hints, version info</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     SECTION 3: TYPOGRAPHY
+══════════════════════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-title">03 TYPOGRAPHY</div>
+  <div class="type-samples">
+
+    <div class="type-row">
+      <div class="type-meta">
+        <strong>HERO HEADING</strong>
+        Anton · 120px · normal<br>
+        letterSpacing: 8px<br>
+        color: #20C20E<br>
+        glow: outer shadow 24px
+      </div>
+      <div style="font-family:'Anton',sans-serif;font-size:60px;font-weight:normal;color:var(--text-main);letter-spacing:4px;text-shadow:0 0 16px #20C20E88;">VAULT-TEC</div>
+    </div>
+
+    <div class="type-row">
+      <div class="type-meta">
+        <strong>SECTION HEADING</strong>
+        Anton · 52px · normal<br>
+        lineHeight: 1.1<br>
+        letterSpacing: default<br>
+        color: #20C20E · width: 540px
+      </div>
+      <div style="font-family:'Anton',sans-serif;font-size:36px;font-weight:normal;color:var(--text-main);line-height:1.1;">REAL-TIME<br>SYSTEM MONITOR</div>
+    </div>
+
+    <div class="type-row">
+      <div class="type-meta">
+        <strong>CARD TITLE</strong>
+        Anton · 13–14px · normal<br>
+        letterSpacing: 1–2px<br>
+        color: #20C20E
+      </div>
+      <div style="font-family:'Anton',sans-serif;font-size:14px;font-weight:normal;color:var(--text-main);letter-spacing:1px;">PIP-BOY 3000 MKIV</div>
+    </div>
+
+    <div class="type-row">
+      <div class="type-meta">
+        <strong>HERO SUBTITLE</strong>
+        Inter · 16px · normal<br>
+        letterSpacing: 4px<br>
+        color: #147A16
+      </div>
+      <div style="font-family:'Inter',sans-serif;font-size:16px;color:var(--text-body);letter-spacing:4px;">PIP-BOY 3000 MKIV TERMINAL v2.1.0</div>
+    </div>
+
+    <div class="type-row">
+      <div class="type-meta">
+        <strong>BODY TEXT</strong>
+        Geist · 15px · normal<br>
+        lineHeight: 1.6<br>
+        color: #147A16 · width: 540px
+      </div>
+      <div style="font-family:'Inter',sans-serif;font-size:15px;color:var(--text-body);line-height:1.6;max-width:400px;">Track context usage, output tokens, and cache efficiency in real time. The PIP-BOY 3000 MKIV terminal provides live telemetry for all active Vault systems.</div>
+    </div>
+
+    <div class="type-row">
+      <div class="type-meta">
+        <strong>EYEBROW LABEL</strong>
+        Inter · 11px · 500<br>
+        letterSpacing: 2px<br>
+        color: #2D8B2D · UPPERCASE
+      </div>
+      <div class="eyebrow"><span class="eyebrow-icon">◈</span>SYSTEM MONITOR</div>
+    </div>
+
+    <div class="type-row">
+      <div class="type-meta">
+        <strong>TERMINAL INPUT</strong>
+        Geist Mono · 16px · normal<br>
+        letterSpacing: 1px<br>
+        color: #20C20E
+      </div>
+      <div style="font-family:'Geist Mono',monospace;font-size:16px;color:var(--text-main);letter-spacing:1px;">&gt; ENTER COMMAND_</div>
+    </div>
+
+    <div class="type-row">
+      <div class="type-meta">
+        <strong>STATUS BAR TEXT</strong>
+        Inter · 12px · normal<br>
+        letterSpacing: 1px<br>
+        color: #20C20E
+      </div>
+      <div style="font-size:12px;color:var(--text-main);letter-spacing:1px;">CTX: ████████░░ 78%</div>
+    </div>
+
+    <div class="type-row">
+      <div class="type-meta">
+        <strong>FOOTER / HINTS</strong>
+        Inter · 10px · normal<br>
+        letterSpacing: 1px<br>
+        color: #0F6B0F
+      </div>
+      <div style="font-size:10px;color:var(--text-muted);letter-spacing:1px;">[ESC] CLOSE &nbsp;&nbsp; [↑↓] NAVIGATE &nbsp;&nbsp; [ENTER] TOGGLE</div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     SECTION 4: COMPONENTS
+══════════════════════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-title">04 COMPONENTS</div>
+
+  <div style="margin-bottom:12px;font-size:11px;color:var(--text-secondary);letter-spacing:1px;">NAVIGATION BAR</div>
+  <div class="nav-demo" style="margin-bottom:32px;">
+    <div class="nav-logo">VAULT-TEC INDUSTRIES</div>
+    <div class="nav-right">
+      <span class="nav-item">OVERSEER</span><span class="nav-sep">|</span>
+      <span class="nav-item">REACTOR</span><span class="nav-sep">|</span>
+      <span class="nav-item">RESIDENTS</span><span class="nav-sep">|</span>
+      <span class="nav-item">SETTINGS</span>
+      <button class="nav-btn">INITIALIZE</button>
+    </div>
+  </div>
+
+  <div style="margin-bottom:12px;font-size:11px;color:var(--text-secondary);letter-spacing:1px;">BUTTONS &amp; LINKS</div>
+  <div style="background:var(--bg-card);border:1px solid var(--border);padding:24px;margin-bottom:32px;">
+    <div class="btn-group">
+      <button class="btn-primary">ACCESS TERMINAL</button>
+      <a class="text-link" href="#">VIEW SCHEMATICS</a>
+      <a class="text-link" href="#">READ MANUAL</a>
+    </div>
+  </div>
+
+  <div style="margin-bottom:12px;font-size:11px;color:var(--text-secondary);letter-spacing:1px;">EYEBROW LABELS &amp; BADGES</div>
+  <div style="background:var(--bg-card);border:1px solid var(--border);padding:24px;margin-bottom:32px;display:flex;gap:32px;flex-wrap:wrap;align-items:center;">
+    <div class="eyebrow"><span class="eyebrow-icon">◈</span>SYSTEM MONITOR</div>
+    <div class="eyebrow"><span class="eyebrow-icon">⚙</span>CONFIGURATION</div>
+    <div class="eyebrow"><span class="eyebrow-icon">💡</span>VAULT TIPS</div>
+    <div class="badge">ONLINE</div>
+  </div>
+
+  <div style="margin-bottom:12px;font-size:11px;color:var(--text-secondary);letter-spacing:1px;">TERMINAL CARD</div>
+  <div style="max-width:480px;margin-bottom:32px;">
+    <div class="component-card">
+      <div class="component-card-header">
+        <span class="component-card-title">PIP-BOY 3000 MKIV</span>
+        <span class="badge">ONLINE</span>
+      </div>
+      <div class="component-card-body" style="display:flex;flex-direction:column;gap:14px;">
+        <div class="metric-row">
+          <div class="metric-label-row"><span>CTX</span><span style="color:var(--text-bright);">78%</span></div>
+          <div class="metric-bar-bg"><div class="metric-bar-fill" style="width:78%;"></div></div>
+        </div>
+        <div class="metric-row">
+          <div class="metric-label-row"><span>OUT</span><span style="color:var(--text-bright);">61%</span></div>
+          <div class="metric-bar-bg"><div class="metric-bar-fill" style="width:61%;"></div></div>
+        </div>
+        <div class="metric-row">
+          <div class="metric-label-row"><span>CSH</span><span style="color:var(--text-bright);">42%</span></div>
+          <div class="metric-bar-bg"><div class="metric-bar-fill" style="width:42%;"></div></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;padding-top:12px;">
+          <span style="font-size:11px;font-weight:600;color:var(--text-secondary);letter-spacing:1.5px;">CAPS</span>
+          <span style="font-size:16px;font-weight:700;color:var(--text-bright);">$0.0023</span>
+        </div>
+      </div>
+      <div style="background:var(--bg-primary);border-top:1px solid var(--border);height:36px;display:flex;align-items:center;padding:0 16px;">
+        <span style="font-size:10px;color:var(--text-muted);letter-spacing:1px;">VAULT-TEC MONITORING SYSTEM v2.1.0</span>
+      </div>
+    </div>
+  </div>
+
+  <div style="margin-bottom:12px;font-size:11px;color:var(--text-secondary);letter-spacing:1px;">SETTINGS DIALOG</div>
+  <div style="max-width:480px;margin-bottom:32px;">
+    <div class="component-card">
+      <div class="component-card-header">
+        <span class="component-card-title">VAULT-TEC SETTINGS</span>
+        <span style="color:var(--text-secondary);font-size:16px;">✕</span>
+      </div>
+      <div style="padding:8px 0;">
+        <div class="settings-row"><span>CRT Scanlines</span><span class="badge">ENABLED</span></div>
+        <div class="settings-row"><span>Vignette Strength</span><span class="settings-val">0.75</span></div>
+        <div class="settings-row"><span>Companion Display</span><span class="badge">ON</span></div>
+        <div class="settings-row"><span>Scan Speed</span><span class="settings-val">0.012</span></div>
+        <div class="settings-row"><span>Home Screen</span><span class="badge">OVERSEER</span></div>
+      </div>
+      <div style="background:var(--bg-primary);border-top:1px solid var(--border);height:36px;display:flex;align-items:center;justify-content:center;gap:24px;">
+        <span style="font-size:10px;color:var(--text-muted);letter-spacing:1px;">[ESC] CLOSE</span>
+        <span style="font-size:10px;color:var(--text-muted);letter-spacing:1px;">[↑↓] NAVIGATE</span>
+        <span style="font-size:10px;color:var(--text-muted);letter-spacing:1px;">[ENTER] TOGGLE</span>
+      </div>
+    </div>
+  </div>
+
+  <div style="margin-bottom:12px;font-size:11px;color:var(--text-secondary);letter-spacing:1px;">TIPS CARD</div>
+  <div style="max-width:480px;margin-bottom:32px;">
+    <div class="component-card">
+      <div class="component-card-header">
+        <span class="component-card-title">VAULT TIP</span>
+        <span style="color:var(--text-bright);font-size:10px;">●</span>
+      </div>
+      <div class="component-card-body" style="display:flex;flex-direction:column;gap:12px;">
+        <div class="tip-item"><span class="tip-dot">●</span><span class="tip-text">Use the context bar to monitor token usage. When CTX exceeds 70%, consider starting a new session.</span></div>
+        <div class="tip-item"><span class="tip-dot">●</span><span class="tip-text">Enable cache mode to reduce CAPS expenditure on repeated queries. Cache hit ratio shown in CSH bar.</span></div>
+        <div class="tip-item"><span class="tip-dot">●</span><span class="tip-text">The companion display can be toggled in settings. Pip-Boy art renders in the sidebar for immersive terminal experience.</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div style="margin-bottom:12px;font-size:11px;color:var(--text-secondary);letter-spacing:1px;">TERMINAL INPUT BOX</div>
+  <div style="max-width:600px;margin-bottom:32px;">
+    <div class="terminal-box">&gt; ENTER COMMAND_</div>
+  </div>
+
+  <div style="margin-bottom:12px;font-size:11px;color:var(--text-secondary);letter-spacing:1px;">STATUS BAR</div>
+  <div class="status-bar" style="border:1px solid var(--border);">
+    <span>CTX: ████████░░ 78%</span><span class="status-divider">|</span>
+    <span>OUT: ██████░░░░ 61%</span><span class="status-divider">|</span>
+    <span>CSH: ████░░░░░░ 42%</span><span class="status-divider">|</span>
+    <span>CAPS: $0.0023</span>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     SECTION 5: SPACING
+══════════════════════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-title">05 SPACING SYSTEM</div>
+  <div class="spacing-grid">
+    <div class="spacing-row"><div class="spacing-label">4px</div><div class="spacing-visual" style="width:4px;"></div><div class="spacing-desc">Brand name / tagline gap</div></div>
+    <div class="spacing-row"><div class="spacing-label">6px</div><div class="spacing-visual" style="width:6px;"></div><div class="spacing-desc">Link icon ↔ text gap</div></div>
+    <div class="spacing-row"><div class="spacing-label">8px</div><div class="spacing-visual" style="width:8px;"></div><div class="spacing-desc">Eyebrow icon ↔ label gap</div></div>
+    <div class="spacing-row"><div class="spacing-label">12px</div><div class="spacing-visual" style="width:12px;"></div><div class="spacing-desc">Tips list item gap, card body row gap</div></div>
+    <div class="spacing-row"><div class="spacing-label">14px</div><div class="spacing-visual" style="width:14px;"></div><div class="spacing-desc">PIP-BOY card body metric gap</div></div>
+    <div class="spacing-row"><div class="spacing-label">16px</div><div class="spacing-visual" style="width:16px;"></div><div class="spacing-desc">Button group gap, card gap in image panel</div></div>
+    <div class="spacing-row"><div class="spacing-label">20px</div><div class="spacing-visual" style="width:20px;"></div><div class="spacing-desc">Text panel content gap</div></div>
+    <div class="spacing-row"><div class="spacing-label">24px</div><div class="spacing-visual" style="width:24px;"></div><div class="spacing-desc">Nav items gap, Hero center gap</div></div>
+    <div class="spacing-row"><div class="spacing-label">32px</div><div class="spacing-visual" style="width:32px;"></div><div class="spacing-desc">Status bar items gap, footer px</div></div>
+    <div class="spacing-row"><div class="spacing-label">60px</div><div class="spacing-visual" style="width:60px;"></div><div class="spacing-desc">Content row panel padding</div></div>
+    <div class="spacing-row"><div class="spacing-label">80px</div><div class="spacing-visual" style="width:80px;"></div><div class="spacing-desc">Hero center px, footer px</div></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     SECTION 6: LAYOUT DIAGRAMS
+══════════════════════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-title">06 LAYOUT DIAGRAMS</div>
+
+  <div style="margin-bottom:12px;font-size:11px;color:var(--text-secondary);letter-spacing:1px;">HERO SECTION — dTC73 (1440×900)</div>
+  <div class="layout-diagram" style="margin-bottom:32px;">┌─────────────────────────────────────────────────────────────────────┐
+│ NavBar (h:48)  bg:#061206  border-bottom:#0F2B0F  px:32            │
+│  "VAULT-TEC INDUSTRIES" (Anton 18/700 #20C20E ls:2)                │
+│  ←————————————————————————————————————————————————→                │
+│  OVERSEER | REACTOR | RESIDENTS | SETTINGS  [INITIALIZE]           │
+├─────────────────────────────────────────────────────────────────────┤
+│ Center Area (fill)  bg:#040D04  py:40 px:80  gap:24  center        │
+│  [+](abs 0,0)                                    [+](abs 1280,0)   │
+│              VAULT-TEC  (Anton 120px #20C20E ls:8 glow)            │
+│       PIP-BOY 3000 MKIV TERMINAL v2.1.0  (Inter 16 #147A16 ls:4)  │
+│         ┌──────────────────────────────────────────┐               │
+│         │ > ENTER COMMAND_  (Geist Mono 16 #20C20E)│  w:600        │
+│         └──────────────────────────────────────────┘               │
+│  [+](abs 0,720)                              [+](abs 1280,720)     │
+├─────────────────────────────────────────────────────────────────────┤
+│ Status Bar (h:36)  bg:#061206  border-top:#0F2B0F  gap:32  center  │
+│  CTX: ████░░ 78% | OUT: ██░░ 61% | CSH: ░░ 42% | CAPS: $0.0023   │
+└─────────────────────────────────────────────────────────────────────┘
+  Scanlines: gradient rect 1440×900 opacity:0.4 abs(0,0)</div>
+
+  <div style="margin-bottom:12px;font-size:11px;color:var(--text-secondary);letter-spacing:1px;">CONTENT SECTION — 6yDen (1440×1800)</div>
+  <div class="layout-diagram">┌─────────────────────────────────────────────────────────────────────┐
+│ Row1 - PIP-BOY Monitor  (h:480)  bg:#040D04                         │
+│  [Image Panel w:720 bg:#061206 p:60]  [Text Panel w:720 bg:#040D04 p:60]│
+│   center-v  gap:16                     justify:center  gap:20       │
+│   [PIP-BOY Card w:480]                 Eyebrow → Heading → Body → CTA│
+├─────────────────────────────────────────────────────────────────────┤
+│ Divider (h:1  bg:#0F2B0F)                                           │
+├─────────────────────────────────────────────────────────────────────┤
+│ Row2 - Settings  (h:480)  bg:#040D04                                 │
+│  [Text Panel w:720]  [Image Panel w:720 bg:#061206 p:60]            │
+│   Eyebrow → Heading → Body → CTA   [Settings Dialog w:480]         │
+├─────────────────────────────────────────────────────────────────────┤
+│ Divider (h:1  bg:#0F2B0F)                                           │
+├─────────────────────────────────────────────────────────────────────┤
+│ Row3 - Tips  (h:480)  bg:#040D04                                     │
+│  [Image Panel w:720]  [Text Panel w:720]                            │
+│   [Tips Card w:480]    Eyebrow → Heading → Body → CTA              │
+├─────────────────────────────────────────────────────────────────────┤
+│ Divider (h:1  bg:#0F2B0F)                                           │
+├─────────────────────────────────────────────────────────────────────┤
+│ Footer  (h:80)  bg:#061206  px:80  space-between  center-y          │
+│  "VAULT-TEC INDUSTRIES" + "PREPARING FOR THE FUTURE™"              │
+│  ←————————————————————————————————————————————————→                │
+│  OVERSEER  REACTOR  RESIDENTS  SETTINGS  (Inter 11 #2D8B2D ls:1)   │
+└─────────────────────────────────────────────────────────────────────┘</div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     PAGE FOOTER
+══════════════════════════════════════════════════════════════ -->
+<div class="page-footer">
+  <div class="footer-brand">
+    <div class="footer-brand-name">VAULT-TEC INDUSTRIES</div>
+    <div class="footer-tagline">PREPARING FOR THE FUTURE™</div>
+  </div>
+  <div class="footer-links">
+    <a class="footer-link" href="#">OVERSEER</a>
+    <a class="footer-link" href="#">REACTOR</a>
+    <a class="footer-link" href="#">RESIDENTS</a>
+    <a class="footer-link" href="#">SETTINGS</a>
+  </div>
+</div>
+
+</body>
+</html>
