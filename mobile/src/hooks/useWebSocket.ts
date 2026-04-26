@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { WsMessage } from '@/types';
 import { useChatStore } from '@/store/chatStore';
+import { fetchMessages } from '@/features/chat/services/chatService';
 
 type WsStatus = 'connecting' | 'open' | 'closed';
 
@@ -22,11 +23,16 @@ export function useWebSocket({ base_url, token, conv_id }: UseWebSocketOptions):
   const wsRef = useRef<WebSocket | null>(null);
   const backoffRef = useRef(1000);
   const appendMessage = useChatStore((s) => s.appendMessage);
+  const setMessages = useChatStore((s) => s.setMessages);
 
-  // Bug 2 fix: appendMessage is a new reference every render; hold it in a ref so it
-  // never enters the useCallback dependency array and doesn't trigger infinite reconnects.
   const appendMessageRef = useRef(appendMessage);
   useEffect(() => { appendMessageRef.current = appendMessage; }, [appendMessage]);
+
+  const setMessagesRef = useRef(setMessages);
+  useEffect(() => { setMessagesRef.current = setMessages; }, [setMessages]);
+
+  // Track the highest seq we've seen so we can catch up on reconnect
+  const lastSeqRef = useRef(0);
 
   const connect = useCallback(() => {
     if (!base_url) return;
@@ -39,11 +45,25 @@ export function useWebSocket({ base_url, token, conv_id }: UseWebSocketOptions):
     ws.onopen = () => {
       setStatus('open');
       backoffRef.current = 1000;
+
+      // Catch up on any messages broadcast while we were disconnected
+      fetchMessages(base_url, token, conv_id, lastSeqRef.current)
+        .then((msgs) => {
+          if (msgs.length > 0) {
+            msgs.forEach((m) => {
+              appendMessageRef.current(conv_id, m);
+              if (m.seq > lastSeqRef.current) lastSeqRef.current = m.seq;
+            });
+          }
+        })
+        .catch(() => {});
+
       const hb = setInterval(() => {
         if (ws.readyState === WebSocket.OPEN) {
           ws.send(JSON.stringify({ type: 'ping' }));
         }
       }, 30_000);
+
       ws.onclose = () => {
         clearInterval(hb);
         setStatus('closed');
@@ -56,7 +76,9 @@ export function useWebSocket({ base_url, token, conv_id }: UseWebSocketOptions):
       try {
         const envelope = JSON.parse(event.data as string);
         if (envelope.type === 'message') {
-          appendMessageRef.current(conv_id, envelope as WsMessage);
+          const msg = envelope as WsMessage;
+          appendMessageRef.current(conv_id, msg);
+          if (msg.seq > lastSeqRef.current) lastSeqRef.current = msg.seq;
         }
       } catch { /* ignore malformed */ }
     };
