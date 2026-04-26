@@ -28,11 +28,20 @@ export function AgentList({
   isLoading,
   isError,
   error,
-  isFetching,
   onRefetch,
   onAgentPress,
 }: Props) {
   const insets = useSafeAreaInsets();
+  const [isRefreshing, setIsRefreshing] = React.useState(false);
+
+  const handleRefresh = React.useCallback(async () => {
+    setIsRefreshing(true);
+    try {
+      await onRefetch();
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [onRefetch]);
 
   if (isLoading) {
     return (
@@ -92,8 +101,8 @@ export function AgentList({
         )}
         refreshControl={
           <RefreshControl
-            refreshing={isFetching}
-            onRefresh={onRefetch}
+            refreshing={isRefreshing}
+            onRefresh={handleRefresh}
             tintColor="#20C20E"
             colors={['#20C20E']}
           />
