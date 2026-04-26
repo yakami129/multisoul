@@ -38,7 +38,8 @@ export default function AgentDetailScreen() {
 
   const handleChat = () => {
     const ep_id = endpoint_id ?? agent?.endpoint_id ?? '';
-    router.push(`/agent/${id}/chat?endpoint_id=${ep_id}` as any);
+    const agent_name = encodeURIComponent(agent?.name ?? '');
+    router.push(`/agent/${id}/chat?endpoint_id=${ep_id}&agent_name=${agent_name}` as any);
   };
 
   return (

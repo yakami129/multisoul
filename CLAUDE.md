@@ -6,7 +6,6 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 MultiSoul is an Agent Registry Platform — a monorepo with three components:
 
-- **`backend/`** — Spring Boot 3.x + Java 21, REST API, PostgreSQL
 - **`mobile/`** — React Native + Expo (SDK 54), NativeWind, React Query, Zustand
 - **`cli/`** — Rust (`msctl`), clap 4.x, blocking reqwest
 
@@ -15,30 +14,6 @@ Full product spec: `docs/SPEC.md`
 ---
 
 ## Commands
-
-### Backend (Spring Boot)
-
-```bash
-# Start dependencies only
-docker-compose up postgres -d
-
-# Run backend locally
-cd backend && ./mvnw spring-boot:run
-
-# Run tests (requires running PostgreSQL via Testcontainers)
-cd backend && ./mvnw test
-
-# Run a single test class
-cd backend && ./mvnw test -Dtest=AgentControllerTest
-
-# Build Docker image
-docker-compose build backend
-
-# Start everything
-docker-compose up
-```
-
-Backend runs on `http://localhost:8080`. Health check: `GET /actuator/health`.
 
 ### Mobile (React Native / Expo)
 

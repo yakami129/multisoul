@@ -22,16 +22,25 @@ export default function ChatDetailScreen() {
   const scrollRef = useRef<ScrollView>(null);
 
   const endpoint = useEndpointStore((s) => s.endpoints.find((e) => e.id === endpoint_id));
+  const conversations = useChatStore((s) => s.conversations);
   // Select the whole map so the selector returns a stable object reference;
   // derive the per-conversation array outside the selector using the module-level EMPTY fallback.
   const messagesMap = useChatStore((s) => s.messages);
   const messages = messagesMap[conv_id] ?? EMPTY;
   const setMessages = useChatStore((s) => s.setMessages);
+  const conversation = conversations.find((c) => c.id === conv_id);
 
-  const { status, sendAnswer } = useWebSocket(
+  const { status, sendAnswer, sendAnswerMulti } = useWebSocket(
     endpoint
-      ? { base_url: endpoint.base_url, token: endpoint.token, conv_id }
-      : { base_url: '', token: '', conv_id }
+      ? {
+          base_url: endpoint.base_url,
+          token: endpoint.token,
+          conv_id,
+          endpoint_id: endpoint_id ?? '',
+          agent_id: conversation?.agent_id ?? '',
+          agent_name: conversation?.agent_name ?? '',
+        }
+      : { base_url: '', token: '', conv_id, endpoint_id: '', agent_id: '', agent_name: '' }
   );
 
   useEffect(() => {
@@ -69,7 +78,12 @@ export default function ChatDetailScreen() {
           onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: false })}
         >
           {messages.map((msg) => (
-            <MessageBubble key={`${msg.seq}`} msg={msg} onAnswer={sendAnswer} />
+            <MessageBubble
+              key={`${msg.seq}`}
+              msg={msg}
+              onAnswer={sendAnswer}
+              onAnswerMulti={sendAnswerMulti}
+            />
           ))}
         </ScrollView>
 
