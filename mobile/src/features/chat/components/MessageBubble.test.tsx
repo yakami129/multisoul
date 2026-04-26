@@ -1,8 +1,8 @@
+import { act, render } from '@testing-library/react-native';
 import React from 'react';
 import { StyleSheet } from 'react-native';
-import { act, render } from '@testing-library/react-native';
-import { MessageBubble } from './MessageBubble';
 import type { WsMessage } from '@/types';
+import { MessageBubble } from './MessageBubble';
 
 afterEach(() => {
   jest.useRealTimers();

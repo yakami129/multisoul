@@ -1,10 +1,15 @@
+import { X } from 'lucide-react-native';
 import React from 'react';
 import {
-  Modal, View, Text, TouchableOpacity, StyleSheet, TouchableWithoutFeedback,
+  Modal,
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  TouchableWithoutFeedback,
 } from 'react-native';
-import { X } from 'lucide-react-native';
 import AskQuestionCard from '../../chat/components/AskQuestionCard';
-import { InboxItem } from '../types';
+import { type InboxItem } from '../types';
 
 interface Props {
   visible: boolean;
@@ -62,20 +67,45 @@ export default function AnswerModal({ visible, item, onClose, onConfirm }: Props
 }
 
 const s = StyleSheet.create({
-  overlay:        { flex: 1, backgroundColor: 'rgba(4,13,4,0.85)', justifyContent: 'flex-end' },
-  sheet:          { backgroundColor: '#061206', borderTopLeftRadius: 2, borderTopRightRadius: 2,
-                    borderTopWidth: 1, borderLeftWidth: 1, borderRightWidth: 1,
-                    borderColor: '#0F2B0F', paddingBottom: 40 },
-  sheetHeader:    { height: 52, flexDirection: 'row', alignItems: 'center',
-                    justifyContent: 'space-between', paddingHorizontal: 16,
-                    borderBottomWidth: 1, borderBottomColor: '#0F2B0F' },
-  sheetTitle:     { fontFamily: 'Anton', fontSize: 16, color: '#20C20E', letterSpacing: 1 },
-  agentRow:       { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16,
-                    borderBottomWidth: 1, borderBottomColor: '#0F2B0F' },
-  avatar:         { width: 36, height: 36, borderRadius: 18, backgroundColor: '#0F2B0F',
-                    alignItems: 'center', justifyContent: 'center' },
-  avatarText:     { fontFamily: 'Anton', fontSize: 12, color: '#20C20E' },
-  agentName:      { fontFamily: 'Anton', fontSize: 14, color: '#20C20E' },
+  overlay: { flex: 1, backgroundColor: 'rgba(4,13,4,0.85)', justifyContent: 'flex-end' },
+  sheet: {
+    backgroundColor: '#061206',
+    borderTopLeftRadius: 2,
+    borderTopRightRadius: 2,
+    borderTopWidth: 1,
+    borderLeftWidth: 1,
+    borderRightWidth: 1,
+    borderColor: '#0F2B0F',
+    paddingBottom: 40,
+  },
+  sheetHeader: {
+    height: 52,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#0F2B0F',
+  },
+  sheetTitle: { fontFamily: 'Anton', fontSize: 16, color: '#20C20E', letterSpacing: 1 },
+  agentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#0F2B0F',
+  },
+  avatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#0F2B0F',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarText: { fontFamily: 'Anton', fontSize: 12, color: '#20C20E' },
+  agentName: { fontFamily: 'Anton', fontSize: 14, color: '#20C20E' },
   agentTimestamp: { fontFamily: 'Inter', fontSize: 11, color: '#0F6B0F' },
-  cardWrap:       { padding: 16, alignItems: 'center' },
+  cardWrap: { padding: 16, alignItems: 'center' },
 });

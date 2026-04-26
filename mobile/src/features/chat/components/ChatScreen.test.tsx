@@ -1,5 +1,5 @@
-import React from 'react';
 import { act, render, fireEvent } from '@testing-library/react-native';
+import React from 'react';
 import { ChatScreen } from './ChatScreen';
 
 jest.mock('react-native-safe-area-context', () => ({
@@ -33,7 +33,7 @@ test('renders messages', () => {
       status="connected"
       onSend={jest.fn()}
       onBack={jest.fn()}
-    />
+    />,
   );
   expect(getByText('hello')).toBeTruthy();
   expect(getByText('hi there')).toBeTruthy();
@@ -57,7 +57,7 @@ test('send button calls onSend and clears input', () => {
       status="connected"
       onSend={onSend}
       onBack={jest.fn()}
-    />
+    />,
   );
   fireEvent.changeText(getByPlaceholderText('Message…'), 'test message');
   fireEvent.press(getByTestId('send-button'));
@@ -81,7 +81,7 @@ test('shows reconnecting banner', () => {
       status="reconnecting"
       onSend={jest.fn()}
       onBack={jest.fn()}
-    />
+    />,
   );
   expect(getByText('Reconnecting…')).toBeTruthy();
 });
@@ -95,7 +95,7 @@ test('shows hacker waiting state and disables composer after send', () => {
       status="connected"
       onSend={onSend}
       onBack={jest.fn()}
-    />
+    />,
   );
 
   const input = getByPlaceholderText('Message…');
@@ -117,7 +117,7 @@ test('removes waiting state when assistant response arrives', () => {
       status="connected"
       onSend={jest.fn()}
       onBack={jest.fn()}
-    />
+    />,
   );
 
   fireEvent.changeText(getByPlaceholderText('Message…'), 'ping');
@@ -134,7 +134,7 @@ test('removes waiting state when assistant response arrives', () => {
       status="connected"
       onSend={jest.fn()}
       onBack={jest.fn()}
-    />
+    />,
   );
 
   expect(queryByText('ACCESSING NEURAL LINK')).toBeNull();
@@ -151,7 +151,7 @@ test('reveals new assistant response with typewriter timing', () => {
       status="connected"
       onSend={jest.fn()}
       onBack={jest.fn()}
-    />
+    />,
   );
 
   fireEvent.changeText(getByPlaceholderText('Message…'), 'scan');
@@ -162,12 +162,18 @@ test('reveals new assistant response with typewriter timing', () => {
       agentName="TestAgent"
       messages={[
         { id: '1', role: 'user' as const, text: 'scan', createdAt: '', streaming: false },
-        { id: '2', role: 'assistant' as const, text: 'system online', createdAt: '', streaming: false },
+        {
+          id: '2',
+          role: 'assistant' as const,
+          text: 'system online',
+          createdAt: '',
+          streaming: false,
+        },
       ]}
       status="connected"
       onSend={jest.fn()}
       onBack={jest.fn()}
-    />
+    />,
   );
 
   expect(queryByText('system online')).toBeNull();

@@ -1,7 +1,7 @@
-import React from 'react';
 import { render, fireEvent } from '@testing-library/react-native';
+import React from 'react';
+import { type Agent } from '@/types';
 import { AgentCard } from './AgentCard';
-import { Agent } from '@/types';
 
 const agent: Agent = {
   id: 'a1',

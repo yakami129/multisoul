@@ -1,5 +1,5 @@
+import { type Agent } from '@/types';
 import { fetchAgents, fetchAgent, invokeAgent } from './agentService';
-import { Agent } from '@/types';
 
 const mockGet = jest.fn();
 const mockPost = jest.fn();

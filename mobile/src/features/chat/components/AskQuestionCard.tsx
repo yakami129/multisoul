@@ -1,7 +1,7 @@
+import { Bot, Info } from 'lucide-react-native';
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { Bot, Info } from 'lucide-react-native';
-import { AskQuestionOption } from '../types';
+import { type AskQuestionOption } from '../types';
 
 interface Props {
   question: string;
@@ -11,7 +11,13 @@ interface Props {
   onConfirm: (selectedId: string) => void;
 }
 
-export default function AskQuestionCard({ question, subtitle, options, onCancel, onConfirm }: Props) {
+export default function AskQuestionCard({
+  question,
+  subtitle,
+  options,
+  onCancel,
+  onConfirm,
+}: Props) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [answered, setAnswered] = useState(false);
 
@@ -55,7 +61,9 @@ export default function AskQuestionCard({ question, subtitle, options, onCancel,
                 activeOpacity={answered ? 1 : 0.7}
               >
                 <View style={[s.radio, selected && s.radioSelected]} />
-                <Text style={[s.optionLabel, answered && !selected && s.optionLabelMuted]}>{opt.label}</Text>
+                <Text style={[s.optionLabel, answered && !selected && s.optionLabelMuted]}>
+                  {opt.label}
+                </Text>
               </TouchableOpacity>
             );
           })}

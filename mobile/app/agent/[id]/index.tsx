@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { AgentDetail } from '../../../src/features/agents/components/AgentDetail';
 import { fetchAgent, invokeAgent } from '../../../src/features/agents/services/agentService';
 import { useEndpointStore } from '../../../src/store/endpointStore';
-import { Agent } from '../../../src/types';
+import { type Agent } from '../../../src/types';
 
 export default function AgentDetailScreen() {
   const { id, endpoint_id } = useLocalSearchParams<{ id: string; endpoint_id: string }>();
@@ -17,14 +17,22 @@ export default function AgentDetailScreen() {
   useEffect(() => {
     if (!id) return;
     // Find the endpoint — prefer explicit endpoint_id param, else search all
-    const ep = endpoint_id
-      ? endpoints.find((e) => e.id === endpoint_id)
-      : endpoints[0];
-    if (!ep) { setIsError(true); setIsLoading(false); return; }
+    const ep = endpoint_id ? endpoints.find((e) => e.id === endpoint_id) : endpoints[0];
+    if (!ep) {
+      setIsError(true);
+      setIsLoading(false);
+      return;
+    }
 
     fetchAgent(ep.base_url, ep.token, id, ep.id, ep.label)
-      .then((a) => { setAgent(a); setIsLoading(false); })
-      .catch(() => { setIsError(true); setIsLoading(false); });
+      .then((a) => {
+        setAgent(a);
+        setIsLoading(false);
+      })
+      .catch(() => {
+        setIsError(true);
+        setIsLoading(false);
+      });
   }, [id, endpoint_id, endpoints]);
 
   const handleInvoke = async (message: string): Promise<string> => {
@@ -39,7 +47,7 @@ export default function AgentDetailScreen() {
   const handleChat = () => {
     const ep_id = endpoint_id ?? agent?.endpoint_id ?? '';
     const agent_name = encodeURIComponent(agent?.name ?? '');
-    router.push(`/agent/${id}/chat?endpoint_id=${ep_id}&agent_name=${agent_name}` as any);
+    router.push(`/agent/${id}/chat?endpoint_id=${ep_id}&agent_name=${agent_name}`);
   };
 
   return (

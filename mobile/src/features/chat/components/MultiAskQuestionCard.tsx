@@ -1,6 +1,6 @@
+import { Bot, Info } from 'lucide-react-native';
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { Bot, Info } from 'lucide-react-native';
 
 interface QuestionItem {
   id: string;
@@ -50,14 +50,16 @@ export default function MultiAskQuestionCard({ questions, onCancel, onConfirm }:
           <Text style={s.headerLabel}>{answered ? 'ANSWERED' : 'AGENT IS ASKING'}</Text>
         </View>
         <View style={s.headerRight}>
-          <Text style={s.progress}>{currentIndex} / {total}</Text>
+          <Text style={s.progress}>
+            {currentIndex} / {total}
+          </Text>
           <Info size={16} color="#2D8B2D" />
         </View>
       </View>
 
       {/* Progress bar */}
       <View style={s.progressBarBg}>
-        <View style={[s.progressBarFill, { width: `${progressWidth}%` as any }]} />
+        <View style={[s.progressBarFill, { width: `${progressWidth}%` as `${number}%` }]} />
       </View>
 
       {/* Questions */}
@@ -71,15 +73,13 @@ export default function MultiAskQuestionCard({ questions, onCancel, onConfirm }:
           return (
             <View
               key={`${q.id}-${idx}`}
-              style={[
-                s.section,
-                idx < questions.length - 1 && s.sectionBorder,
-                { opacity },
-              ]}
+              style={[s.section, idx < questions.length - 1 && s.sectionBorder, { opacity }]}
             >
               <View style={s.qHeader}>
                 <Bot size={14} color="#20C20E" />
-                <Text style={s.qText}>Q{idx + 1}: {q.text}</Text>
+                <Text style={s.qText}>
+                  Q{idx + 1}: {q.text}
+                </Text>
               </View>
 
               {/* Show options only for active question; show selected option for done questions */}
@@ -107,7 +107,10 @@ export default function MultiAskQuestionCard({ questions, onCancel, onConfirm }:
                   {q.options
                     .filter((opt) => opt.id === selectedOptId)
                     .map((opt, optIndex) => (
-                      <View key={`${q.id}-${opt.id}-selected-${optIndex}`} style={[s.opt, s.optSelected]}>
+                      <View
+                        key={`${q.id}-${opt.id}-selected-${optIndex}`}
+                        style={[s.opt, s.optSelected]}
+                      >
                         <View style={[s.radio, s.radioSelected]} />
                         <Text style={s.optLabel}>{opt.label}</Text>
                       </View>

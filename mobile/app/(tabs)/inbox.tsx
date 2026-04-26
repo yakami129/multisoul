@@ -1,11 +1,11 @@
+import { useRouter } from 'expo-router';
 import React from 'react';
 import { SafeAreaView, StyleSheet } from 'react-native';
-import { useRouter } from 'expo-router';
-import { useInboxStore } from '@/store/inboxStore';
-import { useEndpointStore } from '@/store/endpointStore';
-import InboxScreen from '@/features/inbox/components/InboxScreen';
-import { InboxItem } from '@/types';
 import { sendConversationAnswer } from '@/features/chat/services/chatService';
+import InboxScreen from '@/features/inbox/components/InboxScreen';
+import { useEndpointStore } from '@/store/endpointStore';
+import { useInboxStore } from '@/store/inboxStore';
+import { type InboxItem } from '@/types';
 
 export default function InboxTab() {
   const items = useInboxStore((s) => s.items);
@@ -14,9 +14,9 @@ export default function InboxTab() {
   const router = useRouter();
 
   const handleOpen = (item: InboxItem) => {
-    markRead(item.id);
+    void markRead(item.id);
     if (item.conversation_id) {
-      router.push(`/chat/${item.conversation_id}?endpoint_id=${item.endpoint_id}` as any);
+      router.push(`/chat/${item.conversation_id}?endpoint_id=${item.endpoint_id}`);
     }
   };
 
@@ -24,31 +24,38 @@ export default function InboxTab() {
     item: InboxItem,
     ask_id: string,
     choice_id?: string,
-    freeform?: string
+    freeform?: string,
   ) => {
     const ep = endpoints.find((e) => e.id === item.endpoint_id);
     if (!ep) return;
     try {
       await sendConversationAnswer(ep.base_url, ep.token, item.conversation_id, {
-        ask_id, choice_id, freeform,
+        ask_id,
+        choice_id,
+        freeform,
       });
       markRead(item.id);
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   };
 
   const handleAnswerMulti = async (
     item: InboxItem,
     ask_id: string,
-    choice_ids: Record<string, string>
+    choice_ids: Record<string, string>,
   ) => {
     const ep = endpoints.find((e) => e.id === item.endpoint_id);
     if (!ep) return;
     try {
       await sendConversationAnswer(ep.base_url, ep.token, item.conversation_id, {
-        ask_id, choice_ids,
+        ask_id,
+        choice_ids,
       });
       markRead(item.id);
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   };
 
   return (
@@ -56,8 +63,12 @@ export default function InboxTab() {
       <InboxScreen
         items={items}
         onOpen={handleOpen}
-        onAnswer={handleAnswer}
-        onAnswerMulti={handleAnswerMulti}
+        onAnswer={(item, ask_id, choice_id, freeform) => {
+          void handleAnswer(item, ask_id, choice_id, freeform);
+        }}
+        onAnswerMulti={(item, ask_id, choice_ids) => {
+          void handleAnswerMulti(item, ask_id, choice_ids);
+        }}
       />
     </SafeAreaView>
   );

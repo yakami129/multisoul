@@ -1,3 +1,4 @@
+import { SlidersHorizontal, AlertCircle } from 'lucide-react-native';
 import React from 'react';
 import {
   ActivityIndicator,
@@ -9,8 +10,7 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { SlidersHorizontal, AlertCircle } from 'lucide-react-native';
-import { Agent } from '@/types';
+import { type Agent } from '@/types';
 import { AgentCard } from './AgentCard';
 
 interface Props {
@@ -23,14 +23,7 @@ interface Props {
   onAgentPress: (id: string, endpoint_id: string) => void;
 }
 
-export function AgentList({
-  agents,
-  isLoading,
-  isError,
-  error,
-  onRefetch,
-  onAgentPress,
-}: Props) {
+export function AgentList({ agents, isLoading, isError, error, onRefetch, onAgentPress }: Props) {
   const insets = useSafeAreaInsets();
   const [isRefreshing, setIsRefreshing] = React.useState(false);
 
@@ -110,9 +103,7 @@ export function AgentList({
         ListEmptyComponent={
           <View style={s.emptyWrap}>
             <Text style={s.emptyTitle}>NO AGENTS REGISTERED</Text>
-            <Text style={s.emptyDesc}>
-              Register your first agent via the CLI or API.
-            </Text>
+            <Text style={s.emptyDesc}>Register your first agent via the CLI or API.</Text>
           </View>
         }
         contentContainerStyle={agents.length === 0 ? s.emptyContainer : s.listContent}

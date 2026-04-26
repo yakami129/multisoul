@@ -14,7 +14,7 @@
 |------|---------|
 | `app.json` | `ios.bundleIdentifier = com.yakami0129.multisoul` |
 | `app.json` | `extra.eas.projectId = 3555d4e1-4ac3-4e0c-9816-4383af1872e9` |
-| `eas.json` | `build.production`、`submit.production` |
+| `eas.json` | `build.production.autoIncrement = true`、`submit.production` |
 
 `eas.json` 的 `submit.production.ios` 中需填入：
 
@@ -71,4 +71,4 @@ eas build --platform ios --profile production
 eas submit --platform ios --profile production --latest
 ```
 
-记得先在 `app.json` 中更新 `version` 字段。
+同一个 `version` 下每次提交都需要不同的 iOS build number，`eas.json` 中的 `build.production.autoIncrement = true` 会在生产构建时自动递增。发布新的 App Store 版本时，再在 `app.json` 中更新 `version` 字段。

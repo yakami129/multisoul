@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitFor } from '@testing-library/react-native';
 import React from 'react';
 import AgentListScreen from '../../app/(tabs)/index';
-import { Agent } from '../types';
+import { type Agent } from '../types';
 
 jest.mock('../../src/api', () => ({
   getApiClient: jest.fn(),

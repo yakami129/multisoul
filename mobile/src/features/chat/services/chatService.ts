@@ -1,5 +1,5 @@
-import { Conversation, WsMessage } from '@/types';
 import { getEndpointClient } from '@/api/endpointClient';
+import { type Conversation, type WsMessage } from '@/types';
 
 function buildConversationWsUrl(base_url: string, token: string, conv_id: string): string {
   const wsUrl = base_url.replace(/^https/, 'wss').replace(/^http/, 'ws');
@@ -7,38 +7,51 @@ function buildConversationWsUrl(base_url: string, token: string, conv_id: string
 }
 
 export async function fetchConversations(
-  base_url: string, token: string, agent_id: string, endpoint_id: string, agent_name: string
+  base_url: string,
+  token: string,
+  agent_id: string,
+  endpoint_id: string,
+  agent_name: string,
 ): Promise<Conversation[]> {
   const client = getEndpointClient(base_url, token);
   const res = await client.get<Omit<Conversation, 'endpoint_id' | 'agent_name'>[]>(
-    `/api/v1/agents/${agent_id}/conversations`
+    `/api/v1/agents/${agent_id}/conversations`,
   );
   return res.data.map((c) => ({ ...c, endpoint_id, agent_name }));
 }
 
 export async function createConversation(
-  base_url: string, token: string, agent_id: string, title: string
+  base_url: string,
+  token: string,
+  agent_id: string,
+  title: string,
 ): Promise<Conversation> {
   const client = getEndpointClient(base_url, token);
-  const res = await client.post<Conversation>(
-    `/api/v1/agents/${agent_id}/conversations`, { title }
-  );
+  const res = await client.post<Conversation>(`/api/v1/agents/${agent_id}/conversations`, {
+    title,
+  });
   return res.data;
 }
 
 export async function fetchMessages(
-  base_url: string, token: string, conv_id: string, since_seq?: number
+  base_url: string,
+  token: string,
+  conv_id: string,
+  since_seq?: number,
 ): Promise<WsMessage[]> {
   const client = getEndpointClient(base_url, token);
   const params = since_seq != null ? { since_seq } : {};
-  const res = await client.get<WsMessage[]>(
-    `/api/v1/conversations/${conv_id}/messages`, { params }
-  );
+  const res = await client.get<WsMessage[]>(`/api/v1/conversations/${conv_id}/messages`, {
+    params,
+  });
   return res.data;
 }
 
 export async function postMessage(
-  base_url: string, token: string, conv_id: string, text: string
+  base_url: string,
+  token: string,
+  conv_id: string,
+  text: string,
 ): Promise<void> {
   const client = getEndpointClient(base_url, token);
   await client.post(`/api/v1/conversations/${conv_id}/messages`, { text });
@@ -53,7 +66,7 @@ export async function sendConversationAnswer(
     choice_id?: string;
     choice_ids?: Record<string, string>;
     freeform?: string;
-  }
+  },
 ): Promise<void> {
   await new Promise<void>((resolve, reject) => {
     const ws = new WebSocket(buildConversationWsUrl(base_url, token, conv_id));
@@ -74,7 +87,11 @@ export async function sendConversationAnswer(
 
     const timeout = setTimeout(() => {
       cleanup();
-      try { ws.close(); } catch {}
+      try {
+        ws.close();
+      } catch {
+        /* ignore close errors */
+      }
       finish(() => reject(new Error('Timed out waiting for answer socket')));
     }, 10_000);
 
@@ -82,14 +99,22 @@ export async function sendConversationAnswer(
       ws.send(JSON.stringify({ type: 'answer', ...payload }));
       clearTimeout(timeout);
       cleanup();
-      try { ws.close(); } catch {}
+      try {
+        ws.close();
+      } catch {
+        /* ignore close errors */
+      }
       finish(resolve);
     };
 
     ws.onerror = () => {
       clearTimeout(timeout);
       cleanup();
-      try { ws.close(); } catch {}
+      try {
+        ws.close();
+      } catch {
+        /* ignore close errors */
+      }
       finish(() => reject(new Error('Failed to open answer socket')));
     };
 

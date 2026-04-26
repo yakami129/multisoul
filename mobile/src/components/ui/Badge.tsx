@@ -1,10 +1,10 @@
 import React from 'react';
 import { Text, View } from 'react-native';
-import { AgentStatus } from '../../types';
+import { type AgentStatus } from '../../types';
 
 const VARIANT_CLASSES: Record<AgentStatus, string> = {
-  active:   'bg-success',
-  error:    'bg-danger',
+  active: 'bg-success',
+  error: 'bg-danger',
   inactive: 'bg-muted',
 };
 

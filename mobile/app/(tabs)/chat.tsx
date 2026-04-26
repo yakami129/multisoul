@@ -1,13 +1,13 @@
+import { useQuery } from '@tanstack/react-query';
+import { useRouter } from 'expo-router';
 import React from 'react';
 import { SafeAreaView, StyleSheet } from 'react-native';
-import { useRouter } from 'expo-router';
-import { useQuery } from '@tanstack/react-query';
-import { useChatStore } from '@/store/chatStore';
-import { useEndpointStore } from '@/store/endpointStore';
+import { fetchAllAgents } from '@/features/agents/services/agentService';
 import ChatHomeScreen from '@/features/chat/components/ChatHomeScreen';
 import { fetchConversations } from '@/features/chat/services/chatService';
-import { fetchAllAgents } from '@/features/agents/services/agentService';
-import { Conversation } from '@/types';
+import { useChatStore } from '@/store/chatStore';
+import { useEndpointStore } from '@/store/endpointStore';
+import { type Conversation } from '@/types';
 
 export default function ChatTab() {
   const router = useRouter();
@@ -27,11 +27,17 @@ export default function ChatTab() {
           if (!ep) return;
           try {
             const convs = await fetchConversations(
-              ep.base_url, ep.token, agent.id, ep.id, agent.name
+              ep.base_url,
+              ep.token,
+              agent.id,
+              ep.id,
+              agent.name,
             );
             all.push(...convs);
-          } catch { /* skip offline endpoints */ }
-        })
+          } catch {
+            /* skip offline endpoints */
+          }
+        }),
       );
       // 按 last_message_at 降序排列
       all.sort((a, b) => b.last_message_at - a.last_message_at);
@@ -43,7 +49,7 @@ export default function ChatTab() {
   });
 
   const handlePress = (conv: Conversation) => {
-    router.push(`/chat/${conv.id}?endpoint_id=${conv.endpoint_id}` as any);
+    router.push(`/chat/${conv.id}?endpoint_id=${conv.endpoint_id}`);
   };
 
   return (

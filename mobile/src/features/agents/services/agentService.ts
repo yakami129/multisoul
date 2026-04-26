@@ -1,5 +1,5 @@
-import { Agent } from '@/types';
 import { getEndpointClient } from '@/api/endpointClient';
+import { type Agent } from '@/types';
 
 export async function fetchAgentsFromEndpoint(
   base_url: string,
@@ -13,10 +13,10 @@ export async function fetchAgentsFromEndpoint(
 }
 
 export async function fetchAllAgents(
-  endpoints: { id: string; label: string; base_url: string; token: string }[]
+  endpoints: { id: string; label: string; base_url: string; token: string }[],
 ): Promise<Agent[]> {
   const results = await Promise.allSettled(
-    endpoints.map((ep) => fetchAgentsFromEndpoint(ep.base_url, ep.token, ep.id, ep.label))
+    endpoints.map((ep) => fetchAgentsFromEndpoint(ep.base_url, ep.token, ep.id, ep.label)),
   );
   return results
     .filter((r): r is PromiseFulfilledResult<Agent[]> => r.status === 'fulfilled')
@@ -31,7 +31,9 @@ export async function fetchAgent(
   endpoint_label: string,
 ): Promise<Agent> {
   const client = getEndpointClient(base_url, token);
-  const res = await client.get<Omit<Agent, 'endpoint_id' | 'endpoint_label'>>(`/api/v1/agents/${agent_id}`);
+  const res = await client.get<Omit<Agent, 'endpoint_id' | 'endpoint_label'>>(
+    `/api/v1/agents/${agent_id}`,
+  );
   return { ...res.data, endpoint_id, endpoint_label };
 }
 
@@ -42,6 +44,8 @@ export async function invokeAgent(
   message: string,
 ): Promise<string> {
   const client = getEndpointClient(base_url, token);
-  const res = await client.post<{ conversation_id: string }>(`/api/v1/agents/${agent_id}/invoke`, { message });
+  const res = await client.post<{ conversation_id: string }>(`/api/v1/agents/${agent_id}/invoke`, {
+    message,
+  });
   return res.data.conversation_id;
 }

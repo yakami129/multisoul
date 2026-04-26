@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { WsMessage, AskQuestionPayload, InboxItem } from '@/types';
-import { useChatStore } from '@/store/chatStore';
-import { useInboxStore } from '@/store/inboxStore';
 import { fetchMessages } from '@/features/chat/services/chatService';
 import { buildAskQuestionInboxItem } from '@/features/inbox/utils/buildAskQuestionInboxItem';
+import { useChatStore } from '@/store/chatStore';
+import { useInboxStore } from '@/store/inboxStore';
+import { type WsMessage, type AskQuestionPayload, InboxItem } from '@/types';
 
 type WsStatus = 'connecting' | 'open' | 'closed';
 
@@ -24,7 +24,14 @@ interface UseWebSocketReturn {
 
 const MAX_BACKOFF_MS = 30_000;
 
-export function useWebSocket({ base_url, token, conv_id, endpoint_id, agent_id, agent_name }: UseWebSocketOptions): UseWebSocketReturn {
+export function useWebSocket({
+  base_url,
+  token,
+  conv_id,
+  endpoint_id,
+  agent_id,
+  agent_name,
+}: UseWebSocketOptions): UseWebSocketReturn {
   const [status, setStatus] = useState<WsStatus>('connecting');
   const wsRef = useRef<WebSocket | null>(null);
   const backoffRef = useRef(1000);
@@ -33,13 +40,19 @@ export function useWebSocket({ base_url, token, conv_id, endpoint_id, agent_id, 
   const addInboxItem = useInboxStore((s) => s.addItem);
 
   const appendMessageRef = useRef(appendMessage);
-  useEffect(() => { appendMessageRef.current = appendMessage; }, [appendMessage]);
+  useEffect(() => {
+    appendMessageRef.current = appendMessage;
+  }, [appendMessage]);
 
   const setMessagesRef = useRef(setMessages);
-  useEffect(() => { setMessagesRef.current = setMessages; }, [setMessages]);
+  useEffect(() => {
+    setMessagesRef.current = setMessages;
+  }, [setMessages]);
 
   const addInboxItemRef = useRef(addInboxItem);
-  useEffect(() => { addInboxItemRef.current = addInboxItem; }, [addInboxItem]);
+  useEffect(() => {
+    addInboxItemRef.current = addInboxItem;
+  }, [addInboxItem]);
 
   // Track the highest seq we've seen so we can catch up on reconnect
   const lastSeqRef = useRef(0);
@@ -84,7 +97,10 @@ export function useWebSocket({ base_url, token, conv_id, endpoint_id, agent_id, 
 
     ws.onmessage = (event) => {
       try {
-        const envelope = JSON.parse(event.data as string);
+        const envelope = JSON.parse(event.data as string) as {
+          type?: string;
+          [key: string]: unknown;
+        };
         if (envelope.type === 'message') {
           const msg = envelope as WsMessage;
           appendMessageRef.current(conv_id, msg);
@@ -104,7 +120,9 @@ export function useWebSocket({ base_url, token, conv_id, endpoint_id, agent_id, 
             addInboxItemRef.current(item);
           }
         }
-      } catch { /* ignore malformed */ }
+      } catch {
+        /* ignore malformed */
+      }
     };
 
     ws.onerror = () => {

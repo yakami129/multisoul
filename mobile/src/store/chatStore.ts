@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { Conversation, WsMessage } from '@/types';
+import { type Conversation, type WsMessage } from '@/types';
 
 interface ChatState {
   conversations: Conversation[];
@@ -24,6 +24,5 @@ export const useChatStore = create<ChatState>((set) => ({
         },
       };
     }),
-  setMessages: (conv_id, msgs) =>
-    set((s) => ({ messages: { ...s.messages, [conv_id]: msgs } })),
+  setMessages: (conv_id, msgs) => set((s) => ({ messages: { ...s.messages, [conv_id]: msgs } })),
 }));
