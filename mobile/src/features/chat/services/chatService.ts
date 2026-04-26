@@ -125,3 +125,12 @@ export async function sendConversationAnswer(
     };
   });
 }
+
+export async function deleteConversation(
+  base_url: string,
+  token: string,
+  conv_id: string,
+): Promise<void> {
+  const client = getEndpointClient(base_url, token);
+  await client.delete(`/api/v1/conversations/${conv_id}`);
+}
