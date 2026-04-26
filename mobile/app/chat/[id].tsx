@@ -43,10 +43,11 @@ export default function ChatDetailScreen() {
   const latestAgentSeq = getLatestAgentTextSeq(messages);
   const lastSeenAgentActivitySeqRef = useRef(latestAgentActivitySeq);
   const lastAnimatedAgentTextSeqRef = useRef(latestAgentSeq);
+  const hasLoadedInitialMessagesRef = useRef(messages.length > 0);
   const incomingAgentActivitySeq = isAwaitingResponse && latestAgentActivitySeq > lastSeenAgentActivitySeqRef.current
     ? latestAgentActivitySeq
     : null;
-  const incomingAgentTextSeq = latestAgentSeq > lastAnimatedAgentTextSeqRef.current
+  const incomingAgentTextSeq = hasLoadedInitialMessagesRef.current && latestAgentSeq > lastAnimatedAgentTextSeqRef.current
     ? latestAgentSeq
     : null;
   const activeTypewriterSeq = incomingAgentTextSeq ?? typewriterSeq;
@@ -67,8 +68,15 @@ export default function ChatDetailScreen() {
   useEffect(() => {
     if (!endpoint) return;
     fetchMessages(endpoint.base_url, endpoint.token, conv_id)
-      .then((msgs) => setMessages(conv_id, msgs))
-      .catch(() => {});
+      .then((msgs) => {
+        lastSeenAgentActivitySeqRef.current = getLatestAgentActivitySeq(msgs);
+        lastAnimatedAgentTextSeqRef.current = getLatestAgentTextSeq(msgs);
+        hasLoadedInitialMessagesRef.current = true;
+        setMessages(conv_id, msgs);
+      })
+      .catch(() => {
+        hasLoadedInitialMessagesRef.current = true;
+      });
   }, [conv_id, endpoint]);
 
   const handleSend = async () => {
@@ -76,6 +84,7 @@ export default function ChatDetailScreen() {
     if (!text || !endpoint) return;
     lastSeenAgentActivitySeqRef.current = getLatestAgentActivitySeq(messages);
     lastAnimatedAgentTextSeqRef.current = getLatestAgentTextSeq(messages);
+    hasLoadedInitialMessagesRef.current = true;
     setInput('');
     setIsAwaitingResponse(true);
     setTypewriterSeq(null);
@@ -99,7 +108,9 @@ export default function ChatDetailScreen() {
     }
 
     if (latestAgentSeq > lastAnimatedAgentTextSeqRef.current) {
-      setTypewriterSeq(latestAgentSeq);
+      if (hasLoadedInitialMessagesRef.current) {
+        setTypewriterSeq(latestAgentSeq);
+      }
       lastAnimatedAgentTextSeqRef.current = latestAgentSeq;
     }
   }, [isAwaitingResponse, latestAgentActivitySeq, latestAgentSeq]);

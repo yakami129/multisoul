@@ -58,10 +58,11 @@ export default function AgentChatRoute() {
   const latestAgentSeq = getLatestAgentTextSeq(displayMessages);
   const lastSeenAgentActivitySeqRef = useRef(latestAgentActivitySeq);
   const lastAnimatedAgentTextSeqRef = useRef(latestAgentSeq);
+  const hasLoadedInitialMessagesRef = useRef(messages.length > 0);
   const incomingAgentActivitySeq = isAwaitingResponse && latestAgentActivitySeq > lastSeenAgentActivitySeqRef.current
     ? latestAgentActivitySeq
     : null;
-  const incomingAgentTextSeq = latestAgentSeq > lastAnimatedAgentTextSeqRef.current
+  const incomingAgentTextSeq = hasLoadedInitialMessagesRef.current && latestAgentSeq > lastAnimatedAgentTextSeqRef.current
     ? latestAgentSeq
     : null;
   const activeTypewriterSeq = incomingAgentTextSeq ?? typewriterSeq;
@@ -90,9 +91,14 @@ export default function AgentChatRoute() {
         return fetchMessages(endpoint.base_url, endpoint.token, conv.id);
       })
       .then((msgs) => {
+        lastSeenAgentActivitySeqRef.current = getLatestAgentActivitySeq(msgs);
+        lastAnimatedAgentTextSeqRef.current = getLatestAgentTextSeq(msgs);
+        hasLoadedInitialMessagesRef.current = true;
         setMessages(newConvId, msgs);
       })
-      .catch(() => {});
+      .catch(() => {
+        hasLoadedInitialMessagesRef.current = true;
+      });
   }, [endpoint, agent_id]);
 
   const handleSend = async () => {
@@ -100,6 +106,7 @@ export default function AgentChatRoute() {
     if (!text || !endpoint || !convId) return;
     lastSeenAgentActivitySeqRef.current = getLatestAgentActivitySeq(displayMessages);
     lastAnimatedAgentTextSeqRef.current = getLatestAgentTextSeq(displayMessages);
+    hasLoadedInitialMessagesRef.current = true;
     setInput('');
     setIsAwaitingResponse(true);
     setTypewriterSeq(null);
@@ -123,7 +130,9 @@ export default function AgentChatRoute() {
     }
 
     if (latestAgentSeq > lastAnimatedAgentTextSeqRef.current) {
-      setTypewriterSeq(latestAgentSeq);
+      if (hasLoadedInitialMessagesRef.current) {
+        setTypewriterSeq(latestAgentSeq);
+      }
       lastAnimatedAgentTextSeqRef.current = latestAgentSeq;
     }
   }, [isAwaitingResponse, latestAgentActivitySeq, latestAgentSeq]);

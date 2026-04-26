@@ -85,7 +85,7 @@ fn session_worker(
             }
         };
         eprintln!("[runtime] processing message conv_id={} text={:?}", conv_id,
-                  &user_text[..user_text.len().min(80)]);
+                  user_text);
 
         // Try to process the turn; on failure, respawn and retry (up to 3x)
         let mut ok = false;
@@ -197,7 +197,7 @@ fn read_system_event(
         }
         let trimmed = line.trim();
         if trimmed.is_empty() { continue; }
-        eprintln!("[runtime] system read: {}", &trimmed[..trimmed.len().min(120)]);
+        eprintln!("[runtime] system read: {}", trimmed);
         if let Ok(raw) = serde_json::from_str::<Value>(trimmed) {
             if raw["type"].as_str() == Some("system") {
                 if let Some(sid) = raw["session_id"].as_str().filter(|s| !s.is_empty()) {
@@ -251,7 +251,7 @@ fn process_turn(
         }
         let trimmed = line.trim();
         if trimmed.is_empty() { continue; }
-        eprintln!("[runtime] stdout: {}", &trimmed[..trimmed.len().min(120)]);
+        eprintln!("[runtime] stdout: {}", trimmed);
 
         let raw: Value = match serde_json::from_str(trimmed) {
             Ok(v)  => v,
@@ -300,7 +300,7 @@ fn process_turn(
                         .map_err(|_| "answer channel closed while waiting for user".to_string())?;
                     let content = interactive::format_tool_result(&tool_name, &args, &answer)
                         .unwrap_or_else(|| "__cancelled__".to_string());
-                    eprintln!("[runtime] got answer ask_id={} content={:?}", call_id, &content[..content.len().min(80)]);
+                    eprintln!("[runtime] got answer ask_id={} content={:?}", call_id, content);
                     write_tool_result(stdin, &call_id, &content)?;
                 }
             }
@@ -407,7 +407,7 @@ fn handle_user_event(raw: &Value, state: &AppState, conv_id: &str) {
         let call_id     = item["tool_use_id"].as_str().unwrap_or("").to_string();
         let is_error    = item["is_error"].as_bool().unwrap_or(false);
         let raw_content = item["content"].as_str().unwrap_or("").to_string();
-        let summary     = raw_content[..raw_content.len().min(200)].to_string();
+        let summary     = raw_content;
         let payload     = serde_json::json!({ "call_id": call_id, "ok": !is_error, "summary": summary });
         let db = state.db.lock().unwrap();
         if let Ok(seq) = insert_message(&db, conv_id, "tool_result", &payload) {
@@ -420,7 +420,7 @@ fn handle_user_event(raw: &Value, state: &AppState, conv_id: &str) {
 fn handle_result_event(raw: &Value, state: &AppState, conv_id: &str) {
     let status      = if raw["is_error"].as_bool().unwrap_or(false) { "failed" } else { "completed" };
     let raw_result  = raw["result"].as_str().unwrap_or("").to_string();
-    let summary     = raw_result[..raw_result.len().min(200)].to_string();
+    let summary     = raw_result;
     eprintln!("[runtime] result status={} conv_id={}", status, conv_id);
 
     {
