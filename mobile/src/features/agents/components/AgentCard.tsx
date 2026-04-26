@@ -1,25 +1,13 @@
 import { Zap } from 'lucide-react-native';
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { Agent, AgentStatus } from '@/types';
+import { Agent } from '@/types';
 
 interface Props {
   agent: Agent;
   onPress: () => void;
   index?: number;
 }
-
-const STATUS_COLOR: Record<AgentStatus, string> = {
-  active: '#33FF33',
-  inactive: '#2D8B2D',
-  error: '#FFB000',
-};
-
-const STATUS_BG: Record<AgentStatus, string> = {
-  active: '#0A1A0A',
-  inactive: '#0A1A0A',
-  error: '#1A1000',
-};
 
 function initials(name: string) {
   return name
@@ -30,9 +18,6 @@ function initials(name: string) {
 }
 
 export function AgentCard({ agent, onPress }: Props) {
-  const statusColor = STATUS_COLOR[agent.status];
-  const statusBg = STATUS_BG[agent.status];
-
   return (
     <Pressable
       onPress={onPress}
@@ -51,41 +36,31 @@ export function AgentCard({ agent, onPress }: Props) {
               </Text>
             </View>
           </View>
-          <View style={[s.statusBadge, { backgroundColor: statusBg }]}>
-            <View style={[s.statusDot, { backgroundColor: statusColor }]} />
-            <Text style={[s.statusText, { color: statusColor }]}>
-              {agent.status.toUpperCase()}
-            </Text>
+          <View style={s.runtimeBadge}>
+            <Text style={s.runtimeText}>{agent.runtime.toUpperCase()}</Text>
           </View>
         </View>
 
-        {/* Endpoint */}
+        {/* Project path */}
         <View style={s.endpointRow}>
           <Zap size={12} color="#0F6B0F" />
           <Text style={s.endpointText} numberOfLines={1}>
-            {agent.endpoint}
+            {agent.project_path}
           </Text>
         </View>
 
-        {/* Description */}
-        {agent.description ? (
-          <Text style={s.description} numberOfLines={2}>
-            {agent.description}
-          </Text>
-        ) : null}
+        {/* Endpoint label badge */}
+        <View style={s.machineRow}>
+          <Text style={s.machineText}>{agent.endpoint_label.toUpperCase()}</Text>
+        </View>
       </View>
     </Pressable>
   );
 }
 
 const s = StyleSheet.create({
-  wrap: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-  },
-  wrapPressed: {
-    opacity: 0.7,
-  },
+  wrap: { paddingHorizontal: 12, paddingVertical: 6 },
+  wrapPressed: { opacity: 0.7 },
   card: {
     backgroundColor: '#061206',
     borderRadius: 2,
@@ -117,60 +92,27 @@ const s = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  avatarText: {
-    fontFamily: 'Anton',
-    fontSize: 11,
-    color: '#20C20E',
-  },
-  nameLine: {
-    flex: 1,
-  },
-  agentName: {
-    fontFamily: 'Anton',
-    fontSize: 14,
-    color: '#20C20E',
-  },
-  statusBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
+  avatarText: { fontFamily: 'Anton', fontSize: 11, color: '#20C20E' },
+  nameLine: { flex: 1 },
+  agentName: { fontFamily: 'Anton', fontSize: 14, color: '#20C20E' },
+  runtimeBadge: {
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 2,
     borderWidth: 1,
     borderColor: '#0F2B0F',
+    backgroundColor: '#0A1A0A',
   },
-  statusDot: {
-    width: 5,
-    height: 5,
-    borderRadius: 3,
-  },
-  statusText: {
-    fontFamily: 'Inter',
-    fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: 0.8,
-  },
+  runtimeText: { fontFamily: 'Inter', fontSize: 10, fontWeight: '700', color: '#2D8B2D', letterSpacing: 0.8 },
   endpointRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
     paddingHorizontal: 16,
     paddingTop: 10,
-    paddingBottom: 10,
+    paddingBottom: 4,
   },
-  endpointText: {
-    fontFamily: 'Geist Mono',
-    fontSize: 11,
-    color: '#0F6B0F',
-    flex: 1,
-  },
-  description: {
-    fontFamily: 'Geist',
-    fontSize: 13,
-    color: '#147A16',
-    lineHeight: 18,
-    paddingHorizontal: 16,
-    paddingBottom: 12,
-  },
+  endpointText: { fontFamily: 'Geist Mono', fontSize: 11, color: '#0F6B0F', flex: 1 },
+  machineRow: { paddingHorizontal: 16, paddingBottom: 10 },
+  machineText: { fontFamily: 'Inter', fontSize: 10, color: '#2D8B2D', letterSpacing: 1.5 },
 });

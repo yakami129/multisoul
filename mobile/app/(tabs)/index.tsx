@@ -1,17 +1,19 @@
 import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import React from 'react';
-import { getApiClient } from '../../src/api';
 import { AgentList } from '../../src/features/agents/components/AgentList';
-import { fetchAgents } from '../../src/features/agents/services/agentService';
+import { fetchAllAgents } from '../../src/features/agents/services/agentService';
+import { useEndpointStore } from '../../src/store/endpointStore';
 
 export default function AgentListScreen() {
   const router = useRouter();
-  const client = getApiClient();
+  const endpoints = useEndpointStore((s) => s.endpoints);
+
   const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
-    queryKey: ['agents'],
-    queryFn: () => fetchAgents(client),
+    queryKey: ['agents', endpoints.map((e) => e.id)],
+    queryFn: () => fetchAllAgents(endpoints),
     refetchInterval: 30_000,
+    enabled: endpoints.length > 0,
   });
 
   return (
@@ -22,7 +24,7 @@ export default function AgentListScreen() {
       error={error}
       isFetching={isFetching}
       onRefetch={refetch}
-      onAgentPress={(id) => router.push(`/agent/${id}`)}
+      onAgentPress={(id, endpoint_id) => router.push(`/agent/${id}?endpoint_id=${endpoint_id}` as any)}
     />
   );
 }

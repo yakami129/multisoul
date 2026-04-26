@@ -1,18 +1,23 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { SafeAreaView, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useChatStore } from '@/store/chatStore';
 import ChatHomeScreen from '@/features/chat/components/ChatHomeScreen';
-import { mockConversations } from '@/features/chat/services/chatMockData';
+import { Conversation } from '@/types';
 
 export default function ChatTab() {
   const router = useRouter();
-  const [conversations] = useState(mockConversations);
+  const conversations = useChatStore((s) => s.conversations);
+
+  const handlePress = (conv: Conversation) => {
+    router.push(`/chat/${conv.id}?endpoint_id=${conv.endpoint_id}` as any);
+  };
 
   return (
     <SafeAreaView style={s.safe}>
       <ChatHomeScreen
         conversations={conversations}
-        onPressConversation={(id) => router.push(`/chat/${id}` as any)}
+        onPressConversation={handlePress}
         onPressNewChat={() => {}}
       />
     </SafeAreaView>
@@ -20,8 +25,5 @@ export default function ChatTab() {
 }
 
 const s = StyleSheet.create({
-  safe: {
-    flex: 1,
-    backgroundColor: '#040D04',
-  },
+  safe: { flex: 1, backgroundColor: '#040D04' },
 });

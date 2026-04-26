@@ -1,53 +1,29 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { SafeAreaView, StyleSheet } from 'react-native';
+import { useRouter } from 'expo-router';
+import { useInboxStore } from '@/store/inboxStore';
 import InboxScreen from '@/features/inbox/components/InboxScreen';
-import AnswerModal from '@/features/inbox/components/AnswerModal';
-import { mockInboxItems } from '@/features/inbox/services/inboxMockData';
-import { InboxItem } from '@/features/inbox/types';
+import { InboxItem } from '@/types';
 
 export default function InboxTab() {
-  const [items, setItems] = useState(mockInboxItems);
-  const [selectedItem, setSelectedItem] = useState<InboxItem | null>(null);
-  const [modalVisible, setModalVisible] = useState(false);
+  const items = useInboxStore((s) => s.items);
+  const markRead = useInboxStore((s) => s.markRead);
+  const router = useRouter();
 
-  const handleAnswer = (item: InboxItem) => {
-    setSelectedItem(item);
-    setModalVisible(true);
-  };
-
-  const handleDismiss = (id: string) => {
-    setItems((prev) => prev.filter((i) => i.id !== id));
-  };
-
-  const handleConfirm = (itemId: string, _selectedOptionId: string) => {
-    setItems((prev) => prev.filter((i) => i.id !== itemId));
-    setModalVisible(false);
-    setSelectedItem(null);
+  const handleOpen = (item: InboxItem) => {
+    markRead(item.id);
+    if (item.conversation_id) {
+      router.push(`/chat/${item.conversation_id}?endpoint_id=${item.endpoint_id}`);
+    }
   };
 
   return (
     <SafeAreaView style={s.safe}>
-      <InboxScreen
-        items={items}
-        onAnswer={handleAnswer}
-        onDismiss={handleDismiss}
-      />
-      <AnswerModal
-        visible={modalVisible}
-        item={selectedItem}
-        onClose={() => {
-          setModalVisible(false);
-          setSelectedItem(null);
-        }}
-        onConfirm={handleConfirm}
-      />
+      <InboxScreen items={items} onOpen={handleOpen} />
     </SafeAreaView>
   );
 }
 
 const s = StyleSheet.create({
-  safe: {
-    flex: 1,
-    backgroundColor: '#040D04',
-  },
+  safe: { flex: 1, backgroundColor: '#040D04' },
 });

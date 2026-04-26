@@ -1,37 +1,116 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { getApiClient } from '../../../src/api';
-import { fetchAgent } from '../../../src/features/agents/services/agentService';
-import { ChatScreen } from '../../../src/features/chat/components/ChatScreen';
-import { useChatSocket } from '../../../src/features/chat/hooks/useChatSocket';
-import { useSettingsStore } from '../../../src/store/settingsStore';
+import React, { useEffect, useRef, useState } from 'react';
+import {
+  KeyboardAvoidingView, Platform, SafeAreaView, ScrollView,
+  StyleSheet, Text, TextInput, TouchableOpacity, View,
+} from 'react-native';
+import { ChevronLeft, Send } from 'lucide-react-native';
+import { useChatStore } from '../../../src/store/chatStore';
+import { useEndpointStore } from '../../../src/store/endpointStore';
+import { useWebSocket } from '../../../src/hooks/useWebSocket';
+import { MessageBubble } from '../../../src/features/chat/components/MessageBubble';
+import { createConversation, fetchMessages, postMessage } from '../../../src/features/chat/services/chatService';
 
-export default function ChatRoute() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+export default function AgentChatRoute() {
+  const { id: agent_id, endpoint_id } = useLocalSearchParams<{ id: string; endpoint_id: string }>();
   const router = useRouter();
-  const { serverUrl, apiKey } = useSettingsStore((s) => s.settings);
-  const client = getApiClient();
+  const [input, setInput] = useState('');
+  const [convId, setConvId] = useState<string | null>(null);
+  const scrollRef = useRef<ScrollView>(null);
 
-  const { data: agent } = useQuery({
-    queryKey: ['agent', id],
-    queryFn: () => fetchAgent(client, id!),
-    enabled: !!id,
-  });
+  const endpoint = useEndpointStore((s) => s.endpoints.find((e) => e.id === endpoint_id));
+  const messages = useChatStore((s) => s.messages[convId ?? ''] ?? []);
+  const setMessages = useChatStore((s) => s.setMessages);
 
-  const { messages, status, send } = useChatSocket({
-    agentId: id!,
-    serverUrl,
-    apiKey,
-  });
+  const { status, sendAnswer } = useWebSocket(
+    endpoint && convId
+      ? { base_url: endpoint.base_url, token: endpoint.token, conv_id: convId }
+      : { base_url: '', token: '', conv_id: '' }
+  );
+
+  // Create a new conversation on mount
+  useEffect(() => {
+    if (!endpoint || !agent_id) return;
+    createConversation(endpoint.base_url, endpoint.token, agent_id, 'New Chat')
+      .then((conv) => {
+        setConvId(conv.id);
+        return fetchMessages(endpoint.base_url, endpoint.token, conv.id);
+      })
+      .then((msgs) => {
+        if (convId) setMessages(convId, msgs);
+      })
+      .catch(() => {});
+  }, [endpoint, agent_id]);
+
+  const handleSend = async () => {
+    const text = input.trim();
+    if (!text || !endpoint || !convId) return;
+    setInput('');
+    await postMessage(endpoint.base_url, endpoint.token, convId, text);
+    setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
+  };
+
+  const isOffline = !endpoint || !convId || status === 'closed';
 
   return (
-    <ChatScreen
-      agentName={agent?.name ?? 'Agent'}
-      messages={messages}
-      status={status}
-      onSend={send}
-      onBack={() => router.back()}
-    />
+    <SafeAreaView style={s.safe}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <View style={s.nav}>
+          <TouchableOpacity onPress={() => router.back()}>
+            <ChevronLeft size={24} color="#20C20E" />
+          </TouchableOpacity>
+          <Text style={s.navTitle}>CHAT</Text>
+          <View style={[s.dot, { backgroundColor: status === 'open' ? '#33FF33' : '#2D8B2D' }]} />
+        </View>
+
+        <ScrollView
+          ref={scrollRef}
+          style={s.scroll}
+          contentContainerStyle={s.scrollContent}
+          onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: false })}
+        >
+          {messages.map((msg) => (
+            <MessageBubble key={`${msg.seq}`} msg={msg} onAnswer={sendAnswer} />
+          ))}
+        </ScrollView>
+
+        <View style={s.inputBar}>
+          <View style={[s.inputField, isOffline && s.inputDisabled]}>
+            <TextInput
+              style={s.input}
+              placeholder={isOffline ? 'Connecting…' : 'Message…'}
+              placeholderTextColor="#2D8B2D"
+              value={input}
+              onChangeText={setInput}
+              editable={!isOffline}
+              returnKeyType="send"
+              onSubmitEditing={handleSend}
+            />
+          </View>
+          <TouchableOpacity onPress={handleSend} disabled={isOffline}>
+            <Send size={20} color={isOffline ? '#2D8B2D' : '#20C20E'} />
+          </TouchableOpacity>
+        </View>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
+
+const s = StyleSheet.create({
+  safe:          { flex: 1, backgroundColor: '#040D04' },
+  nav:           { height: 52, backgroundColor: '#061206', flexDirection: 'row',
+                   alignItems: 'center', justifyContent: 'space-between',
+                   paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: '#0F2B0F' },
+  navTitle:      { fontFamily: 'Anton', fontSize: 16, color: '#20C20E' },
+  dot:           { width: 8, height: 8, borderRadius: 4 },
+  scroll:        { flex: 1 },
+  scrollContent: { padding: 16, gap: 12 },
+  inputBar:      { height: 60, backgroundColor: '#061206', flexDirection: 'row',
+                   alignItems: 'center', paddingHorizontal: 12, gap: 8,
+                   borderTopWidth: 1, borderTopColor: '#0F2B0F' },
+  inputField:    { flex: 1, height: 36, backgroundColor: '#0A1A0A', borderRadius: 2,
+                   borderWidth: 1, borderColor: '#0F2B0F', paddingHorizontal: 14,
+                   justifyContent: 'center' },
+  inputDisabled: { opacity: 0.4 },
+  input:         { fontFamily: 'Geist', fontSize: 14, color: '#20C20E' },
+});
