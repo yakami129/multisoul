@@ -96,6 +96,7 @@ pub fn run_agent_turn(state: AppState, conv_id: String, project_path: String) {
                 "--input-format", "stream-json",
                 "--permission-prompt-tool", "stdio",
                 "--dangerously-skip-permissions",
+                "--verbose",
             ])
             .current_dir(&project_path)
             .stdin(Stdio::piped())
