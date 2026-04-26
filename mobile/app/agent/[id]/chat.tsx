@@ -5,11 +5,15 @@ import {
   StyleSheet, Text, TextInput, TouchableOpacity, View,
 } from 'react-native';
 import { ChevronLeft, Send } from 'lucide-react-native';
+import { WsMessage } from '../../../src/types';
 import { useChatStore } from '../../../src/store/chatStore';
 import { useEndpointStore } from '../../../src/store/endpointStore';
 import { useWebSocket } from '../../../src/hooks/useWebSocket';
 import { MessageBubble } from '../../../src/features/chat/components/MessageBubble';
 import { createConversation, fetchMessages, postMessage } from '../../../src/features/chat/services/chatService';
+
+// Stable fallback — never recreated, so Zustand won't see a changed snapshot (Bug 1 fix)
+const EMPTY: WsMessage[] = [];
 
 export default function AgentChatRoute() {
   const { id: agent_id, endpoint_id } = useLocalSearchParams<{ id: string; endpoint_id: string }>();
@@ -19,7 +23,10 @@ export default function AgentChatRoute() {
   const scrollRef = useRef<ScrollView>(null);
 
   const endpoint = useEndpointStore((s) => s.endpoints.find((e) => e.id === endpoint_id));
-  const messages = useChatStore((s) => s.messages[convId ?? ''] ?? []);
+  // Bug 1 fix: select the whole map so the selector returns a stable object reference;
+  // derive the per-conversation array outside the selector using the module-level EMPTY fallback.
+  const messagesMap = useChatStore((s) => s.messages);
+  const messages = messagesMap[convId ?? ''] ?? EMPTY;
   const setMessages = useChatStore((s) => s.setMessages);
 
   const { status, sendAnswer } = useWebSocket(
@@ -31,13 +38,17 @@ export default function AgentChatRoute() {
   // Create a new conversation on mount
   useEffect(() => {
     if (!endpoint || !agent_id) return;
+    // Bug 3 fix: capture conv.id in a closure-local variable so the second .then()
+    // doesn't read the stale convId state (which is still null at that point).
+    let newConvId: string;
     createConversation(endpoint.base_url, endpoint.token, agent_id, 'New Chat')
       .then((conv) => {
+        newConvId = conv.id;
         setConvId(conv.id);
         return fetchMessages(endpoint.base_url, endpoint.token, conv.id);
       })
       .then((msgs) => {
-        if (convId) setMessages(convId, msgs);
+        setMessages(newConvId, msgs);
       })
       .catch(() => {});
   }, [endpoint, agent_id]);

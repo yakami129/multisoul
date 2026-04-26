@@ -23,6 +23,11 @@ export function useWebSocket({ base_url, token, conv_id }: UseWebSocketOptions):
   const backoffRef = useRef(1000);
   const appendMessage = useChatStore((s) => s.appendMessage);
 
+  // Bug 2 fix: appendMessage is a new reference every render; hold it in a ref so it
+  // never enters the useCallback dependency array and doesn't trigger infinite reconnects.
+  const appendMessageRef = useRef(appendMessage);
+  useEffect(() => { appendMessageRef.current = appendMessage; }, [appendMessage]);
+
   const connect = useCallback(() => {
     if (!base_url) return;
     const wsUrl = base_url.replace(/^https/, 'wss').replace(/^http/, 'ws');
@@ -51,7 +56,7 @@ export function useWebSocket({ base_url, token, conv_id }: UseWebSocketOptions):
       try {
         const envelope = JSON.parse(event.data as string);
         if (envelope.type === 'message') {
-          appendMessage(conv_id, envelope as WsMessage);
+          appendMessageRef.current(conv_id, envelope as WsMessage);
         }
       } catch { /* ignore malformed */ }
     };
@@ -59,7 +64,7 @@ export function useWebSocket({ base_url, token, conv_id }: UseWebSocketOptions):
     ws.onerror = () => {
       ws.close();
     };
-  }, [base_url, token, conv_id, appendMessage]);
+  }, [base_url, token, conv_id]);
 
   useEffect(() => {
     connect();
