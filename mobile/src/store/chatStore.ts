@@ -14,12 +14,16 @@ export const useChatStore = create<ChatState>((set) => ({
   messages: {},
   setConversations: (conversations) => set({ conversations }),
   appendMessage: (conv_id, msg) =>
-    set((s) => ({
-      messages: {
-        ...s.messages,
-        [conv_id]: [...(s.messages[conv_id] ?? []), msg],
-      },
-    })),
+    set((s) => {
+      const existing = s.messages[conv_id] ?? [];
+      if (existing.some((m) => m.seq === msg.seq)) return s;
+      return {
+        messages: {
+          ...s.messages,
+          [conv_id]: [...existing, msg],
+        },
+      };
+    }),
   setMessages: (conv_id, msgs) =>
     set((s) => ({ messages: { ...s.messages, [conv_id]: msgs } })),
 }));

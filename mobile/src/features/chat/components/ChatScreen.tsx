@@ -159,40 +159,57 @@ export function ChatScreen({ agentName, messages, status, onSend, onBack }: Prop
         keyExtractor={(m) => m.id}
         contentContainerStyle={{ padding: 16, paddingBottom: 8 }}
         onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: true })}
-        renderItem={({ item }) => (
-          <View style={{
-            marginBottom: 12,
-            maxWidth: '80%',
-            alignSelf: item.role === 'user' ? 'flex-end' : 'flex-start',
-          }}>
+        renderItem={({ item }) => {
+          const isUser = item.role === 'user';
+          const isWaiting = 'waiting' in item;
+          return (
             <View style={{
-              borderRadius: 2,
-              paddingHorizontal: 12, paddingVertical: 8,
-              backgroundColor: item.role === 'user' ? '#0A1A0A' : '#061206',
-              borderWidth: 1,
-              borderColor: 'waiting' in item ? '#33FF33' : item.role === 'user' ? '#20C20E' : '#0F2B0F',
-              borderStyle: 'waiting' in item ? 'dashed' : 'solid',
+              marginBottom: 16,
+              maxWidth: '80%',
+              alignSelf: isUser ? 'flex-end' : 'flex-start',
             }}>
-              {'waiting' in item && (
+              <Text style={{
+                fontSize: 9,
+                fontFamily: 'Inter',
+                letterSpacing: 1.5,
+                color: '#0F6B0F',
+                marginBottom: 4,
+                textAlign: isUser ? 'right' : 'left',
+              }}>
+                {isUser ? 'YOU' : 'VAULT-TEC AI'}
+              </Text>
+              {isWaiting && (
                 <Text style={{
                   marginBottom: 4,
                   color: '#33FF33',
                   fontFamily: 'Geist Mono',
-                  fontSize: 10,
+                  fontSize: 9,
                   letterSpacing: 1.8,
                 }}>
                   ACCESSING NEURAL LINK
                 </Text>
               )}
-              <Text style={{
-                fontSize: 15, fontFamily: 'Geist',
-                color: 'waiting' in item ? '#7CFF6B' : item.role === 'user' ? '#33FF33' : '#20C20E',
+              <View style={{
+                borderTopLeftRadius: isUser ? 12 : 2,
+                borderTopRightRadius: isUser ? 2 : 12,
+                borderBottomLeftRadius: 12,
+                borderBottomRightRadius: 12,
+                paddingHorizontal: 12, paddingVertical: 8,
+                backgroundColor: isUser ? '#20C20E' : '#061206',
+                borderWidth: isUser ? 0 : 1,
+                borderColor: isWaiting ? '#33FF33' : '#0F2B0F',
+                borderStyle: isWaiting ? 'dashed' : 'solid',
               }}>
-                {getDisplayText(item)}
-              </Text>
+                <Text style={{
+                  fontSize: 15, fontFamily: 'Geist',
+                  color: isUser ? '#040D04' : (isWaiting ? '#7CFF6B' : '#20C20E'),
+                }}>
+                  {getDisplayText(item)}
+                </Text>
+              </View>
             </View>
-          </View>
-        )}
+          );
+        }}
       />
 
       {/* Input */}

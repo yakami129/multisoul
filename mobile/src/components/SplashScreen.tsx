@@ -97,7 +97,6 @@ const BOOT_LINES = [
   '[0.014] VAULT-TEC BIOS 7.04 // KRN 0xA77F4C',
   '[0.029] MMAP 0x4F0C_A300 → 0x4F0F_FFFF  [ OK ]',
   '[0.041] HOLOTAPE MOUNT /dev/vault/0...... OK',
-  '──────────────────────────────────────────',
   '[0.082] daemon: agent-registry  ▓▓▓▓▓▓▓▓ UP',
   '[0.108] daemon: cipher.aes-gcm  ▓▓▓▓▓▓▓▓ UP',
   '[0.137] daemon: auth.handshake  ░ RETRY 1/3',
@@ -105,7 +104,6 @@ const BOOT_LINES = [
   '[0.187] ICE-BREAKER  CHL 0x4FA7 ░░░░░░░ ACK',
   '[0.214] BIO-ID SCAN  ▓▓▓▓▓▓▓▓░░ MATCH 99.7%',
   '[0.246] G.E.C.K. INTEGRITY ░ CRC 0xC0DECAFE',
-  '──────────────────────────────────────────',
   '[0.301] NEURAL UPLINK ESTABLISHED ░ CRC OK',
   '[0.318] >>> WELCOME, DWELLER 706',
 ];
