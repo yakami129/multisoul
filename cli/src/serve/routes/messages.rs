@@ -87,7 +87,7 @@ pub async fn post_message(
         ).ok()
     };
     if let Some(path) = project_path {
-        runtime::run_agent_turn(state.clone(), conv_id.clone(), path);
+        runtime::send_to_session(&state, &conv_id, &body.text, &path);
     }
 
     let envelope = serde_json::json!({
