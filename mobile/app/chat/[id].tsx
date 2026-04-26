@@ -11,14 +11,24 @@ import { useEndpointStore } from '@/store/endpointStore';
 import { useWebSocket } from '@/hooks/useWebSocket';
 import { MessageBubble } from '@/features/chat/components/MessageBubble';
 import { postMessage, fetchMessages } from '@/features/chat/services/chatService';
+import { getLatestAgentActivitySeq, getLatestAgentTextSeq } from '@/features/chat/utils/chatRenderState';
 
 // Stable fallback — never recreated, so Zustand won't see a changed snapshot
 const EMPTY: WsMessage[] = [];
+const WAITING_MESSAGE: WsMessage = {
+  type: 'message',
+  seq: -1,
+  role: 'agent_text',
+  payload: { text: '' },
+  created_at: 0,
+};
 
 export default function ChatDetailScreen() {
   const { id: conv_id, endpoint_id } = useLocalSearchParams<{ id: string; endpoint_id: string }>();
   const router = useRouter();
   const [input, setInput] = useState('');
+  const [isAwaitingResponse, setIsAwaitingResponse] = useState(false);
+  const [typewriterSeq, setTypewriterSeq] = useState<number | null>(null);
   const scrollRef = useRef<ScrollView>(null);
 
   const endpoint = useEndpointStore((s) => s.endpoints.find((e) => e.id === endpoint_id));
@@ -29,6 +39,17 @@ export default function ChatDetailScreen() {
   const messages = messagesMap[conv_id] ?? EMPTY;
   const setMessages = useChatStore((s) => s.setMessages);
   const conversation = conversations.find((c) => c.id === conv_id);
+  const latestAgentActivitySeq = getLatestAgentActivitySeq(messages);
+  const latestAgentSeq = getLatestAgentTextSeq(messages);
+  const lastSeenAgentActivitySeqRef = useRef(latestAgentActivitySeq);
+  const lastAnimatedAgentTextSeqRef = useRef(latestAgentSeq);
+  const incomingAgentActivitySeq = isAwaitingResponse && latestAgentActivitySeq > lastSeenAgentActivitySeqRef.current
+    ? latestAgentActivitySeq
+    : null;
+  const incomingAgentTextSeq = latestAgentSeq > lastAnimatedAgentTextSeqRef.current
+    ? latestAgentSeq
+    : null;
+  const activeTypewriterSeq = incomingAgentTextSeq ?? typewriterSeq;
 
   const { status, sendAnswer, sendAnswerMulti } = useWebSocket(
     endpoint
@@ -53,12 +74,35 @@ export default function ChatDetailScreen() {
   const handleSend = async () => {
     const text = input.trim();
     if (!text || !endpoint) return;
+    lastSeenAgentActivitySeqRef.current = getLatestAgentActivitySeq(messages);
+    lastAnimatedAgentTextSeqRef.current = getLatestAgentTextSeq(messages);
     setInput('');
-    await postMessage(endpoint.base_url, endpoint.token, conv_id, text);
-    setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
+    setIsAwaitingResponse(true);
+    setTypewriterSeq(null);
+    try {
+      await postMessage(endpoint.base_url, endpoint.token, conv_id, text);
+      setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
+    } catch {
+      setIsAwaitingResponse(false);
+    }
   };
 
   const isOffline = !endpoint || status === 'closed';
+  const composerDisabled = isOffline || isAwaitingResponse;
+
+  useEffect(() => {
+    if (isAwaitingResponse && latestAgentActivitySeq > lastSeenAgentActivitySeqRef.current) {
+      setIsAwaitingResponse(false);
+      lastSeenAgentActivitySeqRef.current = latestAgentActivitySeq;
+    } else if (!isAwaitingResponse && latestAgentActivitySeq > lastSeenAgentActivitySeqRef.current) {
+      lastSeenAgentActivitySeqRef.current = latestAgentActivitySeq;
+    }
+
+    if (latestAgentSeq > lastAnimatedAgentTextSeqRef.current) {
+      setTypewriterSeq(latestAgentSeq);
+      lastAnimatedAgentTextSeqRef.current = latestAgentSeq;
+    }
+  }, [isAwaitingResponse, latestAgentActivitySeq, latestAgentSeq]);
 
   return (
     <SafeAreaView style={s.safe}>
@@ -81,27 +125,35 @@ export default function ChatDetailScreen() {
             <MessageBubble
               key={`${msg.seq}`}
               msg={msg}
+              typewriter={msg.seq === activeTypewriterSeq}
               onAnswer={sendAnswer}
               onAnswerMulti={sendAnswerMulti}
             />
           ))}
+          {isAwaitingResponse && incomingAgentActivitySeq === null && (
+            <MessageBubble msg={WAITING_MESSAGE} waiting />
+          )}
         </ScrollView>
 
         <View style={s.inputBar}>
-          <View style={[s.inputField, isOffline && s.inputDisabled]}>
+          <View style={[s.inputField, composerDisabled && s.inputDisabled]}>
             <TextInput
               style={s.input}
               placeholder={isOffline ? 'Agent offline...' : 'Message...'}
               placeholderTextColor="#2D8B2D"
               value={input}
               onChangeText={setInput}
-              editable={!isOffline}
+              editable={!composerDisabled}
               returnKeyType="send"
               onSubmitEditing={handleSend}
             />
           </View>
-          <TouchableOpacity onPress={handleSend} disabled={isOffline}>
-            <Send size={20} color={isOffline ? '#2D8B2D' : '#20C20E'} />
+          <TouchableOpacity onPress={handleSend} disabled={composerDisabled}>
+            {isAwaitingResponse ? (
+              <Text style={s.waitText}>WAIT</Text>
+            ) : (
+              <Send size={20} color={composerDisabled ? '#2D8B2D' : '#20C20E'} />
+            )}
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
@@ -126,4 +178,5 @@ const s = StyleSheet.create({
                    justifyContent: 'center' },
   inputDisabled: { opacity: 0.4 },
   input:         { fontFamily: 'Geist', fontSize: 14, color: '#20C20E' },
+  waitText:      { fontFamily: 'Geist Mono', fontSize: 10, color: '#33FF33', letterSpacing: 1 },
 });

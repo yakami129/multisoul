@@ -11,14 +11,24 @@ import { useEndpointStore } from '../../../src/store/endpointStore';
 import { useWebSocket } from '../../../src/hooks/useWebSocket';
 import { MessageBubble } from '../../../src/features/chat/components/MessageBubble';
 import { createConversation, fetchMessages, postMessage } from '../../../src/features/chat/services/chatService';
+import { getLatestAgentActivitySeq, getLatestAgentTextSeq } from '../../../src/features/chat/utils/chatRenderState';
 
 // Stable fallback — never recreated, so Zustand won't see a changed snapshot (Bug 1 fix)
 const EMPTY: WsMessage[] = [];
+const WAITING_MESSAGE: WsMessage = {
+  type: 'message',
+  seq: -1,
+  role: 'agent_text',
+  payload: { text: '' },
+  created_at: 0,
+};
 
 export default function AgentChatRoute() {
   const { id: agent_id, endpoint_id, agent_name } = useLocalSearchParams<{ id: string; endpoint_id: string; agent_name?: string }>();
   const router = useRouter();
   const [input, setInput] = useState('');
+  const [isAwaitingResponse, setIsAwaitingResponse] = useState(false);
+  const [typewriterSeq, setTypewriterSeq] = useState<number | null>(null);
   const [convId, setConvId] = useState<string | null>(null);
   const scrollRef = useRef<ScrollView>(null);
 
@@ -44,6 +54,17 @@ export default function AgentChatRoute() {
       return latestSeq.get(p.task_id) === msg.seq;
     });
   }, [messages]);
+  const latestAgentActivitySeq = getLatestAgentActivitySeq(displayMessages);
+  const latestAgentSeq = getLatestAgentTextSeq(displayMessages);
+  const lastSeenAgentActivitySeqRef = useRef(latestAgentActivitySeq);
+  const lastAnimatedAgentTextSeqRef = useRef(latestAgentSeq);
+  const incomingAgentActivitySeq = isAwaitingResponse && latestAgentActivitySeq > lastSeenAgentActivitySeqRef.current
+    ? latestAgentActivitySeq
+    : null;
+  const incomingAgentTextSeq = latestAgentSeq > lastAnimatedAgentTextSeqRef.current
+    ? latestAgentSeq
+    : null;
+  const activeTypewriterSeq = incomingAgentTextSeq ?? typewriterSeq;
 
   const { status, sendAnswer, sendAnswerMulti } = useWebSocket(
     endpoint && convId
@@ -77,12 +98,35 @@ export default function AgentChatRoute() {
   const handleSend = async () => {
     const text = input.trim();
     if (!text || !endpoint || !convId) return;
+    lastSeenAgentActivitySeqRef.current = getLatestAgentActivitySeq(displayMessages);
+    lastAnimatedAgentTextSeqRef.current = getLatestAgentTextSeq(displayMessages);
     setInput('');
-    await postMessage(endpoint.base_url, endpoint.token, convId, text);
-    setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
+    setIsAwaitingResponse(true);
+    setTypewriterSeq(null);
+    try {
+      await postMessage(endpoint.base_url, endpoint.token, convId, text);
+      setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
+    } catch {
+      setIsAwaitingResponse(false);
+    }
   };
 
   const isOffline = !endpoint || !convId || status === 'closed';
+  const composerDisabled = isOffline || isAwaitingResponse;
+
+  useEffect(() => {
+    if (isAwaitingResponse && latestAgentActivitySeq > lastSeenAgentActivitySeqRef.current) {
+      setIsAwaitingResponse(false);
+      lastSeenAgentActivitySeqRef.current = latestAgentActivitySeq;
+    } else if (!isAwaitingResponse && latestAgentActivitySeq > lastSeenAgentActivitySeqRef.current) {
+      lastSeenAgentActivitySeqRef.current = latestAgentActivitySeq;
+    }
+
+    if (latestAgentSeq > lastAnimatedAgentTextSeqRef.current) {
+      setTypewriterSeq(latestAgentSeq);
+      lastAnimatedAgentTextSeqRef.current = latestAgentSeq;
+    }
+  }, [isAwaitingResponse, latestAgentActivitySeq, latestAgentSeq]);
 
   return (
     <SafeAreaView style={s.safe}>
@@ -102,25 +146,38 @@ export default function AgentChatRoute() {
           onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: false })}
         >
           {displayMessages.map((msg) => (
-            <MessageBubble key={`${msg.seq}`} msg={msg} onAnswer={sendAnswer} onAnswerMulti={sendAnswerMulti} />
+            <MessageBubble
+              key={`${msg.seq}`}
+              msg={msg}
+              typewriter={msg.seq === activeTypewriterSeq}
+              onAnswer={sendAnswer}
+              onAnswerMulti={sendAnswerMulti}
+            />
           ))}
+          {isAwaitingResponse && incomingAgentActivitySeq === null && (
+            <MessageBubble msg={WAITING_MESSAGE} waiting />
+          )}
         </ScrollView>
 
         <View style={s.inputBar}>
-          <View style={[s.inputField, isOffline && s.inputDisabled]}>
+          <View style={[s.inputField, composerDisabled && s.inputDisabled]}>
             <TextInput
               style={s.input}
               placeholder={isOffline ? 'Connecting…' : 'Message…'}
               placeholderTextColor="#2D8B2D"
               value={input}
               onChangeText={setInput}
-              editable={!isOffline}
+              editable={!composerDisabled}
               returnKeyType="send"
               onSubmitEditing={handleSend}
             />
           </View>
-          <TouchableOpacity onPress={handleSend} disabled={isOffline}>
-            <Send size={20} color={isOffline ? '#2D8B2D' : '#20C20E'} />
+          <TouchableOpacity onPress={handleSend} disabled={composerDisabled}>
+            {isAwaitingResponse ? (
+              <Text style={s.waitText}>WAIT</Text>
+            ) : (
+              <Send size={20} color={composerDisabled ? '#2D8B2D' : '#20C20E'} />
+            )}
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
@@ -145,4 +202,5 @@ const s = StyleSheet.create({
                    justifyContent: 'center' },
   inputDisabled: { opacity: 0.4 },
   input:         { fontFamily: 'Geist', fontSize: 14, color: '#20C20E' },
+  waitText:      { fontFamily: 'Geist Mono', fontSize: 10, color: '#33FF33', letterSpacing: 1 },
 });
