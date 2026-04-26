@@ -1,9 +1,0 @@
-spring:
-  datasource:
-    url: jdbc:tc:postgresql:15:///multisoul
-    driver-class-name: org.testcontainers.jdbc.ContainerDatabaseDriver
-  jpa:
-    hibernate:
-      ddl-auto: validate
-  flyway:
-    enabled: true

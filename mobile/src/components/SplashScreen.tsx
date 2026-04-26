@@ -107,7 +107,7 @@ const BOOT_LINES = [
   '[0.246] G.E.C.K. INTEGRITY ░ CRC 0xC0DECAFE',
   '──────────────────────────────────────────',
   '[0.301] NEURAL UPLINK ESTABLISHED ░ CRC OK',
-  '[0.318] >>> WELCOME, DWELLER 111',
+  '[0.318] >>> WELCOME, DWELLER 706',
 ];
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -137,10 +137,13 @@ export function SplashScreen({ onComplete }: Props) {
   const [rows, setRows] = useState<string[]>(() => art.map((line) => noiseLine(line)));
   const [scanRow, setScanRow] = useState(0);
   const [phase, setPhase] = useState<Phase>('scan');
-  const [bootCount, setBootCount] = useState(0);
+  const [bootLine, setBootLine] = useState(0);
+  const [bootChar, setBootChar] = useState(0);
   const [showProgress, setShowProgress] = useState(false);
   const [hexAddr, setHexAddr] = useState(() => randomHexAddr());
   const [progressPct, setProgressPct] = useState(0);
+  const [cursorOn, setCursorOn] = useState(true);
+  const bootBoxOpacity = useRef(new Animated.Value(0)).current;
 
   const scanRowRef = useRef(0);
   const scanTickRef = useRef(0);
@@ -276,19 +279,54 @@ export function SplashScreen({ onComplete }: Props) {
     return () => clearTimeout(t);
   }, [phase, brandOpacity]);
 
+  // Boot panel fade-in (box appears first, then typing begins)
+  useEffect(() => {
+    if (phase === 'scan' || phase === 'brand') return;
+    Animated.timing(bootBoxOpacity, {
+      toValue: 1,
+      duration: 220,
+      useNativeDriver: true,
+    }).start();
+  }, [phase, bootBoxOpacity]);
+
+  // Cursor blink — runs whenever the boot panel is visible
+  useEffect(() => {
+    if (phase === 'scan' || phase === 'brand') return;
+    const id = setInterval(() => setCursorOn((v) => !v), 480);
+    return () => clearInterval(id);
+  }, [phase]);
+
+  // Typewriter — char-by-char, holds box at full reserved height
   useEffect(() => {
     if (phase !== 'boot') return;
-    let idx = 0;
-    const t = setInterval(() => {
-      idx += 1;
-      setBootCount(idx);
-      if (idx >= BOOT_LINES.length) {
-        clearInterval(t);
-        setShowProgress(true);
-        setPhase('progress');
-      }
-    }, 65);
-    return () => clearInterval(t);
+    let line = 0;
+    let char = 0;
+    let interval: ReturnType<typeof setInterval> | null = null;
+    const startDelay = setTimeout(() => {
+      interval = setInterval(() => {
+        if (line >= BOOT_LINES.length) {
+          if (interval) clearInterval(interval);
+          interval = null;
+          setShowProgress(true);
+          setPhase('progress');
+          return;
+        }
+        const text = BOOT_LINES[line];
+        const next = Math.min(char + 6, text.length);
+        setBootLine(line);
+        setBootChar(next);
+        if (next >= text.length) {
+          line += 1;
+          char = 0;
+        } else {
+          char = next;
+        }
+      }, 22);
+    }, 320);
+    return () => {
+      clearTimeout(startDelay);
+      if (interval) clearInterval(interval);
+    };
   }, [phase]);
 
   useEffect(() => {
@@ -426,18 +464,24 @@ export function SplashScreen({ onComplete }: Props) {
         </Animated.View>
       )}
 
-      {/* Boot log */}
-      {bootCount > 0 && (
-        <View style={s.bootWrap}>
+      {/* Boot log — panel renders at full reserved height first, then types in */}
+      {phase !== 'scan' && phase !== 'brand' && (
+        <Animated.View style={[s.bootWrap, { opacity: bootBoxOpacity }]}>
           <Text style={s.bootHeading} allowFontScaling={false}>
             ░░ SYS.LOG  STREAM 0xA77F4C  PID 0001 ░░
           </Text>
-          {BOOT_LINES.slice(0, bootCount).map((line, i) => {
+          {BOOT_LINES.map((line, i) => {
             const hasUp = / UP$/.test(line) || line.includes('[ OK ]') || line.endsWith(' OK');
             const hasAck = line.includes(' ACK') || line.includes('MATCH');
             const hasRetry = line.includes('RETRY') || line.includes('FAIL');
             const hasHero = line.includes('>>>');
             const hasHex = line.includes('0x');
+
+            const isTyped = i < bootLine;
+            const isTyping = i === bootLine && phase === 'boot';
+            const displayed = isTyped ? line : isTyping ? line.slice(0, bootChar) : '';
+            const showCursor = isTyping;
+
             return (
               <Text
                 key={i}
@@ -453,14 +497,14 @@ export function SplashScreen({ onComplete }: Props) {
                 ]}
                 allowFontScaling={false}
               >
-                {line}
+                {displayed || ' '}
+                {showCursor && (
+                  <Text style={s.cursor}>{cursorOn ? '█' : ' '}</Text>
+                )}
               </Text>
             );
           })}
-          {bootCount < BOOT_LINES.length && (
-            <Text style={s.cursor} allowFontScaling={false}>█</Text>
-          )}
-        </View>
+        </Animated.View>
       )}
 
       {/* Progress bar with live percentage */}
