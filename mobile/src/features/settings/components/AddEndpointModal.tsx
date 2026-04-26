@@ -39,7 +39,42 @@ export function AddEndpointModal({ visible, onClose, onAdd }: Props) {
       onAdd(label.trim(), finalUrl, finalToken);
       reset();
       onClose();
-    } catch {
+    } catch (e: any) {
+      console.error('[AddEndpoint] healthz failed:', JSON.stringify({
+        message: e?.message,
+        code: e?.code,
+        status: e?.response?.status,
+        url: finalUrl,
+      }));
+      // Debug: test DNS + connectivity step by step
+      try {
+        console.log('[AddEndpoint] Testing fetch to:', `${finalUrl}/api/v1/healthz`);
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 5000);
+        const res = await fetch(`${finalUrl}/api/v1/healthz`, {
+          headers: { 'Authorization': `Bearer ${finalToken}` },
+          signal: controller.signal,
+        });
+        clearTimeout(timeout);
+        console.log('[AddEndpoint] fetch status:', res.status);
+        const body = await res.text();
+        console.log('[AddEndpoint] fetch body:', body);
+        if (res.ok) {
+          onAdd(label.trim(), finalUrl, finalToken);
+          reset();
+          onClose();
+          return;
+        }
+      } catch (e2: any) {
+        console.error('[AddEndpoint] fetch also failed:', e2?.message, e2?.name);
+      }
+      // Debug: try a known public HTTPS endpoint to rule out general networking issue
+      try {
+        const pub = await fetch('https://httpbin.org/get');
+        console.log('[AddEndpoint] public HTTPS works:', pub.status);
+      } catch (e3: any) {
+        console.error('[AddEndpoint] public HTTPS also failed:', e3?.message);
+      }
       setStatus('err');
     }
   };

@@ -1,6 +1,11 @@
 import { Conversation, WsMessage } from '@/types';
 import { getEndpointClient } from '@/api/endpointClient';
 
+function buildConversationWsUrl(base_url: string, token: string, conv_id: string): string {
+  const wsUrl = base_url.replace(/^https/, 'wss').replace(/^http/, 'ws');
+  return `${wsUrl}/ws/conversations/${conv_id}?token=${token}`;
+}
+
 export async function fetchConversations(
   base_url: string, token: string, agent_id: string, endpoint_id: string, agent_name: string
 ): Promise<Conversation[]> {
@@ -37,4 +42,61 @@ export async function postMessage(
 ): Promise<void> {
   const client = getEndpointClient(base_url, token);
   await client.post(`/api/v1/conversations/${conv_id}/messages`, { text });
+}
+
+export async function sendConversationAnswer(
+  base_url: string,
+  token: string,
+  conv_id: string,
+  payload: {
+    ask_id: string;
+    choice_id?: string;
+    choice_ids?: Record<string, string>;
+    freeform?: string;
+  }
+): Promise<void> {
+  await new Promise<void>((resolve, reject) => {
+    const ws = new WebSocket(buildConversationWsUrl(base_url, token, conv_id));
+    let settled = false;
+
+    const finish = (fn: () => void) => {
+      if (settled) return;
+      settled = true;
+      fn();
+    };
+
+    const cleanup = () => {
+      ws.onopen = null;
+      ws.onerror = null;
+      ws.onclose = null;
+      ws.onmessage = null;
+    };
+
+    const timeout = setTimeout(() => {
+      cleanup();
+      try { ws.close(); } catch {}
+      finish(() => reject(new Error('Timed out waiting for answer socket')));
+    }, 10_000);
+
+    ws.onopen = () => {
+      ws.send(JSON.stringify({ type: 'answer', ...payload }));
+      clearTimeout(timeout);
+      cleanup();
+      try { ws.close(); } catch {}
+      finish(resolve);
+    };
+
+    ws.onerror = () => {
+      clearTimeout(timeout);
+      cleanup();
+      try { ws.close(); } catch {}
+      finish(() => reject(new Error('Failed to open answer socket')));
+    };
+
+    ws.onclose = () => {
+      clearTimeout(timeout);
+      cleanup();
+      if (!settled) finish(() => reject(new Error('Answer socket closed before sending')));
+    };
+  });
 }

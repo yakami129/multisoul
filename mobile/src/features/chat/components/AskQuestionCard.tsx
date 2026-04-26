@@ -45,11 +45,11 @@ export default function AskQuestionCard({ question, subtitle, options, onCancel,
 
         {/* Options */}
         <View style={s.optsList}>
-          {options.map((opt) => {
+          {options.map((opt, index) => {
             const selected = selectedId === opt.id;
             return (
               <TouchableOpacity
-                key={opt.id}
+                key={`${opt.id}-${index}`}
                 style={[s.option, selected && s.optionSelected, answered && s.optionReadonly]}
                 onPress={() => !answered && setSelectedId(opt.id)}
                 activeOpacity={answered ? 1 : 0.7}

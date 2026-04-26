@@ -5,7 +5,7 @@ import { useInboxStore } from '@/store/inboxStore';
 import { useEndpointStore } from '@/store/endpointStore';
 import InboxScreen from '@/features/inbox/components/InboxScreen';
 import { InboxItem } from '@/types';
-import { getEndpointClient } from '@/api/endpointClient';
+import { sendConversationAnswer } from '@/features/chat/services/chatService';
 
 export default function InboxTab() {
   const items = useInboxStore((s) => s.items);
@@ -28,10 +28,24 @@ export default function InboxTab() {
   ) => {
     const ep = endpoints.find((e) => e.id === item.endpoint_id);
     if (!ep) return;
-    const client = getEndpointClient(ep.base_url, ep.token);
     try {
-      await client.post(`/api/v1/conversations/${item.conversation_id}/messages`, {
-        type: 'answer', ask_id, choice_id, freeform,
+      await sendConversationAnswer(ep.base_url, ep.token, item.conversation_id, {
+        ask_id, choice_id, freeform,
+      });
+      markRead(item.id);
+    } catch { /* ignore */ }
+  };
+
+  const handleAnswerMulti = async (
+    item: InboxItem,
+    ask_id: string,
+    choice_ids: Record<string, string>
+  ) => {
+    const ep = endpoints.find((e) => e.id === item.endpoint_id);
+    if (!ep) return;
+    try {
+      await sendConversationAnswer(ep.base_url, ep.token, item.conversation_id, {
+        ask_id, choice_ids,
       });
       markRead(item.id);
     } catch { /* ignore */ }
@@ -39,7 +53,12 @@ export default function InboxTab() {
 
   return (
     <SafeAreaView style={s.safe}>
-      <InboxScreen items={items} onOpen={handleOpen} onAnswer={handleAnswer} />
+      <InboxScreen
+        items={items}
+        onOpen={handleOpen}
+        onAnswer={handleAnswer}
+        onAnswerMulti={handleAnswerMulti}
+      />
     </SafeAreaView>
   );
 }

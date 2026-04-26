@@ -16,7 +16,7 @@ import { createConversation, fetchMessages, postMessage } from '../../../src/fea
 const EMPTY: WsMessage[] = [];
 
 export default function AgentChatRoute() {
-  const { id: agent_id, endpoint_id } = useLocalSearchParams<{ id: string; endpoint_id: string }>();
+  const { id: agent_id, endpoint_id, agent_name } = useLocalSearchParams<{ id: string; endpoint_id: string; agent_name?: string }>();
   const router = useRouter();
   const [input, setInput] = useState('');
   const [convId, setConvId] = useState<string | null>(null);
@@ -47,9 +47,14 @@ export default function AgentChatRoute() {
 
   const { status, sendAnswer, sendAnswerMulti } = useWebSocket(
     endpoint && convId
-      ? { base_url: endpoint.base_url, token: endpoint.token, conv_id: convId }
-      : { base_url: '', token: '', conv_id: '' }
+      ? { base_url: endpoint.base_url, token: endpoint.token, conv_id: convId, endpoint_id: endpoint_id ?? '', agent_id: agent_id ?? '', agent_name }
+      : { base_url: '', token: '', conv_id: '', endpoint_id: '', agent_id: '', agent_name: '' }
   );
+
+
+
+
+
 
   // Create a new conversation on mount
   useEffect(() => {

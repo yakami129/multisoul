@@ -70,7 +70,7 @@ export default function MultiAskQuestionCard({ questions, onCancel, onConfirm }:
 
           return (
             <View
-              key={q.id}
+              key={`${q.id}-${idx}`}
               style={[
                 s.section,
                 idx < questions.length - 1 && s.sectionBorder,
@@ -85,11 +85,11 @@ export default function MultiAskQuestionCard({ questions, onCancel, onConfirm }:
               {/* Show options only for active question; show selected option for done questions */}
               {isActive && (
                 <View style={s.opts}>
-                  {q.options.map((opt) => {
+                  {q.options.map((opt, optIndex) => {
                     const selected = selectedOptId === opt.id;
                     return (
                       <TouchableOpacity
-                        key={opt.id}
+                        key={`${q.id}-${opt.id}-${optIndex}`}
                         style={[s.opt, selected && s.optSelected]}
                         onPress={() => handleSelect(q.id, opt.id)}
                         activeOpacity={0.7}
@@ -106,8 +106,8 @@ export default function MultiAskQuestionCard({ questions, onCancel, onConfirm }:
                 <View style={s.opts}>
                   {q.options
                     .filter((opt) => opt.id === selectedOptId)
-                    .map((opt) => (
-                      <View key={opt.id} style={[s.opt, s.optSelected]}>
+                    .map((opt, optIndex) => (
+                      <View key={`${q.id}-${opt.id}-selected-${optIndex}`} style={[s.opt, s.optSelected]}>
                         <View style={[s.radio, s.radioSelected]} />
                         <Text style={s.optLabel}>{opt.label}</Text>
                       </View>
