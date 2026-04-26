@@ -55,6 +55,25 @@ cargo test
 cargo test <test_name>
 ```
 
+
+### iOS 发布 (EAS Build + TestFlight)
+
+```bash
+cd mobile
+
+# 构建 + 提交 TestFlight（一键）
+./scripts/publish-ios.sh
+
+# 只构建
+./scripts/publish-ios.sh --build-only
+
+# 只提交最新构建
+./scripts/publish-ios.sh --submit-only
+```
+
+发布前确认 `eas.json` 中 `submit.production.ios` 已填写 `appleId`、`ascAppId`、`appleTeamId`。
+
+> **注意：** `publish-ios.sh` 是长时间运行的云端构建任务（15-20 分钟），Claude 不能代为执行。请在你自己的终端中运行。
 ---
 
 ## Architecture
