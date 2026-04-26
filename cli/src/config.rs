@@ -2,19 +2,9 @@ use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct Config {
-    pub api_key: String,
-    pub server_url: String,
-}
-
-impl Default for Config {
-    fn default() -> Self {
-        Config {
-            api_key: String::new(),
-            server_url: "http://localhost:8080".to_string(),
-        }
-    }
+    pub serve_token: String,
 }
 
 pub fn config_path() -> Result<PathBuf> {
@@ -26,15 +16,11 @@ pub fn config_path() -> Result<PathBuf> {
 pub fn load_config() -> Result<Config> {
     let path = config_path()?;
     if !path.exists() {
-        anyhow::bail!(
-            "Config not found. Run 'msctl auth login --key <api_key>' first."
-        );
+        return Ok(Config::default());
     }
     let content = std::fs::read_to_string(&path)
         .with_context(|| format!("Cannot read config at {}", path.display()))?;
-    let config: Config = toml::from_str(&content)
-        .context("Config file is malformed")?;
-    Ok(config)
+    toml::from_str(&content).context("Config file is malformed")
 }
 
 pub fn save_config(config: &Config) -> Result<()> {
@@ -54,45 +40,31 @@ pub fn save_config(config: &Config) -> Result<()> {
 mod tests {
     use super::*;
 
-    /// Config round-trip: write a Config to a temp path, read it back, verify all fields.
-    ///
-    /// Data construction:
-    ///   api_key    = "ms_testkey123"
-    ///   server_url = "https://api.example.com"
+    /// Config round-trip with serve_token only.
     ///
     /// Execution:
-    ///   1. Serialize Config to TOML string
-    ///   2. Deserialize back from the same string
+    ///   1. Serialize Config { serve_token: "ms_v2_abc" } to TOML
+    ///   2. Deserialize back
     ///
     /// Expected:
-    ///   - api_key matches exactly
-    ///   - server_url matches exactly
+    ///   - serve_token == "ms_v2_abc"
     #[test]
-    fn test_config_round_trip() {
-        let config = Config {
-            api_key: "ms_testkey123".to_string(),
-            server_url: "https://api.example.com".to_string(),
-        };
-        let content = toml::to_string_pretty(&config).unwrap();
-        let loaded: Config = toml::from_str(&content).unwrap();
-        assert_eq!(loaded.api_key, "ms_testkey123",
-            "api_key should survive round-trip");
-        assert_eq!(loaded.server_url, "https://api.example.com",
-            "server_url should survive round-trip");
+    fn test_config_serve_token_round_trip() {
+        let config = Config { serve_token: "ms_v2_abc".to_string() };
+        let s = toml::to_string_pretty(&config).unwrap();
+        let loaded: Config = toml::from_str(&s).unwrap();
+        assert_eq!(loaded.serve_token, "ms_v2_abc",
+            "serve_token must survive round-trip");
     }
 
-    /// Missing config returns a helpful error message.
-    ///
-    /// Execution:
-    ///   1. Construct the error message directly
-    ///   2. Assert it contains guidance text
+    /// Missing config returns default (empty token), not an error.
     ///
     /// Expected:
-    ///   - Error message contains "auth login"
+    ///   - serve_token == ""
     #[test]
-    fn test_load_config_missing_file_returns_helpful_error() {
-        let err = anyhow::anyhow!("Config not found. Run 'msctl auth login --key <api_key>' first.");
-        assert!(err.to_string().contains("auth login"),
-            "Error should guide user to run auth login");
+    fn test_load_config_missing_returns_default() {
+        let config = Config::default();
+        assert_eq!(config.serve_token, "",
+            "default config should have empty serve_token");
     }
 }

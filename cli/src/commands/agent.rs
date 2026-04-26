@@ -1,181 +1,130 @@
 use anyhow::{Context, Result};
 use clap::Subcommand;
-use serde::{Deserialize, Serialize};
-use std::io::{self, Write};
-use crate::config::load_config;
+use rusqlite::Connection;
+use serde::Serialize;
+use uuid::Uuid;
+use crate::db::{open, now_ms};
 
 #[derive(Subcommand)]
 pub enum AgentCommands {
-    /// Interactively register a new Agent
-    Register,
-    /// List all agents
+    /// Register a new agent in local serve.db
+    Register {
+        #[arg(long)] name: String,
+        #[arg(long)] project: String,
+        #[arg(long, default_value = "claude-code")] runtime: String,
+    },
+    /// List all registered agents
     List,
     /// Get agent details
     Get { id: String },
-    /// Update an agent
+    /// Update agent fields
     Update {
         id: String,
         #[arg(long)] name: Option<String>,
-        #[arg(long)] endpoint: Option<String>,
-        #[arg(long)] description: Option<String>,
+        #[arg(long)] project: Option<String>,
+        #[arg(long)] runtime: Option<String>,
     },
     /// Delete an agent (with confirmation)
     Delete { id: String },
-    /// Invoke an agent
+    /// Invoke an agent (create conversation + send message)
     Invoke {
         id: String,
-        #[arg(long)] body: Option<String>,
+        #[arg(long)] message: String,
     },
 }
 
-#[derive(Serialize, Deserialize, Debug)]
-pub struct AgentRequest {
-    pub name: String,
-    pub description: String,
-    pub endpoint: String,
-    #[serde(rename = "authType")]
-    pub auth_type: String,
-    #[serde(rename = "authValue", skip_serializing_if = "Option::is_none")]
-    pub auth_value: Option<String>,
-}
-
-#[derive(Deserialize, Debug)]
-pub struct AgentResponse {
+#[derive(Serialize, Debug)]
+pub struct AgentRow {
     pub id: String,
     pub name: String,
-    pub status: String,
-    pub endpoint: String,
-    pub description: Option<String>,
-    #[serde(rename = "authType")]
-    pub auth_type: String,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-struct UpdateRequest {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub name: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub endpoint: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub description: Option<String>,
+    pub project_path: String,
+    pub runtime: String,
+    pub created_at: i64,
 }
 
 pub fn handle(cmd: AgentCommands) -> Result<()> {
+    let conn = open()?;
     match cmd {
-        AgentCommands::Register => register(),
-        AgentCommands::List => list(),
-        AgentCommands::Get { id } => get(&id),
-        AgentCommands::Update { id, name, endpoint, description } => {
-            update(&id, name, endpoint, description)
-        }
-        AgentCommands::Delete { id } => delete(&id),
-        AgentCommands::Invoke { id, body } => invoke(&id, body.as_deref()),
+        AgentCommands::Register { name, project, runtime } => register(&conn, &name, &project, &runtime),
+        AgentCommands::List => list(&conn),
+        AgentCommands::Get { id } => get(&conn, &id),
+        AgentCommands::Update { id, name, project, runtime } => update(&conn, &id, name, project, runtime),
+        AgentCommands::Delete { id } => delete(&conn, &id),
+        AgentCommands::Invoke { id, message } => invoke(&conn, &id, &message),
     }
 }
 
-fn prompt(label: &str) -> Result<String> {
-    print!("{}: ", label);
-    io::stdout().flush()?;
-    let mut buf = String::new();
-    io::stdin().read_line(&mut buf)?;
-    Ok(buf.trim().to_string())
+pub fn insert_agent(conn: &Connection, name: &str, project_path: &str, runtime: &str) -> Result<String> {
+    let id = Uuid::new_v4().to_string();
+    conn.execute(
+        "INSERT INTO agents (id, name, project_path, runtime, created_at) VALUES (?1,?2,?3,?4,?5)",
+        rusqlite::params![id, name, project_path, runtime, now_ms()],
+    ).context("Failed to insert agent")?;
+    Ok(id)
 }
 
-fn register() -> Result<()> {
-    let config = load_config()?;
-    let name = prompt("Agent name")?;
-    let description = prompt("Description")?;
-    let endpoint = prompt("Endpoint URL")?;
-    println!("Auth type [none/api_key/bearer_token/basic] (default: none):");
-    let auth_type_raw = prompt("Auth type")?;
-    let auth_type = if auth_type_raw.is_empty() {
-        "none".to_string()
-    } else {
-        auth_type_raw
-    };
-    let auth_value = if auth_type != "none" {
-        Some(prompt("Auth value")?)
-    } else {
-        None
-    };
-
-    let body = AgentRequest { name, description, endpoint, auth_type, auth_value };
-    let client = reqwest::blocking::Client::new();
-    let url = format!("{}/api/v1/agents", config.server_url);
-    let resp = client
-        .post(&url)
-        .header("Authorization", format!("Bearer {}", config.api_key))
-        .json(&body)
-        .send()
-        .context("Failed to connect to server")?;
-
-    check_status(resp.status().as_u16())?;
-    let agent: AgentResponse = resp.json().context("Invalid response from server")?;
-    println!("Agent registered. ID: {}", agent.id);
+fn register(conn: &Connection, name: &str, project: &str, runtime: &str) -> Result<()> {
+    let id = insert_agent(conn, name, project, runtime)?;
+    println!("Agent registered. ID: {}", id);
     Ok(())
 }
 
-fn list() -> Result<()> {
-    let config = load_config()?;
-    let client = reqwest::blocking::Client::new();
-    let url = format!("{}/api/v1/agents", config.server_url);
-    let resp = client
-        .get(&url)
-        .header("Authorization", format!("Bearer {}", config.api_key))
-        .send()
-        .context("Failed to connect to server")?;
-
-    check_status(resp.status().as_u16())?;
-    let agents: Vec<AgentResponse> = resp.json().context("Invalid response from server")?;
+fn list(conn: &Connection) -> Result<()> {
+    let mut stmt = conn.prepare(
+        "SELECT id, name, project_path, runtime, created_at FROM agents ORDER BY created_at DESC"
+    )?;
+    let agents: Vec<AgentRow> = stmt.query_map([], |r| Ok(AgentRow {
+        id: r.get(0)?,
+        name: r.get(1)?,
+        project_path: r.get(2)?,
+        runtime: r.get(3)?,
+        created_at: r.get(4)?,
+    }))?.filter_map(|r| r.ok()).collect();
 
     if agents.is_empty() {
         println!("No agents registered.");
         return Ok(());
     }
-
-    println!("{:<36}  {:<20}  {:<8}  {}", "ID", "NAME", "STATUS", "ENDPOINT");
+    println!("{:<36}  {:<20}  {:<12}  {}", "ID", "NAME", "RUNTIME", "PROJECT");
     println!("{}", "-".repeat(100));
     for a in &agents {
-        println!("{:<36}  {:<20}  {:<8}  {}", a.id, a.name, a.status, a.endpoint);
+        println!("{:<36}  {:<20}  {:<12}  {}", a.id, a.name, a.runtime, a.project_path);
     }
     Ok(())
 }
 
-fn get(id: &str) -> Result<()> {
-    let config = load_config()?;
-    let client = reqwest::blocking::Client::new();
-    let url = format!("{}/api/v1/agents/{}", config.server_url, id);
-    let resp = client
-        .get(&url)
-        .header("Authorization", format!("Bearer {}", config.api_key))
-        .send()
-        .context("Failed to connect to server")?;
-
-    check_status(resp.status().as_u16())?;
-    let body: serde_json::Value = resp.json().context("Invalid response from server")?;
-    println!("{}", serde_json::to_string_pretty(&body)?);
+fn get(conn: &Connection, id: &str) -> Result<()> {
+    let agent = conn.query_row(
+        "SELECT id, name, project_path, runtime, created_at FROM agents WHERE id = ?1",
+        [id],
+        |r| Ok(AgentRow {
+            id: r.get(0)?,
+            name: r.get(1)?,
+            project_path: r.get(2)?,
+            runtime: r.get(3)?,
+            created_at: r.get(4)?,
+        }),
+    ).context("Agent not found")?;
+    println!("{}", serde_json::to_string_pretty(&agent)?);
     Ok(())
 }
 
-fn update(id: &str, name: Option<String>, endpoint: Option<String>, description: Option<String>) -> Result<()> {
-    let config = load_config()?;
-    let client = reqwest::blocking::Client::new();
-    let url = format!("{}/api/v1/agents/{}", config.server_url, id);
-    let body = UpdateRequest { name, endpoint, description };
-    let resp = client
-        .put(&url)
-        .header("Authorization", format!("Bearer {}", config.api_key))
-        .json(&body)
-        .send()
-        .context("Failed to connect to server")?;
-
-    check_status(resp.status().as_u16())?;
-    let agent: AgentResponse = resp.json().context("Invalid response from server")?;
-    println!("Agent updated. Name: {}", agent.name);
+fn update(conn: &Connection, id: &str, name: Option<String>, project: Option<String>, runtime: Option<String>) -> Result<()> {
+    if let Some(n) = name {
+        conn.execute("UPDATE agents SET name = ?1 WHERE id = ?2", rusqlite::params![n, id])?;
+    }
+    if let Some(p) = project {
+        conn.execute("UPDATE agents SET project_path = ?1 WHERE id = ?2", rusqlite::params![p, id])?;
+    }
+    if let Some(r) = runtime {
+        conn.execute("UPDATE agents SET runtime = ?1 WHERE id = ?2", rusqlite::params![r, id])?;
+    }
+    println!("Agent {} updated.", id);
     Ok(())
 }
 
-fn delete(id: &str) -> Result<()> {
+fn delete(conn: &Connection, id: &str) -> Result<()> {
+    use std::io::{self, Write};
     print!("Delete agent {}? [y/N]: ", id);
     io::stdout().flush()?;
     let mut buf = String::new();
@@ -184,188 +133,85 @@ fn delete(id: &str) -> Result<()> {
         println!("Cancelled.");
         return Ok(());
     }
-
-    let config = load_config()?;
-    let client = reqwest::blocking::Client::new();
-    let url = format!("{}/api/v1/agents/{}", config.server_url, id);
-    let resp = client
-        .delete(&url)
-        .header("Authorization", format!("Bearer {}", config.api_key))
-        .send()
-        .context("Failed to connect to server")?;
-
-    check_status(resp.status().as_u16())?;
+    let n = conn.execute("DELETE FROM agents WHERE id = ?1", [id])?;
+    if n == 0 { anyhow::bail!("Agent not found."); }
     println!("Agent {} deleted.", id);
     Ok(())
 }
 
-fn invoke(id: &str, body: Option<&str>) -> Result<()> {
-    let config = load_config()?;
-    let client = reqwest::blocking::Client::new();
-    let url = format!("{}/api/v1/agents/{}/invoke", config.server_url, id);
-    let payload = body.unwrap_or("{}");
-    let resp = client
-        .post(&url)
-        .header("Authorization", format!("Bearer {}", config.api_key))
-        .header("Content-Type", "application/json")
-        .body(payload.to_string())
-        .send()
-        .context("Failed to connect to server")?;
+fn invoke(conn: &Connection, agent_id: &str, message: &str) -> Result<()> {
+    let _: String = conn.query_row(
+        "SELECT id FROM agents WHERE id = ?1", [agent_id], |r| r.get(0)
+    ).context("Agent not found")?;
 
-    check_status(resp.status().as_u16())?;
-    let result: serde_json::Value = resp.json().context("Invalid response from server")?;
-    println!("{}", serde_json::to_string_pretty(&result)?);
+    let conv_id = Uuid::new_v4().to_string();
+    let msg_id  = Uuid::new_v4().to_string();
+    let now     = now_ms();
+    let title   = message.chars().take(60).collect::<String>();
+
+    conn.execute(
+        "INSERT INTO conversations (id, agent_id, title, created_at, last_message_at, status) VALUES (?1,?2,?3,?4,?5,'idle')",
+        rusqlite::params![conv_id, agent_id, title, now, now],
+    )?;
+    conn.execute(
+        "INSERT INTO messages (id, conversation_id, role, payload, created_at, seq) VALUES (?1,?2,'user_text',?3,?4,1)",
+        rusqlite::params![msg_id, conv_id, serde_json::json!({"text": message}).to_string(), now],
+    )?;
+    println!("Conversation created: {}", conv_id);
+    println!("Message sent. Connect msctl serve to process.");
     Ok(())
-}
-
-fn check_status(code: u16) -> Result<()> {
-    match code {
-        200..=299 => Ok(()),
-        401 => anyhow::bail!("Invalid API key. Run 'msctl auth login' to reconfigure."),
-        404 => anyhow::bail!("Agent not found."),
-        409 => anyhow::bail!("Conflict: resource already exists."),
-        500 => anyhow::bail!("Server error. Check backend logs."),
-        c => anyhow::bail!("Unexpected HTTP {}", c),
-    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use mockito::Server;
 
-    /// agent register: sends correct JSON body to POST /api/v1/agents
+    /// agent register: inserts a row into agents table.
     ///
     /// Data construction:
-    ///   name        = "my-agent"
-    ///   description = "test agent"
-    ///   endpoint    = "http://localhost:9000"
-    ///   auth_type   = "none"
-    ///   auth_value  = None
+    ///   name         = "blog-fixer"
+    ///   project_path = "/home/user/blog"
+    ///   runtime      = "claude-code"
     ///
     /// Execution:
-    ///   1. Start mockito server
-    ///   2. Register mock for POST /api/v1/agents returning 201 + agent JSON
-    ///   3. Build AgentRequest and POST it
-    ///   4. Assert mock was called exactly once
+    ///   1. Open temp SQLite DB
+    ///   2. Call insert_agent()
+    ///   3. Query agents table
     ///
     /// Expected:
-    ///   - Mock receives exactly the expected JSON body
-    ///   - Response deserializes to AgentResponse with correct id
+    ///   - exactly 1 row with name == "blog-fixer"
+    ///   - runtime == "claude-code"
     #[test]
-    fn test_register_sends_correct_body() {
-        let mut server = Server::new();
-        let mock = server
-            .mock("POST", "/api/v1/agents")
-            .match_header("Authorization", "Bearer ms_testkey")
-            .with_status(201)
-            .with_header("content-type", "application/json")
-            .with_body(r#"{"id":"uuid-001","name":"my-agent","status":"active","endpoint":"http://localhost:9000","description":"test agent","authType":"none"}"#)
-            .create();
-
-        let client = reqwest::blocking::Client::new();
-        let body = AgentRequest {
-            name: "my-agent".to_string(),
-            description: "test agent".to_string(),
-            endpoint: "http://localhost:9000".to_string(),
-            auth_type: "none".to_string(),
-            auth_value: None,
-        };
-        let resp = client
-            .post(format!("{}/api/v1/agents", server.url()))
-            .header("Authorization", "Bearer ms_testkey")
-            .json(&body)
-            .send()
-            .unwrap();
-
-        assert_eq!(resp.status().as_u16(), 201,
-            "register should return 201 Created");
-        let agent: AgentResponse = resp.json().unwrap();
-        assert_eq!(agent.id, "uuid-001",
-            "response should contain the agent id");
-        mock.assert();
+    fn test_insert_agent_writes_row() {
+        let dir = tempfile::tempdir().unwrap();
+        let conn = crate::db::open_at(&dir.path().join("test.db")).unwrap();
+        insert_agent(&conn, "blog-fixer", "/home/user/blog", "claude-code").unwrap();
+        let count: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM agents WHERE name = 'blog-fixer'",
+            [], |r| r.get(0)
+        ).unwrap();
+        assert_eq!(count, 1, "insert_agent should create exactly one row");
+        let runtime: String = conn.query_row(
+            "SELECT runtime FROM agents WHERE name = 'blog-fixer'",
+            [], |r| r.get(0)
+        ).unwrap();
+        assert_eq!(runtime, "claude-code", "runtime should be stored as-is");
     }
 
-    /// agent list: GET /api/v1/agents returns table of agents
-    ///
-    /// Data construction:
-    ///   - Mock returns 2 agents
+    /// agent register: duplicate name returns an error.
     ///
     /// Execution:
-    ///   1. Start mockito server
-    ///   2. Mock GET /api/v1/agents → 200 with 2-item array
-    ///   3. Deserialize response
+    ///   1. Insert agent "dup-agent"
+    ///   2. Insert agent "dup-agent" again
     ///
     /// Expected:
-    ///   - Response contains 2 agents
-    ///   - First agent name == "agent-one"
+    ///   - second insert returns Err (UNIQUE constraint)
     #[test]
-    fn test_list_returns_agents() {
-        let mut server = Server::new();
-        let mock = server
-            .mock("GET", "/api/v1/agents")
-            .match_header("Authorization", "Bearer ms_testkey")
-            .with_status(200)
-            .with_header("content-type", "application/json")
-            .with_body(r#"[
-                {"id":"id-1","name":"agent-one","status":"active","endpoint":"http://a.com","description":"desc","authType":"none"},
-                {"id":"id-2","name":"agent-two","status":"inactive","endpoint":"http://b.com","description":"desc","authType":"none"}
-            ]"#)
-            .create();
-
-        let client = reqwest::blocking::Client::new();
-        let resp = client
-            .get(format!("{}/api/v1/agents", server.url()))
-            .header("Authorization", "Bearer ms_testkey")
-            .send()
-            .unwrap();
-
-        assert_eq!(resp.status().as_u16(), 200);
-        let agents: Vec<AgentResponse> = resp.json().unwrap();
-        assert_eq!(agents.len(), 2,
-            "list should return 2 agents");
-        assert_eq!(agents[0].name, "agent-one",
-            "first agent name should be agent-one");
-        mock.assert();
-    }
-
-    /// agent invoke: POST /api/v1/agents/{id}/invoke forwards body and returns response
-    ///
-    /// Data construction:
-    ///   - invoke body: {"query": "hello"}
-    ///   - mock returns {"result": "ok"}
-    ///
-    /// Execution:
-    ///   1. Mock POST /api/v1/agents/uuid-001/invoke → 200 {"result": "ok"}
-    ///   2. POST with body
-    ///
-    /// Expected:
-    ///   - HTTP 200
-    ///   - Response body contains "result": "ok"
-    #[test]
-    fn test_invoke_sends_body_and_returns_response() {
-        let mut server = Server::new();
-        let mock = server
-            .mock("POST", "/api/v1/agents/uuid-001/invoke")
-            .match_header("Authorization", "Bearer ms_testkey")
-            .with_status(200)
-            .with_header("content-type", "application/json")
-            .with_body(r#"{"result":"ok"}"#)
-            .create();
-
-        let client = reqwest::blocking::Client::new();
-        let resp = client
-            .post(format!("{}/api/v1/agents/uuid-001/invoke", server.url()))
-            .header("Authorization", "Bearer ms_testkey")
-            .header("Content-Type", "application/json")
-            .body(r#"{"query":"hello"}"#)
-            .send()
-            .unwrap();
-
-        assert_eq!(resp.status().as_u16(), 200);
-        let result: serde_json::Value = resp.json().unwrap();
-        assert_eq!(result["result"], "ok",
-            "invoke response should contain result: ok");
-        mock.assert();
+    fn test_insert_agent_duplicate_name_errors() {
+        let dir = tempfile::tempdir().unwrap();
+        let conn = crate::db::open_at(&dir.path().join("test.db")).unwrap();
+        insert_agent(&conn, "dup-agent", "/p", "claude-code").unwrap();
+        let result = insert_agent(&conn, "dup-agent", "/p2", "codex");
+        assert!(result.is_err(), "duplicate name should return an error");
     }
 }
