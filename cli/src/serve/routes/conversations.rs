@@ -60,6 +60,16 @@ pub async fn create_conversation(
     })))
 }
 
+pub async fn delete_conversation(
+    State(state): State<AppState>,
+    Path(conv_id): Path<String>,
+) -> Result<StatusCode, StatusCode> {
+    let db = state.db.lock().map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let n = db.execute("DELETE FROM conversations WHERE id = ?1", [&conv_id])
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    if n == 0 { Err(StatusCode::NOT_FOUND) } else { Ok(StatusCode::NO_CONTENT) }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -109,4 +119,82 @@ mod tests {
         assert_eq!(json["agent_id"], agent_id.as_str(), "agent_id must match");
         assert_eq!(json["status"], "idle", "new conversation status must be idle");
     }
+    async fn make_conv_app_with_delete(token: &str) -> (axum::Router, String) {
+        let dir = tempdir().unwrap();
+        let conn = db::open_at(&dir.path().join("t.db")).unwrap();
+        let agent_id = insert_agent(&conn, "test-agent", "/p", "claude-code").unwrap();
+        let state = AppState::new(conn, token.to_string());
+        let app = axum::Router::new()
+            .route("/api/v1/agents/:id/conversations",
+                axum::routing::get(list_conversations).post(create_conversation))
+            .route("/api/v1/conversations/:id",
+                axum::routing::delete(delete_conversation))
+            .layer(axum::middleware::from_fn_with_state(state.clone(), bearer_auth))
+            .with_state(state);
+        (app, agent_id)
+    }
+
+    /// DELETE /api/v1/conversations/:id removes the conversation and returns 204.
+    ///
+    /// Data construction:
+    ///   - Insert agent "test-agent" in DB
+    ///   - Insert conversation 'conv-del-1' directly
+    ///
+    /// Execution:
+    ///   1. DELETE /api/v1/conversations/conv-del-1 with valid token
+    ///   2. DELETE again → 404
+    ///
+    /// Expected:
+    ///   - first DELETE returns 204
+    ///   - second DELETE returns 404 (already gone)
+    #[tokio::test]
+    async fn test_delete_conversation_returns_204() {
+        let (app, agent_id) = make_conv_app_with_delete("tok").await;
+
+        // Verify the conversation exists by listing
+        let list_resp = app.clone().oneshot(
+            Request::builder()
+                .method("GET")
+                .uri(format!("/api/v1/agents/{}/conversations", agent_id))
+                .header("Authorization", "Bearer tok")
+                .body(Body::empty()).unwrap()
+        ).await.unwrap();
+        assert_eq!(list_resp.status(), StatusCode::OK, "list must succeed");
+
+        // Create a conversation to delete
+        let create_body = serde_json::json!({ "title": "To delete" });
+        let create_resp = app.clone().oneshot(
+            Request::builder()
+                .method("POST")
+                .uri(format!("/api/v1/agents/{}/conversations", agent_id))
+                .header("Authorization", "Bearer tok")
+                .header("Content-Type", "application/json")
+                .body(Body::from(create_body.to_string())).unwrap()
+        ).await.unwrap();
+        assert_eq!(create_resp.status(), StatusCode::CREATED, "setup: create must succeed");
+        let bytes = axum::body::to_bytes(create_resp.into_body(), 4096).await.unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+        let conv_id = json["id"].as_str().unwrap().to_string();
+
+        // DELETE it
+        let del_resp = app.clone().oneshot(
+            Request::builder()
+                .method("DELETE")
+                .uri(format!("/api/v1/conversations/{}", conv_id))
+                .header("Authorization", "Bearer tok")
+                .body(Body::empty()).unwrap()
+        ).await.unwrap();
+        assert_eq!(del_resp.status(), StatusCode::NO_CONTENT, "delete must return 204");
+
+        // DELETE again → 404
+        let del_again = app.oneshot(
+            Request::builder()
+                .method("DELETE")
+                .uri(format!("/api/v1/conversations/{}", conv_id))
+                .header("Authorization", "Bearer tok")
+                .body(Body::empty()).unwrap()
+        ).await.unwrap();
+        assert_eq!(del_again.status(), StatusCode::NOT_FOUND, "second delete must return 404");
+    }
+
 }

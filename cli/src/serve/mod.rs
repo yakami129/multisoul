@@ -17,6 +17,7 @@ pub async fn build_router(state: AppState) -> Router {
         .route("/api/v1/agents",                          axum::routing::get(agents::list_agents))
         .route("/api/v1/agents/:id",                      axum::routing::get(agents::get_agent))
         .route("/api/v1/agents/:id/conversations",        axum::routing::get(conversations::list_conversations).post(conversations::create_conversation))
+        .route("/api/v1/conversations/:id",               axum::routing::delete(conversations::delete_conversation))
         .route("/api/v1/conversations/:id/messages",      axum::routing::get(messages::list_messages).post(messages::post_message))
         .route("/api/v1/push-tokens",                     axum::routing::post(push_tokens::register_token))
         .route("/api/v1/push-tokens/:id",                 axum::routing::delete(push_tokens::delete_token))
