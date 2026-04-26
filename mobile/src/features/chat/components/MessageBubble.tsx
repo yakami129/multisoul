@@ -1,17 +1,106 @@
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { Animated, Easing, View, Text, StyleSheet } from 'react-native';
 import { WsMessage, AskQuestionPayload } from '@/types';
 import AskQuestionCard from './AskQuestionCard';
 import MultiAskQuestionCard from './MultiAskQuestionCard';
 import { ToolCallRow } from './ToolCallRow';
 
+const TYPEWRITER_INTERVAL_MS = 18;
+const WAITING_PHRASE = 'Thinking...';
+const WAITING_TEXT_WIDTH = 112;
+const WAITING_SHINE_WIDTH = 48;
+
 interface Props {
   msg: WsMessage;
   onAnswer?: (ask_id: string, choice_id?: string, freeform?: string) => void;
   onAnswerMulti?: (ask_id: string, choice_ids: Record<string, string>) => void;
+  typewriter?: boolean;
+  waiting?: boolean;
 }
 
-export function MessageBubble({ msg, onAnswer, onAnswerMulti }: Props) {
+export function MessageBubble({ msg, onAnswer, onAnswerMulti, typewriter = false, waiting = false }: Props) {
+  const agentText = msg.role === 'agent_text' ? (msg.payload as any).text ?? '' : '';
+  const [visibleChars, setVisibleChars] = useState(typewriter ? 0 : agentText.length);
+  const shineProgress = useRef(new Animated.Value(0)).current;
+  const shineTranslateX = shineProgress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [-WAITING_SHINE_WIDTH, WAITING_TEXT_WIDTH],
+  });
+  const shineTextTranslateX = shineProgress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [WAITING_SHINE_WIDTH, -WAITING_TEXT_WIDTH],
+  });
+
+  useEffect(() => {
+    if (!typewriter || msg.role !== 'agent_text') {
+      setVisibleChars(agentText.length);
+      return undefined;
+    }
+
+    setVisibleChars(0);
+    const timer = setInterval(() => {
+      setVisibleChars((count: number) => {
+        if (count >= agentText.length) {
+          clearInterval(timer);
+          return count;
+        }
+        return Math.min(count + 1, agentText.length);
+      });
+    }, TYPEWRITER_INTERVAL_MS);
+
+    return () => clearInterval(timer);
+  }, [agentText, msg.role, msg.seq, typewriter]);
+
+  useEffect(() => {
+    if (!waiting) return undefined;
+
+    shineProgress.setValue(0);
+    const shineLoop = Animated.loop(
+      Animated.timing(shineProgress, {
+        toValue: 1,
+        duration: 1600,
+        easing: Easing.linear,
+        useNativeDriver: true,
+      })
+    );
+    shineLoop.start();
+
+    return () => {
+      shineLoop.stop();
+    };
+  }, [shineProgress, waiting]);
+
+  if (waiting) {
+    return (
+      <View style={s.aiWrap}>
+        <View style={s.waitingBubble}>
+          <View style={s.waitingTextWrap}>
+            <Text accessibilityLabel={WAITING_PHRASE} style={s.waitingText}>
+              {WAITING_PHRASE}
+            </Text>
+            <Animated.View
+              pointerEvents="none"
+              style={[
+                s.waitingShine,
+                { transform: [{ translateX: shineTranslateX }] },
+              ]}
+            >
+              <Animated.Text
+                style={[
+                  s.waitingText,
+                  s.waitingTextHighlight,
+                  { transform: [{ translateX: shineTextTranslateX }] },
+                ]}
+              >
+                {WAITING_PHRASE}
+              </Animated.Text>
+            </Animated.View>
+          </View>
+        </View>
+      </View>
+    );
+  }
+
   switch (msg.role) {
     case 'user_text':
       return (
@@ -23,10 +112,15 @@ export function MessageBubble({ msg, onAnswer, onAnswerMulti }: Props) {
       );
 
     case 'agent_text':
+      const isScanning = typewriter && visibleChars < agentText.length;
+      const displayedText = typewriter
+        ? `${agentText.slice(0, visibleChars)}${isScanning ? '▌' : ''}`
+        : agentText;
+
       return (
         <View style={s.aiWrap}>
           <View style={s.aiBubble}>
-            <Text style={s.aiText}>{(msg.payload as any).text}</Text>
+            <Text style={[s.aiText, isScanning && s.typingText]}>{displayedText}</Text>
           </View>
         </View>
       );
@@ -99,8 +193,44 @@ const s = StyleSheet.create({
     borderTopLeftRadius: 0, padding: 12,
     borderWidth: 1, borderColor: '#0F2B0F',
   },
+  waitingBubble: {
+    maxWidth: 280,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
   userText: { fontFamily: 'Geist', fontSize: 14, color: '#040D04', lineHeight: 20 },
   aiText:   { fontFamily: 'Geist', fontSize: 14, color: '#20C20E', lineHeight: 20 },
+  typingText: {
+    color: '#20C20E',
+    textShadowColor: '#20C20E',
+    textShadowRadius: 4,
+  },
+  waitingText: {
+    fontFamily: 'Geist Mono',
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#5FA65F',
+    lineHeight: 20,
+    letterSpacing: 0.4,
+  },
+  waitingTextWrap: {
+    overflow: 'hidden',
+    position: 'relative',
+    width: WAITING_TEXT_WIDTH,
+  },
+  waitingShine: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    width: WAITING_SHINE_WIDTH,
+    overflow: 'hidden',
+  },
+  waitingTextHighlight: {
+    color: '#D7FFD2',
+    width: WAITING_TEXT_WIDTH,
+    textShadowColor: '#20C20E',
+    textShadowRadius: 8,
+  },
   statusRow: {
     flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8,
   },
