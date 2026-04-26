@@ -65,8 +65,11 @@ export interface ToolCallPayload    { tool: string; args: string; call_id: strin
 export interface ToolResultPayload  { call_id: string; ok: boolean; summary: string }
 export interface AskQuestionPayload {
   ask_id: string;
-  prompt: string;
-  options: { id: string; label: string }[];
+  questions: Array<{
+    id: string;
+    text: string;
+    options: { id: string; label: string }[];
+  }>;
   allow_freeform: boolean;
 }
 export interface TaskStatusPayload  {

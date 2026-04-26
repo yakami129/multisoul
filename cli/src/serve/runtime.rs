@@ -8,6 +8,7 @@ use serde_json::Value;
 use uuid::Uuid;
 use crate::db::now_ms;
 use crate::serve::state::AppState;
+use crate::serve::interactive::{self, AnswerPayload};
 
 // ─── public API ──────────────────────────────────────────────────────────────
 
@@ -52,6 +53,9 @@ fn session_worker(
 ) {
     eprintln!("[runtime] session_worker started conv_id={}", conv_id);
 
+    // Create the answer channel for this conversation (WS handler sends here)
+    let answer_rx = state.create_answer_channel(&conv_id);
+
     // Load existing session_id from DB (for --resume on restart)
     let mut session_id: Option<String> = load_session_id(&state, &conv_id);
 
@@ -86,7 +90,7 @@ fn session_worker(
         // Try to process the turn; on failure, respawn and retry (up to 3x)
         let mut ok = false;
         for attempt in 1..=3 {
-            match process_turn(&mut stdin, &mut reader, &state, &conv_id, &user_text) {
+            match process_turn(&mut stdin, &mut reader, &state, &conv_id, &user_text, &answer_rx) {
                 Ok(()) => { ok = true; break; }
                 Err(e) => {
                     eprintln!("[runtime] turn error (attempt {}): {} conv_id={}", attempt, e, conv_id);
@@ -154,7 +158,26 @@ fn write_user_message(stdin: &mut ChildStdin, user_text: &str) -> Result<(), Str
         "message": { "role": "user", "content": [{ "type": "text", "text": user_text }] }
     });
     let line = format!("{}\n", msg);
-    stdin.write_all(line.as_bytes()).map_err(|e| format!("stdin write: {}", e))
+    stdin.write_all(line.as_bytes()).map_err(|e| format!("stdin write: {}", e))?;
+    stdin.flush().map_err(|e| format!("stdin flush (user_message): {}", e))
+}
+
+/// Write a tool_result JSON line to claude's stdin (response to a tool_use).
+fn write_tool_result(stdin: &mut ChildStdin, call_id: &str, content: &str) -> Result<(), String> {
+    let msg = serde_json::json!({
+        "type": "user",
+        "message": {
+            "role": "user",
+            "content": [{
+                "type":        "tool_result",
+                "tool_use_id": call_id,
+                "content":     content,
+            }]
+        }
+    });
+    let line = format!("{}\n", msg);
+    stdin.write_all(line.as_bytes()).map_err(|e| format!("stdin write (tool_result): {}", e))?;
+    stdin.flush().map_err(|e| format!("stdin flush (tool_result): {}", e))
 }
 
 /// Read the `system` event from stdout to capture the session_id.
@@ -192,12 +215,19 @@ fn read_system_event(
 
 /// Write user message and read stdout until the `result` event.
 /// Returns Ok(()) on success, Err if the process pipe breaks.
+///
+/// When Claude calls `AskUserQuestion`, this function:
+///   1. Emits an `ask_question` WS message (via handle_assistant_event)
+///   2. Blocks on `answer_rx.recv()` until the mobile user responds
+///   3. Writes the `tool_result` back to Claude's stdin
+///   4. Resumes reading stdout
 fn process_turn(
-    stdin:    &mut ChildStdin,
-    reader:   &mut BufReader<std::process::ChildStdout>,
-    state:    &AppState,
-    conv_id:  &str,
+    stdin:     &mut ChildStdin,
+    reader:    &mut BufReader<std::process::ChildStdout>,
+    state:     &AppState,
+    conv_id:   &str,
     user_text: &str,
+    answer_rx: &std::sync::mpsc::Receiver<AnswerPayload>,
 ) -> Result<(), String> {
     // Update conversation status → running
     {
@@ -232,8 +262,47 @@ fn process_turn(
             "system" => {
                 // session_id can appear again on reconnect; ignore here (already captured)
             }
+            "control_request" => {
+                // Claude Code requests permission to use a tool.
+                // Format per cc-connect reference implementation:
+                //   { type, response: { subtype, request_id, response: { behavior, updatedInput } } }
+                let request_id   = raw["request_id"].as_str().unwrap_or("").to_string();
+                let tool_name    = raw["request"]["tool_name"].as_str().unwrap_or("unknown");
+                // Pass the original input back as updatedInput (required by protocol)
+                let updated_input = raw["request"].get("input")
+                    .cloned()
+                    .unwrap_or_else(|| serde_json::json!({}));
+                eprintln!("[runtime] control_request request_id={} tool={} — auto-approving", request_id, tool_name);
+                let response = serde_json::json!({
+                    "type": "control_response",
+                    "response": {
+                        "subtype":    "success",
+                        "request_id": request_id,
+                        "response": {
+                            "behavior":     "allow",
+                            "updatedInput": updated_input,
+                        }
+                    }
+                });
+                let resp_line = format!("{}\n", response);
+                stdin.write_all(resp_line.as_bytes())
+                    .map_err(|e| format!("control_response write: {}", e))?;
+                stdin.flush()
+                    .map_err(|e| format!("control_response flush: {}", e))?;
+                eprintln!("[runtime] control_response sent (behavior=allow), resuming read loop");
+            }
             "assistant" => {
-                handle_assistant_event(&raw, state, conv_id);
+                // Returns pending interactive calls: (call_id, tool_name, args)
+                let pending = handle_assistant_event(&raw, state, conv_id);
+                for (call_id, tool_name, args) in pending {
+                    eprintln!("[runtime] waiting for user answer ask_id={}", call_id);
+                    let answer = answer_rx.recv()
+                        .map_err(|_| "answer channel closed while waiting for user".to_string())?;
+                    let content = interactive::format_tool_result(&tool_name, &args, &answer)
+                        .unwrap_or_else(|| "__cancelled__".to_string());
+                    eprintln!("[runtime] got answer ask_id={} content={:?}", call_id, &content[..content.len().min(80)]);
+                    write_tool_result(stdin, &call_id, &content)?;
+                }
             }
             "user" => {
                 handle_user_event(&raw, state, conv_id);
@@ -247,11 +316,25 @@ fn process_turn(
     }
 }
 
-fn handle_assistant_event(raw: &Value, state: &AppState, conv_id: &str) {
+/// Processes an assistant event, broadcasting messages to mobile.
+///
+/// For interactive tools (e.g. AskUserQuestion), emits an `ask_question`
+/// message instead of `tool_call` and returns the pending call info so
+/// `process_turn` can pause and wait for the user's answer.
+///
+/// Returns a Vec of (call_id, tool_name, args) for each interactive tool_use
+/// found in this event. Regular tool_use items are broadcast as `tool_call`
+/// and are NOT included in the return value.
+fn handle_assistant_event(raw: &Value, state: &AppState, conv_id: &str)
+    -> Vec<(String, String, Value)>
+{
     let content = match raw["message"]["content"].as_array() {
         Some(c) => c.clone(),
-        None    => return,
+        None    => return vec![],
     };
+
+    let mut pending: Vec<(String, String, Value)> = vec![];
+
     for item in &content {
         match item["type"].as_str().unwrap_or("") {
             "text" => {
@@ -265,19 +348,53 @@ fn handle_assistant_event(raw: &Value, state: &AppState, conv_id: &str) {
                 }
             }
             "tool_use" => {
-                let tool    = item["name"].as_str().unwrap_or("unknown");
-                let call_id = item["id"].as_str().unwrap_or("").to_string();
-                let args    = serde_json::to_string(&item["input"]).unwrap_or_default();
-                let payload = serde_json::json!({ "tool": tool, "args": args, "call_id": call_id });
-                let db = state.db.lock().unwrap();
-                if let Ok(seq) = insert_message(&db, conv_id, "tool_call", &payload) {
-                    drop(db);
-                    broadcast(state, conv_id, seq, "tool_call", payload);
+                let tool_name = item["name"].as_str().unwrap_or("unknown").to_string();
+                let call_id   = item["id"].as_str().unwrap_or("").to_string();
+                let args      = item["input"].clone();
+
+                if interactive::is_interactive(&tool_name) {
+                    // ── DIAGNOSTIC: log full args so we can verify the input format ──
+                    eprintln!("[runtime] AskUserQuestion call_id={} input={}",
+                              call_id,
+                              serde_json::to_string(&args).unwrap_or_else(|_| "serialize-error".into()));
+
+                    // Skip partial streaming events that have an empty/incomplete input.
+                    // Claude Code may emit multiple assistant events for the same tool_use
+                    // as the response streams; only process when questions is non-empty.
+                    let has_questions = args["questions"]
+                        .as_array()
+                        .map_or(false, |a| !a.is_empty());
+
+                    if !has_questions {
+                        eprintln!("[runtime] AskUserQuestion skipped — input not yet complete call_id={}", call_id);
+                        continue;
+                    }
+
+                    // Build and broadcast ask_question instead of tool_call
+                    if let Some(payload) = interactive::build_ask_payload(&tool_name, &call_id, &args) {
+                        eprintln!("[runtime] ask_question payload={}", payload);
+                        let db = state.db.lock().unwrap();
+                        if let Ok(seq) = insert_message(&db, conv_id, "ask_question", &payload) {
+                            drop(db);
+                            broadcast(state, conv_id, seq, "ask_question", payload);
+                        }
+                    }
+                    pending.push((call_id, tool_name, args));
+                } else {
+                    let args_str = serde_json::to_string(&args).unwrap_or_default();
+                    let payload  = serde_json::json!({ "tool": tool_name, "args": args_str, "call_id": call_id });
+                    let db = state.db.lock().unwrap();
+                    if let Ok(seq) = insert_message(&db, conv_id, "tool_call", &payload) {
+                        drop(db);
+                        broadcast(state, conv_id, seq, "tool_call", payload);
+                    }
                 }
             }
             _ => {}
         }
     }
+
+    pending
 }
 
 fn handle_user_event(raw: &Value, state: &AppState, conv_id: &str) {

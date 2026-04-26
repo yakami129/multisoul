@@ -16,7 +16,8 @@ interface Props {
 export default function AnswerModal({ visible, item, onClose, onConfirm }: Props) {
   if (!item) return null;
 
-  const options = item.payload?.options ?? [];
+  const q = item.payload?.questions?.[0];
+  const options = q?.options ?? [];
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
@@ -45,7 +46,7 @@ export default function AnswerModal({ visible, item, onClose, onConfirm }: Props
 
               <View style={s.cardWrap}>
                 <AskQuestionCard
-                  question={item.payload?.prompt ?? item.body}
+                  question={q?.text ?? item.body}
                   subtitle="Select one option to continue"
                   options={options}
                   onCancel={onClose}

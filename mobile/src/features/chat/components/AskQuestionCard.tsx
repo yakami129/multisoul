@@ -13,6 +13,19 @@ interface Props {
 
 export default function AskQuestionCard({ question, subtitle, options, onCancel, onConfirm }: Props) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [answered, setAnswered] = useState(false);
+
+  const handleConfirm = () => {
+    if (!selectedId || answered) return;
+    setAnswered(true);
+    onConfirm(selectedId);
+  };
+
+  const handleCancel = () => {
+    if (answered) return;
+    setAnswered(true);
+    onCancel();
+  };
 
   return (
     <View style={s.card}>
@@ -20,7 +33,7 @@ export default function AskQuestionCard({ question, subtitle, options, onCancel,
       <View style={s.header}>
         <View style={s.headerLeft}>
           <Bot size={16} color="#20C20E" />
-          <Text style={s.headerLabel}>AGENT IS ASKING</Text>
+          <Text style={s.headerLabel}>{answered ? 'ANSWERED' : 'AGENT IS ASKING'}</Text>
         </View>
         <Info size={16} color="#2D8B2D" />
       </View>
@@ -37,28 +50,31 @@ export default function AskQuestionCard({ question, subtitle, options, onCancel,
             return (
               <TouchableOpacity
                 key={opt.id}
-                style={[s.option, selected && s.optionSelected]}
-                onPress={() => setSelectedId(opt.id)}
+                style={[s.option, selected && s.optionSelected, answered && s.optionReadonly]}
+                onPress={() => !answered && setSelectedId(opt.id)}
+                activeOpacity={answered ? 1 : 0.7}
               >
                 <View style={[s.radio, selected && s.radioSelected]} />
-                <Text style={s.optionLabel}>{opt.label}</Text>
+                <Text style={[s.optionLabel, answered && !selected && s.optionLabelMuted]}>{opt.label}</Text>
               </TouchableOpacity>
             );
           })}
         </View>
 
-        {/* Actions */}
-        <View style={s.actions}>
-          <TouchableOpacity style={s.cancelBtn} onPress={onCancel}>
-            <Text style={s.cancelText}>Cancel</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[s.confirmBtn, !selectedId && s.confirmBtnDisabled]}
-            onPress={() => selectedId && onConfirm(selectedId)}
-          >
-            <Text style={s.confirmText}>Confirm</Text>
-          </TouchableOpacity>
-        </View>
+        {/* Actions — hidden after answer submitted */}
+        {!answered && (
+          <View style={s.actions}>
+            <TouchableOpacity style={s.cancelBtn} onPress={handleCancel}>
+              <Text style={s.cancelText}>Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[s.confirmBtn, !selectedId && s.confirmBtnDisabled]}
+              onPress={handleConfirm}
+            >
+              <Text style={s.confirmText}>Confirm</Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </View>
     </View>
   );
@@ -128,6 +144,12 @@ const s = StyleSheet.create({
   optionSelected: {
     backgroundColor: '#0F2B0F',
     borderColor: '#33FF33',
+  },
+  optionReadonly: {
+    opacity: 0.6,
+  },
+  optionLabelMuted: {
+    color: '#2D8B2D',
   },
   radio: {
     width: 16,

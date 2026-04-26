@@ -1,34 +1,45 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { Bot } from 'lucide-react-native';
+import { Bot, Info } from 'lucide-react-native';
 
-interface QuestionOption {
-  id: string;
-  label: string;
-}
-
-interface Question {
+interface QuestionItem {
   id: string;
   text: string;
-  options: QuestionOption[];
+  options: { id: string; label: string }[];
 }
 
 interface Props {
-  questions: Question[];
+  questions: QuestionItem[];
   onCancel: () => void;
   onConfirm: (answers: Record<string, string>) => void;
 }
 
 export default function MultiAskQuestionCard({ questions, onCancel, onConfirm }: Props) {
   const [answers, setAnswers] = useState<Record<string, string>>({});
-  const currentIndex = Object.keys(answers).length;
+  const [answered, setAnswered] = useState(false);
+
   const total = questions.length;
+  // currentIndex = number of questions answered so far
+  const currentIndex = Object.keys(answers).length;
+  const allAnswered = currentIndex >= total;
+  const progressWidth = total > 0 ? (currentIndex / total) * 100 : 0;
 
   const handleSelect = (questionId: string, optionId: string) => {
+    if (answered) return;
     setAnswers((prev) => ({ ...prev, [questionId]: optionId }));
   };
 
-  const progressWidth = total > 0 ? (currentIndex / total) * 100 : 0;
+  const handleConfirm = () => {
+    if (!allAnswered || answered) return;
+    setAnswered(true);
+    onConfirm(answers);
+  };
+
+  const handleCancel = () => {
+    if (answered) return;
+    setAnswered(true);
+    onCancel();
+  };
 
   return (
     <View style={s.card}>
@@ -36,9 +47,12 @@ export default function MultiAskQuestionCard({ questions, onCancel, onConfirm }:
       <View style={s.header}>
         <View style={s.headerLeft}>
           <Bot size={16} color="#20C20E" />
-          <Text style={s.headerLabel}>AGENT IS ASKING</Text>
+          <Text style={s.headerLabel}>{answered ? 'ANSWERED' : 'AGENT IS ASKING'}</Text>
         </View>
-        <Text style={s.progress}>{currentIndex} / {total}</Text>
+        <View style={s.headerRight}>
+          <Text style={s.progress}>{currentIndex} / {total}</Text>
+          <Info size={16} color="#2D8B2D" />
+        </View>
       </View>
 
       {/* Progress bar */}
@@ -49,9 +63,10 @@ export default function MultiAskQuestionCard({ questions, onCancel, onConfirm }:
       {/* Questions */}
       <View style={s.body}>
         {questions.map((q, idx) => {
-          const isActive = idx === currentIndex;
+          const isActive = !answered && idx === currentIndex;
           const isDone = idx < currentIndex;
-          const opacity = isActive ? 1 : isDone ? 0.7 : 0.4;
+          const opacity = answered ? 0.6 : isActive ? 1 : isDone ? 0.7 : 0.4;
+          const selectedOptId = answers[q.id];
 
           return (
             <View
@@ -64,19 +79,20 @@ export default function MultiAskQuestionCard({ questions, onCancel, onConfirm }:
             >
               <View style={s.qHeader}>
                 <Bot size={14} color="#20C20E" />
-                <Text style={s.qText}>
-                  Q{idx + 1}: {q.text}
-                </Text>
+                <Text style={s.qText}>Q{idx + 1}: {q.text}</Text>
               </View>
+
+              {/* Show options only for active question; show selected option for done questions */}
               {isActive && (
                 <View style={s.opts}>
                   {q.options.map((opt) => {
-                    const selected = answers[q.id] === opt.id;
+                    const selected = selectedOptId === opt.id;
                     return (
                       <TouchableOpacity
                         key={opt.id}
                         style={[s.opt, selected && s.optSelected]}
                         onPress={() => handleSelect(q.id, opt.id)}
+                        activeOpacity={0.7}
                       >
                         <View style={[s.radio, selected && s.radioSelected]} />
                         <Text style={s.optLabel}>{opt.label}</Text>
@@ -85,23 +101,38 @@ export default function MultiAskQuestionCard({ questions, onCancel, onConfirm }:
                   })}
                 </View>
               )}
+
+              {isDone && selectedOptId != null && (
+                <View style={s.opts}>
+                  {q.options
+                    .filter((opt) => opt.id === selectedOptId)
+                    .map((opt) => (
+                      <View key={opt.id} style={[s.opt, s.optSelected]}>
+                        <View style={[s.radio, s.radioSelected]} />
+                        <Text style={s.optLabel}>{opt.label}</Text>
+                      </View>
+                    ))}
+                </View>
+              )}
             </View>
           );
         })}
       </View>
 
-      {/* Actions */}
-      <View style={s.actions}>
-        <TouchableOpacity style={s.cancelBtn} onPress={onCancel}>
-          <Text style={s.cancelText}>CANCEL</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[s.confirmBtn, currentIndex < total && s.confirmBtnDisabled]}
-          onPress={() => currentIndex >= total && onConfirm(answers)}
-        >
-          <Text style={s.confirmText}>CONFIRM</Text>
-        </TouchableOpacity>
-      </View>
+      {/* Actions — hidden after answered */}
+      {!answered && (
+        <View style={s.actions}>
+          <TouchableOpacity style={s.cancelBtn} onPress={handleCancel}>
+            <Text style={s.cancelText}>Cancel</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[s.confirmBtn, !allAnswered && s.confirmBtnDisabled]}
+            onPress={handleConfirm}
+          >
+            <Text style={s.confirmText}>Confirm</Text>
+          </TouchableOpacity>
+        </View>
+      )}
     </View>
   );
 }
@@ -112,7 +143,7 @@ const s = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     borderColor: '#0F2B0F',
-    width: 342,
+    width: 320,
     overflow: 'hidden',
   },
   header: {
@@ -126,6 +157,11 @@ const s = StyleSheet.create({
     borderBottomColor: '#0F2B0F',
   },
   headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  headerRight: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
@@ -144,15 +180,15 @@ const s = StyleSheet.create({
     color: '#2D8B2D',
   },
   progressBarBg: {
-    height: 4,
+    height: 2,
     backgroundColor: '#0A1A0A',
   },
   progressBarFill: {
-    height: 4,
+    height: 2,
     backgroundColor: '#20C20E',
   },
   body: {
-    // no padding, sections handle their own
+    // sections handle their own padding
   },
   section: {
     paddingVertical: 4,
@@ -178,13 +214,14 @@ const s = StyleSheet.create({
   opts: {
     paddingHorizontal: 14,
     paddingBottom: 12,
+    paddingTop: 8,
     gap: 6,
   },
   opt: {
     flexDirection: 'row',
     alignItems: 'center',
     height: 40,
-    borderRadius: 4,
+    borderRadius: 6,
     backgroundColor: '#040D04',
     borderWidth: 1,
     borderColor: '#0F2B0F',
@@ -213,10 +250,9 @@ const s = StyleSheet.create({
   },
   actions: {
     flexDirection: 'row',
-    alignItems: 'center',
-    height: 56,
-    paddingHorizontal: 14,
     gap: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
     borderTopWidth: 1,
     borderTopColor: '#0F2B0F',
   },
@@ -241,18 +277,18 @@ const s = StyleSheet.create({
     flex: 1,
     height: 36,
     borderRadius: 4,
-    backgroundColor: '#0F2B0F',
+    backgroundColor: '#20C20E',
     alignItems: 'center',
     justifyContent: 'center',
   },
   confirmBtnDisabled: {
-    opacity: 0.5,
+    opacity: 0.4,
   },
   confirmText: {
     fontFamily: 'Inter',
     fontSize: 12,
     fontWeight: '700',
-    color: '#2D8B2D',
+    color: '#040D04',
     letterSpacing: 1,
   },
 });

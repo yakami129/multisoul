@@ -18,7 +18,7 @@
     "axios": "^1.15.0",
     "babel-preset-expo": "~55.0.17",
     "expo": "~55.0.17",
-    "expo-camera": "~16.1.6",
+    "expo-camera": "16.1.6",
     "expo-constants": "~55.0.14",
     "expo-linking": "~55.0.14",
     "expo-notifications": "~0.31.2",

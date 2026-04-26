@@ -14,6 +14,7 @@ interface UseWebSocketOptions {
 interface UseWebSocketReturn {
   status: WsStatus;
   sendAnswer: (ask_id: string, choice_id?: string, freeform?: string) => void;
+  sendAnswerMulti: (ask_id: string, choice_ids: Record<string, string>) => void;
 }
 
 const MAX_BACKOFF_MS = 30_000;
@@ -101,5 +102,11 @@ export function useWebSocket({ base_url, token, conv_id }: UseWebSocketOptions):
     }
   }, []);
 
-  return { status, sendAnswer };
+  const sendAnswerMulti = useCallback((ask_id: string, choice_ids: Record<string, string>) => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ type: 'answer', ask_id, choice_ids }));
+    }
+  }, []);
+
+  return { status, sendAnswer, sendAnswerMulti };
 }

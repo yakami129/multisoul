@@ -2,14 +2,16 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { WsMessage, AskQuestionPayload } from '@/types';
 import AskQuestionCard from './AskQuestionCard';
+import MultiAskQuestionCard from './MultiAskQuestionCard';
 import { ToolCallRow } from './ToolCallRow';
 
 interface Props {
   msg: WsMessage;
   onAnswer?: (ask_id: string, choice_id?: string, freeform?: string) => void;
+  onAnswerMulti?: (ask_id: string, choice_ids: Record<string, string>) => void;
 }
 
-export function MessageBubble({ msg, onAnswer }: Props) {
+export function MessageBubble({ msg, onAnswer, onAnswerMulti }: Props) {
   switch (msg.role) {
     case 'user_text':
       return (
@@ -42,31 +44,43 @@ export function MessageBubble({ msg, onAnswer }: Props) {
 
     case 'ask_question': {
       const p = msg.payload as AskQuestionPayload;
+      if (p.questions.length === 1) {
+        const q = p.questions[0];
+        return (
+          <View style={s.aiWrap}>
+            <AskQuestionCard
+              question={q.text}
+              options={q.options}
+              onCancel={() => onAnswer?.(p.ask_id, '__cancelled__')}
+              onConfirm={(id) => onAnswer?.(p.ask_id, id)}
+            />
+          </View>
+        );
+      }
       return (
         <View style={s.aiWrap}>
-          <AskQuestionCard
-            question={p.prompt}
-            options={p.options}
-            onCancel={() => {}}
-            onConfirm={(id) => onAnswer?.(p.ask_id, id)}
+          <MultiAskQuestionCard
+            questions={p.questions}
+            onCancel={() => onAnswer?.(p.ask_id, '__cancelled__')}
+            onConfirm={(answers) => onAnswerMulti?.(p.ask_id, answers)}
           />
         </View>
       );
     }
 
-    case 'task_status': {
-      const p = msg.payload as any;
-      const color = p.status === 'completed' ? '#33FF33' : '#FFB000';
-      return (
-        <View style={s.statusRow}>
-          <View style={[s.statusLine, { backgroundColor: color }]} />
-          <Text style={[s.statusText, { color }]}>
-            {p.status.toUpperCase()} — {p.summary}
-          </Text>
-          <View style={[s.statusLine, { backgroundColor: color }]} />
-        </View>
-      );
-    }
+    // case 'task_status': {
+    //   const p = msg.payload as any;
+    //   const color = p.status === 'completed' ? '#33FF33' : '#FFB000';
+    //   return (
+    //     <View style={s.statusRow}>
+    //       <View style={[s.statusLine, { backgroundColor: color }]} />
+    //       <Text style={[s.statusText, { color }]}>
+    //         {p.status.toUpperCase()} — {p.summary}
+    //       </Text>
+    //       <View style={[s.statusLine, { backgroundColor: color }]} />
+    //     </View>
+    //   );
+    // }
 
     default:
       return null;

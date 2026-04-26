@@ -40,7 +40,8 @@ fn init_schema(conn: &Connection) -> Result<()> {
             title           TEXT NOT NULL,
             created_at      INTEGER NOT NULL,
             last_message_at INTEGER NOT NULL,
-            status          TEXT NOT NULL DEFAULT 'idle'
+            status          TEXT NOT NULL DEFAULT 'idle',
+            claude_session_id TEXT
         );
         CREATE TABLE IF NOT EXISTS messages (
             id              TEXT PRIMARY KEY,
@@ -65,6 +66,8 @@ fn init_schema(conn: &Connection) -> Result<()> {
             registered_at   INTEGER NOT NULL
         );
     "#)?;
+    // Migrate existing DBs: add claude_session_id if missing
+    let _ = conn.execute_batch("ALTER TABLE conversations ADD COLUMN claude_session_id TEXT;");
     Ok(())
 }
 

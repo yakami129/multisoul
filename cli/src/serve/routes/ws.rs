@@ -4,7 +4,9 @@ use axum::{
 };
 use axum::extract::ws::{Message, WebSocket};
 use futures_util::{SinkExt, StreamExt};
+use std::collections::HashMap;
 use crate::serve::state::AppState;
+use crate::serve::interactive::AnswerPayload;
 
 pub async fn ws_handler(
     ws: WebSocketUpgrade,
@@ -51,15 +53,21 @@ async fn handle_client_message(state: &AppState, conv_id: &str, text: &str) {
             let _ = tx.send(r#"{"type":"pong"}"#.to_string());
         }
         Some("answer") => {
-            {
-                let db = state.db.lock().unwrap();
-                let _ = db.execute(
-                    "UPDATE conversations SET status = 'idle' WHERE id = ?1",
-                    [conv_id],
-                );
-            }
-            let tx = state.get_or_create_sender(conv_id);
-            let _ = tx.send(text.to_string());
+            let ask_id    = envelope.get("ask_id").and_then(|v| v.as_str()).unwrap_or("").to_string();
+            let choice_id = envelope.get("choice_id").and_then(|v| v.as_str()).map(str::to_string);
+            let freeform  = envelope.get("freeform").and_then(|v| v.as_str()).map(str::to_string);
+            // Multi-question answers: {"0": "optionId", "1": "optionId", ...}
+            let choice_ids: Option<HashMap<String, String>> = envelope
+                .get("choice_ids")
+                .and_then(|v| v.as_object())
+                .map(|obj| {
+                    obj.iter()
+                        .filter_map(|(k, v)| v.as_str().map(|s| (k.clone(), s.to_string())))
+                        .collect()
+                });
+            let answer = AnswerPayload { ask_id, choice_id, choice_ids, freeform };
+            let sent = state.send_answer(conv_id, answer);
+            eprintln!("[ws] answer routed conv_id={} sent={}", conv_id, sent);
         }
         _ => {}
     }

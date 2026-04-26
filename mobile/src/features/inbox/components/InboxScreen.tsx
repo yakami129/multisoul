@@ -76,15 +76,21 @@ export default function InboxScreen({ items, onOpen, onAnswer }: Props) {
 
                 {isPendingQuestion && isExpanded && item.payload && (
                   <View style={s.askWrap}>
-                    <AskQuestionCard
-                      question={(item.payload as AskQuestionPayload).prompt}
-                      options={(item.payload as AskQuestionPayload).options}
-                      onCancel={() => setExpandedId(null)}
-                      onConfirm={(choice_id) => {
-                        onAnswer(item, (item.payload as AskQuestionPayload).ask_id, choice_id);
-                        setExpandedId(null);
-                      }}
-                    />
+                    {(() => {
+                      const p = item.payload as AskQuestionPayload;
+                      const q = p.questions[0];
+                      return (
+                        <AskQuestionCard
+                          question={q?.text ?? item.body}
+                          options={q?.options ?? []}
+                          onCancel={() => setExpandedId(null)}
+                          onConfirm={(choice_id) => {
+                            onAnswer(item, p.ask_id, choice_id);
+                            setExpandedId(null);
+                          }}
+                        />
+                      );
+                    })()}
                   </View>
                 )}
               </View>

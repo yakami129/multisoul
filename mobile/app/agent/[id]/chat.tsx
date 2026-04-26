@@ -1,11 +1,11 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   KeyboardAvoidingView, Platform, SafeAreaView, ScrollView,
   StyleSheet, Text, TextInput, TouchableOpacity, View,
 } from 'react-native';
 import { ChevronLeft, Send } from 'lucide-react-native';
-import { WsMessage } from '../../../src/types';
+import { WsMessage, TaskStatusPayload } from '../../../src/types';
 import { useChatStore } from '../../../src/store/chatStore';
 import { useEndpointStore } from '../../../src/store/endpointStore';
 import { useWebSocket } from '../../../src/hooks/useWebSocket';
@@ -29,7 +29,23 @@ export default function AgentChatRoute() {
   const messages = messagesMap[convId ?? ''] ?? EMPTY;
   const setMessages = useChatStore((s) => s.setMessages);
 
-  const { status, sendAnswer } = useWebSocket(
+  // For each task_id, only show the latest task_status message — hides redundant RUNNING rows
+  const displayMessages = useMemo(() => {
+    const latestSeq = new Map<string, number>();
+    messages.forEach((msg) => {
+      if (msg.role === 'task_status') {
+        const p = msg.payload as TaskStatusPayload;
+        if (msg.seq > (latestSeq.get(p.task_id) ?? -1)) latestSeq.set(p.task_id, msg.seq);
+      }
+    });
+    return messages.filter((msg) => {
+      if (msg.role !== 'task_status') return true;
+      const p = msg.payload as TaskStatusPayload;
+      return latestSeq.get(p.task_id) === msg.seq;
+    });
+  }, [messages]);
+
+  const { status, sendAnswer, sendAnswerMulti } = useWebSocket(
     endpoint && convId
       ? { base_url: endpoint.base_url, token: endpoint.token, conv_id: convId }
       : { base_url: '', token: '', conv_id: '' }
@@ -80,8 +96,8 @@ export default function AgentChatRoute() {
           contentContainerStyle={s.scrollContent}
           onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: false })}
         >
-          {messages.map((msg) => (
-            <MessageBubble key={`${msg.seq}`} msg={msg} onAnswer={sendAnswer} />
+          {displayMessages.map((msg) => (
+            <MessageBubble key={`${msg.seq}`} msg={msg} onAnswer={sendAnswer} onAnswerMulti={sendAnswerMulti} />
           ))}
         </ScrollView>
 
