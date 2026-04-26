@@ -32,6 +32,8 @@ export interface Conversation {
   // Injected:
   endpoint_id: string;
   agent_name: string;
+  first_user_message?: string;
+  last_ai_reply?: string;
 }
 
 // ── Messages (§6.2 role schema) ───────────────────────────────────────────────
