@@ -1,9 +1,9 @@
 //! Interactive tool abstraction.
 //!
-//! When Claude calls an interactive tool (e.g. AskUserQuestion), the runtime:
-//!   1. Emits an `ask_question` WS message instead of `tool_call`
-//!   2. Blocks waiting for the user's answer via an `answer_rx` channel
-//!   3. Writes a `tool_result` back to Claude's stdin
+//! When Claude calls AskUserQuestion, the runtime intercepts the `control_request`
+//! (permission prompt), broadcasts `ask_question` to mobile, waits for the user's
+//! answer, then responds with `control_response` containing the answers in
+//! `updatedInput` — matching the cc-connect reference implementation.
 //!
 //! To add a new interactive tool, implement `InteractiveTool` and register it
 //! in `is_interactive` / `dispatch` below.
@@ -31,8 +31,6 @@ pub trait InteractiveTool {
     /// `call_id` is the Claude tool call id (used as `ask_id`).
     fn build_ask_payload(call_id: &str, args: &Value) -> Value;
 
-    /// Convert the user's answer into the string content for Claude's `tool_result`.
-    fn format_tool_result(args: &Value, answer: &AnswerPayload) -> String;
 }
 
 // ─── AskUserQuestion ──────────────────────────────────────────────────────────
@@ -74,51 +72,65 @@ impl InteractiveTool for AskUserQuestion {
         })
     }
 
-    fn format_tool_result(args: &Value, answer: &AnswerPayload) -> String {
+}
+
+impl AskUserQuestion {
+    /// Build the `updatedInput` for the `control_response` to Claude Code.
+    /// This embeds the user's answers into the original tool input so Claude Code
+    /// can process them — matching the cc-connect reference implementation.
+    pub fn build_updated_input(original_args: &Value, answer: &AnswerPayload) -> Value {
+        let mut result = original_args.clone();
+        let obj = result.as_object_mut().expect("args must be object");
+
+        // Build answers map: { "questionIdx": "option label" }
+        let mut answers = serde_json::Map::new();
+
         if let Some(freeform) = &answer.freeform {
             if !freeform.is_empty() {
-                return freeform.clone();
+                answers.insert("0".to_string(), serde_json::Value::String(freeform.clone()));
+                obj.insert("answers".to_string(), serde_json::Value::Object(answers));
+                return result;
             }
         }
 
-        // Multi-question case: choice_ids is {"questionIdx": "optionIdx", ...}
         if let Some(choice_ids) = &answer.choice_ids {
-            if choice_ids.is_empty() {
-                return "__cancelled__".to_string();
-            }
+            // Multi-question: choice_ids = { "questionIdx": "optionIdx" }
             let mut indices: Vec<usize> = choice_ids.keys()
                 .filter_map(|k| k.parse::<usize>().ok())
                 .collect();
             indices.sort_unstable();
-            let labels: Vec<String> = indices.iter().map(|&qi| {
+            for qi in indices {
                 let opt_id_str = match choice_ids.get(&qi.to_string()) {
                     Some(s) => s.as_str(),
-                    None    => return format!("Q{}: (no answer)", qi + 1),
+                    None    => continue,
                 };
-                if let Ok(oi) = opt_id_str.parse::<usize>() {
-                    if let Some(label) = args["questions"][qi]["options"][oi]["label"].as_str() {
-                        return format!("Q{}: {}", qi + 1, label);
-                    }
-                }
-                format!("Q{}: {}", qi + 1, opt_id_str)
-            }).collect();
-            return labels.join("\n");
+                let label = if let Ok(oi) = opt_id_str.parse::<usize>() {
+                    original_args["questions"][qi]["options"][oi]["label"]
+                        .as_str()
+                        .unwrap_or(opt_id_str)
+                        .to_string()
+                } else {
+                    opt_id_str.to_string()
+                };
+                answers.insert(qi.to_string(), serde_json::Value::String(label));
+            }
+        } else if let Some(choice_id) = &answer.choice_id {
+            // Single-question: choice_id = "optionIdx"
+            if choice_id != "__cancelled__" {
+                let label = if let Ok(idx) = choice_id.parse::<usize>() {
+                    original_args["questions"][0]["options"][idx]["label"]
+                        .as_str()
+                        .unwrap_or(choice_id)
+                        .to_string()
+                } else {
+                    choice_id.clone()
+                };
+                answers.insert("0".to_string(), serde_json::Value::String(label));
+            }
         }
 
-        // Single-question case: choice_id is the option index string ("0", "1", …)
-        if let Some(choice_id) = &answer.choice_id {
-            if choice_id == "__cancelled__" {
-                return "__cancelled__".to_string();
-            }
-            if let Ok(idx) = choice_id.parse::<usize>() {
-                if let Some(label) = args["questions"][0]["options"][idx]["label"].as_str() {
-                    return label.to_string();
-                }
-            }
-            return choice_id.clone();
-        }
-
-        "__cancelled__".to_string()
+        obj.insert("answers".to_string(), serde_json::Value::Object(answers));
+        result
     }
 }
 
@@ -138,11 +150,12 @@ pub fn build_ask_payload(tool_name: &str, call_id: &str, args: &Value) -> Option
     }
 }
 
-/// Format the tool_result content for any interactive tool.
+
+/// Build the `updatedInput` for the `control_response` to Claude Code.
 /// Returns `None` if the tool is not recognized.
-pub fn format_tool_result(tool_name: &str, args: &Value, answer: &AnswerPayload) -> Option<String> {
+pub fn build_updated_input(tool_name: &str, original_args: &Value, answer: &AnswerPayload) -> Option<Value> {
     match tool_name {
-        AskUserQuestion::TOOL_NAME => Some(AskUserQuestion::format_tool_result(args, answer)),
+        AskUserQuestion::TOOL_NAME => Some(AskUserQuestion::build_updated_input(original_args, answer)),
         _ => None,
     }
 }
