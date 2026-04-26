@@ -2,6 +2,7 @@ use axum::{extract::{Path, Query, State}, http::StatusCode, Json};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 use crate::{db::now_ms, serve::state::AppState};
+use crate::serve::runtime;
 
 #[derive(Serialize)]
 pub struct MessageRow {
@@ -73,6 +74,22 @@ pub async fn post_message(
     ).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     drop(db);
+
+    // Fetch project_path and trigger runtime adapter
+    let project_path: Option<String> = {
+        let db2 = state.db.lock().map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        db2.query_row(
+            "SELECT a.project_path FROM agents a
+             JOIN conversations c ON c.agent_id = a.id
+             WHERE c.id = ?1",
+            [&conv_id],
+            |r| r.get(0),
+        ).ok()
+    };
+    if let Some(path) = project_path {
+        runtime::run_agent_turn(state.clone(), conv_id.clone(), path);
+    }
+
     let envelope = serde_json::json!({
         "type": "message", "seq": next_seq, "role": "user_text",
         "payload": payload, "created_at": now

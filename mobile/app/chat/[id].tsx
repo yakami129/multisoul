@@ -5,11 +5,15 @@ import {
   TextInput, TouchableOpacity, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { ChevronLeft, Send } from 'lucide-react-native';
+import { WsMessage } from '@/types';
 import { useChatStore } from '@/store/chatStore';
 import { useEndpointStore } from '@/store/endpointStore';
 import { useWebSocket } from '@/hooks/useWebSocket';
 import { MessageBubble } from '@/features/chat/components/MessageBubble';
 import { postMessage, fetchMessages } from '@/features/chat/services/chatService';
+
+// Stable fallback — never recreated, so Zustand won't see a changed snapshot
+const EMPTY: WsMessage[] = [];
 
 export default function ChatDetailScreen() {
   const { id: conv_id, endpoint_id } = useLocalSearchParams<{ id: string; endpoint_id: string }>();
@@ -18,7 +22,10 @@ export default function ChatDetailScreen() {
   const scrollRef = useRef<ScrollView>(null);
 
   const endpoint = useEndpointStore((s) => s.endpoints.find((e) => e.id === endpoint_id));
-  const messages = useChatStore((s) => s.messages[conv_id] ?? []);
+  // Select the whole map so the selector returns a stable object reference;
+  // derive the per-conversation array outside the selector using the module-level EMPTY fallback.
+  const messagesMap = useChatStore((s) => s.messages);
+  const messages = messagesMap[conv_id] ?? EMPTY;
   const setMessages = useChatStore((s) => s.setMessages);
 
   const { status, sendAnswer } = useWebSocket(

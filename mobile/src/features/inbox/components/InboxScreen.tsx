@@ -1,15 +1,18 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, FlatList, TouchableOpacity, StyleSheet } from 'react-native';
 import { CircleCheck, Info } from 'lucide-react-native';
-import { InboxItem } from '@/types';
+import { InboxItem, AskQuestionPayload } from '@/types';
+import AskQuestionCard from '@/features/chat/components/AskQuestionCard';
 
 interface Props {
   items: InboxItem[];
   onOpen: (item: InboxItem) => void;
+  onAnswer: (item: InboxItem, ask_id: string, choice_id?: string, freeform?: string) => void;
 }
 
-export default function InboxScreen({ items, onOpen }: Props) {
+export default function InboxScreen({ items, onOpen, onAnswer }: Props) {
   const unreadCount = items.filter((i) => !i.read_at).length;
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   return (
     <View style={s.root}>
@@ -45,15 +48,46 @@ export default function InboxScreen({ items, onOpen }: Props) {
           contentContainerStyle={s.list}
           renderItem={({ item }) => {
             const unread = item.read_at === null;
+            const isPendingQuestion = item.kind === 'pending_question' && item.payload !== null;
+            const isExpanded = expandedId === item.id;
+
             return (
-              <TouchableOpacity style={s.row} onPress={() => onOpen(item)}>
-                <View style={[s.unreadBar, { backgroundColor: unread ? '#20C20E' : 'transparent' }]} />
-                <View style={s.content}>
-                  <Text style={s.title}>{item.title}</Text>
-                  <Text style={s.body} numberOfLines={2}>{item.body}</Text>
-                  <Text style={s.time}>{new Date(item.received_at).toLocaleString()}</Text>
-                </View>
-              </TouchableOpacity>
+              <View style={s.rowWrap}>
+                <TouchableOpacity
+                  style={s.row}
+                  onPress={() => {
+                    if (isPendingQuestion) {
+                      setExpandedId(isExpanded ? null : item.id);
+                    } else {
+                      onOpen(item);
+                    }
+                  }}
+                >
+                  <View style={[s.unreadBar, { backgroundColor: unread ? '#20C20E' : 'transparent' }]} />
+                  <View style={s.content}>
+                    <Text style={s.title}>{item.title}</Text>
+                    <Text style={s.body} numberOfLines={isExpanded ? undefined : 2}>{item.body}</Text>
+                    <Text style={s.time}>{new Date(item.received_at).toLocaleString()}</Text>
+                    {isPendingQuestion && (
+                      <Text style={s.tapHint}>{isExpanded ? 'TAP TO COLLAPSE' : 'TAP TO ANSWER'}</Text>
+                    )}
+                  </View>
+                </TouchableOpacity>
+
+                {isPendingQuestion && isExpanded && item.payload && (
+                  <View style={s.askWrap}>
+                    <AskQuestionCard
+                      question={(item.payload as AskQuestionPayload).prompt}
+                      options={(item.payload as AskQuestionPayload).options}
+                      onCancel={() => setExpandedId(null)}
+                      onConfirm={(choice_id) => {
+                        onAnswer(item, (item.payload as AskQuestionPayload).ask_id, choice_id);
+                        setExpandedId(null);
+                      }}
+                    />
+                  </View>
+                )}
+              </View>
             );
           }}
         />
@@ -70,6 +104,7 @@ const s = StyleSheet.create({
   headerTitle:   { fontFamily: 'Anton', fontSize: 20, color: '#20C20E' },
   headerSub:     { fontFamily: 'Inter', fontSize: 11, letterSpacing: 1.5 },
   list:          { padding: 16, gap: 8 },
+  rowWrap:       { gap: 0 },
   row:           { flexDirection: 'row', backgroundColor: '#061206',
                    borderWidth: 1, borderColor: '#0F2B0F', borderRadius: 2 },
   unreadBar:     { width: 2 },
@@ -77,6 +112,10 @@ const s = StyleSheet.create({
   title:         { fontFamily: 'Anton', fontSize: 13, color: '#20C20E', letterSpacing: 1 },
   body:          { fontFamily: 'Geist', fontSize: 13, color: '#147A16', lineHeight: 18 },
   time:          { fontFamily: 'Inter', fontSize: 11, color: '#0F6B0F' },
+  tapHint:       { fontFamily: 'Inter', fontSize: 10, color: '#2D8B2D', letterSpacing: 1 },
+  askWrap:       { borderWidth: 1, borderTopWidth: 0, borderColor: '#0F2B0F',
+                   borderBottomLeftRadius: 2, borderBottomRightRadius: 2,
+                   padding: 12, backgroundColor: '#061206' },
   emptyBody:     { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 16, padding: 24 },
   emptyIconWrap: { width: 80, height: 80, borderRadius: 40, backgroundColor: '#061206',
                    borderWidth: 1, borderColor: '#0F2B0F',

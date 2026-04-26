@@ -2,6 +2,7 @@ pub mod state;
 pub mod auth;
 pub mod push;
 pub mod routes;
+pub mod runtime;
 
 use anyhow::Result;
 use axum::{middleware, Router};
