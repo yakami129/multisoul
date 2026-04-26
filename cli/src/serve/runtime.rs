@@ -47,12 +47,16 @@ fn broadcast(state: &AppState, conv_id: &str, seq: i64, role: &'static str, payl
     let env = WsEnvelope { kind: "message", seq, role, payload, created_at: now_ms() };
     if let Ok(json) = serde_json::to_string(&env) {
         let tx = state.get_or_create_sender(conv_id);
-        let _ = tx.send(json);
+        let n = tx.send(json).unwrap_or(0);
+        eprintln!("[runtime] broadcast role={} seq={} receivers={}", role, seq, n);
     }
 }
 
 pub fn run_agent_turn(state: AppState, conv_id: String, project_path: String) {
-    tokio::spawn(async move {
+    // Use spawn_blocking because Command + BufReader are blocking I/O
+    tokio::task::spawn_blocking(move || {
+        eprintln!("[runtime] starting turn conv_id={}", conv_id);
+
         {
             let db = state.db.lock().unwrap();
             let _ = db.execute(
@@ -68,11 +72,11 @@ pub fn run_agent_turn(state: AppState, conv_id: String, project_path: String) {
                  AND role = 'user_text' ORDER BY seq DESC LIMIT 1"
             ) {
                 Ok(s) => s,
-                Err(_) => return,
+                Err(e) => { eprintln!("[runtime] prepare error: {}", e); return; }
             };
             let payload_str: String = match stmt.query_row([&conv_id], |r| r.get(0)) {
                 Ok(s) => s,
-                Err(_) => return,
+                Err(e) => { eprintln!("[runtime] query error: {}", e); return; }
             };
             serde_json::from_str::<Value>(&payload_str)
                 .ok()
@@ -80,7 +84,11 @@ pub fn run_agent_turn(state: AppState, conv_id: String, project_path: String) {
                 .unwrap_or_default()
         };
 
-        if user_text.is_empty() { return; }
+        if user_text.is_empty() {
+            eprintln!("[runtime] user_text is empty, aborting");
+            return;
+        }
+        eprintln!("[runtime] user_text={:?}", &user_text[..user_text.len().min(80)]);
 
         let mut child = match Command::new("claude")
             .args([
@@ -92,7 +100,7 @@ pub fn run_agent_turn(state: AppState, conv_id: String, project_path: String) {
             .current_dir(&project_path)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
-            .stderr(Stdio::null())
+            .stderr(Stdio::inherit())   // show claude's stderr in our terminal
             .spawn()
         {
             Ok(c) => c,
@@ -106,7 +114,9 @@ pub fn run_agent_turn(state: AppState, conv_id: String, project_path: String) {
                 return;
             }
         };
+        eprintln!("[runtime] claude spawned pid={:?}", child.id());
 
+        // Write user message then close stdin so claude knows input is done
         if let Some(mut stdin) = child.stdin.take() {
             let msg = serde_json::json!({
                 "type": "user",
@@ -115,18 +125,25 @@ pub fn run_agent_turn(state: AppState, conv_id: String, project_path: String) {
                     "content": [{ "type": "text", "text": &user_text }]
                 }
             });
-            let _ = writeln!(stdin, "{}", msg);
+            let line = format!("{}\n", msg);
+            eprintln!("[runtime] writing to stdin: {} bytes", line.len());
+            if let Err(e) = stdin.write_all(line.as_bytes()) {
+                eprintln!("[runtime] stdin write error: {}", e);
+            }
+            // stdin drops here → EOF → claude knows input is complete
         }
 
         let stdout = match child.stdout.take() {
             Some(s) => s,
-            None => return,
+            None => { eprintln!("[runtime] no stdout"); return; }
         };
         let reader = BufReader::new(stdout);
 
         for line in reader.lines() {
-            let line = match line { Ok(l) => l, Err(_) => break };
+            let line = match line { Ok(l) => l, Err(e) => { eprintln!("[runtime] read error: {}", e); break; } };
             if line.is_empty() { continue; }
+            eprintln!("[runtime] stdout line: {}", &line[..line.len().min(120)]);
+
             let raw: Value = match serde_json::from_str(&line) {
                 Ok(v) => v,
                 Err(_) => continue,
@@ -189,6 +206,7 @@ pub fn run_agent_turn(state: AppState, conv_id: String, project_path: String) {
                 }
                 "result" => {
                     let status = if raw["is_error"].as_bool().unwrap_or(false) { "failed" } else { "completed" };
+                    eprintln!("[runtime] result status={}", status);
                     {
                         let db = state.db.lock().unwrap();
                         let _ = db.execute(
@@ -213,5 +231,6 @@ pub fn run_agent_turn(state: AppState, conv_id: String, project_path: String) {
             }
         }
         let _ = child.wait();
+        eprintln!("[runtime] turn complete conv_id={}", conv_id);
     });
 }
