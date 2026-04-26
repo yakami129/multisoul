@@ -148,6 +148,16 @@ pnpm typecheck       # TypeScript 类型检查
 pnpm test -- --watchAll=false   # 运行测试
 ```
 
+### iOS 发布
+
+```bash
+cd mobile
+eas build --platform ios --profile production
+eas submit --platform ios --profile production --latest
+```
+
+详细步骤见 [mobile/docs/ios-publish.md](/Users/alan/Documents/codes/yakami0129/multisoul/mobile/docs/ios-publish.md)。
+
 ---
 
 ## 数据存储
