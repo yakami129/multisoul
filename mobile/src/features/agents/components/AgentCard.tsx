@@ -1,7 +1,7 @@
 import { Zap } from 'lucide-react-native';
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { Agent } from '@/types';
+import { type Agent } from '@/types';
 
 interface Props {
   agent: Agent;
@@ -19,10 +19,7 @@ function initials(name: string) {
 
 export function AgentCard({ agent, onPress }: Props) {
   return (
-    <Pressable
-      onPress={onPress}
-      style={({ pressed }) => [s.wrap, pressed && s.wrapPressed]}
-    >
+    <Pressable onPress={onPress} style={({ pressed }) => [s.wrap, pressed && s.wrapPressed]}>
       <View style={s.card}>
         {/* Card header row */}
         <View style={s.cardHeader}>
@@ -103,7 +100,13 @@ const s = StyleSheet.create({
     borderColor: '#0F2B0F',
     backgroundColor: '#0A1A0A',
   },
-  runtimeText: { fontFamily: 'Inter', fontSize: 10, fontWeight: '700', color: '#2D8B2D', letterSpacing: 0.8 },
+  runtimeText: {
+    fontFamily: 'Inter',
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#2D8B2D',
+    letterSpacing: 0.8,
+  },
   endpointRow: {
     flexDirection: 'row',
     alignItems: 'center',

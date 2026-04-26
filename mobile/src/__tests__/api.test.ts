@@ -41,7 +41,7 @@ describe('api client', () => {
     getApiClient();
 
     expect(axios.create).toHaveBeenCalledWith(
-      expect.objectContaining({ baseURL: 'http://test:8080' })
+      expect.objectContaining({ baseURL: 'http://test:8080' }),
     );
     expect(mockInstance.defaults.headers.common['Authorization']).toBe('Bearer ms_testkey123');
   });

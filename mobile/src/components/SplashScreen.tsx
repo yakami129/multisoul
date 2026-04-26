@@ -1,17 +1,10 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import {
-  Animated,
-  Dimensions,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { Animated, Dimensions, StyleSheet, Text, View } from 'react-native';
 
 // ─── Glyph pools ──────────────────────────────────────────────────────────────
 
 const HEX = '0123456789ABCDEF';
-const BRAILLE =
-  '⠿⠾⣿⣾⢿⡿⣻⢻⡻⠻⣽⢽⡽⠽⣺⢺⡺⠺⣹⢹⡹⠹⣸⢸⡸⢰⡰⠰⣯⢯⡯⣮⢮⡮';
+const BRAILLE = '⠿⠾⣿⣾⢿⡿⣻⢻⡻⠻⣽⢽⡽⠽⣺⢺⡺⠺⣹⢹⡹⠹⣸⢸⡸⢰⡰⠰⣯⢯⡯⣮⢮⡮';
 const BLOCKS = '░▒▓█▄▀■□▪';
 
 const pick = (s: string) => s[Math.floor(Math.random() * s.length)];
@@ -153,7 +146,7 @@ export function SplashScreen({ onComplete }: Props) {
       if (i === current && current < art.length) return 'active';
       return 'pending';
     },
-    [phase, art.length]
+    [phase, art.length],
   );
 
   // Root fade-in
@@ -170,9 +163,13 @@ export function SplashScreen({ onComplete }: Props) {
     if (phase !== 'scan') return;
     const loop = Animated.loop(
       Animated.sequence([
-        Animated.timing(headerCursorOpacity, { toValue: 0.1, duration: 320, useNativeDriver: true }),
+        Animated.timing(headerCursorOpacity, {
+          toValue: 0.1,
+          duration: 320,
+          useNativeDriver: true,
+        }),
         Animated.timing(headerCursorOpacity, { toValue: 1, duration: 320, useNativeDriver: true }),
-      ])
+      ]),
     );
     loop.start();
     return () => loop.stop();
@@ -185,7 +182,7 @@ export function SplashScreen({ onComplete }: Props) {
       Animated.sequence([
         Animated.timing(beamOpacity, { toValue: 1, duration: 380, useNativeDriver: true }),
         Animated.timing(beamOpacity, { toValue: 0.5, duration: 380, useNativeDriver: true }),
-      ])
+      ]),
     );
     loop.start();
     return () => loop.stop();
@@ -354,7 +351,7 @@ export function SplashScreen({ onComplete }: Props) {
           Animated.timing(readyOpacity, { toValue: 0.15, duration: 280, useNativeDriver: true }),
           Animated.timing(readyOpacity, { toValue: 1, duration: 280, useNativeDriver: true }),
         ]),
-        { iterations: 4 }
+        { iterations: 4 },
       ),
     ]).start(() => setPhase('exit'));
   }, [phase, readyOpacity]);
@@ -384,10 +381,18 @@ export function SplashScreen({ onComplete }: Props) {
   return (
     <Animated.View style={[s.root, { opacity: Animated.multiply(rootOpacity, exitOpacity) }]}>
       {/* Corners */}
-      <Text style={s.cornerTL} allowFontScaling={false}>┌{' ─'.repeat(6)}</Text>
-      <Text style={s.cornerTR} allowFontScaling={false}>{'─ '.repeat(6)}┐</Text>
-      <Text style={s.cornerBL} allowFontScaling={false}>└{' ─'.repeat(6)}</Text>
-      <Text style={s.cornerBR} allowFontScaling={false}>{'─ '.repeat(6)}┘</Text>
+      <Text style={s.cornerTL} allowFontScaling={false}>
+        ┌{' ─'.repeat(6)}
+      </Text>
+      <Text style={s.cornerTR} allowFontScaling={false}>
+        {'─ '.repeat(6)}┐
+      </Text>
+      <Text style={s.cornerBL} allowFontScaling={false}>
+        └{' ─'.repeat(6)}
+      </Text>
+      <Text style={s.cornerBR} allowFontScaling={false}>
+        {'─ '.repeat(6)}┘
+      </Text>
 
       {/* Stamps */}
       <Text style={s.stampTL} allowFontScaling={false}>
@@ -466,7 +471,7 @@ export function SplashScreen({ onComplete }: Props) {
       {phase !== 'scan' && phase !== 'brand' && (
         <Animated.View style={[s.bootWrap, { opacity: bootBoxOpacity }]}>
           <Text style={s.bootHeading} allowFontScaling={false}>
-            ░░ SYS.LOG  STREAM 0xA77F4C  PID 0001 ░░
+            ░░ SYS.LOG STREAM 0xA77F4C PID 0001 ░░
           </Text>
           {BOOT_LINES.map((line, i) => {
             const hasUp = / UP$/.test(line) || line.includes('[ OK ]') || line.endsWith(' OK');
@@ -496,9 +501,7 @@ export function SplashScreen({ onComplete }: Props) {
                 allowFontScaling={false}
               >
                 {displayed || ' '}
-                {showCursor && (
-                  <Text style={s.cursor}>{cursorOn ? '█' : ' '}</Text>
-                )}
+                {showCursor && <Text style={s.cursor}>{cursorOn ? '█' : ' '}</Text>}
               </Text>
             );
           })}

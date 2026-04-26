@@ -1,4 +1,4 @@
-import React, { Component, ErrorInfo, ReactNode } from 'react';
+import React, { Component, type ErrorInfo, type ReactNode } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
 interface Props {
@@ -35,11 +35,10 @@ export class ErrorBoundary extends Component<Props, State> {
       return (
         <View className="flex-1 items-center justify-center p-6">
           <Text className="text-xl font-bold text-danger mb-2">Something went wrong</Text>
-          <Text className="text-sm text-slate-500 text-center mb-5">{this.state.error?.message}</Text>
-          <Pressable
-            className="bg-primary px-6 py-2.5 rounded-lg"
-            onPress={this.handleReset}
-          >
+          <Text className="text-sm text-slate-500 text-center mb-5">
+            {this.state.error?.message}
+          </Text>
+          <Pressable className="bg-primary px-6 py-2.5 rounded-lg" onPress={this.handleReset}>
             <Text className="text-white font-semibold">Try Again</Text>
           </Pressable>
         </View>

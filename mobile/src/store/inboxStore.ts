@@ -1,6 +1,6 @@
 import { create } from 'zustand';
-import { InboxItem } from '@/types';
 import { loadInboxItems, writeInboxItem, markRead } from '@/features/inbox/services/inboxService';
+import { type InboxItem } from '@/types';
 
 interface InboxState {
   items: InboxItem[];
@@ -25,7 +25,7 @@ export const useInboxStore = create<InboxState>((set) => ({
   markRead: async (id) => {
     await markRead(id);
     set((s) => ({
-      items: s.items.map((i) => i.id === id ? { ...i, read_at: Date.now() } : i),
+      items: s.items.map((i) => (i.id === id ? { ...i, read_at: Date.now() } : i)),
     }));
   },
 }));

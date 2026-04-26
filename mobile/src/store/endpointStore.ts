@@ -1,7 +1,7 @@
-import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Endpoint } from '@/types';
+import { create } from 'zustand';
 import { getDb } from '@/db';
+import { type Endpoint } from '@/types';
 import 'react-native-get-random-values';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -20,13 +20,18 @@ export const useEndpointStore = create<EndpointState>((set) => ({
 
   load: async () => {
     const db = getDb();
-    const rows = await db.getAllAsync<{ id: string; label: string; base_url: string; last_seen_at: number | null }>(
-      'SELECT id, label, base_url, last_seen_at FROM endpoints ORDER BY rowid ASC'
+    const rows = await db.getAllAsync<{
+      id: string;
+      label: string;
+      base_url: string;
+      last_seen_at: number | null;
+    }>('SELECT id, label, base_url, last_seen_at FROM endpoints ORDER BY rowid ASC');
+    const endpoints: Endpoint[] = await Promise.all(
+      rows.map(async (r) => ({
+        ...r,
+        token: (await AsyncStorage.getItem(TOKEN_KEY(r.id))) ?? '',
+      })),
     );
-    const endpoints: Endpoint[] = await Promise.all(rows.map(async (r) => ({
-      ...r,
-      token: (await AsyncStorage.getItem(TOKEN_KEY(r.id))) ?? '',
-    })));
     set({ endpoints });
   },
 
@@ -35,7 +40,7 @@ export const useEndpointStore = create<EndpointState>((set) => ({
     const id = uuidv4();
     await db.runAsync(
       'INSERT INTO endpoints (id, label, base_url, last_seen_at) VALUES (?,?,?,NULL)',
-      [id, label, base_url]
+      [id, label, base_url],
     );
     await AsyncStorage.setItem(TOKEN_KEY(id), token);
     const ep: Endpoint = { id, label, base_url, token, last_seen_at: null };
@@ -53,7 +58,7 @@ export const useEndpointStore = create<EndpointState>((set) => ({
     const db = getDb();
     await db.runAsync('UPDATE endpoints SET last_seen_at = ? WHERE id = ?', [ts, id]);
     set((s) => ({
-      endpoints: s.endpoints.map((e) => e.id === id ? { ...e, last_seen_at: ts } : e),
+      endpoints: s.endpoints.map((e) => (e.id === id ? { ...e, last_seen_at: ts } : e)),
     }));
   },
 }));

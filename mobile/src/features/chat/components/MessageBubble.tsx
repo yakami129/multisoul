@@ -1,6 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, View, Text, StyleSheet } from 'react-native';
-import { WsMessage, AskQuestionPayload } from '@/types';
+import {
+  type WsMessage,
+  type AskQuestionPayload,
+  type AgentTextPayload,
+  type UserTextPayload,
+  type ToolCallPayload,
+} from '@/types';
 import AskQuestionCard from './AskQuestionCard';
 import MultiAskQuestionCard from './MultiAskQuestionCard';
 import { ToolCallRow } from './ToolCallRow';
@@ -18,8 +24,14 @@ interface Props {
   waiting?: boolean;
 }
 
-export function MessageBubble({ msg, onAnswer, onAnswerMulti, typewriter = false, waiting = false }: Props) {
-  const agentText = msg.role === 'agent_text' ? (msg.payload as any).text ?? '' : '';
+export function MessageBubble({
+  msg,
+  onAnswer,
+  onAnswerMulti,
+  typewriter = false,
+  waiting = false,
+}: Props) {
+  const agentText = msg.role === 'agent_text' ? ((msg.payload as AgentTextPayload).text ?? '') : '';
   const [visibleChars, setVisibleChars] = useState(typewriter ? 0 : agentText.length);
   const shineProgress = useRef(new Animated.Value(0)).current;
   const shineTranslateX = shineProgress.interpolate({
@@ -61,7 +73,7 @@ export function MessageBubble({ msg, onAnswer, onAnswerMulti, typewriter = false
         duration: 1600,
         easing: Easing.linear,
         useNativeDriver: true,
-      })
+      }),
     );
     shineLoop.start();
 
@@ -80,10 +92,7 @@ export function MessageBubble({ msg, onAnswer, onAnswerMulti, typewriter = false
             </Text>
             <Animated.View
               pointerEvents="none"
-              style={[
-                s.waitingShine,
-                { transform: [{ translateX: shineTranslateX }] },
-              ]}
+              style={[s.waitingShine, { transform: [{ translateX: shineTranslateX }] }]}
             >
               <Animated.Text
                 style={[
@@ -106,12 +115,12 @@ export function MessageBubble({ msg, onAnswer, onAnswerMulti, typewriter = false
       return (
         <View style={s.userWrap}>
           <View style={s.userBubble}>
-            <Text style={s.userText}>{(msg.payload as any).text}</Text>
+            <Text style={s.userText}>{(msg.payload as UserTextPayload).text}</Text>
           </View>
         </View>
       );
 
-    case 'agent_text':
+    case 'agent_text': {
       const isScanning = typewriter && visibleChars < agentText.length;
       const displayedText = typewriter
         ? `${agentText.slice(0, visibleChars)}${isScanning ? '▌' : ''}`
@@ -124,11 +133,12 @@ export function MessageBubble({ msg, onAnswer, onAnswerMulti, typewriter = false
           </View>
         </View>
       );
+    }
 
     case 'tool_call':
       return (
         <View style={s.aiWrap}>
-          <ToolCallRow call={msg.payload as any} />
+          <ToolCallRow call={msg.payload as ToolCallPayload} />
         </View>
       );
 
@@ -183,15 +193,22 @@ export function MessageBubble({ msg, onAnswer, onAnswerMulti, typewriter = false
 
 const s = StyleSheet.create({
   userWrap: { width: '100%', alignItems: 'flex-end' },
-  aiWrap:   { width: '100%', alignItems: 'flex-start' },
+  aiWrap: { width: '100%', alignItems: 'flex-start' },
   userBubble: {
-    maxWidth: 240, backgroundColor: '#20C20E', borderRadius: 2,
-    borderTopRightRadius: 0, padding: 12,
+    maxWidth: 240,
+    backgroundColor: '#20C20E',
+    borderRadius: 2,
+    borderTopRightRadius: 0,
+    padding: 12,
   },
   aiBubble: {
-    maxWidth: 280, backgroundColor: '#061206', borderRadius: 2,
-    borderTopLeftRadius: 0, padding: 12,
-    borderWidth: 1, borderColor: '#0F2B0F',
+    maxWidth: 280,
+    backgroundColor: '#061206',
+    borderRadius: 2,
+    borderTopLeftRadius: 0,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#0F2B0F',
   },
   waitingBubble: {
     maxWidth: 280,
@@ -199,7 +216,7 @@ const s = StyleSheet.create({
     paddingVertical: 8,
   },
   userText: { fontFamily: 'Geist', fontSize: 14, color: '#040D04', lineHeight: 20 },
-  aiText:   { fontFamily: 'Geist', fontSize: 14, color: '#20C20E', lineHeight: 20 },
+  aiText: { fontFamily: 'Geist', fontSize: 14, color: '#20C20E', lineHeight: 20 },
   typingText: {
     color: '#20C20E',
     textShadowColor: '#20C20E',
@@ -232,7 +249,10 @@ const s = StyleSheet.create({
     textShadowRadius: 8,
   },
   statusRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 8,
   },
   statusLine: { flex: 1, height: 1 },
   statusText: { fontFamily: 'Inter', fontSize: 11, letterSpacing: 1 },

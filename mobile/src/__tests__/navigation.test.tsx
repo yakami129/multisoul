@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen } from '@testing-library/react-native';
-import React from 'react';
+import type React from 'react';
 
 jest.mock('expo-router', () => {
   const React = require('react');
@@ -36,7 +36,7 @@ jest.mock('../../src/api', () => ({
 }));
 
 jest.mock('@react-native-async-storage/async-storage', () =>
-  require('@react-native-async-storage/async-storage/jest/async-storage-mock')
+  require('@react-native-async-storage/async-storage/jest/async-storage-mock'),
 );
 
 import TabLayout from '../../app/(tabs)/_layout';

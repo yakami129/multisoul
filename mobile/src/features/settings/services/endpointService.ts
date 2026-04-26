@@ -12,6 +12,6 @@ export async function pingAllEndpoints(): Promise<void> {
       } catch {
         // endpoint offline — last_seen_at stays stale
       }
-    })
+    }),
   );
 }

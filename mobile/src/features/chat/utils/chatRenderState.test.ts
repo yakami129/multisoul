@@ -1,25 +1,23 @@
-import {
-  getLatestAgentActivitySeq,
-  getLatestAgentTextSeq,
-} from './chatRenderState';
 import type { WsMessage } from '@/types';
+import { getLatestAgentActivitySeq, getLatestAgentTextSeq } from './chatRenderState';
 
 function message(seq: number, role: WsMessage['role']): WsMessage {
   return {
     type: 'message',
     seq,
     role,
-    payload: role === 'user_text'
-      ? { text: 'user' }
-      : role === 'agent_text'
-        ? { text: 'agent' }
-        : role === 'ask_question'
-          ? { ask_id: 'ask-1', allow_freeform: false, questions: [] }
-          : role === 'task_status'
-            ? { task_id: 'task-1', status: 'running', importance: 'normal', summary: 'running' }
-            : role === 'tool_call'
-              ? { tool: 'shell', args: '{}', call_id: 'call-1' }
-              : { call_id: 'call-1', ok: true, summary: 'ok' },
+    payload:
+      role === 'user_text'
+        ? { text: 'user' }
+        : role === 'agent_text'
+          ? { text: 'agent' }
+          : role === 'ask_question'
+            ? { ask_id: 'ask-1', allow_freeform: false, questions: [] }
+            : role === 'task_status'
+              ? { task_id: 'task-1', status: 'running', importance: 'normal', summary: 'running' }
+              : role === 'tool_call'
+                ? { tool: 'shell', args: '{}', call_id: 'call-1' }
+                : { call_id: 'call-1', ok: true, summary: 'ok' },
     created_at: 0,
   } as WsMessage;
 }

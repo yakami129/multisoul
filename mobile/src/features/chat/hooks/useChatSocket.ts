@@ -26,33 +26,47 @@ export function useChatSocket({ agentId, serverUrl, apiKey }: Options) {
   const unmounted = useRef(false);
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const handleMessage = useCallback((envelope: { type: string; payload: any }) => {
-    if (envelope.type === 'history') {
-      const msgs: ChatMessage[] = (envelope.payload.messages ?? []).map((m: any) => ({
-        id: m.id,
-        role: m.role,
-        text: m.text,
-        createdAt: m.created_at,
-      }));
-      setMessages(msgs);
-    } else if (envelope.type === 'chunk') {
-      const { message_id, text, done } = envelope.payload;
-      setMessages((prev) => {
-        const idx = prev.findIndex((m) => m.id === message_id);
-        if (idx === -1) {
-          return [...prev, {
-            id: message_id, role: 'assistant',
-            text, createdAt: new Date().toISOString(),
-            streaming: !done,
-          }];
-        }
-        // Replace in-place (server sends full accumulated text each chunk)
-        const updated = [...prev];
-        updated[idx] = { ...updated[idx], text, streaming: !done };
-        return updated;
-      });
-    }
-  }, []);
+  const handleMessage = useCallback(
+    (envelope: { type: string; payload: Record<string, unknown> }) => {
+      if (envelope.type === 'history') {
+        const msgs: ChatMessage[] = (
+          (envelope.payload.messages as Array<Record<string, unknown>>) ?? []
+        ).map((m) => ({
+          id: m.id as string,
+          role: m.role as 'user' | 'assistant',
+          text: m.text as string,
+          createdAt: m.created_at as string,
+        }));
+        setMessages(msgs);
+      } else if (envelope.type === 'chunk') {
+        const { message_id, text, done } = envelope.payload as {
+          message_id: string;
+          text: string;
+          done: boolean;
+        };
+        setMessages((prev) => {
+          const idx = prev.findIndex((m) => m.id === message_id);
+          if (idx === -1) {
+            return [
+              ...prev,
+              {
+                id: message_id,
+                role: 'assistant',
+                text,
+                createdAt: new Date().toISOString(),
+                streaming: !done,
+              },
+            ];
+          }
+          // Replace in-place (server sends full accumulated text each chunk)
+          const updated = [...prev];
+          updated[idx] = { ...updated[idx], text, streaming: !done };
+          return updated;
+        });
+      }
+    },
+    [],
+  );
 
   const connect = useCallback(() => {
     if (unmounted.current) return;
@@ -69,7 +83,10 @@ export function useChatSocket({ agentId, serverUrl, apiKey }: Options) {
 
     ws.onmessage = (event) => {
       try {
-        const envelope = JSON.parse(event.data as string);
+        const envelope = JSON.parse(event.data as string) as {
+          type: string;
+          payload: Record<string, unknown>;
+        };
         handleMessage(envelope);
       } catch {
         // ignore malformed frames
@@ -85,21 +102,29 @@ export function useChatSocket({ agentId, serverUrl, apiKey }: Options) {
     };
   }, [agentId, serverUrl, apiKey, handleMessage]);
 
-  const send = useCallback((text: string) => {
-    const ws = wsRef.current;
-    if (!ws || ws.readyState !== WebSocket.OPEN) return;
-    ws.send(JSON.stringify({
-      type: 'message',
-      payload: { agent_id: agentId, text },
-    }));
-    // Optimistically add user message
-    setMessages((prev) => [...prev, {
-      id: Date.now().toString(),
-      role: 'user',
-      text,
-      createdAt: new Date().toISOString(),
-    }]);
-  }, [agentId]);
+  const send = useCallback(
+    (text: string) => {
+      const ws = wsRef.current;
+      if (!ws || ws.readyState !== WebSocket.OPEN) return;
+      ws.send(
+        JSON.stringify({
+          type: 'message',
+          payload: { agent_id: agentId, text },
+        }),
+      );
+      // Optimistically add user message
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now().toString(),
+          role: 'user',
+          text,
+          createdAt: new Date().toISOString(),
+        },
+      ]);
+    },
+    [agentId],
+  );
 
   useEffect(() => {
     unmounted.current = false;

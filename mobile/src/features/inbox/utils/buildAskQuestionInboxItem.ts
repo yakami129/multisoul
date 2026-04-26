@@ -1,4 +1,4 @@
-import { AskQuestionPayload, InboxItem } from '@/types';
+import { type AskQuestionPayload, type InboxItem } from '@/types';
 
 export function buildAskQuestionInboxItem(params: {
   askPayload: AskQuestionPayload;

@@ -1,5 +1,9 @@
 import { create } from 'zustand';
-import { loadSettings, saveSettings, Settings } from '@/features/settings/services/settingsService';
+import {
+  loadSettings,
+  saveSettings,
+  type Settings,
+} from '@/features/settings/services/settingsService';
 
 interface SettingsState {
   settings: Settings;

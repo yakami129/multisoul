@@ -1,9 +1,9 @@
+import { CircleCheck, Info } from 'lucide-react-native';
 import React, { useState } from 'react';
 import { View, Text, FlatList, TouchableOpacity, StyleSheet } from 'react-native';
-import { CircleCheck, Info } from 'lucide-react-native';
-import { InboxItem, AskQuestionPayload } from '@/types';
 import AskQuestionCard from '@/features/chat/components/AskQuestionCard';
 import MultiAskQuestionCard from '@/features/chat/components/MultiAskQuestionCard';
+import { type InboxItem, type AskQuestionPayload } from '@/types';
 
 interface Props {
   items: InboxItem[];
@@ -37,9 +37,7 @@ export default function InboxScreen({ items, onOpen, onAnswer, onAnswerMulti }: 
           <View style={s.infoBox}>
             <View style={s.infoRow}>
               <Info size={14} color="#2D8B2D" />
-              <Text style={s.infoText}>
-                You will be notified when an agent needs your input.
-              </Text>
+              <Text style={s.infoText}>You will be notified when an agent needs your input.</Text>
             </View>
           </View>
         </View>
@@ -65,13 +63,19 @@ export default function InboxScreen({ items, onOpen, onAnswer, onAnswerMulti }: 
                     }
                   }}
                 >
-                  <View style={[s.unreadBar, { backgroundColor: unread ? '#20C20E' : 'transparent' }]} />
+                  <View
+                    style={[s.unreadBar, { backgroundColor: unread ? '#20C20E' : 'transparent' }]}
+                  />
                   <View style={s.content}>
                     <Text style={s.title}>{item.title}</Text>
-                    <Text style={s.body} numberOfLines={isExpanded ? undefined : 2}>{item.body}</Text>
+                    <Text style={s.body} numberOfLines={isExpanded ? undefined : 2}>
+                      {item.body}
+                    </Text>
                     <Text style={s.time}>{new Date(item.received_at).toLocaleString()}</Text>
                     {isPendingQuestion && (
-                      <Text style={s.tapHint}>{isExpanded ? 'TAP TO COLLAPSE' : 'TAP TO ANSWER'}</Text>
+                      <Text style={s.tapHint}>
+                        {isExpanded ? 'TAP TO COLLAPSE' : 'TAP TO ANSWER'}
+                      </Text>
                     )}
                   </View>
                 </TouchableOpacity>
@@ -124,34 +128,69 @@ export default function InboxScreen({ items, onOpen, onAnswer, onAnswerMulti }: 
 }
 
 const s = StyleSheet.create({
-  root:          { flex: 1, backgroundColor: '#040D04' },
-  header:        { height: 52, backgroundColor: '#061206', flexDirection: 'row',
-                   alignItems: 'center', paddingHorizontal: 16,
-                   borderBottomWidth: 1, borderBottomColor: '#0F2B0F' },
-  headerTitle:   { fontFamily: 'Anton', fontSize: 20, color: '#20C20E' },
-  headerSub:     { fontFamily: 'Inter', fontSize: 11, letterSpacing: 1.5 },
-  list:          { padding: 16, gap: 8 },
-  rowWrap:       { gap: 0 },
-  row:           { flexDirection: 'row', backgroundColor: '#061206',
-                   borderWidth: 1, borderColor: '#0F2B0F', borderRadius: 2 },
-  unreadBar:     { width: 2 },
-  content:       { flex: 1, padding: 12, gap: 4 },
-  title:         { fontFamily: 'Anton', fontSize: 13, color: '#20C20E', letterSpacing: 1 },
-  body:          { fontFamily: 'Geist', fontSize: 13, color: '#147A16', lineHeight: 18 },
-  time:          { fontFamily: 'Inter', fontSize: 11, color: '#0F6B0F' },
-  tapHint:       { fontFamily: 'Inter', fontSize: 10, color: '#2D8B2D', letterSpacing: 1 },
-  askWrap:       { borderWidth: 1, borderTopWidth: 0, borderColor: '#0F2B0F',
-                   borderBottomLeftRadius: 2, borderBottomRightRadius: 2,
-                   padding: 12, backgroundColor: '#061206' },
-  emptyBody:     { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 16, padding: 24 },
-  emptyIconWrap: { width: 80, height: 80, borderRadius: 40, backgroundColor: '#061206',
-                   borderWidth: 1, borderColor: '#0F2B0F',
-                   alignItems: 'center', justifyContent: 'center' },
-  emptyTitle:    { fontFamily: 'Anton', fontSize: 24, color: '#20C20E' },
-  emptyDesc:     { fontFamily: 'Geist', fontSize: 14, color: '#147A16',
-                   textAlign: 'center', maxWidth: 260 },
-  infoBox:       { backgroundColor: '#061206', borderRadius: 2, borderWidth: 1,
-                   borderColor: '#0F2B0F', padding: 16, width: '100%' },
-  infoRow:       { flexDirection: 'row', gap: 8, alignItems: 'flex-start' },
-  infoText:      { fontFamily: 'Inter', fontSize: 12, color: '#2D8B2D', flex: 1, lineHeight: 18 },
+  root: { flex: 1, backgroundColor: '#040D04' },
+  header: {
+    height: 52,
+    backgroundColor: '#061206',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#0F2B0F',
+  },
+  headerTitle: { fontFamily: 'Anton', fontSize: 20, color: '#20C20E' },
+  headerSub: { fontFamily: 'Inter', fontSize: 11, letterSpacing: 1.5 },
+  list: { padding: 16, gap: 8 },
+  rowWrap: { gap: 0 },
+  row: {
+    flexDirection: 'row',
+    backgroundColor: '#061206',
+    borderWidth: 1,
+    borderColor: '#0F2B0F',
+    borderRadius: 2,
+  },
+  unreadBar: { width: 2 },
+  content: { flex: 1, padding: 12, gap: 4 },
+  title: { fontFamily: 'Anton', fontSize: 13, color: '#20C20E', letterSpacing: 1 },
+  body: { fontFamily: 'Geist', fontSize: 13, color: '#147A16', lineHeight: 18 },
+  time: { fontFamily: 'Inter', fontSize: 11, color: '#0F6B0F' },
+  tapHint: { fontFamily: 'Inter', fontSize: 10, color: '#2D8B2D', letterSpacing: 1 },
+  askWrap: {
+    borderWidth: 1,
+    borderTopWidth: 0,
+    borderColor: '#0F2B0F',
+    borderBottomLeftRadius: 2,
+    borderBottomRightRadius: 2,
+    padding: 12,
+    backgroundColor: '#061206',
+  },
+  emptyBody: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 16, padding: 24 },
+  emptyIconWrap: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#061206',
+    borderWidth: 1,
+    borderColor: '#0F2B0F',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyTitle: { fontFamily: 'Anton', fontSize: 24, color: '#20C20E' },
+  emptyDesc: {
+    fontFamily: 'Geist',
+    fontSize: 14,
+    color: '#147A16',
+    textAlign: 'center',
+    maxWidth: 260,
+  },
+  infoBox: {
+    backgroundColor: '#061206',
+    borderRadius: 2,
+    borderWidth: 1,
+    borderColor: '#0F2B0F',
+    padding: 16,
+    width: '100%',
+  },
+  infoRow: { flexDirection: 'row', gap: 8, alignItems: 'flex-start' },
+  infoText: { fontFamily: 'Inter', fontSize: 12, color: '#2D8B2D', flex: 1, lineHeight: 18 },
 });

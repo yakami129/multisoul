@@ -1,17 +1,31 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { ChevronLeft, Send } from 'lucide-react-native';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  KeyboardAvoidingView, Platform, SafeAreaView, ScrollView,
-  StyleSheet, Text, TextInput, TouchableOpacity, View,
+  KeyboardAvoidingView,
+  Platform,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
-import { ChevronLeft, Send } from 'lucide-react-native';
-import { WsMessage, TaskStatusPayload } from '../../../src/types';
+import { MessageBubble } from '../../../src/features/chat/components/MessageBubble';
+import {
+  createConversation,
+  fetchMessages,
+  postMessage,
+} from '../../../src/features/chat/services/chatService';
+import {
+  getLatestAgentActivitySeq,
+  getLatestAgentTextSeq,
+} from '../../../src/features/chat/utils/chatRenderState';
+import { useWebSocket } from '../../../src/hooks/useWebSocket';
 import { useChatStore } from '../../../src/store/chatStore';
 import { useEndpointStore } from '../../../src/store/endpointStore';
-import { useWebSocket } from '../../../src/hooks/useWebSocket';
-import { MessageBubble } from '../../../src/features/chat/components/MessageBubble';
-import { createConversation, fetchMessages, postMessage } from '../../../src/features/chat/services/chatService';
-import { getLatestAgentActivitySeq, getLatestAgentTextSeq } from '../../../src/features/chat/utils/chatRenderState';
+import { type WsMessage, type TaskStatusPayload } from '../../../src/types';
 
 // Stable fallback — never recreated, so Zustand won't see a changed snapshot (Bug 1 fix)
 const EMPTY: WsMessage[] = [];
@@ -24,7 +38,11 @@ const WAITING_MESSAGE: WsMessage = {
 };
 
 export default function AgentChatRoute() {
-  const { id: agent_id, endpoint_id, agent_name } = useLocalSearchParams<{ id: string; endpoint_id: string; agent_name?: string }>();
+  const {
+    id: agent_id,
+    endpoint_id,
+    agent_name,
+  } = useLocalSearchParams<{ id: string; endpoint_id: string; agent_name?: string }>();
   const router = useRouter();
   const [input, setInput] = useState('');
   const [isAwaitingResponse, setIsAwaitingResponse] = useState(false);
@@ -59,24 +77,28 @@ export default function AgentChatRoute() {
   const lastSeenAgentActivitySeqRef = useRef(latestAgentActivitySeq);
   const lastAnimatedAgentTextSeqRef = useRef(latestAgentSeq);
   const hasLoadedInitialMessagesRef = useRef(messages.length > 0);
-  const incomingAgentActivitySeq = isAwaitingResponse && latestAgentActivitySeq > lastSeenAgentActivitySeqRef.current
-    ? latestAgentActivitySeq
-    : null;
-  const incomingAgentTextSeq = hasLoadedInitialMessagesRef.current && latestAgentSeq > lastAnimatedAgentTextSeqRef.current
-    ? latestAgentSeq
-    : null;
+  const incomingAgentActivitySeq =
+    isAwaitingResponse && latestAgentActivitySeq > lastSeenAgentActivitySeqRef.current
+      ? latestAgentActivitySeq
+      : null;
+  const incomingAgentTextSeq =
+    hasLoadedInitialMessagesRef.current && latestAgentSeq > lastAnimatedAgentTextSeqRef.current
+      ? latestAgentSeq
+      : null;
   const activeTypewriterSeq = incomingAgentTextSeq ?? typewriterSeq;
 
   const { status, sendAnswer, sendAnswerMulti } = useWebSocket(
     endpoint && convId
-      ? { base_url: endpoint.base_url, token: endpoint.token, conv_id: convId, endpoint_id: endpoint_id ?? '', agent_id: agent_id ?? '', agent_name }
-      : { base_url: '', token: '', conv_id: '', endpoint_id: '', agent_id: '', agent_name: '' }
+      ? {
+          base_url: endpoint.base_url,
+          token: endpoint.token,
+          conv_id: convId,
+          endpoint_id: endpoint_id ?? '',
+          agent_id: agent_id ?? '',
+          agent_name,
+        }
+      : { base_url: '', token: '', conv_id: '', endpoint_id: '', agent_id: '', agent_name: '' },
   );
-
-
-
-
-
 
   // Create a new conversation on mount
   useEffect(() => {
@@ -99,7 +121,7 @@ export default function AgentChatRoute() {
       .catch(() => {
         hasLoadedInitialMessagesRef.current = true;
       });
-  }, [endpoint, agent_id]);
+  }, [endpoint, agent_id, setMessages]);
 
   const handleSend = async () => {
     const text = input.trim();
@@ -125,7 +147,10 @@ export default function AgentChatRoute() {
     if (isAwaitingResponse && latestAgentActivitySeq > lastSeenAgentActivitySeqRef.current) {
       setIsAwaitingResponse(false);
       lastSeenAgentActivitySeqRef.current = latestAgentActivitySeq;
-    } else if (!isAwaitingResponse && latestAgentActivitySeq > lastSeenAgentActivitySeqRef.current) {
+    } else if (
+      !isAwaitingResponse &&
+      latestAgentActivitySeq > lastSeenAgentActivitySeqRef.current
+    ) {
       lastSeenAgentActivitySeqRef.current = latestAgentActivitySeq;
     }
 
@@ -139,7 +164,10 @@ export default function AgentChatRoute() {
 
   return (
     <SafeAreaView style={s.safe}>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
         <View style={s.nav}>
           <TouchableOpacity onPress={() => router.back()}>
             <ChevronLeft size={24} color="#20C20E" />
@@ -178,10 +206,17 @@ export default function AgentChatRoute() {
               onChangeText={setInput}
               editable={!composerDisabled}
               returnKeyType="send"
-              onSubmitEditing={handleSend}
+              onSubmitEditing={() => {
+                void handleSend();
+              }}
             />
           </View>
-          <TouchableOpacity onPress={handleSend} disabled={composerDisabled}>
+          <TouchableOpacity
+            onPress={() => {
+              void handleSend();
+            }}
+            disabled={composerDisabled}
+          >
             {isAwaitingResponse ? (
               <Text style={s.waitText}>WAIT</Text>
             ) : (
@@ -195,21 +230,42 @@ export default function AgentChatRoute() {
 }
 
 const s = StyleSheet.create({
-  safe:          { flex: 1, backgroundColor: '#040D04' },
-  nav:           { height: 52, backgroundColor: '#061206', flexDirection: 'row',
-                   alignItems: 'center', justifyContent: 'space-between',
-                   paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: '#0F2B0F' },
-  navTitle:      { fontFamily: 'Anton', fontSize: 16, color: '#20C20E' },
-  dot:           { width: 8, height: 8, borderRadius: 4 },
-  scroll:        { flex: 1 },
+  safe: { flex: 1, backgroundColor: '#040D04' },
+  nav: {
+    height: 52,
+    backgroundColor: '#061206',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#0F2B0F',
+  },
+  navTitle: { fontFamily: 'Anton', fontSize: 16, color: '#20C20E' },
+  dot: { width: 8, height: 8, borderRadius: 4 },
+  scroll: { flex: 1 },
   scrollContent: { padding: 16, gap: 12 },
-  inputBar:      { height: 60, backgroundColor: '#061206', flexDirection: 'row',
-                   alignItems: 'center', paddingHorizontal: 12, gap: 8,
-                   borderTopWidth: 1, borderTopColor: '#0F2B0F' },
-  inputField:    { flex: 1, height: 36, backgroundColor: '#0A1A0A', borderRadius: 2,
-                   borderWidth: 1, borderColor: '#0F2B0F', paddingHorizontal: 14,
-                   justifyContent: 'center' },
+  inputBar: {
+    height: 60,
+    backgroundColor: '#061206',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    gap: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#0F2B0F',
+  },
+  inputField: {
+    flex: 1,
+    height: 36,
+    backgroundColor: '#0A1A0A',
+    borderRadius: 2,
+    borderWidth: 1,
+    borderColor: '#0F2B0F',
+    paddingHorizontal: 14,
+    justifyContent: 'center',
+  },
   inputDisabled: { opacity: 0.4 },
-  input:         { fontFamily: 'Geist', fontSize: 14, color: '#20C20E' },
-  waitText:      { fontFamily: 'Geist Mono', fontSize: 10, color: '#33FF33', letterSpacing: 1 },
+  input: { fontFamily: 'Geist', fontSize: 14, color: '#20C20E' },
+  waitText: { fontFamily: 'Geist Mono', fontSize: 10, color: '#33FF33', letterSpacing: 1 },
 });

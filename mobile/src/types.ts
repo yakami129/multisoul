@@ -3,7 +3,7 @@ export interface Endpoint {
   id: string;
   label: string;
   base_url: string;
-  token: string;           // stored in AsyncStorage keyed by id, NOT in SQLite
+  token: string; // stored in AsyncStorage keyed by id, NOT in SQLite
   last_seen_at: number | null;
 }
 
@@ -59,10 +59,22 @@ export type MessagePayload =
   | AskQuestionPayload
   | TaskStatusPayload;
 
-export interface UserTextPayload    { text: string }
-export interface AgentTextPayload   { text: string }
-export interface ToolCallPayload    { tool: string; args: string; call_id: string }
-export interface ToolResultPayload  { call_id: string; ok: boolean; summary: string }
+export interface UserTextPayload {
+  text: string;
+}
+export interface AgentTextPayload {
+  text: string;
+}
+export interface ToolCallPayload {
+  tool: string;
+  args: string;
+  call_id: string;
+}
+export interface ToolResultPayload {
+  call_id: string;
+  ok: boolean;
+  summary: string;
+}
 export interface AskQuestionPayload {
   ask_id: string;
   questions: Array<{
@@ -72,7 +84,7 @@ export interface AskQuestionPayload {
   }>;
   allow_freeform: boolean;
 }
-export interface TaskStatusPayload  {
+export interface TaskStatusPayload {
   task_id: string;
   status: 'running' | 'completed' | 'failed';
   importance: 'normal' | 'complex';

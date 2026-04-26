@@ -1,8 +1,8 @@
-import React from 'react';
 import { render, fireEvent } from '@testing-library/react-native';
+import React from 'react';
 import { RefreshControl } from 'react-native';
+import { type Agent } from '@/types';
 import { AgentList } from './AgentList';
-import { Agent } from '@/types';
 
 jest.mock('react-native-safe-area-context', () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
@@ -33,8 +33,15 @@ const agents: Agent[] = [
 describe('AgentList', () => {
   it('renders list of agents', () => {
     const { getByText } = render(
-      <AgentList agents={agents} isLoading={false} isError={false} error={null}
-        isFetching={false} onRefetch={() => {}} onAgentPress={() => {}} />,
+      <AgentList
+        agents={agents}
+        isLoading={false}
+        isError={false}
+        error={null}
+        isFetching={false}
+        onRefetch={() => {}}
+        onAgentPress={() => {}}
+      />,
     );
     expect(getByText('ALPHA')).toBeTruthy();
     expect(getByText('BETA')).toBeTruthy();
@@ -42,16 +49,30 @@ describe('AgentList', () => {
 
   it('shows loading text when isLoading', () => {
     const { getByText } = render(
-      <AgentList agents={[]} isLoading isFetching={false} isError={false} error={null}
-        onRefetch={() => {}} onAgentPress={() => {}} />,
+      <AgentList
+        agents={[]}
+        isLoading
+        isFetching={false}
+        isError={false}
+        error={null}
+        onRefetch={() => {}}
+        onAgentPress={() => {}}
+      />,
     );
     expect(getByText('LOADING AGENTS...')).toBeTruthy();
   });
 
   it('shows error state when isError', () => {
     const { getByText } = render(
-      <AgentList agents={[]} isLoading={false} isFetching={false} isError
-        error={new Error('net fail')} onRefetch={() => {}} onAgentPress={() => {}} />,
+      <AgentList
+        agents={[]}
+        isLoading={false}
+        isFetching={false}
+        isError
+        error={new Error('net fail')}
+        onRefetch={() => {}}
+        onAgentPress={() => {}}
+      />,
     );
     expect(getByText('FAILED TO LOAD')).toBeTruthy();
   });
@@ -59,8 +80,15 @@ describe('AgentList', () => {
   it('calls onAgentPress with agent id', () => {
     const onAgentPress = jest.fn();
     const { getByText } = render(
-      <AgentList agents={agents} isLoading={false} isError={false} error={null}
-        isFetching={false} onRefetch={() => {}} onAgentPress={onAgentPress} />,
+      <AgentList
+        agents={agents}
+        isLoading={false}
+        isError={false}
+        error={null}
+        isFetching={false}
+        onRefetch={() => {}}
+        onAgentPress={onAgentPress}
+      />,
     );
     fireEvent.press(getByText('ALPHA'));
     expect(onAgentPress).toHaveBeenCalledWith('a1', 'ep-1');
@@ -68,8 +96,15 @@ describe('AgentList', () => {
 
   it('does not show pull refresh spinner for background fetches', () => {
     const { UNSAFE_getByType } = render(
-      <AgentList agents={agents} isLoading={false} isError={false} error={null}
-        isFetching onRefetch={() => {}} onAgentPress={() => {}} />,
+      <AgentList
+        agents={agents}
+        isLoading={false}
+        isError={false}
+        error={null}
+        isFetching
+        onRefetch={() => {}}
+        onAgentPress={() => {}}
+      />,
     );
 
     expect(UNSAFE_getByType(RefreshControl).props.refreshing).toBe(false);

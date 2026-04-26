@@ -1,10 +1,10 @@
-import React from 'react';
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
-import ChatDetailScreen from '../../app/chat/[id]';
+import React from 'react';
+import { fetchMessages } from '@/features/chat/services/chatService';
 import { useChatStore } from '@/store/chatStore';
 import { useEndpointStore } from '@/store/endpointStore';
-import { fetchMessages } from '@/features/chat/services/chatService';
 import type { WsMessage } from '@/types';
+import ChatDetailScreen from '../../app/chat/[id]';
 
 jest.mock('expo-router', () => ({
   useLocalSearchParams: () => ({ id: 'conv-1', endpoint_id: 'endpoint-1' }),
@@ -55,26 +55,30 @@ const historyMessages: WsMessage[] = [
 
 beforeEach(() => {
   useChatStore.setState({
-    conversations: [{
-      id: 'conv-1',
-      agent_id: 'agent-1',
-      title: 'Existing Chat',
-      created_at: 0,
-      last_message_at: 0,
-      status: 'idle',
-      endpoint_id: 'endpoint-1',
-      agent_name: 'Agent',
-    }],
+    conversations: [
+      {
+        id: 'conv-1',
+        agent_id: 'agent-1',
+        title: 'Existing Chat',
+        created_at: 0,
+        last_message_at: 0,
+        status: 'idle',
+        endpoint_id: 'endpoint-1',
+        agent_name: 'Agent',
+      },
+    ],
     messages: {},
   });
   useEndpointStore.setState({
-    endpoints: [{
-      id: 'endpoint-1',
-      label: 'Local',
-      base_url: 'http://localhost:8080',
-      token: 'token',
-      last_seen_at: null,
-    }],
+    endpoints: [
+      {
+        id: 'endpoint-1',
+        label: 'Local',
+        base_url: 'http://localhost:8080',
+        token: 'token',
+        last_seen_at: null,
+      },
+    ],
   });
   (fetchMessages as jest.Mock).mockResolvedValue(historyMessages);
 });

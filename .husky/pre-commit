@@ -1,0 +1,1 @@
+cd mobile && pnpm exec lint-staged
