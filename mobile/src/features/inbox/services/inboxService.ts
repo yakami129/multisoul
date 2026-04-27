@@ -47,3 +47,8 @@ export async function markRead(id: string): Promise<void> {
   const db = getDb();
   await db.runAsync('UPDATE inbox SET read_at = ? WHERE id = ?', [Date.now(), id]);
 }
+
+export async function deleteInboxItem(id: string): Promise<void> {
+  const db = getDb();
+  await db.runAsync('DELETE FROM inbox WHERE id = ?', [id]);
+}
