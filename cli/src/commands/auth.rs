@@ -22,7 +22,7 @@ pub fn handle(cmd: AuthCommands) -> Result<()> {
 }
 
 fn login(token: &str) -> Result<()> {
-    let config = Config { serve_token: token.to_string() };
+    let config = Config { serve_token: token.to_string(), ..Default::default() };
     save_config(&config)?;
     println!("Token saved (prefix: {}...)", &token[..token.len().min(12)]);
     Ok(())
