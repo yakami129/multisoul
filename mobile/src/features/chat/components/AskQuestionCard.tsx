@@ -47,7 +47,7 @@ export default function AskQuestionCard({
     if (!isReady || answered) return;
     setAnswered(true);
     if (multiSelect) {
-      onConfirm(Array.from(selectedIds).join(','));
+      onConfirm(Array.from(selectedIds).sort().join(','));
     } else {
       onConfirm(selectedId!);
     }
