@@ -60,7 +60,13 @@ impl InteractiveTool for AskUserQuestion {
                             }).collect()
                         })
                         .unwrap_or_default();
-                    serde_json::json!({ "id": qi.to_string(), "text": text, "options": options })
+                    let multi = q.get("multiSelect").and_then(|v| v.as_bool()).unwrap_or(false);
+                    serde_json::json!({
+                        "id":          qi.to_string(),
+                        "text":        text,
+                        "options":     options,
+                        "multi_select": multi,
+                    })
                 }).collect()
             })
             .unwrap_or_default();
@@ -94,7 +100,6 @@ impl AskUserQuestion {
         }
 
         if let Some(choice_ids) = &answer.choice_ids {
-            // Multi-question: choice_ids = { "questionIdx": "optionIdx" }
             let mut indices: Vec<usize> = choice_ids.keys()
                 .filter_map(|k| k.parse::<usize>().ok())
                 .collect();
@@ -104,15 +109,31 @@ impl AskUserQuestion {
                     Some(s) => s.as_str(),
                     None    => continue,
                 };
-                let label = if let Ok(oi) = opt_id_str.parse::<usize>() {
-                    original_args["questions"][qi]["options"][oi]["label"]
-                        .as_str()
-                        .unwrap_or(opt_id_str)
-                        .to_string()
+                // opt_id_str may be comma-joined for multi-select, e.g. "0,2"
+                let parts: Vec<&str> = opt_id_str.split(',').map(str::trim).collect();
+                if parts.len() == 1 {
+                    // Single selection — resolve to label as before
+                    let label = if let Ok(oi) = parts[0].parse::<usize>() {
+                        original_args["questions"][qi]["options"][oi]["label"]
+                            .as_str()
+                            .unwrap_or(parts[0])
+                            .to_string()
+                    } else {
+                        parts[0].to_string()
+                    };
+                    answers.insert(qi.to_string(), serde_json::Value::String(label));
                 } else {
-                    opt_id_str.to_string()
-                };
-                answers.insert(qi.to_string(), serde_json::Value::String(label));
+                    // Multi-selection — collect comma-joined labels
+                    let labels: Vec<String> = parts.iter().filter_map(|p| {
+                        p.parse::<usize>().ok().map(|oi| {
+                            original_args["questions"][qi]["options"][oi]["label"]
+                                .as_str()
+                                .unwrap_or(p)
+                                .to_string()
+                        })
+                    }).collect();
+                    answers.insert(qi.to_string(), serde_json::Value::String(labels.join(", ")));
+                }
             }
         } else if let Some(choice_id) = &answer.choice_id {
             // Single-question: choice_id = "optionIdx"
