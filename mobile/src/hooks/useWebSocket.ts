@@ -102,7 +102,7 @@ export function useWebSocket({
           [key: string]: unknown;
         };
         if (envelope.type === 'message') {
-          const msg = envelope as WsMessage;
+          const msg = envelope as unknown as WsMessage;
           appendMessageRef.current(conv_id, msg);
           if (msg.seq > lastSeqRef.current) lastSeqRef.current = msg.seq;
 
