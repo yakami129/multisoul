@@ -1,5 +1,10 @@
 import { create } from 'zustand';
-import { loadInboxItems, writeInboxItem, markRead } from '@/features/inbox/services/inboxService';
+import {
+  loadInboxItems,
+  writeInboxItem,
+  markRead,
+  deleteInboxItem,
+} from '@/features/inbox/services/inboxService';
 import { type InboxItem } from '@/types';
 
 interface InboxState {
@@ -7,6 +12,7 @@ interface InboxState {
   load: () => Promise<void>;
   addItem: (item: InboxItem) => Promise<void>;
   markRead: (id: string) => Promise<void>;
+  removeItem: (id: string) => Promise<void>;
 }
 
 export const useInboxStore = create<InboxState>((set) => ({
@@ -27,5 +33,10 @@ export const useInboxStore = create<InboxState>((set) => ({
     set((s) => ({
       items: s.items.map((i) => (i.id === id ? { ...i, read_at: Date.now() } : i)),
     }));
+  },
+
+  removeItem: async (id) => {
+    await deleteInboxItem(id);
+    set((s) => ({ items: s.items.filter((i) => i.id !== id) }));
   },
 }));

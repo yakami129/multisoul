@@ -51,6 +51,7 @@ export interface WsMessage {
   role: MessageRole;
   payload: MessagePayload;
   created_at: number;
+  answered?: boolean;
 }
 
 export type MessagePayload =
