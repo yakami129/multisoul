@@ -150,6 +150,19 @@ export function MessageBubble({
       const p = msg.payload as AskQuestionPayload;
       if (p.questions.length === 1) {
         const q = p.questions[0];
+        if (q.multi_select) {
+          return (
+            <View style={s.aiWrap}>
+              <AskQuestionCard
+                question={q.text}
+                options={q.options}
+                multiSelect
+                onCancel={() => onAnswer?.(p.ask_id, '__cancelled__')}
+                onConfirm={(ids) => onAnswerMulti?.(p.ask_id, { '0': ids })}
+              />
+            </View>
+          );
+        }
         return (
           <View style={s.aiWrap}>
             <AskQuestionCard
