@@ -1,19 +1,35 @@
 use anyhow::Result;
-use clap::Subcommand;
+use clap::{ArgAction, Subcommand};
+use std::net::SocketAddr;
 use crate::config::{load_config, save_config};
 use crate::serve::daemon::{
     self, Config as DaemonConfig, new_manager, save_meta, load_meta,
     remove_meta, Meta, default_log_file, resolve_binary,
 };
-use crate::commands::serve::generate_token;
+use crate::commands::serve::{advertised_base_url, generate_token, print_qr};
 
 #[derive(Subcommand)]
 pub enum DaemonCommands {
+    /// One command setup: save token and install/start daemon
+    Quickstart {
+        /// Bearer token to save before installing daemon
+        #[arg(long, default_value = "test")]
+        token: String,
+        /// Port to listen on
+        #[arg(long, default_value_t = 8765)]
+        port: u16,
+        /// Tailnet mode, true by default
+        #[arg(long, default_value_t = true, action = ArgAction::Set)]
+        tailnet: bool,
+    },
     /// Install and start msctl serve as a background service
     Install {
         /// Port to listen on (saved to config)
         #[arg(long)]
         port: Option<u16>,
+        /// Bind to 0.0.0.0 for Tailnet access
+        #[arg(long)]
+        tailnet: bool,
         /// Overwrite existing installation
         #[arg(long)]
         force: bool,
@@ -41,7 +57,8 @@ pub enum DaemonCommands {
 
 pub fn handle(cmd: DaemonCommands) -> Result<()> {
     match cmd {
-        DaemonCommands::Install { port, force } => install(port, force),
+        DaemonCommands::Quickstart { token, port, tailnet } => quickstart(token, port, tailnet),
+        DaemonCommands::Install { port, tailnet, force } => install(port, tailnet, force),
         DaemonCommands::Uninstall => uninstall(),
         DaemonCommands::Start => start(),
         DaemonCommands::Stop => stop(),
@@ -51,7 +68,15 @@ pub fn handle(cmd: DaemonCommands) -> Result<()> {
     }
 }
 
-fn install(port_arg: Option<u16>, force: bool) -> Result<()> {
+fn quickstart(token: String, port: u16, tailnet: bool) -> Result<()> {
+    let mut cfg = load_config()?;
+    cfg.serve_token = token;
+    cfg.serve_port = port;
+    save_config(&cfg)?;
+    install(Some(port), tailnet, true)
+}
+
+fn install(port_arg: Option<u16>, tailnet: bool, force: bool) -> Result<()> {
     let mgr = new_manager()?;
     let st = mgr.status()?;
     if st.installed && !force {
@@ -77,6 +102,7 @@ fn install(port_arg: Option<u16>, force: bool) -> Result<()> {
         binary_path: binary.clone(),
         token: cfg.serve_token.clone(),
         port: cfg.serve_port,
+        tailnet,
         log_file: log_file.clone(),
         env_path,
     };
@@ -87,6 +113,7 @@ fn install(port_arg: Option<u16>, force: bool) -> Result<()> {
         log_file: log_file.clone(),
         binary_path: binary,
         port: cfg.serve_port,
+        tailnet,
         installed_at: chrono::Local::now().to_rfc3339(),
     })?;
 
@@ -95,7 +122,10 @@ fn install(port_arg: Option<u16>, force: bool) -> Result<()> {
     println!("  Platform: {}", mgr.platform());
     println!("  Token:    {}", cfg.serve_token);
     println!("  Port:     {}", cfg.serve_port);
+    println!("  Tailnet:  {}", if tailnet { "enabled" } else { "disabled" });
     println!("  Log:      {}", log_file);
+    println!();
+    print_pairing_info(&cfg.serve_token, cfg.serve_port, tailnet);
     println!();
     println!("Commands:");
     println!("  msctl daemon status    - Check status");
@@ -103,6 +133,18 @@ fn install(port_arg: Option<u16>, force: bool) -> Result<()> {
     println!("  msctl daemon stop      - Stop");
     println!("  msctl daemon uninstall - Remove");
     Ok(())
+}
+
+fn print_pairing_info(token: &str, port: u16, tailnet: bool) {
+    let bind_addr: SocketAddr = if tailnet {
+        format!("0.0.0.0:{}", port)
+    } else {
+        format!("127.0.0.1:{}", port)
+    }
+    .parse()
+    .unwrap_or_else(|_| SocketAddr::from(([127, 0, 0, 1], port)));
+    let base_url = advertised_base_url(&bind_addr, port, tailnet, false);
+    print_qr(token, &base_url);
 }
 
 fn uninstall() -> Result<()> {
@@ -154,6 +196,7 @@ fn status() -> Result<()> {
     }
     if let Ok(meta) = load_meta() {
         println!("  Port:     {}", meta.port);
+        println!("  Tailnet:  {}", if meta.tailnet { "enabled" } else { "disabled" });
         println!("  Log:      {}", meta.log_file);
         println!("  Installed:{}", meta.installed_at);
     }

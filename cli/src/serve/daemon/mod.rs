@@ -8,6 +8,7 @@ pub struct Config {
     pub binary_path: String,
     pub token: String,
     pub port: u16,
+    pub tailnet: bool,
     pub log_file: String,
     pub env_path: String,
 }
@@ -34,6 +35,8 @@ pub struct Meta {
     pub log_file: String,
     pub binary_path: String,
     pub port: u16,
+    #[serde(default)]
+    pub tailnet: bool,
     pub installed_at: String,
 }
 

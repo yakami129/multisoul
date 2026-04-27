@@ -18,6 +18,11 @@ fn plist_path() -> std::path::PathBuf {
 }
 
 fn build_plist(cfg: &Config) -> String {
+    let tailnet_arg = if cfg.tailnet {
+        "        <string>--tailnet</string>\n"
+    } else {
+        ""
+    };
     format!(r#"<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -32,7 +37,7 @@ fn build_plist(cfg: &Config) -> String {
         <string>{token}</string>
         <string>--port</string>
         <string>{port}</string>
-    </array>
+{tailnet_arg}    </array>
     <key>RunAtLoad</key>
     <true/>
     <key>KeepAlive</key>
@@ -56,6 +61,7 @@ fn build_plist(cfg: &Config) -> String {
         binary = cfg.binary_path,
         token  = cfg.token,
         port   = cfg.port,
+        tailnet_arg = tailnet_arg,
         path   = cfg.env_path,
         log    = cfg.log_file,
     )
@@ -174,6 +180,7 @@ mod tests {
             binary_path: "/usr/local/bin/msctl".into(),
             token: "ms_v2_test".into(),
             port: 9000,
+            tailnet: true,
             log_file: "/tmp/msctl.log".into(),
             env_path: "/usr/bin:/bin".into(),
         };
@@ -181,6 +188,7 @@ mod tests {
         assert!(plist.contains("/usr/local/bin/msctl"), "plist must contain binary path");
         assert!(plist.contains("ms_v2_test"), "plist must contain token");
         assert!(plist.contains("9000"), "plist must contain port 9000");
+        assert!(plist.contains("--tailnet"), "plist must include --tailnet when enabled");
         assert!(plist.contains("/tmp/msctl.log"), "plist must contain log path");
         assert!(!plist.contains("8765"), "plist must not contain default port when overridden");
     }
@@ -196,6 +204,7 @@ mod tests {
             binary_path: "/bin/msctl".into(),
             token: "tok".into(),
             port: 8765,
+            tailnet: false,
             log_file: "/tmp/msctl.log".into(),
             env_path: "/usr/bin".into(),
         };

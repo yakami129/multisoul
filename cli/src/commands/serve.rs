@@ -69,7 +69,7 @@ fn start_tailscale_funnel(port: u16) -> Result<()> {
     Ok(())
 }
 
-fn print_qr(token: &str, base_url: &str) {
+pub fn print_qr(token: &str, base_url: &str) {
     let pair_url = format!("multisoul://pair?url={}&token={}", base_url, token);
     println!("  Scan to add endpoint in MultiSoul App:");
     if let Ok(code) = qrcode::QrCode::new(pair_url.as_bytes()) {
@@ -83,7 +83,7 @@ fn print_qr(token: &str, base_url: &str) {
     println!("  Or paste: {}", pair_url);
 }
 
-fn advertised_base_url(bind_addr: &SocketAddr, port: u16, prefer_tailscale: bool, funnel: bool) -> String {
+pub fn advertised_base_url(bind_addr: &SocketAddr, port: u16, prefer_tailscale: bool, funnel: bool) -> String {
     if prefer_tailscale {
         let use_https = funnel || is_tailscale_serve_active();
         if let Some(base_url) = tailscale_base_url(port, use_https) {
