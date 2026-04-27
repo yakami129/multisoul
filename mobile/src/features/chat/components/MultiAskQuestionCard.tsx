@@ -10,13 +10,19 @@ interface QuestionItem {
 
 interface Props {
   questions: QuestionItem[];
+  answered?: boolean;
   onCancel: () => void;
   onConfirm: (answers: Record<string, string>) => void;
 }
 
-export default function MultiAskQuestionCard({ questions, onCancel, onConfirm }: Props) {
+export default function MultiAskQuestionCard({
+  questions,
+  answered: answeredProp = false,
+  onCancel,
+  onConfirm,
+}: Props) {
   const [answers, setAnswers] = useState<Record<string, string>>({});
-  const [answered, setAnswered] = useState(false);
+  const [answered, setAnswered] = useState(answeredProp);
 
   const total = questions.length;
   // currentIndex = number of questions answered so far

@@ -157,6 +157,7 @@ export function MessageBubble({
                 question={q.text}
                 options={q.options}
                 multiSelect
+                answered={msg.answered}
                 onCancel={() => onAnswer?.(p.ask_id, '__cancelled__')}
                 onConfirm={(ids) => onAnswerMulti?.(p.ask_id, { '0': ids })}
               />
@@ -168,6 +169,7 @@ export function MessageBubble({
             <AskQuestionCard
               question={q.text}
               options={q.options}
+              answered={msg.answered}
               onCancel={() => onAnswer?.(p.ask_id, '__cancelled__')}
               onConfirm={(id) => onAnswer?.(p.ask_id, id)}
             />
@@ -178,6 +180,7 @@ export function MessageBubble({
         <View style={s.aiWrap}>
           <MultiAskQuestionCard
             questions={p.questions}
+            answered={msg.answered}
             onCancel={() => onAnswer?.(p.ask_id, '__cancelled__')}
             onConfirm={(answers) => onAnswerMulti?.(p.ask_id, answers)}
           />
