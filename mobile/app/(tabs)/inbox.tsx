@@ -3,6 +3,7 @@ import React from 'react';
 import { SafeAreaView, StyleSheet } from 'react-native';
 import { sendConversationAnswer } from '@/features/chat/services/chatService';
 import InboxScreen from '@/features/inbox/components/InboxScreen';
+import { useChatStore } from '@/store/chatStore';
 import { useEndpointStore } from '@/store/endpointStore';
 import { useInboxStore } from '@/store/inboxStore';
 import { type InboxItem } from '@/types';
@@ -10,6 +11,8 @@ import { type InboxItem } from '@/types';
 export default function InboxTab() {
   const items = useInboxStore((s) => s.items);
   const markRead = useInboxStore((s) => s.markRead);
+  const removeItem = useInboxStore((s) => s.removeItem);
+  const markAnswered = useChatStore((s) => s.markAnswered);
   const endpoints = useEndpointStore((s) => s.endpoints);
   const router = useRouter();
 
@@ -34,7 +37,8 @@ export default function InboxTab() {
         choice_id,
         freeform,
       });
-      markRead(item.id);
+      void removeItem(item.id);
+      markAnswered(item.conversation_id, ask_id);
     } catch {
       /* ignore */
     }
@@ -52,7 +56,8 @@ export default function InboxTab() {
         ask_id,
         choice_ids,
       });
-      markRead(item.id);
+      void removeItem(item.id);
+      markAnswered(item.conversation_id, ask_id);
     } catch {
       /* ignore */
     }
