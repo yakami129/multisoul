@@ -38,6 +38,7 @@ export function useWebSocket({
   const appendMessage = useChatStore((s) => s.appendMessage);
   const setMessages = useChatStore((s) => s.setMessages);
   const addInboxItem = useInboxStore((s) => s.addItem);
+  const removeInboxItem = useInboxStore((s) => s.removeItem);
 
   const appendMessageRef = useRef(appendMessage);
   useEffect(() => {
@@ -137,17 +138,25 @@ export function useWebSocket({
     };
   }, [connect]);
 
-  const sendAnswer = useCallback((ask_id: string, choice_id?: string, freeform?: string) => {
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({ type: 'answer', ask_id, choice_id, freeform }));
-    }
-  }, []);
+  const sendAnswer = useCallback(
+    (ask_id: string, choice_id?: string, freeform?: string) => {
+      if (wsRef.current?.readyState === WebSocket.OPEN) {
+        wsRef.current.send(JSON.stringify({ type: 'answer', ask_id, choice_id, freeform }));
+        void removeInboxItem(ask_id);
+      }
+    },
+    [removeInboxItem],
+  );
 
-  const sendAnswerMulti = useCallback((ask_id: string, choice_ids: Record<string, string>) => {
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({ type: 'answer', ask_id, choice_ids }));
-    }
-  }, []);
+  const sendAnswerMulti = useCallback(
+    (ask_id: string, choice_ids: Record<string, string>) => {
+      if (wsRef.current?.readyState === WebSocket.OPEN) {
+        wsRef.current.send(JSON.stringify({ type: 'answer', ask_id, choice_ids }));
+        void removeInboxItem(ask_id);
+      }
+    },
+    [removeInboxItem],
+  );
 
   return { status, sendAnswer, sendAnswerMulti };
 }
