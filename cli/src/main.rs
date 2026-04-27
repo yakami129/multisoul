@@ -26,6 +26,11 @@ enum Commands {
     },
     /// Start the local serve server
     Serve(commands::serve::ServeArgs),
+    /// Manage msctl as a background service
+    Daemon {
+        #[command(subcommand)]
+        subcommand: commands::daemon::DaemonCommands,
+    },
 }
 
 fn main() -> anyhow::Result<()> {
@@ -36,5 +41,6 @@ fn main() -> anyhow::Result<()> {
         Commands::Serve(args) => {
             tokio::runtime::Runtime::new()?.block_on(commands::serve::handle(args))
         }
+        Commands::Daemon { subcommand } => commands::daemon::handle(subcommand),
     }
 }
