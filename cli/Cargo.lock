@@ -1148,6 +1148,7 @@ dependencies = [
  "clap",
  "dirs",
  "futures-util",
+ "libc",
  "mockito",
  "qrcode",
  "rand 0.8.6",

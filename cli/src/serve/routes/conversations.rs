@@ -11,6 +11,8 @@ pub struct ConversationRow {
     pub created_at: i64,
     pub last_message_at: i64,
     pub status: String,
+    pub first_user_message: Option<String>,
+    pub last_ai_reply: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -24,12 +26,21 @@ pub async fn list_conversations(
 ) -> Result<Json<Vec<ConversationRow>>, StatusCode> {
     let db = state.db.lock().map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     let mut stmt = db.prepare(
-        "SELECT id, agent_id, title, created_at, last_message_at, status
-         FROM conversations WHERE agent_id = ?1 ORDER BY last_message_at DESC"
+        "SELECT c.id, c.agent_id, c.title, c.created_at, c.last_message_at, c.status,
+                (SELECT json_extract(m.payload, '$.text')
+                 FROM messages m
+                 WHERE m.conversation_id = c.id AND m.role = 'user_text'
+                 ORDER BY m.seq ASC LIMIT 1) AS first_user_message,
+                (SELECT json_extract(m.payload, '$.text')
+                 FROM messages m
+                 WHERE m.conversation_id = c.id AND m.role = 'agent_text'
+                 ORDER BY m.seq DESC LIMIT 1) AS last_ai_reply
+         FROM conversations c WHERE c.agent_id = ?1 ORDER BY c.last_message_at DESC"
     ).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     let rows: Vec<ConversationRow> = stmt.query_map([&agent_id], |r| Ok(ConversationRow {
         id: r.get(0)?, agent_id: r.get(1)?, title: r.get(2)?,
         created_at: r.get(3)?, last_message_at: r.get(4)?, status: r.get(5)?,
+        first_user_message: r.get(6)?, last_ai_reply: r.get(7)?,
     })).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
     .filter_map(|r| r.ok()).collect();
     Ok(Json(rows))
@@ -57,6 +68,7 @@ pub async fn create_conversation(
 
     Ok((StatusCode::CREATED, Json(ConversationRow {
         id, agent_id, title, created_at: now, last_message_at: now, status: "idle".into(),
+        first_user_message: None, last_ai_reply: None,
     })))
 }
 
