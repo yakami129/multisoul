@@ -83,6 +83,7 @@ export interface AskQuestionPayload {
     id: string;
     text: string;
     options: { id: string; label: string }[];
+    multi_select?: boolean;
   }>;
   allow_freeform: boolean;
 }
