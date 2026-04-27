@@ -7,6 +7,7 @@ interface Props {
   question: string;
   subtitle?: string;
   options: AskQuestionOption[];
+  multiSelect?: boolean;
   onCancel: () => void;
   onConfirm: (selectedId: string) => void;
 }
@@ -15,16 +16,41 @@ export default function AskQuestionCard({
   question,
   subtitle,
   options,
+  multiSelect = false,
   onCancel,
   onConfirm,
 }: Props) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [answered, setAnswered] = useState(false);
 
+  const isReady = multiSelect ? selectedIds.size > 0 : selectedId !== null;
+
+  const handleToggle = (id: string) => {
+    if (answered) return;
+    if (multiSelect) {
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        if (next.has(id)) {
+          next.delete(id);
+        } else {
+          next.add(id);
+        }
+        return next;
+      });
+    } else {
+      setSelectedId(id);
+    }
+  };
+
   const handleConfirm = () => {
-    if (!selectedId || answered) return;
+    if (!isReady || answered) return;
     setAnswered(true);
-    onConfirm(selectedId);
+    if (multiSelect) {
+      onConfirm(Array.from(selectedIds).join(','));
+    } else {
+      onConfirm(selectedId!);
+    }
   };
 
   const handleCancel = () => {
@@ -48,19 +74,26 @@ export default function AskQuestionCard({
       <View style={s.body}>
         <Text style={s.question}>{question}</Text>
         {subtitle && <Text style={s.subtitle}>{subtitle}</Text>}
+        {multiSelect && <Text style={s.hint}>Select one or more</Text>}
 
         {/* Options */}
         <View style={s.optsList}>
           {options.map((opt, index) => {
-            const selected = selectedId === opt.id;
+            const selected = multiSelect ? selectedIds.has(opt.id) : selectedId === opt.id;
             return (
               <TouchableOpacity
                 key={`${opt.id}-${index}`}
                 style={[s.option, selected && s.optionSelected, answered && s.optionReadonly]}
-                onPress={() => !answered && setSelectedId(opt.id)}
+                onPress={() => handleToggle(opt.id)}
                 activeOpacity={answered ? 1 : 0.7}
               >
-                <View style={[s.radio, selected && s.radioSelected]} />
+                {multiSelect ? (
+                  <View style={[s.checkbox, selected && s.checkboxSelected]}>
+                    {selected && <View style={s.checkboxTick} />}
+                  </View>
+                ) : (
+                  <View style={[s.radio, selected && s.radioSelected]} />
+                )}
                 <Text style={[s.optionLabel, answered && !selected && s.optionLabelMuted]}>
                   {opt.label}
                 </Text>
@@ -76,7 +109,7 @@ export default function AskQuestionCard({
               <Text style={s.cancelText}>Cancel</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[s.confirmBtn, !selectedId && s.confirmBtnDisabled]}
+              style={[s.confirmBtn, !isReady && s.confirmBtnDisabled]}
               onPress={handleConfirm}
             >
               <Text style={s.confirmText}>Confirm</Text>
@@ -135,6 +168,12 @@ const s = StyleSheet.create({
     fontSize: 12,
     color: '#147A16',
   },
+  hint: {
+    fontFamily: 'Inter',
+    fontSize: 11,
+    color: '#0F6B0F',
+    letterSpacing: 0.5,
+  },
   optsList: {
     gap: 8,
   },
@@ -169,6 +208,25 @@ const s = StyleSheet.create({
   radioSelected: {
     borderColor: '#33FF33',
     backgroundColor: '#33FF33',
+  },
+  checkbox: {
+    width: 16,
+    height: 16,
+    borderRadius: 2,
+    borderWidth: 2,
+    borderColor: '#2D8B2D',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkboxSelected: {
+    borderColor: '#33FF33',
+    backgroundColor: '#33FF33',
+  },
+  checkboxTick: {
+    width: 8,
+    height: 8,
+    backgroundColor: '#040D04',
+    borderRadius: 1,
   },
   optionLabel: {
     fontFamily: 'Geist',
