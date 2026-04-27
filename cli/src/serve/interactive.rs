@@ -99,6 +99,7 @@ impl AskUserQuestion {
             }
         }
 
+        // choice_ids maps questionIdx → optionIdx (single) or "optIdx1,optIdx2" (multi-select)
         if let Some(choice_ids) = &answer.choice_ids {
             let mut indices: Vec<usize> = choice_ids.keys()
                 .filter_map(|k| k.parse::<usize>().ok())
@@ -125,12 +126,10 @@ impl AskUserQuestion {
                 } else {
                     // Multi-selection — collect comma-joined labels
                     let labels: Vec<String> = parts.iter().filter_map(|p| {
-                        p.parse::<usize>().ok().map(|oi| {
-                            original_args["questions"][qi]["options"][oi]["label"]
-                                .as_str()
-                                .unwrap_or(p)
-                                .to_string()
-                        })
+                        let oi = p.parse::<usize>().ok()?;
+                        original_args["questions"][qi]["options"][oi]["label"]
+                            .as_str()
+                            .map(str::to_string)
                     }).collect();
                     answers.insert(qi.to_string(), serde_json::Value::String(labels.join(", ")));
                 }
