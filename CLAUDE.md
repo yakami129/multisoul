@@ -73,7 +73,14 @@ cd mobile
 
 发布前确认 `eas.json` 中 `submit.production.ios` 已填写 `appleId`、`ascAppId`、`appleTeamId`。
 
-> **注意：** `publish-ios.sh` 是长时间运行的云端构建任务（15-20 分钟），Claude 不能代为执行。请在你自己的终端中运行。
+**当用户说"发布一下 iOS"或类似指令时，Claude 应直接执行：**
+
+```bash
+cd /Users/alan/Documents/codes/yakami0129/multisoul/mobile && ./scripts/publish-ios.sh > /tmp/publish-ios.log 2>&1
+```
+
+用 `run_in_background: true` 异步执行，然后持续 `tail -f /tmp/publish-ios.log` 监听日志输出，直到脚本结束。
+
 ---
 
 ## Architecture
