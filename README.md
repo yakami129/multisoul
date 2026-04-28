@@ -139,6 +139,22 @@ cargo test           # 运行测试
 cargo run -- serve   # 直接运行
 ```
 
+### CLI 发布
+
+推送语义化版本 tag 会触发 GitHub Actions 发布：
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+发布产物：
+
+- GitHub Release: `msctl` 的 Linux x86_64、macOS x86_64、macOS arm64、Windows x86_64 二进制压缩包
+- GitHub Packages: `ghcr.io/yakami129/multisoul/msctl`
+
+也可以在 GitHub Actions 页面手动运行 `Release CLI` workflow，并输入版本号，例如 `v0.1.0`。
+
 ### Mobile
 
 ```bash
