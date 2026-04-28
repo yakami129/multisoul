@@ -1,0 +1,83 @@
+# msctl CLI
+
+`msctl` 是 MultiSoul 的本地命令行工具，用于管理 Agent 并启动本地服务。
+
+## 构建命令
+
+```bash
+cd cli
+
+# 构建
+cargo build
+
+# 运行测试
+cargo test
+```
+
+## 安装命令（后台服务）
+
+推荐一键安装并启动后台服务：
+
+```bash
+cd cli
+cargo run -- daemon quickstart
+```
+
+常见安装场景：
+
+```bash
+# 自定义 token / 端口 / tailnet
+cargo run -- daemon quickstart --token test --port 8765 --tailnet true
+
+# 手动安装（已配置 token 时）
+cargo run -- daemon install --port 8765 --tailnet
+```
+
+## 使用命令示例
+
+### 1) 认证
+
+```bash
+cargo run -- auth login --token test
+cargo run -- auth status
+```
+
+### 2) Agent 管理
+
+```bash
+# 注册 Agent
+cargo run -- agent register --name demo --project /Users/alan/Documents/codes/yakami0129/multisoul --runtime claude-code
+
+# 列表与详情
+cargo run -- agent list
+cargo run -- agent get <agent-id>
+
+# 更新与删除
+cargo run -- agent update <agent-id> --name demo2
+cargo run -- agent delete <agent-id>
+```
+
+### 3) 前台启动服务（调试用）
+
+```bash
+cargo run -- serve --token test --tailnet
+```
+
+### 4) 后台服务管理
+
+```bash
+cargo run -- daemon status
+cargo run -- daemon logs -f
+cargo run -- daemon restart
+cargo run -- daemon stop
+cargo run -- daemon uninstall
+```
+
+## 最小架构说明
+
+- `src/main.rs`：CLI 入口与子命令分发
+- `src/commands/*`：命令实现（`auth` / `agent` / `serve` / `daemon`）
+- `src/serve/*`：HTTP/WS 服务与运行时桥接
+- `src/db.rs`：SQLite schema 与连接
+- `src/config.rs`：本地配置读写（`~/.config/msctl/config.toml`）
+
