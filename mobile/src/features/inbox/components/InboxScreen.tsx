@@ -1,5 +1,5 @@
 import { CircleCheck, Info } from 'lucide-react-native';
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { View, Text, FlatList, TouchableOpacity, StyleSheet } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 import AskQuestionCard from '@/features/chat/components/AskQuestionCard';
@@ -14,9 +14,24 @@ interface Props {
   onDelete: (id: string) => void;
 }
 
+function DeleteAction({ id, onDelete }: { id: string; onDelete: (id: string) => void }) {
+  return (
+    <TouchableOpacity
+      style={s.deleteBtn}
+      onPress={() => onDelete(id)}
+      accessibilityLabel="Delete item"
+      accessibilityRole="button"
+    >
+      <Text style={s.deleteBtnText}>DELETE</Text>
+    </TouchableOpacity>
+  );
+}
+
 export default function InboxScreen({ items, onOpen, onAnswer, onAnswerMulti, onDelete }: Props) {
   const unreadCount = items.filter((i) => !i.read_at).length;
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const openSwipeableRef = useRef<Swipeable | null>(null);
+  const swipeableRefs = useRef<Map<string, Swipeable>>(new Map());
 
   return (
     <View style={s.root}>
@@ -53,14 +68,23 @@ export default function InboxScreen({ items, onOpen, onAnswer, onAnswerMulti, on
             const isPendingQuestion = item.kind === 'pending_question' && item.payload !== null;
             const isExpanded = expandedId === item.id;
 
-            const renderDeleteAction = (id: string) => (
-              <TouchableOpacity style={s.deleteBtn} onPress={() => onDelete(id)}>
-                <Text style={s.deleteBtnText}>DELETE</Text>
-              </TouchableOpacity>
-            );
-
             return (
-              <Swipeable renderRightActions={() => renderDeleteAction(item.id)}>
+              <Swipeable
+                ref={(ref) => {
+                  if (ref) {
+                    swipeableRefs.current.set(item.id, ref);
+                  } else {
+                    swipeableRefs.current.delete(item.id);
+                  }
+                }}
+                onSwipeableOpen={() => {
+                  if (openSwipeableRef.current) {
+                    openSwipeableRef.current.close();
+                  }
+                  openSwipeableRef.current = swipeableRefs.current.get(item.id) ?? null;
+                }}
+                renderRightActions={() => <DeleteAction id={item.id} onDelete={onDelete} />}
+              >
                 <View style={s.rowWrap}>
                   <TouchableOpacity
                     style={s.row}
