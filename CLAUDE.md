@@ -178,6 +178,7 @@ The mobile app uses a **Vault-Tec PIP-BOY terminal aesthetic** (Fallout CRT gree
 - Icons: Lucide only, 14×14px for inline, 16×16px for actions
 - Spacing on 4px grid; see `mobile/docs/design.md §4` for exact values
 - Before any UI change, run through the checklist in `mobile/docs/design.md §11`
+- Before any UI change, also check `mobile/docs/rules/ui-pitfalls.md` — common React Native UI bugs to avoid (e.g. RefreshControl coupled to isFetching, focus refetch triggering spinner)
 
 ---
 
