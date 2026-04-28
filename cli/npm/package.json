@@ -1,0 +1,34 @@
+{
+  "name": "@yakami129/msctl",
+  "version": "0.1.0",
+  "description": "MultiSoul CLI",
+  "license": "MIT",
+  "bin": {
+    "msctl": "bin/msctl.js"
+  },
+  "files": [
+    "README.md",
+    "bin",
+    "vendor"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
+  "scripts": {
+    "test": "node test/smoke.mjs",
+    "prepack": "node scripts/check-package.mjs"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "os": [
+    "darwin",
+    "linux",
+    "win32"
+  ],
+  "cpu": [
+    "arm64",
+    "x64"
+  ]
+}
