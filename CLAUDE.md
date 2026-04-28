@@ -13,14 +13,14 @@ Full product spec: `docs/SPEC.md`
 
 ---
 
-## 交互与输出约束（低输入场景）
+## Interaction & Output Constraints (Low-Input Scenarios)
 
-- 默认假设用户处于不方便打字的场景，优先减少自由文本输入需求。
-- 当需要用户做决策（如方案选择、是否继续、环境选择、风险取舍、发布选项）时，优先使用问答工具（结构化选项）收集用户选择，而不是要求用户手动输入。
-- 对可枚举决策，先给 2–5 个清晰选项（可含“其他/稍后”），让用户点击或单选/多选完成反馈。
-- 非必要不追问开放式问题；若必须追问，先提供可选项，再补充“如需可手动输入其他说明”。
-- 回复内容保持短句和高信息密度：先结论、再选项、后补充说明，避免大段长文。
-- 当任务可直接执行且风险可控时，优先“先执行再汇报”，仅在关键分叉点触发问答工具让用户决策。
+- Assume by default that the user may be in a situation where typing is inconvenient; minimize the need for free-text input.
+- When user decisions are needed (e.g., choosing an approach, whether to continue, selecting environment, risk trade-offs, release options), prefer using a question tool (structured options) to collect choices instead of asking the user to type manually.
+- For enumerable decisions, provide 2-5 clear options first (including "Other/Later" when appropriate), so users can complete feedback via single- or multi-select.
+- Avoid open-ended follow-up questions unless necessary; if needed, provide options first, then add "You may type additional details if needed."
+- Keep responses in short, information-dense sentences: conclusion first, options second, supplementary notes last; avoid long paragraphs.
+- When a task can be executed directly with controllable risk, prefer execute first, report after; only trigger the question tool at key decision branches.
 
 ---
 
