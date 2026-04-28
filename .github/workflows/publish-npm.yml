@@ -60,7 +60,7 @@ jobs:
 
           unzip -q "artifacts/msctl-${version}-x86_64-pc-windows-msvc.zip" -d artifacts
           mkdir -p vendor/x86_64-pc-windows-msvc
-          cp "artifacts/msctl-${version}-x86_64-pc-windows-msvc/msctl.exe" "vendor/x86_64-pc-windows-msvc/msctl.exe"
+          cp "$(find artifacts -path '*/msctl.exe' -o -name 'msctl.exe' | head -1)" "vendor/x86_64-pc-windows-msvc/msctl.exe"
 
       - name: Set up Node
         uses: actions/setup-node@v4
