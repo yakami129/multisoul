@@ -150,7 +150,7 @@ git push origin v0.1.0
 
 发布产物：
 
-- GitHub Release: `msctl` 的 Linux x86_64、macOS x86_64、macOS arm64、Windows x86_64 二进制压缩包
+- GitHub Release: `msctl` 的 Linux x86_64、macOS arm64、Windows x86_64 二进制压缩包
 - GitHub Packages: `ghcr.io/yakami129/multisoul/msctl`
 
 也可以在 GitHub Actions 页面手动运行 `Release CLI` workflow，并输入版本号，例如 `v0.1.0`。
