@@ -1,6 +1,6 @@
 import { CircleCheck, Info } from 'lucide-react-native';
 import React, { useState, useRef } from 'react';
-import { View, Text, FlatList, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, StyleSheet, RefreshControl } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 import AskQuestionCard from '@/features/chat/components/AskQuestionCard';
 import MultiAskQuestionCard from '@/features/chat/components/MultiAskQuestionCard';
@@ -12,6 +12,8 @@ interface Props {
   onAnswer: (item: InboxItem, ask_id: string, choice_id?: string, freeform?: string) => void;
   onAnswerMulti: (item: InboxItem, ask_id: string, choice_ids: Record<string, string>) => void;
   onDelete: (id: string) => void;
+  isRefreshing?: boolean;
+  onRefresh?: () => void;
 }
 
 function DeleteAction({ id, onDelete }: { id: string; onDelete: (id: string) => void }) {
@@ -27,7 +29,15 @@ function DeleteAction({ id, onDelete }: { id: string; onDelete: (id: string) => 
   );
 }
 
-export default function InboxScreen({ items, onOpen, onAnswer, onAnswerMulti, onDelete }: Props) {
+export default function InboxScreen({
+  items,
+  onOpen,
+  onAnswer,
+  onAnswerMulti,
+  onDelete,
+  isRefreshing = false,
+  onRefresh,
+}: Props) {
   const unreadCount = items.filter((i) => !i.read_at).length;
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const openSwipeableRef = useRef<Swipeable | null>(null);
@@ -63,6 +73,9 @@ export default function InboxScreen({ items, onOpen, onAnswer, onAnswerMulti, on
           data={items}
           keyExtractor={(item) => item.id}
           contentContainerStyle={s.list}
+          refreshControl={
+            <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor="#20C20E" />
+          }
           renderItem={({ item }) => {
             const unread = item.read_at === null;
             const isPendingQuestion = item.kind === 'pending_question' && item.payload !== null;

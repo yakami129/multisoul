@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useCallback } from 'react';
 import { SafeAreaView, StyleSheet } from 'react-native';
 import { fetchAllAgents } from '@/features/agents/services/agentService';
@@ -17,7 +17,7 @@ export default function ChatTab() {
   const removeConversation = useChatStore((s) => s.removeConversation);
   const restoreConversation = useChatStore((s) => s.restoreConversation);
 
-  useQuery({
+  const { refetch, isFetching } = useQuery({
     queryKey: ['conversations', endpoints.map((e) => e.id)],
     queryFn: async () => {
       const agents = await fetchAllAgents(endpoints);
@@ -47,6 +47,12 @@ export default function ChatTab() {
     enabled: endpoints.length > 0,
     refetchInterval: 30_000,
   });
+
+  useFocusEffect(
+    useCallback(() => {
+      refetch();
+    }, [refetch]),
+  );
 
   const handlePress = (conv: Conversation) => {
     router.push(`/chat/${conv.id}?endpoint_id=${conv.endpoint_id}`);
@@ -81,6 +87,8 @@ export default function ChatTab() {
         onPressConversation={handlePress}
         onPressNewChat={() => {}}
         onDeleteConversation={handleDelete}
+        isRefreshing={isFetching}
+        onRefresh={refetch}
       />
     </SafeAreaView>
   );

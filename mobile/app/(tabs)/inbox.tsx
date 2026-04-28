@@ -1,5 +1,5 @@
-import { useRouter } from 'expo-router';
-import React from 'react';
+import { useFocusEffect, useRouter } from 'expo-router';
+import React, { useCallback, useState } from 'react';
 import { SafeAreaView, StyleSheet } from 'react-native';
 import { sendConversationAnswer } from '@/features/chat/services/chatService';
 import InboxScreen from '@/features/inbox/components/InboxScreen';
@@ -12,9 +12,28 @@ export default function InboxTab() {
   const items = useInboxStore((s) => s.items);
   const markRead = useInboxStore((s) => s.markRead);
   const removeItem = useInboxStore((s) => s.removeItem);
+  const load = useInboxStore((s) => s.load);
   const markAnswered = useChatStore((s) => s.markAnswered);
   const endpoints = useEndpointStore((s) => s.endpoints);
   const router = useRouter();
+  const [refreshing, setRefreshing] = useState(false);
+
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await load();
+    } catch {
+      /* ignore */
+    } finally {
+      setRefreshing(false);
+    }
+  }, [load]);
+
+  useFocusEffect(
+    useCallback(() => {
+      void handleRefresh();
+    }, [handleRefresh]),
+  );
 
   const handleOpen = (item: InboxItem) => {
     void markRead(item.id);
@@ -75,6 +94,8 @@ export default function InboxTab() {
           void handleAnswerMulti(item, ask_id, choice_ids);
         }}
         onDelete={(id) => void removeItem(id)}
+        isRefreshing={refreshing}
+        onRefresh={handleRefresh}
       />
     </SafeAreaView>
   );

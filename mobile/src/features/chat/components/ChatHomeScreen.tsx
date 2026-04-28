@@ -1,6 +1,14 @@
 import { Search, Pencil } from 'lucide-react-native';
 import React, { useRef } from 'react';
-import { View, Text, FlatList, TouchableOpacity, TextInput, StyleSheet } from 'react-native';
+import {
+  View,
+  Text,
+  FlatList,
+  TouchableOpacity,
+  TextInput,
+  StyleSheet,
+  RefreshControl,
+} from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 import { type Conversation } from '@/types';
 
@@ -11,6 +19,8 @@ interface Props {
   onPressConversation: (conv: Conversation) => void;
   onPressNewChat: () => void;
   onDeleteConversation: (id: string) => void;
+  isRefreshing?: boolean;
+  onRefresh?: () => void;
 }
 
 export default function ChatHomeScreen({
@@ -18,6 +28,8 @@ export default function ChatHomeScreen({
   onPressConversation,
   onPressNewChat,
   onDeleteConversation,
+  isRefreshing = false,
+  onRefresh,
 }: Props) {
   const [search, setSearch] = React.useState('');
   const openSwipeableRef = useRef<Swipeable | null>(null);
@@ -65,6 +77,9 @@ export default function ChatHomeScreen({
         data={filtered}
         keyExtractor={(item) => item.id}
         style={s.list}
+        refreshControl={
+          <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor="#20C20E" />
+        }
         renderItem={({ item }) => {
           const initials = item.agent_name.slice(0, 2).toUpperCase();
           const running = item.status === 'running' || item.status === 'awaiting_question';
