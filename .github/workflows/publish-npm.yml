@@ -39,7 +39,7 @@ jobs:
         run: |
           set -euo pipefail
           version="${{ inputs.version }}"
-          npm version "${version#v}" --no-git-tag-version
+          npm version "${version#v}" --no-git-tag-version --allow-same-version
 
       - name: Assemble bundled binaries
         shell: bash
