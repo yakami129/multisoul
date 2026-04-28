@@ -74,6 +74,7 @@ export default function InboxTab() {
         onAnswerMulti={(item, ask_id, choice_ids) => {
           void handleAnswerMulti(item, ask_id, choice_ids);
         }}
+        onDelete={(id) => void removeItem(id)}
       />
     </SafeAreaView>
   );

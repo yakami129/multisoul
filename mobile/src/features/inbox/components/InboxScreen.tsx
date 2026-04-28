@@ -1,6 +1,7 @@
 import { CircleCheck, Info } from 'lucide-react-native';
 import React, { useState } from 'react';
 import { View, Text, FlatList, TouchableOpacity, StyleSheet } from 'react-native';
+import { Swipeable } from 'react-native-gesture-handler';
 import AskQuestionCard from '@/features/chat/components/AskQuestionCard';
 import MultiAskQuestionCard from '@/features/chat/components/MultiAskQuestionCard';
 import { type InboxItem, type AskQuestionPayload } from '@/types';
@@ -10,9 +11,10 @@ interface Props {
   onOpen: (item: InboxItem) => void;
   onAnswer: (item: InboxItem, ask_id: string, choice_id?: string, freeform?: string) => void;
   onAnswerMulti: (item: InboxItem, ask_id: string, choice_ids: Record<string, string>) => void;
+  onDelete: (id: string) => void;
 }
 
-export default function InboxScreen({ items, onOpen, onAnswer, onAnswerMulti }: Props) {
+export default function InboxScreen({ items, onOpen, onAnswer, onAnswerMulti, onDelete }: Props) {
   const unreadCount = items.filter((i) => !i.read_at).length;
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
@@ -51,74 +53,82 @@ export default function InboxScreen({ items, onOpen, onAnswer, onAnswerMulti }: 
             const isPendingQuestion = item.kind === 'pending_question' && item.payload !== null;
             const isExpanded = expandedId === item.id;
 
-            return (
-              <View style={s.rowWrap}>
-                <TouchableOpacity
-                  style={s.row}
-                  onPress={() => {
-                    if (isPendingQuestion) {
-                      setExpandedId(isExpanded ? null : item.id);
-                    } else {
-                      onOpen(item);
-                    }
-                  }}
-                >
-                  <View
-                    style={[s.unreadBar, { backgroundColor: unread ? '#20C20E' : 'transparent' }]}
-                  />
-                  <View style={s.content}>
-                    <Text style={s.title}>{item.title}</Text>
-                    <Text style={s.body} numberOfLines={isExpanded ? undefined : 2}>
-                      {item.body}
-                    </Text>
-                    <Text style={s.time}>{new Date(item.received_at).toLocaleString()}</Text>
-                    {isPendingQuestion && (
-                      <Text style={s.tapHint}>
-                        {isExpanded ? 'TAP TO COLLAPSE' : 'TAP TO ANSWER'}
-                      </Text>
-                    )}
-                  </View>
-                </TouchableOpacity>
+            const renderDeleteAction = (id: string) => (
+              <TouchableOpacity style={s.deleteBtn} onPress={() => onDelete(id)}>
+                <Text style={s.deleteBtnText}>DELETE</Text>
+              </TouchableOpacity>
+            );
 
-                {isPendingQuestion && isExpanded && item.payload && (
-                  <View style={s.askWrap}>
-                    {(() => {
-                      const p = item.payload as AskQuestionPayload;
-                      if (p.questions.length === 1) {
-                        const q = p.questions[0];
+            return (
+              <Swipeable renderRightActions={() => renderDeleteAction(item.id)}>
+                <View style={s.rowWrap}>
+                  <TouchableOpacity
+                    style={s.row}
+                    onPress={() => {
+                      if (isPendingQuestion) {
+                        setExpandedId(isExpanded ? null : item.id);
+                      } else {
+                        onOpen(item);
+                      }
+                    }}
+                  >
+                    <View
+                      style={[s.unreadBar, { backgroundColor: unread ? '#20C20E' : 'transparent' }]}
+                    />
+                    <View style={s.content}>
+                      <Text style={s.title}>{item.title}</Text>
+                      <Text style={s.body} numberOfLines={isExpanded ? undefined : 2}>
+                        {item.body}
+                      </Text>
+                      <Text style={s.time}>{new Date(item.received_at).toLocaleString()}</Text>
+                      {isPendingQuestion && (
+                        <Text style={s.tapHint}>
+                          {isExpanded ? 'TAP TO COLLAPSE' : 'TAP TO ANSWER'}
+                        </Text>
+                      )}
+                    </View>
+                  </TouchableOpacity>
+
+                  {isPendingQuestion && isExpanded && item.payload && (
+                    <View style={s.askWrap}>
+                      {(() => {
+                        const p = item.payload as AskQuestionPayload;
+                        if (p.questions.length === 1) {
+                          const q = p.questions[0];
+                          return (
+                            <AskQuestionCard
+                              question={q?.text ?? item.body}
+                              options={q?.options ?? []}
+                              onCancel={() => {
+                                onAnswer(item, p.ask_id, '__cancelled__');
+                                setExpandedId(null);
+                              }}
+                              onConfirm={(choice_id) => {
+                                onAnswer(item, p.ask_id, choice_id);
+                                setExpandedId(null);
+                              }}
+                            />
+                          );
+                        }
+
                         return (
-                          <AskQuestionCard
-                            question={q?.text ?? item.body}
-                            options={q?.options ?? []}
+                          <MultiAskQuestionCard
+                            questions={p.questions}
                             onCancel={() => {
                               onAnswer(item, p.ask_id, '__cancelled__');
                               setExpandedId(null);
                             }}
-                            onConfirm={(choice_id) => {
-                              onAnswer(item, p.ask_id, choice_id);
+                            onConfirm={(choice_ids) => {
+                              onAnswerMulti(item, p.ask_id, choice_ids);
                               setExpandedId(null);
                             }}
                           />
                         );
-                      }
-
-                      return (
-                        <MultiAskQuestionCard
-                          questions={p.questions}
-                          onCancel={() => {
-                            onAnswer(item, p.ask_id, '__cancelled__');
-                            setExpandedId(null);
-                          }}
-                          onConfirm={(choice_ids) => {
-                            onAnswerMulti(item, p.ask_id, choice_ids);
-                            setExpandedId(null);
-                          }}
-                        />
-                      );
-                    })()}
-                  </View>
-                )}
-              </View>
+                      })()}
+                    </View>
+                  )}
+                </View>
+              </Swipeable>
             );
           }}
         />
@@ -193,4 +203,19 @@ const s = StyleSheet.create({
   },
   infoRow: { flexDirection: 'row', gap: 8, alignItems: 'flex-start' },
   infoText: { fontFamily: 'Inter', fontSize: 12, color: '#2D8B2D', flex: 1, lineHeight: 18 },
+  deleteBtn: {
+    width: 72,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#3D0000',
+    borderWidth: 1,
+    borderColor: '#5C0000',
+    borderRadius: 0,
+  },
+  deleteBtnText: {
+    fontFamily: 'Anton',
+    fontSize: 11,
+    color: '#FF3333',
+    letterSpacing: 1,
+  },
 });
