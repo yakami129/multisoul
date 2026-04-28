@@ -29,17 +29,16 @@ msctl serve (本机进程)          ← Tailscale Funnel 暴露公网
 ### 1. 启动本地服务
 
 ```bash
-cd cli
-cargo build --release
+npm install -g @yakami129/msctl
 
 # 启动服务（自动生成 token，默认端口 8765）
-./target/release/msctl serve
+msctl serve
 
 # 指定端口和 token
-./target/release/msctl serve --port 8765 --token ms_v2_your_token
+msctl serve --port 8765 --token ms_v2_your_token
 
 # 通过 Tailscale Funnel 暴露公网（外网访问）
-./target/release/msctl serve --funnel
+msctl serve --funnel
 ```
 
 启动后终端会打印连接地址和 QR 码，用手机 App 扫码或手动填入即可配对。
@@ -152,8 +151,11 @@ git push origin v0.1.0
 
 - GitHub Release: `msctl` 的 Linux x86_64、macOS arm64、Windows x86_64 二进制压缩包
 - GitHub Packages: `ghcr.io/yakami129/multisoul/msctl`
+- npm: `@yakami129/msctl`，内置三平台二进制，安装时不需要 GitHub token
 
 也可以在 GitHub Actions 页面手动运行 `Release CLI` workflow，并输入版本号，例如 `v0.1.0`。
+
+npm 发布需要在 GitHub 仓库配置 `NPM_TOKEN` secret。首次配置后，可以手动运行 `Publish npm Package` workflow 并输入已有 Release 版本号，例如 `v0.1.0`。
 
 ### Mobile
 
