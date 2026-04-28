@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { useFocusEffect, useRouter } from 'expo-router';
-import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import { SafeAreaView, StyleSheet } from 'react-native';
 import { fetchAllAgents } from '@/features/agents/services/agentService';
 import ChatHomeScreen from '@/features/chat/components/ChatHomeScreen';
@@ -16,8 +16,9 @@ export default function ChatTab() {
   const conversations = useChatStore((s) => s.conversations);
   const removeConversation = useChatStore((s) => s.removeConversation);
   const restoreConversation = useChatStore((s) => s.restoreConversation);
+  const [refreshing, setRefreshing] = useState(false);
 
-  const { refetch, isFetching } = useQuery({
+  const { refetch } = useQuery({
     queryKey: ['conversations', endpoints.map((e) => e.id)],
     queryFn: async () => {
       const agents = await fetchAllAgents(endpoints);
@@ -54,6 +55,15 @@ export default function ChatTab() {
     }, [refetch]),
   );
 
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await refetch();
+    } finally {
+      setRefreshing(false);
+    }
+  }, [refetch]);
+
   const handlePress = (conv: Conversation) => {
     router.push(`/chat/${conv.id}?endpoint_id=${conv.endpoint_id}`);
   };
@@ -87,8 +97,8 @@ export default function ChatTab() {
         onPressConversation={handlePress}
         onPressNewChat={() => {}}
         onDeleteConversation={handleDelete}
-        isRefreshing={isFetching}
-        onRefresh={refetch}
+        isRefreshing={refreshing}
+        onRefresh={handleRefresh}
       />
     </SafeAreaView>
   );
