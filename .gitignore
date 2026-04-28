@@ -13,6 +13,8 @@ Thumbs.db
 .env
 .env.local
 .env.*.local
+*.crt
+*.key
 
 # Logs
 *.log
