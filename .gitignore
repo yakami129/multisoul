@@ -22,3 +22,4 @@ cli/cc-connect
 
 # Generated release package payloads
 cli/npm/vendor/
+.worktrees/
