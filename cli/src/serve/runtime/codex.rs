@@ -121,14 +121,17 @@ fn spawn_codex(
     mode: &str,
 ) -> Option<(Child, ChildStdin)> {
     let args: Vec<String> = if let Some(tid) = thread_id.filter(|s| !s.is_empty()) {
-        vec![
-            "exec".into(),
-            "resume".into(),
-            "--skip-git-repo-check".into(),
-            tid.to_string(),
-            "--json".into(),
-            "-".into(),
-        ]
+        let mut a = vec![
+            "exec".to_string(),
+            "resume".to_string(),
+            "--skip-git-repo-check".to_string(),
+        ];
+        for flag in mode_flags(mode) {
+            a.push(flag.to_string());
+        }
+        a.push(tid.to_string());
+        a.extend_from_slice(&["--json".to_string(), "-".to_string()]);
+        a
     } else {
         let mut a = vec!["exec".to_string(), "--skip-git-repo-check".to_string()];
         for flag in mode_flags(mode) {
@@ -227,10 +230,10 @@ fn process_turn(
             "turn.failed" => {
                 let msg = raw["error"]["message"]
                     .as_str()
-                    .unwrap_or("turn failed")
-                    .to_string();
+                    .unwrap_or("turn failed");
+                eprintln!("[codex] turn failed: {}", msg);
                 complete_turn(state, conv_id, "failed");
-                return Err(msg);
+                return Ok(());
             }
             _ => {}
         }
