@@ -75,19 +75,19 @@ pub async fn post_message(
 
     drop(db);
 
-    // Fetch project_path and trigger runtime adapter
-    let project_path: Option<String> = {
+    // Fetch project_path, runtime, and mode; trigger runtime adapter
+    let agent_info: Option<(String, String, String)> = {
         let db2 = state.db.lock().map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
         db2.query_row(
-            "SELECT a.project_path FROM agents a
+            "SELECT a.project_path, a.runtime, a.mode FROM agents a
              JOIN conversations c ON c.agent_id = a.id
              WHERE c.id = ?1",
             [&conv_id],
-            |r| r.get(0),
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
         ).ok()
     };
-    if let Some(path) = project_path {
-        runtime::send_to_session(&state, &conv_id, &body.text, &path);
+    if let Some((path, rt, mode)) = agent_info {
+        runtime::send_to_session(&state, &conv_id, &body.text, &path, &rt, &mode);
     }
 
     let envelope = serde_json::json!({
