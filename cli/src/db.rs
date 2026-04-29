@@ -68,6 +68,8 @@ fn init_schema(conn: &Connection) -> Result<()> {
     "#)?;
     // Migrate existing DBs: add claude_session_id if missing
     let _ = conn.execute_batch("ALTER TABLE conversations ADD COLUMN claude_session_id TEXT;");
+    let _ = conn.execute_batch("ALTER TABLE agents ADD COLUMN mode TEXT NOT NULL DEFAULT 'full-auto';");
+    let _ = conn.execute_batch("ALTER TABLE conversations ADD COLUMN codex_thread_id TEXT;");
     Ok(())
 }
 
@@ -113,6 +115,33 @@ mod tests {
         assert!(tables.contains(&"messages".to_string()),      "messages table must exist");
         assert!(tables.contains(&"tasks".to_string()),         "tasks table must exist");
         assert!(tables.contains(&"push_tokens".to_string()),   "push_tokens table must exist");
+    }
+
+    /// DB migration: agents table has mode column after open_at.
+    ///
+    /// Execution:
+    ///   1. Open fresh DB
+    ///   2. Query column info for agents table
+    ///
+    /// Expected:
+    ///   - "mode" column exists in agents
+    ///   - "codex_thread_id" column exists in conversations
+    #[test]
+    fn test_schema_has_mode_and_codex_thread_id() {
+        let dir = tempdir().unwrap();
+        let conn = open_at(&dir.path().join("test.db")).unwrap();
+
+        let has_mode: bool = conn.query_row(
+            "SELECT COUNT(*) FROM pragma_table_info('agents') WHERE name='mode'",
+            [], |r| r.get::<_, i64>(0),
+        ).unwrap() > 0;
+        assert!(has_mode, "agents.mode column must exist after migration");
+
+        let has_thread_id: bool = conn.query_row(
+            "SELECT COUNT(*) FROM pragma_table_info('conversations') WHERE name='codex_thread_id'",
+            [], |r| r.get::<_, i64>(0),
+        ).unwrap() > 0;
+        assert!(has_thread_id, "conversations.codex_thread_id column must exist after migration");
     }
 
     /// now_ms returns a positive unix millisecond timestamp.
