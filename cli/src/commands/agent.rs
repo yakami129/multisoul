@@ -12,6 +12,8 @@ pub enum AgentCommands {
         #[arg(long)] name: String,
         #[arg(long)] project: String,
         #[arg(long, default_value = "claude-code")] runtime: String,
+        /// Permission mode (codex only): suggest | auto-edit | full-auto | yolo
+        #[arg(long, default_value = "full-auto")] mode: String,
     },
     /// List all registered agents
     List,
@@ -45,7 +47,7 @@ pub struct AgentRow {
 pub fn handle(cmd: AgentCommands) -> Result<()> {
     let conn = open()?;
     match cmd {
-        AgentCommands::Register { name, project, runtime } => register(&conn, &name, &project, &runtime),
+        AgentCommands::Register { name, project, runtime, mode } => register(&conn, &name, &project, &runtime, &mode),
         AgentCommands::List => list(&conn),
         AgentCommands::Get { id } => get(&conn, &id),
         AgentCommands::Update { id, name, project, runtime } => update(&conn, &id, name, project, runtime),
@@ -54,17 +56,17 @@ pub fn handle(cmd: AgentCommands) -> Result<()> {
     }
 }
 
-pub fn insert_agent(conn: &Connection, name: &str, project_path: &str, runtime: &str) -> Result<String> {
+pub fn insert_agent(conn: &Connection, name: &str, project_path: &str, runtime: &str, mode: &str) -> Result<String> {
     let id = Uuid::new_v4().to_string();
     conn.execute(
-        "INSERT INTO agents (id, name, project_path, runtime, created_at) VALUES (?1,?2,?3,?4,?5)",
-        rusqlite::params![id, name, project_path, runtime, now_ms()],
+        "INSERT INTO agents (id, name, project_path, runtime, mode, created_at) VALUES (?1,?2,?3,?4,?5,?6)",
+        rusqlite::params![id, name, project_path, runtime, mode, now_ms()],
     ).context("Failed to insert agent")?;
     Ok(id)
 }
 
-fn register(conn: &Connection, name: &str, project: &str, runtime: &str) -> Result<()> {
-    let id = insert_agent(conn, name, project, runtime)?;
+fn register(conn: &Connection, name: &str, project: &str, runtime: &str, mode: &str) -> Result<()> {
+    let id = insert_agent(conn, name, project, runtime, mode)?;
     println!("Agent registered. ID: {}", id);
     Ok(())
 }
@@ -185,7 +187,7 @@ mod tests {
     fn test_insert_agent_writes_row() {
         let dir = tempfile::tempdir().unwrap();
         let conn = crate::db::open_at(&dir.path().join("test.db")).unwrap();
-        insert_agent(&conn, "blog-fixer", "/home/user/blog", "claude-code").unwrap();
+        insert_agent(&conn, "blog-fixer", "/home/user/blog", "claude-code", "full-auto").unwrap();
         let count: i64 = conn.query_row(
             "SELECT COUNT(*) FROM agents WHERE name = 'blog-fixer'",
             [], |r| r.get(0)
@@ -210,8 +212,34 @@ mod tests {
     fn test_insert_agent_duplicate_name_errors() {
         let dir = tempfile::tempdir().unwrap();
         let conn = crate::db::open_at(&dir.path().join("test.db")).unwrap();
-        insert_agent(&conn, "dup-agent", "/p", "claude-code").unwrap();
-        let result = insert_agent(&conn, "dup-agent", "/p2", "codex");
+        insert_agent(&conn, "dup-agent", "/p", "claude-code", "full-auto").unwrap();
+        let result = insert_agent(&conn, "dup-agent", "/p2", "codex", "full-auto");
         assert!(result.is_err(), "duplicate name should return an error");
+    }
+
+    /// agent register: mode column is stored correctly.
+    ///
+    /// Data construction:
+    ///   name    = "codex-agent"
+    ///   runtime = "codex"
+    ///   mode    = "full-auto"
+    ///
+    /// Execution:
+    ///   1. Open temp DB
+    ///   2. Call insert_agent with mode="full-auto"
+    ///   3. Query agents.mode
+    ///
+    /// Expected:
+    ///   - mode == "full-auto"
+    #[test]
+    fn test_insert_agent_stores_mode() {
+        let dir = tempfile::tempdir().unwrap();
+        let conn = crate::db::open_at(&dir.path().join("test.db")).unwrap();
+        insert_agent(&conn, "codex-agent", "/p", "codex", "full-auto").unwrap();
+        let mode: String = conn.query_row(
+            "SELECT mode FROM agents WHERE name = 'codex-agent'",
+            [], |r| r.get(0),
+        ).unwrap();
+        assert_eq!(mode, "full-auto", "mode should be stored as-is");
     }
 }

@@ -93,7 +93,7 @@ mod tests {
     async fn make_conv_app(token: &str) -> (axum::Router, String) {
         let dir = tempdir().unwrap();
         let conn = db::open_at(&dir.path().join("t.db")).unwrap();
-        let agent_id = insert_agent(&conn, "test-agent", "/p", "claude-code").unwrap();
+        let agent_id = insert_agent(&conn, "test-agent", "/p", "claude-code", "full-auto").unwrap();
         let state = AppState::new(conn, token.to_string());
         let app = axum::Router::new()
             .route("/api/v1/agents/:id/conversations",
@@ -134,7 +134,7 @@ mod tests {
     async fn make_conv_app_with_delete(token: &str) -> (axum::Router, String) {
         let dir = tempdir().unwrap();
         let conn = db::open_at(&dir.path().join("t.db")).unwrap();
-        let agent_id = insert_agent(&conn, "test-agent", "/p", "claude-code").unwrap();
+        let agent_id = insert_agent(&conn, "test-agent", "/p", "claude-code", "full-auto").unwrap();
         let state = AppState::new(conn, token.to_string());
         let app = axum::Router::new()
             .route("/api/v1/agents/:id/conversations",
