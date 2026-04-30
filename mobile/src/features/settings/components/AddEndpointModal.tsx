@@ -61,7 +61,7 @@ export function AddEndpointModal({ visible, onClose, onAdd }: Props) {
       );
       // Debug: test DNS + connectivity step by step
       try {
-        console.log('[AddEndpoint] Testing fetch to:', `${finalUrl}/api/v1/healthz`);
+        console.warn('[AddEndpoint] Testing fetch to:', `${finalUrl}/api/v1/healthz`);
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), 5000);
         const res = await fetch(`${finalUrl}/api/v1/healthz`, {
@@ -69,9 +69,9 @@ export function AddEndpointModal({ visible, onClose, onAdd }: Props) {
           signal: controller.signal,
         });
         clearTimeout(timeout);
-        console.log('[AddEndpoint] fetch status:', res.status);
+        console.warn('[AddEndpoint] fetch status:', res.status);
         const body = await res.text();
-        console.log('[AddEndpoint] fetch body:', body);
+        console.warn('[AddEndpoint] fetch body:', body);
         if (res.ok) {
           onAdd(label.trim(), finalUrl, finalToken);
           reset();
@@ -85,7 +85,7 @@ export function AddEndpointModal({ visible, onClose, onAdd }: Props) {
       // Debug: try a known public HTTPS endpoint to rule out general networking issue
       try {
         const pub = await fetch('https://httpbin.org/get');
-        console.log('[AddEndpoint] public HTTPS works:', pub.status);
+        console.warn('[AddEndpoint] public HTTPS works:', pub.status);
       } catch (e3: unknown) {
         const err3 = e3 as { message?: string };
         console.error('[AddEndpoint] public HTTPS also failed:', err3?.message);

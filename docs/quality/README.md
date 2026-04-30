@@ -17,17 +17,20 @@
 | 性质 | 描述"是什么" | 规定"必须怎样" |
 | 例子 | "REST API 列表" | "新接口必须返回 JSON、必须带 X-Request-Id" |
 
-## 现状
+## 现有规则
 
-本目录暂为占位。当前规则仍散落在：
+- [`mechanized-constraints.md`](./mechanized-constraints.md) — **已机械化**的 6 条约束（脚本 + ESLint + CI 强制）
 
-- [`../../CLAUDE.md`](../../CLAUDE.md) — UI 设计系统、env vars
-- [`../../mobile/docs/design.md`](../../mobile/docs/design.md) — Vault-Tec PIP-BOY 视觉规范
+## 仍以人类可读形式存在的规则
+
+- [`../../CLAUDE.md`](../../CLAUDE.md) — 工程手册：命令、env vars、UI 设计系统摘要
+- [`../../mobile/docs/design.md`](../../mobile/docs/design.md) — Vault-Tec PIP-BOY 视觉规范（颜色白名单的 source of truth）
 - [`../../mobile/docs/rules/ui-pitfalls.md`](../../mobile/docs/rules/ui-pitfalls.md) — RN UI 常见坑
-- `.husky/`、`.github/workflows/` — 自动化 enforcement
 
-未来工作（Harness 第二支柱"机械化约束"）：把这些约束沉淀为 lint 规则 + CI check，本目录写人类可读的 spec。
+## 持续工作
+
+每发现一次 Agent / 人类的犯错 → 沉淀到 `mechanized-constraints.md` 的"加新规则的流程"。Harness 第二支柱的本质：**让正确行为自然发生，不依赖记忆力和自觉性**。
 
 ## 命名约定
 
-- `<topic>.md`，例如：`code-conventions.md`、`release-checklist.md`、`secret-handling.md`
+- `<topic>.md`，例如：`mechanized-constraints.md`、`release-checklist.md`、`secret-handling.md`

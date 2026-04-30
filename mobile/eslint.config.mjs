@@ -106,7 +106,7 @@ export default tseslint.config(
       'import/no-duplicates': 'warn',
 
       // ── 通用（warn）─────────────────────────────────────────
-      'no-console': ['warn', { allow: ['warn', 'error'] }],
+      'no-console': ['error', { allow: ['warn', 'error'] }],
       'no-debugger': 'warn',
     },
   },

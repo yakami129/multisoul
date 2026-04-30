@@ -1,1 +1,38 @@
-cd mobile && pnpm exec lint-staged
+#!/usr/bin/env bash
+# Harness pre-commit gate. Order: cheap checks first.
+# Each rule's source of truth: docs/quality/mechanized-constraints.md.
+
+set -e
+
+# Resolve repo root (this script may be invoked from sub-directories).
+repo_root=$(git rev-parse --show-toplevel)
+cd "$repo_root"
+
+# 1. AGENTS.md size cap (instant)
+bash scripts/check-agents-md-size.sh
+
+# 2. No hardcoded secrets (regex over staged files)
+bash scripts/check-no-secrets.sh --staged
+
+# 3. Mobile palette compliance (regex over staged mobile/ files)
+bash scripts/check-mobile-colors.sh --staged
+
+# 4. ESLint + prettier on staged TS/TSX (existing lint-staged config)
+staged_mobile=$(git diff --cached --name-only --diff-filter=ACMR | grep -E '^mobile/(src|app)/.*\.(ts|tsx)$' || true)
+if [ -n "$staged_mobile" ]; then
+  ( cd mobile && pnpm exec lint-staged )
+fi
+
+# 5. Typecheck only when the relevant package changed (skip for docs-only commits).
+if [ -n "$staged_mobile" ]; then
+  echo "[pre-commit] running mobile typecheck..."
+  ( cd mobile && pnpm typecheck )
+fi
+
+staged_cli=$(git diff --cached --name-only --diff-filter=ACMR | grep -E '^cli/.*\.rs$' || true)
+if [ -n "$staged_cli" ]; then
+  echo "[pre-commit] running cargo check..."
+  ( cd cli && cargo check --quiet )
+fi
+
+exit 0

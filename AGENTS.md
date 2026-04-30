@@ -13,14 +13,22 @@ Monorepo 两大件：
 - `mobile/` — React Native + Expo SDK 55
 - `cli/` — Rust，可执行文件名 `msctl`
 
-## 2. 关键约束（硬规则，违反前先看 §6）
+## 2. 关键约束（违反前先看 §6）
 
-- **不要碰** `~/.config/msctl/*` —— 用户本地数据，外部测试不许写入
-- **Token 不可硬编码** —— 一律从 env / config / 用户输入读
-- **UI 只能用绿色调** —— PIP-BOY/Vault-Tec 终端风，详见 [`mobile/docs/design.md`](mobile/docs/design.md)
-- **DB schema 改动必须走 migration** —— 不允许运行时 `CREATE TABLE`
-- **REST/WS 强制 Bearer auth** —— 唯一例外是 `GET /api/v1/healthz`
-- **AskQuestion 决策必须用工具调用** —— 不要在自由文本里问选择题（见 [`CLAUDE.md`](CLAUDE.md) §交互约束）
+机械化（pre-commit + CI 拦截，详见 [`docs/quality/mechanized-constraints.md`](docs/quality/mechanized-constraints.md)）：
+
+- **不可硬编码 token** —— 检测 `ms_v2_xxx` / `Bearer xxx`
+- **Mobile 颜色合规** —— 仅 [`mobile/docs/design.md`](mobile/docs/design.md) §2 白名单内的色
+- **本文 ≤ 120 行** —— 超长则拒绝 commit
+- **mobile 禁 `console.log`** —— 仅允许 `console.warn` / `console.error`
+- **改包必跑 typecheck/cargo check**
+
+人类可读软约束：
+
+- 不要碰 `~/.config/msctl/*` —— 用户本地数据
+- DB schema 改动走 migration —— 不允许运行时 `CREATE TABLE`
+- REST/WS 强制 Bearer auth —— 唯一例外 `GET /api/v1/healthz`
+- 决策用 `AskUserQuestion` 工具调用 —— 不在自由文本问选择题
 
 ## 3. 技术栈速览
 

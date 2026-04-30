@@ -180,7 +180,7 @@ The mobile app uses a **Vault-Tec PIP-BOY terminal aesthetic** (Fallout CRT gree
 
 - `cornerRadius` max 2px (terminal style is square)
 - No shadows except the Hero title glow (`#20C20E88`, blur 24px)
-- No non-green colors anywhere
+- Colors restricted to the palette in `mobile/docs/design.md` §2 (greens + Vault-Tec warning amber/red for error states only); enforced by `scripts/check-mobile-colors.sh`
 - Icons: Lucide only, 14×14px for inline, 16×16px for actions
 - Spacing on 4px grid; see `mobile/docs/design.md §4` for exact values
 - Before any UI change, run through the checklist in `mobile/docs/design.md §11`
