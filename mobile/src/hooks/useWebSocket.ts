@@ -2,9 +2,15 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { fetchMessages } from '@/features/chat/services/chatService';
 import { markAskAnswered } from '@/features/inbox/services/inboxService';
 import { buildAskQuestionInboxItem } from '@/features/inbox/utils/buildAskQuestionInboxItem';
+import { notifyTaskComplete } from '@/services/notificationService';
 import { useChatStore } from '@/store/chatStore';
 import { useInboxStore } from '@/store/inboxStore';
-import { type WsMessage, type AskQuestionPayload, InboxItem } from '@/types';
+import {
+  type WsMessage,
+  type AskQuestionPayload,
+  InboxItem,
+  type TaskStatusPayload,
+} from '@/types';
 
 type WsStatus = 'connecting' | 'open' | 'closed';
 
@@ -120,6 +126,20 @@ export function useWebSocket({
               conversation_id: conv_id,
             });
             addInboxItemRef.current(item);
+          }
+
+          // Notify user when a task completes
+          if (msg.role === 'task_status' && msg.payload) {
+            const p = msg.payload as TaskStatusPayload;
+            if (p.status === 'completed') {
+              void notifyTaskComplete({
+                agentName: agent_name ?? agent_id,
+                summary: p.summary,
+                agentId: agent_id,
+                convId: conv_id,
+                endpointId: endpoint_id,
+              });
+            }
           }
         }
       } catch {
