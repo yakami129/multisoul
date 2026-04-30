@@ -2,6 +2,10 @@ import { Audio } from 'expo-av';
 import * as Notifications from 'expo-notifications';
 import { AppState } from 'react-native';
 
+// RN static asset — bundler resolves this to a numeric resource ID at build time
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const taskCompleteSound = require('../../assets/sounds/task-complete.wav') as number;
+
 interface NotifyTaskCompleteArgs {
   agentName: string;
   summary: string;
@@ -10,27 +14,27 @@ interface NotifyTaskCompleteArgs {
   endpointId: string;
 }
 
-export async function notifyTaskComplete({
-  agentName,
-  summary,
-  agentId,
-  convId,
-  endpointId,
-}: NotifyTaskCompleteArgs): Promise<void> {
-  if (AppState.currentState === 'active') {
-    await playForegroundSound();
-  } else {
-    await scheduleBackgroundNotification({ agentName, summary, agentId, convId, endpointId });
+export async function notifyTaskComplete(args: NotifyTaskCompleteArgs): Promise<void> {
+  try {
+    if (AppState.currentState === 'active') {
+      await playForegroundSound();
+    } else {
+      await scheduleBackgroundNotification(args);
+    }
+  } catch (e) {
+    // Notification is non-critical — log but never crash the caller
+    console.warn('[notificationService] notifyTaskComplete failed:', e);
   }
 }
 
 async function playForegroundSound(): Promise<void> {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const asset = require('../../assets/sounds/task-complete.wav') as number;
-  const { sound } = await Audio.Sound.createAsync(asset);
-  await sound.playAsync();
-  // Unload immediately after play to free memory
-  await sound.unloadAsync();
+  const { sound } = await Audio.Sound.createAsync(taskCompleteSound);
+  try {
+    await sound.playAsync();
+  } finally {
+    // Always unload to free the native audio object, even if playback fails
+    sound.unloadAsync().catch(() => {});
+  }
 }
 
 async function scheduleBackgroundNotification({
