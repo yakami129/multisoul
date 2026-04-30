@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { fetchMessages } from '@/features/chat/services/chatService';
+import { markAskAnswered } from '@/features/inbox/services/inboxService';
 import { buildAskQuestionInboxItem } from '@/features/inbox/utils/buildAskQuestionInboxItem';
 import { useChatStore } from '@/store/chatStore';
 import { useInboxStore } from '@/store/inboxStore';
@@ -138,14 +139,23 @@ export function useWebSocket({
     };
   }, [connect]);
 
+  const markAnswered = useChatStore((s) => s.markAnswered);
+
+  const markAnsweredRef = useRef(markAnswered);
+  useEffect(() => {
+    markAnsweredRef.current = markAnswered;
+  }, [markAnswered]);
+
   const sendAnswer = useCallback(
     (ask_id: string, choice_id?: string, freeform?: string) => {
       if (wsRef.current?.readyState === WebSocket.OPEN) {
         wsRef.current.send(JSON.stringify({ type: 'answer', ask_id, choice_id, freeform }));
         void removeInboxItem(ask_id);
+        void markAskAnswered(ask_id, conv_id, choice_id);
+        markAnsweredRef.current(conv_id, ask_id, choice_id);
       }
     },
-    [removeInboxItem],
+    [removeInboxItem, conv_id],
   );
 
   const sendAnswerMulti = useCallback(
@@ -153,9 +163,11 @@ export function useWebSocket({
       if (wsRef.current?.readyState === WebSocket.OPEN) {
         wsRef.current.send(JSON.stringify({ type: 'answer', ask_id, choice_ids }));
         void removeInboxItem(ask_id);
+        void markAskAnswered(ask_id, conv_id, undefined, choice_ids);
+        markAnsweredRef.current(conv_id, ask_id, undefined, choice_ids);
       }
     },
-    [removeInboxItem],
+    [removeInboxItem, conv_id],
   );
 
   return { status, sendAnswer, sendAnswerMulti };

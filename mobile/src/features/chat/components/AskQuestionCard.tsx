@@ -9,6 +9,8 @@ interface Props {
   options: AskQuestionOption[];
   multiSelect?: boolean;
   answered?: boolean;
+  initialSelectedId?: string;
+  initialSelectedIds?: Set<string>;
   onCancel: () => void;
   onConfirm: (selectedId: string) => void;
 }
@@ -19,11 +21,13 @@ export default function AskQuestionCard({
   options,
   multiSelect = false,
   answered: answeredProp = false,
+  initialSelectedId,
+  initialSelectedIds,
   onCancel,
   onConfirm,
 }: Props) {
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [selectedId, setSelectedId] = useState<string | null>(initialSelectedId ?? null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(initialSelectedIds ?? new Set());
   const [answered, setAnswered] = useState(answeredProp);
 
   const isReady = multiSelect ? selectedIds.size > 0 : selectedId !== null;

@@ -151,6 +151,9 @@ export function MessageBubble({
       if (p.questions.length === 1) {
         const q = p.questions[0];
         if (q.multi_select) {
+          const initialIds = msg.answeredChoiceId
+            ? new Set(msg.answeredChoiceId.split(','))
+            : undefined;
           return (
             <View style={s.aiWrap}>
               <AskQuestionCard
@@ -158,6 +161,7 @@ export function MessageBubble({
                 options={q.options}
                 multiSelect
                 answered={msg.answered}
+                initialSelectedIds={initialIds}
                 onCancel={() => onAnswer?.(p.ask_id, '__cancelled__')}
                 onConfirm={(ids) => onAnswerMulti?.(p.ask_id, { '0': ids })}
               />
@@ -170,6 +174,7 @@ export function MessageBubble({
               question={q.text}
               options={q.options}
               answered={msg.answered}
+              initialSelectedId={msg.answeredChoiceId}
               onCancel={() => onAnswer?.(p.ask_id, '__cancelled__')}
               onConfirm={(id) => onAnswer?.(p.ask_id, id)}
             />
@@ -181,6 +186,7 @@ export function MessageBubble({
           <MultiAskQuestionCard
             questions={p.questions}
             answered={msg.answered}
+            initialAnswers={msg.answeredChoiceIds}
             onCancel={() => onAnswer?.(p.ask_id, '__cancelled__')}
             onConfirm={(answers) => onAnswerMulti?.(p.ask_id, answers)}
           />

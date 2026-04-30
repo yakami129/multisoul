@@ -16,7 +16,7 @@ Full product spec: `docs/SPEC.md`
 ## Interaction & Output Constraints (Low-Input Scenarios)
 
 - Assume by default that the user may be in a situation where typing is inconvenient; minimize the need for free-text input.
-- When user decisions are needed (e.g., choosing an approach, whether to continue, selecting environment, risk trade-offs, release options), prefer using a question tool (structured options) to collect choices instead of asking the user to type manually.
+- **MANDATORY: When user decisions are needed** (e.g., choosing an approach, whether to continue, selecting environment, risk trade-offs, release options, architecture choices), **ALWAYS use the `AskUserQuestion` tool with structured options** instead of asking the user to type manually. Never ask decision questions in plain text.
 - For enumerable decisions, provide 2-5 clear options first (including "Other/Later" when appropriate), so users can complete feedback via single- or multi-select.
 - Avoid open-ended follow-up questions unless necessary; if needed, provide options first, then add "You may type additional details if needed."
 - Keep responses in short, information-dense sentences: conclusion first, options second, supplementary notes last; avoid long paragraphs.

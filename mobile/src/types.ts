@@ -52,6 +52,8 @@ export interface WsMessage {
   payload: MessagePayload;
   created_at: number;
   answered?: boolean;
+  answeredChoiceId?: string;
+  answeredChoiceIds?: Record<string, string>;
 }
 
 export type MessagePayload =

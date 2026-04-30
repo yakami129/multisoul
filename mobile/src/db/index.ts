@@ -34,7 +34,33 @@ export async function initDb(): Promise<SQLite.SQLiteDatabase> {
       received_at     INTEGER NOT NULL,
       read_at         INTEGER
     );
+    CREATE TABLE IF NOT EXISTS answered_asks (
+      ask_id          TEXT PRIMARY KEY,
+      conversation_id TEXT NOT NULL,
+      answered_at     INTEGER NOT NULL,
+      choice_id       TEXT,
+      choice_ids      TEXT
+    );
   `);
+  // Migrate: add choice columns if upgrading from an older schema
+  await _db
+    .execAsync(
+      `
+    ALTER TABLE answered_asks ADD COLUMN choice_id TEXT;
+  `,
+    )
+    .catch(() => {
+      /* column already exists */
+    });
+  await _db
+    .execAsync(
+      `
+    ALTER TABLE answered_asks ADD COLUMN choice_ids TEXT;
+  `,
+    )
+    .catch(() => {
+      /* column already exists */
+    });
   return _db;
 }
 

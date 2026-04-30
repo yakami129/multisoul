@@ -18,6 +18,7 @@ import {
   getLatestAgentActivitySeq,
   getLatestAgentTextSeq,
 } from '@/features/chat/utils/chatRenderState';
+import { loadAnsweredAsks } from '@/features/inbox/services/inboxService';
 import { useWebSocket } from '@/hooks/useWebSocket';
 import { useChatStore } from '@/store/chatStore';
 import { useEndpointStore } from '@/store/endpointStore';
@@ -79,12 +80,27 @@ export default function ChatDetailScreen() {
 
   useEffect(() => {
     if (!endpoint) return;
-    fetchMessages(endpoint.base_url, endpoint.token, conv_id)
-      .then((msgs) => {
+    Promise.all([
+      fetchMessages(endpoint.base_url, endpoint.token, conv_id),
+      loadAnsweredAsks(conv_id),
+    ])
+      .then(([msgs, answeredMap]) => {
         lastSeenAgentActivitySeqRef.current = getLatestAgentActivitySeq(msgs);
         lastAnimatedAgentTextSeqRef.current = getLatestAgentTextSeq(msgs);
         hasLoadedInitialMessagesRef.current = true;
-        setMessages(conv_id, msgs);
+        const merged = msgs.map((m) => {
+          if (m.role !== 'ask_question') return m;
+          const ask_id = (m.payload as { ask_id?: string }).ask_id ?? '';
+          const record = answeredMap.get(ask_id);
+          if (!record) return m;
+          return {
+            ...m,
+            answered: true,
+            answeredChoiceId: record.choice_id,
+            answeredChoiceIds: record.choice_ids,
+          };
+        });
+        setMessages(conv_id, merged);
       })
       .catch(() => {
         hasLoadedInitialMessagesRef.current = true;
