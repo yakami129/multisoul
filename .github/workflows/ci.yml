@@ -58,7 +58,7 @@ jobs:
         run: pnpm format:check
 
       - name: Test
-        run: pnpm exec jest --watchAll=false
+        run: pnpm exec jest --watchAll=false --forceExit
 
   cli-check:
     name: cli (build + test)
