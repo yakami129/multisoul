@@ -24,6 +24,7 @@ jobs:
   ci:
     name: CI checks
     uses: ./.github/workflows/ci.yml
+    secrets: inherit
 
   build-binaries:
     name: Build ${{ matrix.target }}
@@ -178,6 +179,12 @@ jobs:
           path: cli/npm/artifacts
           merge-multiple: true
 
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org/
+
       - name: Set package version
         shell: bash
         run: |
@@ -214,12 +221,6 @@ jobs:
           unzip -q "artifacts/msctl-${version}-x86_64-pc-windows-msvc.zip" -d artifacts
           mkdir -p vendor/x86_64-pc-windows-msvc
           cp "$(find artifacts -path '*/msctl.exe' -o -name 'msctl.exe' | head -1)" "vendor/x86_64-pc-windows-msvc/msctl.exe"
-
-      - name: Set up Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          registry-url: https://registry.npmjs.org/
 
       - name: Verify npm package
         run: npm pack --dry-run
