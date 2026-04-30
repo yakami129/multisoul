@@ -17,12 +17,13 @@ describe('InvokeModal', () => {
     expect(getByText('something failed')).toBeTruthy();
   });
 
-  it('calls onClose when Close button pressed', () => {
+  it('calls onClose when CLOSE button pressed', () => {
     const onClose = jest.fn();
     const { getByText } = render(
       <InvokeModal visible result="ok" error={null} onClose={onClose} />,
     );
-    fireEvent.press(getByText('Close'));
+    // Button text is uppercase in the source
+    fireEvent.press(getByText('CLOSE'));
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 });

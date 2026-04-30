@@ -1,46 +1,70 @@
-import { fireEvent, render, waitFor } from '@testing-library/react-native';
+import { render, screen } from '@testing-library/react-native';
 import React from 'react';
 import SettingsScreen from '../../app/(tabs)/settings';
-import { useSettingsStore } from '../../src/store/settingsStore';
+import { useEndpointStore } from '../store/endpointStore';
 
 jest.mock('react-native-safe-area-context', () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
   SafeAreaProvider: ({ children }: any) => children,
 }));
 
-jest.mock('../../src/store/settingsStore');
-const mockUseSettingsStore = useSettingsStore as jest.MockedFunction<typeof useSettingsStore>;
+// Mock expo-camera used by AddEndpointModal
+jest.mock('expo-camera', () => ({
+  CameraView: () => null,
+  useCameraPermissions: () => [null, jest.fn()],
+}));
 
-/// Settings screen: fills inputs and calls save on Save press
+// Mock endpointClient to avoid axios/fetch stream errors in test env
+jest.mock('../api/endpointClient', () => ({
+  getEndpointClient: jest.fn(() => ({
+    get: jest.fn(),
+    post: jest.fn(),
+  })),
+  clearEndpointClients: jest.fn(),
+}));
+
+/// Settings screen: renders endpoint list and add button
 ///
 /// Execution:
-///   1. Render SettingsScreen (thin wrapper around SettingsForm)
-///   2. Fill Server URL input with 'http://prod:8080'
-///   3. Press Save button
+///   1. Seed endpointStore with one endpoint
+///   2. Render SettingsScreen
 ///
 /// Expected:
-///   - save() called with updated serverUrl
+///   - SETTINGS nav title visible
+///   - ENDPOINTS section label visible
+///   - Seeded endpoint label visible
 describe('SettingsScreen', () => {
-  const mockSave = jest.fn();
-
   beforeEach(() => {
-    jest.clearAllMocks();
-    mockUseSettingsStore.mockReturnValue({
-      settings: { serverUrl: 'http://localhost:8080', apiKey: '' },
-      load: jest.fn(),
-      save: mockSave,
-    } as any);
+    useEndpointStore.setState({
+      endpoints: [
+        {
+          id: 'ep-1',
+          label: 'Home Server',
+          base_url: 'http://192.168.1.1:8765',
+          token: 'tok',
+          last_seen_at: null,
+        },
+      ],
+    });
   });
 
-  it('saves settings via store on Save press', async () => {
-    mockSave.mockResolvedValueOnce(undefined);
-    const { getByPlaceholderText, getByText } = render(<SettingsScreen />);
+  afterEach(() => {
+    useEndpointStore.setState({ endpoints: [] });
+  });
 
-    fireEvent.changeText(getByPlaceholderText('http://localhost:8080'), 'http://prod:8080');
-    fireEvent.press(getByText('Save'));
+  it('renders settings screen with endpoint list', () => {
+    render(<SettingsScreen />);
 
-    await waitFor(() =>
-      expect(mockSave).toHaveBeenCalledWith({ serverUrl: 'http://prod:8080', apiKey: '' }),
-    );
+    expect(screen.getByText('SETTINGS')).toBeTruthy();
+    expect(screen.getByText('ENDPOINTS')).toBeTruthy();
+    expect(screen.getByText('Home Server')).toBeTruthy();
+  });
+
+  it('shows empty state when no endpoints configured', () => {
+    useEndpointStore.setState({ endpoints: [] });
+
+    render(<SettingsScreen />);
+
+    expect(screen.getByText('NO ENDPOINTS CONFIGURED')).toBeTruthy();
   });
 });

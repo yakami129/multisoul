@@ -24,6 +24,10 @@ jest.mock('@/features/chat/services/chatService', () => ({
   postMessage: jest.fn(),
 }));
 
+jest.mock('@/features/inbox/services/inboxService', () => ({
+  loadAnsweredAsks: jest.fn().mockResolvedValue(new Map()),
+}));
+
 jest.mock('@/features/chat/components/MessageBubble', () => ({
   MessageBubble: ({ msg, typewriter, waiting }: any) => {
     const { Text } = require('react-native');

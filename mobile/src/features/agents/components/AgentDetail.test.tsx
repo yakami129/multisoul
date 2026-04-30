@@ -11,23 +11,27 @@ jest.mock('react-native-safe-area-context', () => ({
 const agent: Agent = {
   id: 'a1',
   name: 'My Agent',
-  status: 'active',
-  endpoint: 'http://localhost:9000',
-  description: 'A test agent',
+  project_path: '/home/user/project',
+  runtime: 'claude-code',
+  created_at: 0,
+  endpoint_id: 'ep-1',
+  endpoint_label: 'Local',
 };
 
 describe('AgentDetail', () => {
   it('renders loading indicator when isLoading', () => {
-    const { getByTestId } = render(
+    const { getByText } = render(
       <AgentDetail
         agent={undefined}
         isLoading
         isError={false}
         onBack={() => {}}
         onInvoke={async () => 'ok'}
+        onChat={() => {}}
       />,
     );
-    expect(getByTestId('loading-indicator')).toBeTruthy();
+    // Loading state shows LOADING… text
+    expect(getByText('LOADING…')).toBeTruthy();
   });
 
   it('renders agent details', () => {
@@ -38,38 +42,46 @@ describe('AgentDetail', () => {
         isError={false}
         onBack={() => {}}
         onInvoke={async () => 'ok'}
+        onChat={() => {}}
       />,
     );
-    expect(getByText('My Agent')).toBeTruthy();
-    expect(getByText('http://localhost:9000')).toBeTruthy();
+    // Agent name is rendered uppercased
+    expect(getByText('MY AGENT')).toBeTruthy();
+    // Endpoint label is shown in the ENDPOINT row
+    expect(getByText('Local')).toBeTruthy();
   });
 
-  it('calls onBack when Back pressed', () => {
+  it('calls onBack when GO BACK pressed in error state', () => {
     const onBack = jest.fn();
     const { getByText } = render(
       <AgentDetail
-        agent={agent}
+        agent={undefined}
         isLoading={false}
-        isError={false}
+        isError
         onBack={onBack}
         onInvoke={async () => 'ok'}
+        onChat={() => {}}
       />,
     );
-    fireEvent.press(getByText('Back'));
+    fireEvent.press(getByText('GO BACK'));
     expect(onBack).toHaveBeenCalledTimes(1);
   });
 
   it('shows modal with result after invoke', async () => {
-    const { getByText } = render(
+    const { getByText, getAllByText, getByPlaceholderText } = render(
       <AgentDetail
         agent={agent}
         isLoading={false}
         isError={false}
         onBack={() => {}}
-        onInvoke={async () => 'invoke result'}
+        onInvoke={async () => 'conv-123'}
+        onChat={() => {}}
       />,
     );
-    fireEvent.press(getByText('Invoke'));
-    await waitFor(() => expect(getByText('invoke result')).toBeTruthy());
+    fireEvent.changeText(getByPlaceholderText('Enter a task for the agent…'), 'hello');
+    // Both the section title and the button have text 'INVOKE'; press the last one (the button)
+    const invokeElements = getAllByText('INVOKE');
+    fireEvent.press(invokeElements[invokeElements.length - 1]);
+    await waitFor(() => expect(getByText('Conversation started: conv-123')).toBeTruthy());
   });
 });

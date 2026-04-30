@@ -2,10 +2,11 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitFor } from '@testing-library/react-native';
 import React from 'react';
 import AgentListScreen from '../../app/(tabs)/index';
+import { useEndpointStore } from '../../src/store/endpointStore';
 import { type Agent } from '../types';
 
-jest.mock('../../src/api', () => ({
-  getApiClient: jest.fn(),
+jest.mock('../../src/features/agents/services/agentService', () => ({
+  fetchAllAgents: jest.fn(),
 }));
 
 jest.mock('expo-router', () => ({
@@ -22,29 +23,29 @@ const mockAgents: Agent[] = [
   {
     id: 'uuid-1',
     name: 'Weather Agent',
-    description: 'Fetches weather data',
-    endpoint: 'http://weather.local/invoke',
-    status: 'active',
-    createdAt: '2024-01-01T00:00:00Z',
-    updatedAt: '2024-01-01T00:00:00Z',
+    project_path: '/home/user/weather',
+    runtime: 'claude-code',
+    created_at: 0,
+    endpoint_id: 'ep-1',
+    endpoint_label: 'Local',
   },
   {
     id: 'uuid-2',
     name: 'Broken Agent',
-    description: 'Always fails',
-    endpoint: 'http://broken.local/invoke',
-    status: 'error',
-    createdAt: '2024-01-01T00:00:00Z',
-    updatedAt: '2024-01-01T00:00:00Z',
+    project_path: '/home/user/broken',
+    runtime: 'codex',
+    created_at: 0,
+    endpoint_id: 'ep-1',
+    endpoint_label: 'Local',
   },
   {
     id: 'uuid-3',
     name: 'Idle Agent',
-    description: 'Not running',
-    endpoint: 'http://idle.local/invoke',
-    status: 'inactive',
-    createdAt: '2024-01-01T00:00:00Z',
-    updatedAt: '2024-01-01T00:00:00Z',
+    project_path: '/home/user/idle',
+    runtime: 'custom',
+    created_at: 0,
+    endpoint_id: 'ep-1',
+    endpoint_label: 'Local',
   },
 ];
 
@@ -53,61 +54,66 @@ function wrapper({ children }: { children: React.ReactNode }) {
   return <QueryClientProvider client={qc}>{children}</QueryClientProvider>;
 }
 
-/// Agent list: renders agents with correct status badge colors
+/// Agent list: renders agents returned by fetchAllAgents
 ///
-/// Data: 3 agents — active, error, inactive
+/// Data: 3 agents with different runtimes
 ///
 /// Execution:
-///   1. Mock getApiClient returns axios instance (sync) that resolves agents list
-///   2. Render AgentListScreen inside QueryClientProvider
-///   3. Wait for data to load
+///   1. Seed endpointStore with one endpoint so query is enabled
+///   2. Mock fetchAllAgents to resolve with mockAgents
+///   3. Render AgentListScreen inside QueryClientProvider
+///   4. Wait for data to load
 ///
 /// Expected:
-///   - 'Weather Agent' visible (active)
-///   - 'Broken Agent' visible (error)
-///   - 'Idle Agent' visible (inactive)
+///   - All three agent names visible (uppercased)
 describe('AgentListScreen', () => {
+  const { fetchAllAgents } = require('../../src/features/agents/services/agentService');
+
   beforeEach(() => {
-    const { getApiClient } = require('../../src/api');
-    getApiClient.mockReturnValue({
-      get: jest.fn().mockResolvedValue({ data: mockAgents }),
+    // Seed the endpoint store so the query is enabled
+    useEndpointStore.setState({
+      endpoints: [
+        {
+          id: 'ep-1',
+          label: 'Local',
+          base_url: 'http://localhost:8765',
+          token: 'tok',
+          last_seen_at: null,
+        },
+      ],
     });
+    fetchAllAgents.mockResolvedValue(mockAgents);
+  });
+
+  afterEach(() => {
+    useEndpointStore.setState({ endpoints: [] });
+    fetchAllAgents.mockReset();
   });
 
   it('renders agent list with status badges', async () => {
     render(<AgentListScreen />, { wrapper });
 
     await waitFor(() => {
-      expect(screen.getByText('Weather Agent')).toBeTruthy();
+      expect(screen.getByText('WEATHER AGENT')).toBeTruthy();
     });
 
-    expect(screen.getByText('Broken Agent')).toBeTruthy();
-    expect(screen.getByText('Idle Agent')).toBeTruthy();
-
-    expect(screen.getByText('active')).toBeTruthy();
-    expect(screen.getByText('error')).toBeTruthy();
-    expect(screen.getByText('inactive')).toBeTruthy();
+    expect(screen.getByText('BROKEN AGENT')).toBeTruthy();
+    expect(screen.getByText('IDLE AGENT')).toBeTruthy();
   });
 
   it('shows loading state initially', () => {
-    const { getApiClient } = require('../../src/api');
-    getApiClient.mockReturnValue({
-      get: jest.fn().mockImplementation(() => new Promise(() => {})),
-    });
+    fetchAllAgents.mockImplementation(() => new Promise(() => {}));
 
     render(<AgentListScreen />, { wrapper });
-    expect(screen.getByText('Loading agents...')).toBeTruthy();
+    expect(screen.getByText('LOADING AGENTS...')).toBeTruthy();
   });
 
   it('shows empty state when no agents', async () => {
-    const { getApiClient } = require('../../src/api');
-    getApiClient.mockReturnValue({
-      get: jest.fn().mockResolvedValue({ data: [] }),
-    });
+    fetchAllAgents.mockResolvedValue([]);
 
     render(<AgentListScreen />, { wrapper });
     await waitFor(() => {
-      expect(screen.getByText('No agents registered yet.')).toBeTruthy();
+      expect(screen.getByText('NO AGENTS REGISTERED')).toBeTruthy();
     });
   });
 });

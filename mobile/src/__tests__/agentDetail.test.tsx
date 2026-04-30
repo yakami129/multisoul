@@ -1,15 +1,16 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { render, screen, waitFor } from '@testing-library/react-native';
 import React from 'react';
-import AgentDetailScreen from '../../app/agent/[id]';
+import AgentDetailScreen from '../../app/agent/[id]/index';
+import { useEndpointStore } from '../store/endpointStore';
 
-jest.mock('../../src/api', () => ({
-  getApiClient: jest.fn(),
+jest.mock('../features/agents/services/agentService', () => ({
+  fetchAgent: jest.fn(),
+  invokeAgent: jest.fn(),
 }));
 
 jest.mock('expo-router', () => ({
-  useLocalSearchParams: () => ({ id: 'uuid-1' }),
-  useRouter: () => ({ back: jest.fn() }),
+  useLocalSearchParams: () => ({ id: 'uuid-1', endpoint_id: 'ep-1' }),
+  useRouter: () => ({ back: jest.fn(), push: jest.fn() }),
 }));
 
 jest.mock('react-native-safe-area-context', () => ({
@@ -20,88 +21,67 @@ jest.mock('react-native-safe-area-context', () => ({
 const mockAgent = {
   id: 'uuid-1',
   name: 'Weather Agent',
-  description: 'Fetches weather data',
-  endpoint: 'http://weather.local/invoke',
-  status: 'active',
-  createdAt: '2024-01-01T00:00:00Z',
-  updatedAt: '2024-01-01T00:00:00Z',
+  project_path: '/home/user/weather',
+  runtime: 'claude-code' as const,
+  created_at: 0,
+  endpoint_id: 'ep-1',
+  endpoint_label: 'Local',
 };
 
-function wrapper({ children }: { children: React.ReactNode }) {
-  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return <QueryClientProvider client={qc}>{children}</QueryClientProvider>;
-}
-
-/// Agent detail: shows agent info and invoke button; invoke shows response in modal
+/// Agent detail screen: loads agent via fetchAgent and renders details
 ///
 /// Data:
-///   GET /api/v1/agents/uuid-1 → mockAgent
-///   POST /api/v1/agents/uuid-1/invoke → { result: 'Weather: Sunny 25C' }
+///   fetchAgent → mockAgent
 ///
 /// Execution:
-///   1. Render AgentDetailScreen with id=uuid-1
-///   2. Wait for agent data to load
-///   3. Press Invoke button
-///   4. Wait for modal to appear with response
+///   1. Seed endpointStore with ep-1
+///   2. Render AgentDetailScreen (useLocalSearchParams returns id=uuid-1, endpoint_id=ep-1)
+///   3. fetchAgent resolves with mockAgent
+///   4. Wait for agent name to appear
 ///
 /// Expected:
-///   - Agent name 'Weather Agent' visible
-///   - Endpoint visible
-///   - After invoke: modal shows 'Weather: Sunny 25C'
-///   - Modal has Close button
+///   - 'WEATHER AGENT' visible after load
+///   - 'Local' endpoint label visible
 describe('AgentDetailScreen', () => {
+  const { fetchAgent } = require('../features/agents/services/agentService');
+
   beforeEach(() => {
-    const { getApiClient } = require('../../src/api');
-    const mockGet = jest.fn().mockResolvedValue({ data: mockAgent });
-    const mockPost = jest.fn().mockResolvedValue({ data: { result: 'Weather: Sunny 25C' } });
-    getApiClient.mockReturnValue({ get: mockGet, post: mockPost });
+    useEndpointStore.setState({
+      endpoints: [
+        {
+          id: 'ep-1',
+          label: 'Local',
+          base_url: 'http://localhost:8765',
+          token: 'tok',
+          last_seen_at: null,
+        },
+      ],
+    });
+    fetchAgent.mockResolvedValue(mockAgent);
+  });
+
+  afterEach(() => {
+    useEndpointStore.setState({ endpoints: [] });
+    fetchAgent.mockReset();
   });
 
   it('renders agent details', async () => {
-    render(<AgentDetailScreen />, { wrapper });
+    render(<AgentDetailScreen />);
 
     await waitFor(() => {
-      expect(screen.getByText('Weather Agent')).toBeTruthy();
+      expect(screen.getByText('WEATHER AGENT')).toBeTruthy();
     });
 
-    expect(screen.getByText('http://weather.local/invoke')).toBeTruthy();
-    expect(screen.getByText('Invoke')).toBeTruthy();
+    expect(screen.getByText('Local')).toBeTruthy();
   });
 
-  it('shows invoke response in modal', async () => {
-    render(<AgentDetailScreen />, { wrapper });
+  it('shows error state when fetchAgent fails', async () => {
+    fetchAgent.mockRejectedValue(new Error('network error'));
+
+    render(<AgentDetailScreen />);
 
     await waitFor(() => {
-      expect(screen.getByText('Weather Agent')).toBeTruthy();
-    });
-
-    fireEvent.press(screen.getByText('Invoke'));
-
-    await waitFor(() => {
-      expect(screen.getByText('Invoke Response')).toBeTruthy();
-    });
-
-    expect(screen.getByText('Weather: Sunny 25C')).toBeTruthy();
-    expect(screen.getByText('Close')).toBeTruthy();
-  });
-
-  it('closes modal on Close press', async () => {
-    render(<AgentDetailScreen />, { wrapper });
-
-    await waitFor(() => {
-      expect(screen.getByText('Weather Agent')).toBeTruthy();
-    });
-
-    fireEvent.press(screen.getByText('Invoke'));
-
-    await waitFor(() => {
-      expect(screen.getByText('Invoke Response')).toBeTruthy();
-    });
-
-    fireEvent.press(screen.getByText('Close'));
-
-    await waitFor(() => {
-      expect(screen.queryByText('Invoke Response')).toBeNull();
+      expect(screen.getByText('FAILED TO LOAD')).toBeTruthy();
     });
   });
 });
