@@ -20,6 +20,7 @@
 ## 现有规则
 
 - [`mechanized-constraints.md`](./mechanized-constraints.md) — **已机械化**的 6 条约束（脚本 + ESLint + CI 强制）
+- [`SPEC-harness-roadmap.md`](./SPEC-harness-roadmap.md) — **未来建设规划**：4 条待机械化软约束 + 支柱 3（反馈循环）+ 支柱 4（熵管理）
 
 ## 仍以人类可读形式存在的规则
 
@@ -30,6 +31,8 @@
 ## 持续工作
 
 每发现一次 Agent / 人类的犯错 → 沉淀到 `mechanized-constraints.md` 的"加新规则的流程"。Harness 第二支柱的本质：**让正确行为自然发生，不依赖记忆力和自觉性**。
+
+新建设方向参考 [`SPEC-harness-roadmap.md`](./SPEC-harness-roadmap.md)，按优先级推进。
 
 ## 命名约定
 
