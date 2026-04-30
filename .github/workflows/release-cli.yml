@@ -21,8 +21,13 @@ env:
   IMAGE_NAME: ghcr.io/${{ github.repository }}/msctl
 
 jobs:
+  ci:
+    name: CI checks
+    uses: ./.github/workflows/ci.yml
+
   build-binaries:
     name: Build ${{ matrix.target }}
+    needs: ci
     runs-on: ${{ matrix.os }}
     defaults:
       run:
@@ -37,6 +42,10 @@ jobs:
             binary: msctl
           - os: macos-14
             target: aarch64-apple-darwin
+            archive: tar.gz
+            binary: msctl
+          - os: macos-13
+            target: x86_64-apple-darwin
             archive: tar.gz
             binary: msctl
           - os: windows-latest
@@ -191,6 +200,11 @@ jobs:
           mkdir -p vendor/aarch64-apple-darwin
           cp "artifacts/msctl-${version}-aarch64-apple-darwin/msctl" "vendor/aarch64-apple-darwin/msctl"
           chmod +x "vendor/aarch64-apple-darwin/msctl"
+
+          tar -xzf "artifacts/msctl-${version}-x86_64-apple-darwin.tar.gz" -C artifacts
+          mkdir -p vendor/x86_64-apple-darwin
+          cp "artifacts/msctl-${version}-x86_64-apple-darwin/msctl" "vendor/x86_64-apple-darwin/msctl"
+          chmod +x "vendor/x86_64-apple-darwin/msctl"
 
           tar -xzf "artifacts/msctl-${version}-x86_64-unknown-linux-gnu.tar.gz" -C artifacts
           mkdir -p vendor/x86_64-unknown-linux-gnu
