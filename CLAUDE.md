@@ -2,6 +2,12 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Mandatory: Read AGENTS.md at Session Start
+
+**Every conversation must begin by reading `AGENTS.md`** in the project root. It contains the agent navigation map and is required context before any task.
+
+---
+
 ## Project Overview
 
 MultiSoul is an Agent Registry Platform — a monorepo with three components:
@@ -9,7 +15,7 @@ MultiSoul is an Agent Registry Platform — a monorepo with three components:
 - **`mobile/`** — React Native + Expo (SDK 54), NativeWind, React Query, Zustand
 - **`cli/`** — Rust (`msctl`), clap 4.x, blocking reqwest
 
-Full product spec: `docs/SPEC.md`
+Full product spec: `docs/product-specs/SPEC.md`. Agent navigation map: `AGENTS.md`. System architecture: `ARCHITECTURE.md`.
 
 ---
 
