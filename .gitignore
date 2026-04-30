@@ -19,6 +19,7 @@ Thumbs.db
 # Logs
 *.log
 cli/cc-connect
+cli/cc-connect.zip
 
 # Generated release package payloads
 cli/npm/vendor/

@@ -247,7 +247,7 @@ fn process_turn(
         if trimmed.is_empty() {
             continue;
         }
-        eprintln!("[codex] stdout: {}", &trimmed[..trimmed.len().min(300)]);
+        eprintln!("[codex] stdout: {}", trimmed);
 
         let raw: Value = match serde_json::from_str(trimmed) {
             Ok(v) => v,
