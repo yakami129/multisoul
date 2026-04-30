@@ -1,6 +1,13 @@
 //! Codex runtime adapter.
 //! Drives `codex exec` (or `codex exec resume`) as a subprocess.
 //! Stdin: plain-text prompt. Stdout: JSON lines per the Codex event protocol.
+//!
+//! ## Performance design
+//!
+//! After each successful turn, the worker immediately pre-warms the next
+//! `codex exec resume` process.  Node.js startup (~1-2 s) happens in the
+//! background while the user composes their next message, so by the time
+//! the next message arrives the process is already waiting for stdin.
 
 use serde_json::Value;
 use std::io::{BufRead, BufReader, Write};
@@ -58,24 +65,20 @@ fn session_worker(
 
     let mut thread_id: Option<String> = load_thread_id(&state, &conv_id);
 
-    let (mut child, mut stdin) =
-        match spawn_codex(&project_path, thread_id.as_deref(), &mode) {
-            Some(pair) => pair,
-            None => {
-                mark_failed(&state, &conv_id);
-                return;
-            }
-        };
-    eprintln!("[codex] spawned pid={:?} conv_id={}", child.id(), conv_id);
-
-    let mut reader = BufReader::new(child.stdout.take().expect("no stdout"));
+    // Pre-warmed process: spawned after each successful turn so that Node.js
+    // startup happens in the background while the user types their next message.
+    let mut pre_spawned: Option<(Child, ChildStdin)> = None;
 
     loop {
         let user_text = match rx.recv() {
             Ok(t) => t,
             Err(_) => {
-                eprintln!("[codex] channel closed, killing codex conv_id={}", conv_id);
-                let _ = child.kill();
+                eprintln!("[codex] channel closed conv_id={}", conv_id);
+                // Kill the pre-warmed process if nobody sent a follow-up message.
+                if let Some((mut c, _s)) = pre_spawned.take() {
+                    let _ = c.kill();
+                    let _ = c.wait();
+                }
                 return;
             }
         };
@@ -83,31 +86,62 @@ fn session_worker(
 
         let mut ok = false;
         for attempt in 1..=3 {
-            match process_turn(&mut stdin, &mut reader, &state, &conv_id, &user_text, &mut thread_id) {
+            // First attempt uses the pre-warmed process (already started).
+            // Retries always spawn fresh.
+            let process = if attempt == 1 {
+                pre_spawned.take().or_else(|| {
+                    eprintln!("[codex] no pre-warm, spawning fresh conv_id={}", conv_id);
+                    spawn_codex(&project_path, thread_id.as_deref(), &mode)
+                })
+            } else {
+                eprintln!("[codex] retry spawn attempt={} conv_id={}", attempt, conv_id);
+                spawn_codex(&project_path, thread_id.as_deref(), &mode)
+            };
+
+            let (child, stdin) = match process {
+                Some(p) => p,
+                None => {
+                    eprintln!("[codex] spawn failed attempt={} conv_id={}", attempt, conv_id);
+                    continue;
+                }
+            };
+
+            match process_turn(&state, &conv_id, &user_text, child, stdin, &mut thread_id) {
                 Ok(()) => {
                     ok = true;
                     break;
                 }
                 Err(e) => {
-                    eprintln!("[codex] turn error attempt={} error={} conv_id={}", attempt, e, conv_id);
-                    let _ = child.kill();
-                    let _ = child.wait();
-                    match spawn_codex(&project_path, thread_id.as_deref(), &mode) {
-                        Some((c, s)) => {
-                            child = c;
-                            stdin = s;
-                            reader = BufReader::new(child.stdout.take().expect("no stdout"));
-                        }
-                        None => {
-                            eprintln!("[codex] respawn failed conv_id={}", conv_id);
-                            break;
-                        }
-                    }
+                    eprintln!(
+                        "[codex] turn error attempt={} error={} conv_id={}",
+                        attempt, e, conv_id
+                    );
                 }
             }
         }
 
-        if !ok {
+        if ok {
+            // Pre-warm the next resume process in the background.
+            // If thread_id is not yet known (first turn), skip — the next turn
+            // will fall back to a fresh spawn.
+            if let Some(tid) = thread_id.as_deref().filter(|s| !s.is_empty()) {
+                match spawn_codex(&project_path, Some(tid), &mode) {
+                    Some(p) => {
+                        pre_spawned = Some(p);
+                        eprintln!(
+                            "[codex] pre-warmed next resume process tid={} conv_id={}",
+                            tid, conv_id
+                        );
+                    }
+                    None => {
+                        eprintln!(
+                            "[codex] pre-warm spawn failed, will spawn on demand conv_id={}",
+                            conv_id
+                        );
+                    }
+                }
+            }
+        } else {
             mark_failed(&state, &conv_id);
         }
     }
@@ -121,6 +155,10 @@ fn spawn_codex(
     mode: &str,
 ) -> Option<(Child, ChildStdin)> {
     let args: Vec<String> = if let Some(tid) = thread_id.filter(|s| !s.is_empty()) {
+        // Resume: re-apply mode flags. codex's sandbox/approval policy is
+        // per-invocation, not stored in the session — without --full-auto
+        // resume falls back to interactive approval and would hang on stdin
+        // (which we close after writing the prompt).
         let mut a = vec![
             "exec".to_string(),
             "resume".to_string(),
@@ -162,26 +200,31 @@ fn spawn_codex(
     Some((child, stdin))
 }
 
-fn write_prompt(stdin: &mut ChildStdin, prompt: &str) -> Result<(), String> {
-    let line = format!("{}\n", prompt);
-    stdin
-        .write_all(line.as_bytes())
-        .map_err(|e| format!("stdin write: {}", e))?;
-    stdin
-        .flush()
-        .map_err(|e| format!("stdin flush: {}", e))
-}
-
 // ─── turn processing ─────────────────────────────────────────────────────────
 
+/// Process one turn using the already-spawned `child` and `stdin`.
+/// Writes the prompt, closes stdin (→ EOF so codex starts), then reads
+/// stdout until `turn.completed` or `turn.failed`.
 fn process_turn(
-    stdin: &mut ChildStdin,
-    reader: &mut BufReader<std::process::ChildStdout>,
     state: &AppState,
     conv_id: &str,
     user_text: &str,
+    mut child: Child,
+    stdin: ChildStdin,
     thread_id: &mut Option<String>,
 ) -> Result<(), String> {
+    eprintln!("[codex] process_turn pid={:?} conv_id={}", child.id(), conv_id);
+
+    // Write prompt then drop stdin → EOF → codex starts processing
+    {
+        let mut stdin = stdin;
+        let line = format!("{}\n", user_text);
+        stdin.write_all(line.as_bytes()).map_err(|e| format!("stdin write: {}", e))?;
+        stdin.flush().map_err(|e| format!("stdin flush: {}", e))?;
+        // stdin dropped here → EOF sent to codex
+    }
+    eprintln!("[codex] wrote prompt (stdin closed), reading stdout...");
+
     {
         let db = state.db.lock().unwrap();
         let _ = db.execute(
@@ -190,8 +233,7 @@ fn process_turn(
         );
     }
 
-    write_prompt(stdin, user_text)?;
-    eprintln!("[codex] wrote prompt, reading stdout...");
+    let mut reader = BufReader::new(child.stdout.take().expect("no stdout"));
 
     let mut line = String::new();
     loop {
@@ -224,16 +266,23 @@ fn process_turn(
                 handle_item_completed(&raw, state, conv_id);
             }
             "turn.completed" => {
+                // Reap the child without risking a stdout-pipe deadlock:
+                // we've stopped reading stdout, so any further writes by
+                // codex could block it. kill is harmless after turn.completed.
+                let _ = child.kill();
+                let _ = child.wait();
                 complete_turn(state, conv_id, "completed");
                 return Ok(());
             }
             "turn.failed" => {
                 let msg = raw["error"]["message"]
                     .as_str()
-                    .unwrap_or("turn failed");
-                eprintln!("[codex] turn failed: {}", msg);
+                    .unwrap_or("turn failed")
+                    .to_string();
+                let _ = child.kill();
+                let _ = child.wait();
                 complete_turn(state, conv_id, "failed");
-                return Ok(());
+                return Err(msg);
             }
             _ => {}
         }
