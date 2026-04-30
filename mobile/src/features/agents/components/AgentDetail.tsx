@@ -150,7 +150,9 @@ export function AgentDetail({ agent, isLoading, isError, onBack, onInvoke, onCha
           />
           <TouchableOpacity
             style={[s.invokeBtn, (!message.trim() || invoking) && s.invokeBtnDisabled]}
-            onPress={handleInvoke}
+            onPress={() => {
+              void handleInvoke();
+            }}
             disabled={!message.trim() || invoking}
           >
             {invoking ? (

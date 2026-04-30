@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use serde::{Deserialize, Serialize};
 
 const EXPO_PUSH_URL: &str = "https://exp.host/--/api/v2/push/send";
@@ -13,6 +15,7 @@ pub struct PushPayload {
     pub channel_id: String,
 }
 
+#[allow(dead_code)]
 #[derive(Deserialize, Debug)]
 struct ExpoResponse {
     data: Vec<ExpoTicket>,

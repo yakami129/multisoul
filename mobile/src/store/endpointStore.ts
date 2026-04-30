@@ -1,9 +1,9 @@
+import 'react-native-get-random-values';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { v4 as uuidv4 } from 'uuid';
 import { create } from 'zustand';
 import { getDb } from '@/db';
 import { type Endpoint } from '@/types';
-import 'react-native-get-random-values';
-import { v4 as uuidv4 } from 'uuid';
 
 interface EndpointState {
   endpoints: Endpoint[];

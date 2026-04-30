@@ -57,7 +57,14 @@ export function SettingsForm() {
             autoCorrect={false}
             secureTextEntry
           />
-          <Button label="Save" onPress={handleSave} loading={saving} loadingLabel="Saving..." />
+          <Button
+            label="Save"
+            onPress={() => {
+              void handleSave();
+            }}
+            loading={saving}
+            loadingLabel="Saving..."
+          />
         </Card>
       </ScrollView>
     </KeyboardAvoidingView>

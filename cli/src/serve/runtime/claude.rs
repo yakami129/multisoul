@@ -238,6 +238,7 @@ fn write_user_message(stdin: &mut ChildStdin, user_text: &str) -> Result<(), Str
 }
 
 /// Write a tool_result JSON line to claude's stdin (response to a tool_use).
+#[allow(dead_code)]
 fn write_tool_result(stdin: &mut ChildStdin, call_id: &str, content: &str) -> Result<(), String> {
     let msg = serde_json::json!({
         "type": "user",
@@ -383,7 +384,7 @@ fn process_turn(
                 let updated_input = if interactive::is_interactive(&tool_name) {
                     let has_questions = orig_input["questions"]
                         .as_array()
-                        .map_or(false, |a| !a.is_empty());
+                        .is_some_and(|a| !a.is_empty());
 
                     if has_questions {
                         // Broadcast ask_question to mobile and wait for answer

@@ -133,7 +133,7 @@ export function AddEndpointModal({ visible, onClose, onAdd }: Props) {
               onPress={() => {
                 setScanned(false);
                 setStatus('idle');
-                if (!permission?.granted) requestPermission();
+                if (!permission?.granted) void requestPermission();
                 setTab('qr');
               }}
             >
@@ -193,7 +193,9 @@ export function AddEndpointModal({ visible, onClose, onAdd }: Props) {
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={s.btnPrimary}
-                  onPress={() => handleAdd()}
+                  onPress={() => {
+                    void handleAdd();
+                  }}
                   disabled={status === 'checking'}
                 >
                   {status === 'checking' ? (
@@ -213,7 +215,12 @@ export function AddEndpointModal({ visible, onClose, onAdd }: Props) {
                   onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
                 />
               ) : (
-                <TouchableOpacity style={s.permBtn} onPress={requestPermission}>
+                <TouchableOpacity
+                  style={s.permBtn}
+                  onPress={() => {
+                    void requestPermission();
+                  }}
+                >
                   <Text style={s.permText}>TAP TO ALLOW CAMERA</Text>
                 </TouchableOpacity>
               )}

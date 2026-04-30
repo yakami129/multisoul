@@ -30,7 +30,7 @@ export function AgentList({ agents, isLoading, isError, error, onRefetch, onAgen
   const handleRefresh = React.useCallback(async () => {
     setIsRefreshing(true);
     try {
-      await onRefetch();
+      onRefetch();
     } finally {
       setIsRefreshing(false);
     }
@@ -95,7 +95,9 @@ export function AgentList({ agents, isLoading, isError, error, onRefetch, onAgen
         refreshControl={
           <RefreshControl
             refreshing={isRefreshing}
-            onRefresh={handleRefresh}
+            onRefresh={() => {
+              void handleRefresh();
+            }}
             tintColor="#20C20E"
             colors={['#20C20E']}
           />

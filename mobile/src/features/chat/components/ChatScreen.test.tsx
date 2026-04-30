@@ -74,7 +74,7 @@ test('send button calls onSend and clears input', () => {
 //   - 'Reconnecting…' banner visible (status !== 'connected' shows warning)
 //   - banner NOT visible when status='connected' (only shown during reconnect)
 test('shows reconnecting banner', () => {
-  const { getByText, rerender } = render(
+  const { getByText, rerender: _rerender } = render(
     <ChatScreen
       agentName="TestAgent"
       messages={[]}

@@ -51,7 +51,7 @@ export default function ChatTab() {
 
   useFocusEffect(
     useCallback(() => {
-      refetch();
+      void refetch();
     }, [refetch]),
   );
 
@@ -96,9 +96,13 @@ export default function ChatTab() {
         conversations={conversations}
         onPressConversation={handlePress}
         onPressNewChat={() => {}}
-        onDeleteConversation={handleDelete}
+        onDeleteConversation={(id) => {
+          void handleDelete(id);
+        }}
         isRefreshing={refreshing}
-        onRefresh={handleRefresh}
+        onRefresh={() => {
+          void handleRefresh();
+        }}
       />
     </SafeAreaView>
   );

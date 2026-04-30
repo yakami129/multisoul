@@ -1,6 +1,6 @@
 import { ChevronDown, ChevronRight } from 'lucide-react-native';
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { type ToolCallPayload, type ToolResultPayload } from '@/types';
 
 interface Props {

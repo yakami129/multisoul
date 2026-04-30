@@ -23,7 +23,9 @@ export default function AgentListScreen() {
       isError={isError}
       error={error}
       isFetching={isFetching}
-      onRefetch={refetch}
+      onRefetch={() => {
+        void refetch();
+      }}
       onAgentPress={(id, endpoint_id) => {
         router.push(`/agent/${id}?endpoint_id=${endpoint_id}`);
       }}

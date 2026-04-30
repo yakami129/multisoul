@@ -1,6 +1,19 @@
 import { Tabs } from 'expo-router';
 import { Zap, MessageCircle, Inbox, Settings } from 'lucide-react-native';
 
+function AgentsIcon({ color }: { color: string }) {
+  return <Zap size={24} color={color} />;
+}
+function ChatIcon({ color }: { color: string }) {
+  return <MessageCircle size={24} color={color} />;
+}
+function InboxIcon({ color }: { color: string }) {
+  return <Inbox size={24} color={color} />;
+}
+function SettingsIcon({ color }: { color: string }) {
+  return <Settings size={24} color={color} />;
+}
+
 export default function TabLayout() {
   return (
     <Tabs
@@ -25,28 +38,28 @@ export default function TabLayout() {
         name="index"
         options={{
           title: 'Agents',
-          tabBarIcon: ({ color }) => <Zap size={24} color={color} />,
+          tabBarIcon: AgentsIcon,
         }}
       />
       <Tabs.Screen
         name="chat"
         options={{
           title: 'Chat',
-          tabBarIcon: ({ color }) => <MessageCircle size={24} color={color} />,
+          tabBarIcon: ChatIcon,
         }}
       />
       <Tabs.Screen
         name="inbox"
         options={{
           title: 'Inbox',
-          tabBarIcon: ({ color }) => <Inbox size={24} color={color} />,
+          tabBarIcon: InboxIcon,
         }}
       />
       <Tabs.Screen
         name="settings"
         options={{
           title: 'Settings',
-          tabBarIcon: ({ color }) => <Settings size={24} color={color} />,
+          tabBarIcon: SettingsIcon,
         }}
       />
     </Tabs>

@@ -1,5 +1,5 @@
 import { getDb } from '@/db';
-import { type InboxItem } from '@/types';
+import { type InboxItem, type InboxKind, type AskQuestionPayload } from '@/types';
 
 export async function writeInboxItem(item: InboxItem): Promise<void> {
   const db = getDb();
@@ -38,8 +38,8 @@ export async function loadInboxItems(): Promise<InboxItem[]> {
   const rows = await db.getAllAsync<InboxRow>('SELECT * FROM inbox ORDER BY received_at DESC');
   return rows.map((r) => ({
     ...r,
-    kind: r.kind as import('@/types').InboxKind,
-    payload: r.payload ? (JSON.parse(r.payload) as import('@/types').AskQuestionPayload) : null,
+    kind: r.kind as InboxKind,
+    payload: r.payload ? (JSON.parse(r.payload) as AskQuestionPayload) : null,
   }));
 }
 

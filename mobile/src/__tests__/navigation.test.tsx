@@ -1,13 +1,13 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen } from '@testing-library/react-native';
+// eslint-disable-next-line import/order
 import type React from 'react';
-
 jest.mock('expo-router', () => {
   const React = require('react');
   const { View, Text, TouchableOpacity } = require('react-native');
 
   return {
-    Tabs: ({ children }: any) => {
+    Tabs: ({ children: _children }: any) => {
       const [tab, setTab] = React.useState('index');
       return (
         <View>

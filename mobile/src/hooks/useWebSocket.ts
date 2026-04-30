@@ -5,12 +5,7 @@ import { buildAskQuestionInboxItem } from '@/features/inbox/utils/buildAskQuesti
 import { notifyTaskComplete } from '@/services/notificationService';
 import { useChatStore } from '@/store/chatStore';
 import { useInboxStore } from '@/store/inboxStore';
-import {
-  type WsMessage,
-  type AskQuestionPayload,
-  InboxItem,
-  type TaskStatusPayload,
-} from '@/types';
+import { type WsMessage, type AskQuestionPayload, type TaskStatusPayload } from '@/types';
 
 type WsStatus = 'connecting' | 'open' | 'closed';
 
@@ -125,7 +120,7 @@ export function useWebSocket({
               agent_name,
               conversation_id: conv_id,
             });
-            addInboxItemRef.current(item);
+            void addInboxItemRef.current(item);
           }
 
           // Notify user when a task completes

@@ -1,4 +1,5 @@
 import * as Notifications from 'expo-notifications';
+// eslint-disable-next-line import/order
 import { AppState } from 'react-native';
 
 // Mock expo-av using factory-only pattern to avoid jest hoisting issues
@@ -18,6 +19,7 @@ jest.mock('expo-notifications', () => ({
 // Mock the sound asset require
 jest.mock('../../assets/sounds/task-complete.wav', () => 1, { virtual: true });
 
+// eslint-disable-next-line import/order
 import { Audio } from 'expo-av';
 import { notifyTaskComplete } from '@/services/notificationService';
 

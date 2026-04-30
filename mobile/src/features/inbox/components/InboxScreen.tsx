@@ -16,6 +16,50 @@ interface Props {
   onRefresh?: () => void;
 }
 
+function AskContent({
+  item,
+  onAnswer,
+  onAnswerMulti,
+  setExpandedId,
+}: {
+  item: InboxItem;
+  onAnswer: (item: InboxItem, ask_id: string, choice_id?: string) => void;
+  onAnswerMulti: (item: InboxItem, ask_id: string, choice_ids: Record<string, string>) => void;
+  setExpandedId: (id: string | null) => void;
+}) {
+  const p = item.payload as AskQuestionPayload;
+  if (p.questions.length === 1) {
+    const q = p.questions[0];
+    return (
+      <AskQuestionCard
+        question={q?.text ?? item.body}
+        options={q?.options ?? []}
+        onCancel={() => {
+          onAnswer(item, p.ask_id, '__cancelled__');
+          setExpandedId(null);
+        }}
+        onConfirm={(choice_id) => {
+          onAnswer(item, p.ask_id, choice_id);
+          setExpandedId(null);
+        }}
+      />
+    );
+  }
+  return (
+    <MultiAskQuestionCard
+      questions={p.questions}
+      onCancel={() => {
+        onAnswer(item, p.ask_id, '__cancelled__');
+        setExpandedId(null);
+      }}
+      onConfirm={(choice_ids) => {
+        onAnswerMulti(item, p.ask_id, choice_ids);
+        setExpandedId(null);
+      }}
+    />
+  );
+}
+
 function DeleteAction({ id, onDelete }: { id: string; onDelete: (id: string) => void }) {
   return (
     <TouchableOpacity
@@ -128,40 +172,12 @@ export default function InboxScreen({
 
                   {isPendingQuestion && isExpanded && item.payload && (
                     <View style={s.askWrap}>
-                      {(() => {
-                        const p = item.payload as AskQuestionPayload;
-                        if (p.questions.length === 1) {
-                          const q = p.questions[0];
-                          return (
-                            <AskQuestionCard
-                              question={q?.text ?? item.body}
-                              options={q?.options ?? []}
-                              onCancel={() => {
-                                onAnswer(item, p.ask_id, '__cancelled__');
-                                setExpandedId(null);
-                              }}
-                              onConfirm={(choice_id) => {
-                                onAnswer(item, p.ask_id, choice_id);
-                                setExpandedId(null);
-                              }}
-                            />
-                          );
-                        }
-
-                        return (
-                          <MultiAskQuestionCard
-                            questions={p.questions}
-                            onCancel={() => {
-                              onAnswer(item, p.ask_id, '__cancelled__');
-                              setExpandedId(null);
-                            }}
-                            onConfirm={(choice_ids) => {
-                              onAnswerMulti(item, p.ask_id, choice_ids);
-                              setExpandedId(null);
-                            }}
-                          />
-                        );
-                      })()}
+                      <AskContent
+                        item={item}
+                        onAnswer={onAnswer}
+                        onAnswerMulti={onAnswerMulti}
+                        setExpandedId={setExpandedId}
+                      />
                     </View>
                   )}
                 </View>

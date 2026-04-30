@@ -95,7 +95,9 @@ export default function InboxTab() {
         }}
         onDelete={(id) => void removeItem(id)}
         isRefreshing={refreshing}
-        onRefresh={handleRefresh}
+        onRefresh={() => {
+          void handleRefresh();
+        }}
       />
     </SafeAreaView>
   );

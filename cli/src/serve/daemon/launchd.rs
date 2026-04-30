@@ -1,5 +1,3 @@
-#![cfg(target_os = "macos")]
-
 use anyhow::Result;
 use super::{Config, Manager, Status, SERVICE_LABEL};
 
@@ -74,7 +72,7 @@ fn launchctl(args: &[&str]) -> anyhow::Result<String> {
         .output()
         .map_err(|e| anyhow::anyhow!("launchctl not found: {}", e))?;
     Ok(String::from_utf8_lossy(&out.stdout).trim().to_string()
-        + &String::from_utf8_lossy(&out.stderr).trim().to_string())
+        + String::from_utf8_lossy(&out.stderr).trim())
 }
 
 fn domain() -> String {

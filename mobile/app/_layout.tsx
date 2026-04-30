@@ -69,7 +69,7 @@ export default function RootLayout() {
           received_at: Date.now(),
           read_at: null,
         };
-        addInboxItem(item);
+        void addInboxItem(item);
       }
     });
     return () => {

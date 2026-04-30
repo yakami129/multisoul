@@ -87,7 +87,7 @@ fn list(conn: &Connection) -> Result<()> {
         println!("No agents registered.");
         return Ok(());
     }
-    println!("{:<36}  {:<20}  {:<12}  {}", "ID", "NAME", "RUNTIME", "PROJECT");
+    println!("{:<36}  {:<20}  {:<12}  PROJECT", "ID", "NAME", "RUNTIME");
     println!("{}", "-".repeat(100));
     for a in &agents {
         println!("{:<36}  {:<20}  {:<12}  {}", a.id, a.name, a.runtime, a.project_path);
