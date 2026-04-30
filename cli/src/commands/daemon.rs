@@ -1,12 +1,12 @@
+use crate::commands::serve::{advertised_base_url, generate_token, print_qr};
+use crate::config::{load_config, save_config};
+use crate::serve::daemon::{
+    self, default_log_file, load_meta, new_manager, remove_meta, resolve_binary, save_meta,
+    Config as DaemonConfig, Meta,
+};
 use anyhow::Result;
 use clap::{ArgAction, Subcommand};
 use std::net::SocketAddr;
-use crate::config::{load_config, save_config};
-use crate::serve::daemon::{
-    self, Config as DaemonConfig, new_manager, save_meta, load_meta,
-    remove_meta, Meta, default_log_file, resolve_binary,
-};
-use crate::commands::serve::{advertised_base_url, generate_token, print_qr};
 
 #[derive(Subcommand)]
 pub enum DaemonCommands {
@@ -57,8 +57,16 @@ pub enum DaemonCommands {
 
 pub fn handle(cmd: DaemonCommands) -> Result<()> {
     match cmd {
-        DaemonCommands::Quickstart { token, port, tailnet } => quickstart(token, port, tailnet),
-        DaemonCommands::Install { port, tailnet, force } => install(port, tailnet, force),
+        DaemonCommands::Quickstart {
+            token,
+            port,
+            tailnet,
+        } => quickstart(token, port, tailnet),
+        DaemonCommands::Install {
+            port,
+            tailnet,
+            force,
+        } => install(port, tailnet, force),
         DaemonCommands::Uninstall => uninstall(),
         DaemonCommands::Start => start(),
         DaemonCommands::Stop => stop(),
@@ -122,7 +130,10 @@ fn install(port_arg: Option<u16>, tailnet: bool, force: bool) -> Result<()> {
     println!("  Platform: {}", mgr.platform());
     println!("  Token:    {}", cfg.serve_token);
     println!("  Port:     {}", cfg.serve_port);
-    println!("  Tailnet:  {}", if tailnet { "enabled" } else { "disabled" });
+    println!(
+        "  Tailnet:  {}",
+        if tailnet { "enabled" } else { "disabled" }
+    );
     println!("  Log:      {}", log_file);
     println!();
     print_pairing_info(&cfg.serve_token, cfg.serve_port, tailnet);
@@ -189,14 +200,20 @@ fn status() -> Result<()> {
         println!("  Run: msctl daemon install");
         return Ok(());
     }
-    println!("  Status:   {}", if st.running { "Running" } else { "Stopped" });
+    println!(
+        "  Status:   {}",
+        if st.running { "Running" } else { "Stopped" }
+    );
     println!("  Platform: {}", st.platform);
     if let Some(pid) = st.pid {
         println!("  PID:      {}", pid);
     }
     if let Ok(meta) = load_meta() {
         println!("  Port:     {}", meta.port);
-        println!("  Tailnet:  {}", if meta.tailnet { "enabled" } else { "disabled" });
+        println!(
+            "  Tailnet:  {}",
+            if meta.tailnet { "enabled" } else { "disabled" }
+        );
         println!("  Log:      {}", meta.log_file);
         println!("  Installed:{}", meta.installed_at);
     }
@@ -213,7 +230,9 @@ fn logs(follow: bool, lines: usize) -> Result<()> {
     }
 
     print_last_lines(&log_file, lines)?;
-    if follow { follow_file(&log_file)?; }
+    if follow {
+        follow_file(&log_file)?;
+    }
     Ok(())
 }
 
@@ -221,7 +240,9 @@ fn print_last_lines(path: &str, n: usize) -> Result<()> {
     let content = std::fs::read_to_string(path)?;
     let all: Vec<&str> = content.lines().collect();
     let start = all.len().saturating_sub(n);
-    for line in &all[start..] { println!("{}", line); }
+    for line in &all[start..] {
+        println!("{}", line);
+    }
     Ok(())
 }
 

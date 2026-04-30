@@ -1,5 +1,5 @@
-use anyhow::Result;
 use super::{Config, Manager, Status, SERVICE_LABEL};
+use anyhow::Result;
 
 pub struct LaunchdManager;
 
@@ -21,7 +21,8 @@ fn build_plist(cfg: &Config) -> String {
     } else {
         ""
     };
-    format!(r#"<?xml version="1.0" encoding="UTF-8"?>
+    format!(
+        r#"<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
@@ -55,13 +56,13 @@ fn build_plist(cfg: &Config) -> String {
 </dict>
 </plist>
 "#,
-        label  = SERVICE_LABEL,
+        label = SERVICE_LABEL,
         binary = cfg.binary_path,
-        token  = cfg.token,
-        port   = cfg.port,
+        token = cfg.token,
+        port = cfg.port,
         tailnet_arg = tailnet_arg,
-        path   = cfg.env_path,
-        log    = cfg.log_file,
+        path = cfg.env_path,
+        log = cfg.log_file,
     )
 }
 
@@ -84,7 +85,9 @@ fn target() -> String {
 }
 
 impl Manager for LaunchdManager {
-    fn platform(&self) -> &'static str { "launchd" }
+    fn platform(&self) -> &'static str {
+        "launchd"
+    }
 
     fn install(&self, cfg: &Config) -> Result<()> {
         let plist = plist_path();
@@ -105,7 +108,9 @@ impl Manager for LaunchdManager {
     fn uninstall(&self) -> Result<()> {
         let _ = launchctl(&["bootout", &target()]);
         let plist = plist_path();
-        if plist.exists() { std::fs::remove_file(&plist)?; }
+        if plist.exists() {
+            std::fs::remove_file(&plist)?;
+        }
         Ok(())
     }
 
@@ -126,8 +131,12 @@ impl Manager for LaunchdManager {
         let _ = launchctl(&["bootout", &target()]);
         let plist_str = plist_path().to_string_lossy().into_owned();
         for i in 0..3 {
-            if i > 0 { std::thread::sleep(std::time::Duration::from_millis(500)); }
-            if launchctl(&["bootstrap", &domain(), &plist_str]).is_ok() { break; }
+            if i > 0 {
+                std::thread::sleep(std::time::Duration::from_millis(500));
+            }
+            if launchctl(&["bootstrap", &domain(), &plist_str]).is_ok() {
+                break;
+            }
         }
         launchctl(&["kickstart", "-kp", &target()])?;
         Ok(())
@@ -136,7 +145,12 @@ impl Manager for LaunchdManager {
     fn status(&self) -> Result<Status> {
         let installed = plist_path().exists();
         if !installed {
-            return Ok(Status { installed: false, running: false, pid: None, platform: "launchd" });
+            return Ok(Status {
+                installed: false,
+                running: false,
+                pid: None,
+                platform: "launchd",
+            });
         }
         let out = launchctl(&["print", &target()]).unwrap_or_default();
         let mut pid = None;
@@ -145,12 +159,22 @@ impl Manager for LaunchdManager {
             let t = line.trim();
             if let Some(rest) = t.strip_prefix("pid = ") {
                 if let Ok(p) = rest.parse::<u32>() {
-                    if p > 0 { pid = Some(p); running = true; }
+                    if p > 0 {
+                        pid = Some(p);
+                        running = true;
+                    }
                 }
             }
-            if t.contains("state = running") { running = true; }
+            if t.contains("state = running") {
+                running = true;
+            }
         }
-        Ok(Status { installed, running, pid, platform: "launchd" })
+        Ok(Status {
+            installed,
+            running,
+            pid,
+            platform: "launchd",
+        })
     }
 }
 
@@ -183,12 +207,24 @@ mod tests {
             env_path: "/usr/bin:/bin".into(),
         };
         let plist = build_plist(&cfg);
-        assert!(plist.contains("/usr/local/bin/msctl"), "plist must contain binary path");
+        assert!(
+            plist.contains("/usr/local/bin/msctl"),
+            "plist must contain binary path"
+        );
         assert!(plist.contains("ms_v2_test"), "plist must contain token");
         assert!(plist.contains("9000"), "plist must contain port 9000");
-        assert!(plist.contains("--tailnet"), "plist must include --tailnet when enabled");
-        assert!(plist.contains("/tmp/msctl.log"), "plist must contain log path");
-        assert!(!plist.contains("8765"), "plist must not contain default port when overridden");
+        assert!(
+            plist.contains("--tailnet"),
+            "plist must include --tailnet when enabled"
+        );
+        assert!(
+            plist.contains("/tmp/msctl.log"),
+            "plist must contain log path"
+        );
+        assert!(
+            !plist.contains("8765"),
+            "plist must not contain default port when overridden"
+        );
     }
 
     /// build_plist uses KeepAlive.SuccessfulExit = true so that
@@ -207,7 +243,9 @@ mod tests {
             env_path: "/usr/bin".into(),
         };
         let plist = build_plist(&cfg);
-        assert!(plist.contains("SuccessfulExit"),
-            "plist must use KeepAlive.SuccessfulExit so stop does not auto-restart");
+        assert!(
+            plist.contains("SuccessfulExit"),
+            "plist must use KeepAlive.SuccessfulExit so stop does not auto-restart"
+        );
     }
 }

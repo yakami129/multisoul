@@ -3,8 +3,7 @@ use rusqlite::Connection;
 use std::path::{Path, PathBuf};
 
 pub fn db_path() -> Result<PathBuf> {
-    let base = dirs::config_dir()
-        .context("Cannot determine config directory")?;
+    let base = dirs::config_dir().context("Cannot determine config directory")?;
     Ok(base.join("msctl").join("serve.db"))
 }
 
@@ -26,7 +25,8 @@ pub fn open_at(path: &Path) -> Result<Connection> {
 }
 
 fn init_schema(conn: &Connection) -> Result<()> {
-    conn.execute_batch(r#"
+    conn.execute_batch(
+        r#"
         CREATE TABLE IF NOT EXISTS agents (
             id           TEXT PRIMARY KEY,
             name         TEXT NOT NULL UNIQUE,
@@ -65,10 +65,12 @@ fn init_schema(conn: &Connection) -> Result<()> {
             device_label    TEXT NOT NULL,
             registered_at   INTEGER NOT NULL
         );
-    "#)?;
+    "#,
+    )?;
     // Migrate existing DBs: add claude_session_id if missing
     let _ = conn.execute_batch("ALTER TABLE conversations ADD COLUMN claude_session_id TEXT;");
-    let _ = conn.execute_batch("ALTER TABLE agents ADD COLUMN mode TEXT NOT NULL DEFAULT 'full-auto';");
+    let _ =
+        conn.execute_batch("ALTER TABLE agents ADD COLUMN mode TEXT NOT NULL DEFAULT 'full-auto';");
     let _ = conn.execute_batch("ALTER TABLE conversations ADD COLUMN codex_thread_id TEXT;");
     Ok(())
 }
@@ -103,18 +105,34 @@ mod tests {
         let path = dir.path().join("test.db");
         let conn = open_at(&path).unwrap();
         let tables: Vec<String> = {
-            let mut stmt = conn.prepare(
-                "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"
-            ).unwrap();
-            stmt.query_map([], |r| r.get(0)).unwrap()
+            let mut stmt = conn
+                .prepare("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
+                .unwrap();
+            stmt.query_map([], |r| r.get(0))
+                .unwrap()
                 .filter_map(|r| r.ok())
                 .collect()
         };
-        assert!(tables.contains(&"agents".to_string()),        "agents table must exist");
-        assert!(tables.contains(&"conversations".to_string()), "conversations table must exist");
-        assert!(tables.contains(&"messages".to_string()),      "messages table must exist");
-        assert!(tables.contains(&"tasks".to_string()),         "tasks table must exist");
-        assert!(tables.contains(&"push_tokens".to_string()),   "push_tokens table must exist");
+        assert!(
+            tables.contains(&"agents".to_string()),
+            "agents table must exist"
+        );
+        assert!(
+            tables.contains(&"conversations".to_string()),
+            "conversations table must exist"
+        );
+        assert!(
+            tables.contains(&"messages".to_string()),
+            "messages table must exist"
+        );
+        assert!(
+            tables.contains(&"tasks".to_string()),
+            "tasks table must exist"
+        );
+        assert!(
+            tables.contains(&"push_tokens".to_string()),
+            "push_tokens table must exist"
+        );
     }
 
     /// DB migration: agents table has mode column after open_at.
@@ -131,17 +149,24 @@ mod tests {
         let dir = tempdir().unwrap();
         let conn = open_at(&dir.path().join("test.db")).unwrap();
 
-        let has_mode: bool = conn.query_row(
-            "SELECT COUNT(*) FROM pragma_table_info('agents') WHERE name='mode'",
-            [], |r| r.get::<_, i64>(0),
-        ).unwrap() > 0;
+        let has_mode: bool = conn
+            .query_row(
+                "SELECT COUNT(*) FROM pragma_table_info('agents') WHERE name='mode'",
+                [],
+                |r| r.get::<_, i64>(0),
+            )
+            .unwrap()
+            > 0;
         assert!(has_mode, "agents.mode column must exist after migration");
 
         let has_thread_id: bool = conn.query_row(
             "SELECT COUNT(*) FROM pragma_table_info('conversations') WHERE name='codex_thread_id'",
             [], |r| r.get::<_, i64>(0),
         ).unwrap() > 0;
-        assert!(has_thread_id, "conversations.codex_thread_id column must exist after migration");
+        assert!(
+            has_thread_id,
+            "conversations.codex_thread_id column must exist after migration"
+        );
     }
 
     /// now_ms returns a positive unix millisecond timestamp.
@@ -152,6 +177,9 @@ mod tests {
     #[test]
     fn test_now_ms_is_reasonable() {
         let ts = now_ms();
-        assert!(ts > 1_700_000_000_000, "now_ms should be a recent unix ms timestamp");
+        assert!(
+            ts > 1_700_000_000_000,
+            "now_ms should be a recent unix ms timestamp"
+        );
     }
 }

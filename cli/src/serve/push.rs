@@ -39,15 +39,24 @@ pub fn send_push_to_all(
     let tokens: Vec<String> = {
         let mut stmt = match db.prepare("SELECT expo_push_token FROM push_tokens") {
             Ok(s) => s,
-            Err(e) => { eprintln!("[push] DB error: {}", e); return; }
+            Err(e) => {
+                eprintln!("[push] DB error: {}", e);
+                return;
+            }
         };
         let x = match stmt.query_map([], |r| r.get(0)) {
             Ok(rows) => rows.filter_map(|r| r.ok()).collect(),
-            Err(e) => { eprintln!("[push] query error: {}", e); vec![] }
-        }; x
+            Err(e) => {
+                eprintln!("[push] query error: {}", e);
+                vec![]
+            }
+        };
+        x
     };
 
-    if tokens.is_empty() { return; }
+    if tokens.is_empty() {
+        return;
+    }
 
     let client = reqwest::blocking::Client::new();
     for token in tokens {
@@ -101,6 +110,9 @@ mod tests {
         let json = serde_json::to_value(&payload).unwrap();
         assert_eq!(json["to"], "ExponentPushToken[abc]", "to field must be set");
         assert_eq!(json["priority"], "high", "priority must be high");
-        assert_eq!(json["data"]["kind"], "complex_done", "data.kind must be set");
+        assert_eq!(
+            json["data"]["kind"], "complex_done",
+            "data.kind must be set"
+        );
     }
 }

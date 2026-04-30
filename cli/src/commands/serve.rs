@@ -1,9 +1,12 @@
+use crate::{
+    db,
+    serve::{run_server, state::AppState},
+};
 use anyhow::Result;
 use clap::Args;
 use rand::Rng;
 use serde::Deserialize;
 use std::net::SocketAddr;
-use crate::{db, serve::{run_server, state::AppState}};
 
 #[derive(Args)]
 pub struct ServeArgs {
@@ -35,7 +38,7 @@ pub fn generate_token() -> String {
 
 pub async fn handle(args: ServeArgs) -> Result<()> {
     let token = args.token.unwrap_or_else(generate_token);
-    let conn  = db::open()?;
+    let conn = db::open()?;
     let state = AppState::new(conn, token.clone());
 
     let bind_addr: SocketAddr = if args.tailnet {
@@ -48,7 +51,12 @@ pub async fn handle(args: ServeArgs) -> Result<()> {
         start_tailscale_funnel(args.port)?;
     }
 
-    let base_url = advertised_base_url(&bind_addr, args.port, args.tailnet || args.funnel, args.funnel);
+    let base_url = advertised_base_url(
+        &bind_addr,
+        args.port,
+        args.tailnet || args.funnel,
+        args.funnel,
+    );
 
     println!("Bearer token: {}", token);
     println!();
@@ -73,7 +81,8 @@ pub fn print_qr(token: &str, base_url: &str) {
     let pair_url = format!("multisoul://pair?url={}&token={}", base_url, token);
     println!("  Scan to add endpoint in MultiSoul App:");
     if let Ok(code) = qrcode::QrCode::new(pair_url.as_bytes()) {
-        let image = code.render::<char>()
+        let image = code
+            .render::<char>()
             .quiet_zone(false)
             .module_dimensions(2, 1)
             .build();
@@ -83,7 +92,12 @@ pub fn print_qr(token: &str, base_url: &str) {
     println!("  Or paste: {}", pair_url);
 }
 
-pub fn advertised_base_url(bind_addr: &SocketAddr, port: u16, prefer_tailscale: bool, funnel: bool) -> String {
+pub fn advertised_base_url(
+    bind_addr: &SocketAddr,
+    port: u16,
+    prefer_tailscale: bool,
+    funnel: bool,
+) -> String {
     if prefer_tailscale {
         let use_https = funnel || is_tailscale_serve_active();
         if let Some(base_url) = tailscale_base_url(port, use_https) {
@@ -99,7 +113,9 @@ fn is_tailscale_serve_active() -> bool {
         .args(["serve", "status"])
         .output()
         .ok()
-        .map(|o| o.status.success() && !String::from_utf8_lossy(&o.stdout).contains("No serve config"))
+        .map(|o| {
+            o.status.success() && !String::from_utf8_lossy(&o.stdout).contains("No serve config")
+        })
         .unwrap_or(false)
 }
 
@@ -135,7 +151,11 @@ fn parse_tailscale_base_url(status_json: &str, port: u16, funnel: bool) -> Optio
     let status: TailscaleStatus = serde_json::from_str(status_json).ok()?;
     let me = status.me?;
 
-    if let Some(dns_name) = me.dns_name.as_deref().map(|name| name.trim_end_matches('.')) {
+    if let Some(dns_name) = me
+        .dns_name
+        .as_deref()
+        .map(|name| name.trim_end_matches('.'))
+    {
         if !dns_name.is_empty() {
             return Some(format_base_url(dns_name, port, funnel));
         }

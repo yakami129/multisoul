@@ -9,17 +9,21 @@ pub struct Config {
     pub serve_port: u16,
 }
 
-fn default_port() -> u16 { 8765 }
+fn default_port() -> u16 {
+    8765
+}
 
 impl Default for Config {
     fn default() -> Self {
-        Self { serve_token: String::new(), serve_port: 8765 }
+        Self {
+            serve_token: String::new(),
+            serve_port: 8765,
+        }
     }
 }
 
 pub fn config_path() -> Result<PathBuf> {
-    let base = dirs::config_dir()
-        .context("Cannot determine config directory")?;
+    let base = dirs::config_dir().context("Cannot determine config directory")?;
     Ok(base.join("msctl").join("config.toml"))
 }
 
@@ -39,8 +43,7 @@ pub fn save_config(config: &Config) -> Result<()> {
         std::fs::create_dir_all(parent)
             .with_context(|| format!("Cannot create config dir {}", parent.display()))?;
     }
-    let content = toml::to_string_pretty(config)
-        .context("Failed to serialize config")?;
+    let content = toml::to_string_pretty(config).context("Failed to serialize config")?;
     std::fs::write(&path, content)
         .with_context(|| format!("Cannot write config to {}", path.display()))?;
     Ok(())
@@ -60,11 +63,16 @@ mod tests {
     ///   - serve_token == "ms_v2_abc"
     #[test]
     fn test_config_serve_token_round_trip() {
-        let config = Config { serve_token: "ms_v2_abc".to_string(), ..Default::default() };
+        let config = Config {
+            serve_token: "ms_v2_abc".to_string(),
+            ..Default::default()
+        };
         let s = toml::to_string_pretty(&config).unwrap();
         let loaded: Config = toml::from_str(&s).unwrap();
-        assert_eq!(loaded.serve_token, "ms_v2_abc",
-            "serve_token must survive round-trip");
+        assert_eq!(
+            loaded.serve_token, "ms_v2_abc",
+            "serve_token must survive round-trip"
+        );
     }
 
     /// Missing config returns default (empty token), not an error.
@@ -74,7 +82,9 @@ mod tests {
     #[test]
     fn test_load_config_missing_returns_default() {
         let config = Config::default();
-        assert_eq!(config.serve_token, "",
-            "default config should have empty serve_token");
+        assert_eq!(
+            config.serve_token, "",
+            "default config should have empty serve_token"
+        );
     }
 }

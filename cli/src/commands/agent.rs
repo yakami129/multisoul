@@ -1,19 +1,23 @@
+use crate::db::{now_ms, open};
 use anyhow::{Context, Result};
 use clap::Subcommand;
 use rusqlite::Connection;
 use serde::Serialize;
 use uuid::Uuid;
-use crate::db::{open, now_ms};
 
 #[derive(Subcommand)]
 pub enum AgentCommands {
     /// Register a new agent in local serve.db
     Register {
-        #[arg(long)] name: String,
-        #[arg(long)] project: String,
-        #[arg(long, default_value = "claude-code")] runtime: String,
+        #[arg(long)]
+        name: String,
+        #[arg(long)]
+        project: String,
+        #[arg(long, default_value = "claude-code")]
+        runtime: String,
         /// Permission mode (codex only): suggest | auto-edit | full-auto | yolo
-        #[arg(long, default_value = "full-auto")] mode: String,
+        #[arg(long, default_value = "full-auto")]
+        mode: String,
     },
     /// List all registered agents
     List,
@@ -22,16 +26,20 @@ pub enum AgentCommands {
     /// Update agent fields
     Update {
         id: String,
-        #[arg(long)] name: Option<String>,
-        #[arg(long)] project: Option<String>,
-        #[arg(long)] runtime: Option<String>,
+        #[arg(long)]
+        name: Option<String>,
+        #[arg(long)]
+        project: Option<String>,
+        #[arg(long)]
+        runtime: Option<String>,
     },
     /// Delete an agent (with confirmation)
     Delete { id: String },
     /// Invoke an agent (create conversation + send message)
     Invoke {
         id: String,
-        #[arg(long)] message: String,
+        #[arg(long)]
+        message: String,
     },
 }
 
@@ -47,16 +55,32 @@ pub struct AgentRow {
 pub fn handle(cmd: AgentCommands) -> Result<()> {
     let conn = open()?;
     match cmd {
-        AgentCommands::Register { name, project, runtime, mode } => register(&conn, &name, &project, &runtime, &mode),
+        AgentCommands::Register {
+            name,
+            project,
+            runtime,
+            mode,
+        } => register(&conn, &name, &project, &runtime, &mode),
         AgentCommands::List => list(&conn),
         AgentCommands::Get { id } => get(&conn, &id),
-        AgentCommands::Update { id, name, project, runtime } => update(&conn, &id, name, project, runtime),
+        AgentCommands::Update {
+            id,
+            name,
+            project,
+            runtime,
+        } => update(&conn, &id, name, project, runtime),
         AgentCommands::Delete { id } => delete(&conn, &id),
         AgentCommands::Invoke { id, message } => invoke(&conn, &id, &message),
     }
 }
 
-pub fn insert_agent(conn: &Connection, name: &str, project_path: &str, runtime: &str, mode: &str) -> Result<String> {
+pub fn insert_agent(
+    conn: &Connection,
+    name: &str,
+    project_path: &str,
+    runtime: &str,
+    mode: &str,
+) -> Result<String> {
     let id = Uuid::new_v4().to_string();
     conn.execute(
         "INSERT INTO agents (id, name, project_path, runtime, mode, created_at) VALUES (?1,?2,?3,?4,?5,?6)",
@@ -73,15 +97,20 @@ fn register(conn: &Connection, name: &str, project: &str, runtime: &str, mode: &
 
 fn list(conn: &Connection) -> Result<()> {
     let mut stmt = conn.prepare(
-        "SELECT id, name, project_path, runtime, created_at FROM agents ORDER BY created_at DESC"
+        "SELECT id, name, project_path, runtime, created_at FROM agents ORDER BY created_at DESC",
     )?;
-    let agents: Vec<AgentRow> = stmt.query_map([], |r| Ok(AgentRow {
-        id: r.get(0)?,
-        name: r.get(1)?,
-        project_path: r.get(2)?,
-        runtime: r.get(3)?,
-        created_at: r.get(4)?,
-    }))?.filter_map(|r| r.ok()).collect();
+    let agents: Vec<AgentRow> = stmt
+        .query_map([], |r| {
+            Ok(AgentRow {
+                id: r.get(0)?,
+                name: r.get(1)?,
+                project_path: r.get(2)?,
+                runtime: r.get(3)?,
+                created_at: r.get(4)?,
+            })
+        })?
+        .filter_map(|r| r.ok())
+        .collect();
 
     if agents.is_empty() {
         println!("No agents registered.");
@@ -90,36 +119,58 @@ fn list(conn: &Connection) -> Result<()> {
     println!("{:<36}  {:<20}  {:<12}  PROJECT", "ID", "NAME", "RUNTIME");
     println!("{}", "-".repeat(100));
     for a in &agents {
-        println!("{:<36}  {:<20}  {:<12}  {}", a.id, a.name, a.runtime, a.project_path);
+        println!(
+            "{:<36}  {:<20}  {:<12}  {}",
+            a.id, a.name, a.runtime, a.project_path
+        );
     }
     Ok(())
 }
 
 fn get(conn: &Connection, id: &str) -> Result<()> {
-    let agent = conn.query_row(
-        "SELECT id, name, project_path, runtime, created_at FROM agents WHERE id = ?1",
-        [id],
-        |r| Ok(AgentRow {
-            id: r.get(0)?,
-            name: r.get(1)?,
-            project_path: r.get(2)?,
-            runtime: r.get(3)?,
-            created_at: r.get(4)?,
-        }),
-    ).context("Agent not found")?;
+    let agent = conn
+        .query_row(
+            "SELECT id, name, project_path, runtime, created_at FROM agents WHERE id = ?1",
+            [id],
+            |r| {
+                Ok(AgentRow {
+                    id: r.get(0)?,
+                    name: r.get(1)?,
+                    project_path: r.get(2)?,
+                    runtime: r.get(3)?,
+                    created_at: r.get(4)?,
+                })
+            },
+        )
+        .context("Agent not found")?;
     println!("{}", serde_json::to_string_pretty(&agent)?);
     Ok(())
 }
 
-fn update(conn: &Connection, id: &str, name: Option<String>, project: Option<String>, runtime: Option<String>) -> Result<()> {
+fn update(
+    conn: &Connection,
+    id: &str,
+    name: Option<String>,
+    project: Option<String>,
+    runtime: Option<String>,
+) -> Result<()> {
     if let Some(n) = name {
-        conn.execute("UPDATE agents SET name = ?1 WHERE id = ?2", rusqlite::params![n, id])?;
+        conn.execute(
+            "UPDATE agents SET name = ?1 WHERE id = ?2",
+            rusqlite::params![n, id],
+        )?;
     }
     if let Some(p) = project {
-        conn.execute("UPDATE agents SET project_path = ?1 WHERE id = ?2", rusqlite::params![p, id])?;
+        conn.execute(
+            "UPDATE agents SET project_path = ?1 WHERE id = ?2",
+            rusqlite::params![p, id],
+        )?;
     }
     if let Some(r) = runtime {
-        conn.execute("UPDATE agents SET runtime = ?1 WHERE id = ?2", rusqlite::params![r, id])?;
+        conn.execute(
+            "UPDATE agents SET runtime = ?1 WHERE id = ?2",
+            rusqlite::params![r, id],
+        )?;
     }
     println!("Agent {} updated.", id);
     Ok(())
@@ -136,20 +187,24 @@ fn delete(conn: &Connection, id: &str) -> Result<()> {
         return Ok(());
     }
     let n = conn.execute("DELETE FROM agents WHERE id = ?1", [id])?;
-    if n == 0 { anyhow::bail!("Agent not found."); }
+    if n == 0 {
+        anyhow::bail!("Agent not found.");
+    }
     println!("Agent {} deleted.", id);
     Ok(())
 }
 
 fn invoke(conn: &Connection, agent_id: &str, message: &str) -> Result<()> {
-    let _: String = conn.query_row(
-        "SELECT id FROM agents WHERE id = ?1", [agent_id], |r| r.get(0)
-    ).context("Agent not found")?;
+    let _: String = conn
+        .query_row("SELECT id FROM agents WHERE id = ?1", [agent_id], |r| {
+            r.get(0)
+        })
+        .context("Agent not found")?;
 
     let conv_id = Uuid::new_v4().to_string();
-    let msg_id  = Uuid::new_v4().to_string();
-    let now     = now_ms();
-    let title   = message.chars().take(60).collect::<String>();
+    let msg_id = Uuid::new_v4().to_string();
+    let now = now_ms();
+    let title = message.chars().take(60).collect::<String>();
 
     conn.execute(
         "INSERT INTO conversations (id, agent_id, title, created_at, last_message_at, status) VALUES (?1,?2,?3,?4,?5,'idle')",
@@ -187,16 +242,29 @@ mod tests {
     fn test_insert_agent_writes_row() {
         let dir = tempfile::tempdir().unwrap();
         let conn = crate::db::open_at(&dir.path().join("test.db")).unwrap();
-        insert_agent(&conn, "blog-fixer", "/home/user/blog", "claude-code", "full-auto").unwrap();
-        let count: i64 = conn.query_row(
-            "SELECT COUNT(*) FROM agents WHERE name = 'blog-fixer'",
-            [], |r| r.get(0)
-        ).unwrap();
+        insert_agent(
+            &conn,
+            "blog-fixer",
+            "/home/user/blog",
+            "claude-code",
+            "full-auto",
+        )
+        .unwrap();
+        let count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM agents WHERE name = 'blog-fixer'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
         assert_eq!(count, 1, "insert_agent should create exactly one row");
-        let runtime: String = conn.query_row(
-            "SELECT runtime FROM agents WHERE name = 'blog-fixer'",
-            [], |r| r.get(0)
-        ).unwrap();
+        let runtime: String = conn
+            .query_row(
+                "SELECT runtime FROM agents WHERE name = 'blog-fixer'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
         assert_eq!(runtime, "claude-code", "runtime should be stored as-is");
     }
 
@@ -236,10 +304,13 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let conn = crate::db::open_at(&dir.path().join("test.db")).unwrap();
         insert_agent(&conn, "codex-agent", "/p", "codex", "full-auto").unwrap();
-        let mode: String = conn.query_row(
-            "SELECT mode FROM agents WHERE name = 'codex-agent'",
-            [], |r| r.get(0),
-        ).unwrap();
+        let mode: String = conn
+            .query_row(
+                "SELECT mode FROM agents WHERE name = 'codex-agent'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
         assert_eq!(mode, "full-auto", "mode should be stored as-is");
     }
 }

@@ -1,6 +1,6 @@
+use crate::config::{load_config, save_config, Config};
 use anyhow::Result;
 use clap::Subcommand;
-use crate::config::{Config, load_config, save_config};
 
 #[derive(Subcommand)]
 pub enum AuthCommands {
@@ -22,7 +22,10 @@ pub fn handle(cmd: AuthCommands) -> Result<()> {
 }
 
 fn login(token: &str) -> Result<()> {
-    let config = Config { serve_token: token.to_string(), ..Default::default() };
+    let config = Config {
+        serve_token: token.to_string(),
+        ..Default::default()
+    };
     save_config(&config)?;
     println!("Token saved (prefix: {}...)", &token[..token.len().min(12)]);
     Ok(())
@@ -33,7 +36,10 @@ fn status() -> Result<()> {
     if config.serve_token.is_empty() {
         println!("No token configured. Run 'msctl serve' to generate one.");
     } else {
-        println!("Token: {}...", &config.serve_token[..config.serve_token.len().min(12)]);
+        println!(
+            "Token: {}...",
+            &config.serve_token[..config.serve_token.len().min(12)]
+        );
     }
     Ok(())
 }

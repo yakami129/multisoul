@@ -30,10 +30,16 @@ pub fn send_to_session(
     let mut sessions = state.sessions.lock().unwrap();
     if let Some(tx) = sessions.get(conv_id) {
         if tx.send(user_text.to_string()).is_ok() {
-            eprintln!("[codex] queued message for existing session conv_id={}", conv_id);
+            eprintln!(
+                "[codex] queued message for existing session conv_id={}",
+                conv_id
+            );
             return;
         }
-        eprintln!("[codex] session channel broken, respawning conv_id={}", conv_id);
+        eprintln!(
+            "[codex] session channel broken, respawning conv_id={}",
+            conv_id
+        );
     }
 
     let (tx, rx) = std::sync::mpsc::channel::<String>();
@@ -94,14 +100,20 @@ fn session_worker(
                     spawn_codex(&project_path, thread_id.as_deref(), &mode)
                 })
             } else {
-                eprintln!("[codex] retry spawn attempt={} conv_id={}", attempt, conv_id);
+                eprintln!(
+                    "[codex] retry spawn attempt={} conv_id={}",
+                    attempt, conv_id
+                );
                 spawn_codex(&project_path, thread_id.as_deref(), &mode)
             };
 
             let (child, stdin) = match process {
                 Some(p) => p,
                 None => {
-                    eprintln!("[codex] spawn failed attempt={} conv_id={}", attempt, conv_id);
+                    eprintln!(
+                        "[codex] spawn failed attempt={} conv_id={}",
+                        attempt, conv_id
+                    );
                     continue;
                 }
             };
@@ -213,13 +225,19 @@ fn process_turn(
     stdin: ChildStdin,
     thread_id: &mut Option<String>,
 ) -> Result<(), String> {
-    eprintln!("[codex] process_turn pid={:?} conv_id={}", child.id(), conv_id);
+    eprintln!(
+        "[codex] process_turn pid={:?} conv_id={}",
+        child.id(),
+        conv_id
+    );
 
     // Write prompt then drop stdin → EOF → codex starts processing
     {
         let mut stdin = stdin;
         let line = format!("{}\n", user_text);
-        stdin.write_all(line.as_bytes()).map_err(|e| format!("stdin write: {}", e))?;
+        stdin
+            .write_all(line.as_bytes())
+            .map_err(|e| format!("stdin write: {}", e))?;
         stdin.flush().map_err(|e| format!("stdin flush: {}", e))?;
         // stdin dropped here → EOF sent to codex
     }
@@ -296,10 +314,7 @@ fn handle_item_completed(raw: &Value, state: &AppState, conv_id: &str) {
         Some(i) => i,
         None => return,
     };
-    let item_type = item
-        .get("type")
-        .and_then(|v| v.as_str())
-        .unwrap_or("");
+    let item_type = item.get("type").and_then(|v| v.as_str()).unwrap_or("");
 
     match item_type {
         "agent_message" | "message" => {
@@ -336,10 +351,7 @@ fn handle_item_completed(raw: &Value, state: &AppState, conv_id: &str) {
                 .unwrap_or("")
                 .trim()
                 .to_string();
-            let exit_code = item
-                .get("exit_code")
-                .and_then(|v| v.as_i64())
-                .unwrap_or(0);
+            let exit_code = item.get("exit_code").and_then(|v| v.as_i64()).unwrap_or(0);
             let ok = exit_code == 0;
             let call_id = Uuid::new_v4().to_string();
 
@@ -416,7 +428,9 @@ pub fn extract_text_from_array(
                 {
                     return None;
                 }
-                m.get("text").and_then(|v| v.as_str()).filter(|s| !s.is_empty())
+                m.get("text")
+                    .and_then(|v| v.as_str())
+                    .filter(|s| !s.is_empty())
             })
             .collect();
         if !parts.is_empty() {
@@ -498,7 +512,10 @@ fn broadcast(state: &AppState, conv_id: &str, seq: i64, role: &'static str, payl
     if let Ok(json) = serde_json::to_string(&env) {
         let tx = state.get_or_create_sender(conv_id);
         let n = tx.send(json).unwrap_or(0);
-        eprintln!("[codex] broadcast role={} seq={} receivers={}", role, seq, n);
+        eprintln!(
+            "[codex] broadcast role={} seq={} receivers={}",
+            role, seq, n
+        );
     }
 }
 
@@ -526,7 +543,10 @@ mod tests {
         });
         let item = v.as_object().unwrap();
         let text = extract_text_from_array(item, "content", "output_text");
-        assert_eq!(text, "Hello\nworld", "should join output_text elements with newline");
+        assert_eq!(
+            text, "Hello\nworld",
+            "should join output_text elements with newline"
+        );
     }
 
     /// extract_text_from_array: filters out non-matching element types.
@@ -563,7 +583,10 @@ mod tests {
         let v = json!({"text": "fallback value"});
         let item = v.as_object().unwrap();
         let text = extract_text_from_array(item, "content", "output_text");
-        assert_eq!(text, "fallback value", "should fall back to top-level text field");
+        assert_eq!(
+            text, "fallback value",
+            "should fall back to top-level text field"
+        );
     }
 
     /// mode_flags: maps mode strings to codex CLI flags.
@@ -577,8 +600,14 @@ mod tests {
     fn test_mode_flags() {
         assert_eq!(mode_flags("full-auto"), vec!["--full-auto"]);
         assert_eq!(mode_flags("auto-edit"), vec!["--full-auto"]);
-        assert_eq!(mode_flags("yolo"), vec!["--dangerously-bypass-approvals-and-sandbox"]);
-        assert!(mode_flags("suggest").is_empty(), "suggest should add no flags");
+        assert_eq!(
+            mode_flags("yolo"),
+            vec!["--dangerously-bypass-approvals-and-sandbox"]
+        );
+        assert!(
+            mode_flags("suggest").is_empty(),
+            "suggest should add no flags"
+        );
         assert!(mode_flags("").is_empty(), "empty mode should add no flags");
     }
 }

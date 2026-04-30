@@ -1,8 +1,8 @@
 use clap::{Parser, Subcommand};
 
+mod commands;
 mod config;
 mod db;
-mod commands;
 mod serve;
 
 #[derive(Parser)]

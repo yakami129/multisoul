@@ -1,25 +1,29 @@
+use crate::serve::state::AppState;
 use axum::{
     extract::{Request, State},
     http::StatusCode,
     middleware::Next,
     response::Response,
 };
-use crate::serve::state::AppState;
 
 pub async fn bearer_auth(
     State(state): State<AppState>,
     req: Request,
     next: Next,
 ) -> Result<Response, StatusCode> {
-    let query_token = req.uri().query()
-        .and_then(|q| {
-            q.split('&').find_map(|kv| {
-                let mut parts = kv.splitn(2, '=');
-                if parts.next() == Some("token") { parts.next() } else { None }
-            })
-        });
+    let query_token = req.uri().query().and_then(|q| {
+        q.split('&').find_map(|kv| {
+            let mut parts = kv.splitn(2, '=');
+            if parts.next() == Some("token") {
+                parts.next()
+            } else {
+                None
+            }
+        })
+    });
 
-    let header_token = req.headers()
+    let header_token = req
+        .headers()
         .get("Authorization")
         .and_then(|v| v.to_str().ok())
         .and_then(|v| v.strip_prefix("Bearer "));
@@ -35,12 +39,15 @@ pub async fn bearer_auth(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use axum::{body::Body, http::{Request, StatusCode}};
+    use axum::{
+        body::Body,
+        http::{Request, StatusCode},
+    };
     use tower::ServiceExt;
 
     async fn make_app(token: &str) -> axum::Router {
-        use crate::serve::state::AppState;
         use crate::db;
+        use crate::serve::state::AppState;
         use tempfile::tempdir;
         let dir = tempdir().unwrap();
         let conn = db::open_at(&dir.path().join("t.db")).unwrap();
@@ -61,11 +68,15 @@ mod tests {
     #[tokio::test]
     async fn test_missing_token_returns_401() {
         let app = make_app("ms_v2_secret").await;
-        let resp = app.oneshot(
-            Request::builder().uri("/test").body(Body::empty()).unwrap()
-        ).await.unwrap();
-        assert_eq!(resp.status(), StatusCode::UNAUTHORIZED,
-            "missing token should return 401");
+        let resp = app
+            .oneshot(Request::builder().uri("/test").body(Body::empty()).unwrap())
+            .await
+            .unwrap();
+        assert_eq!(
+            resp.status(),
+            StatusCode::UNAUTHORIZED,
+            "missing token should return 401"
+        );
     }
 
     /// Wrong token -> 401.
@@ -75,14 +86,21 @@ mod tests {
     #[tokio::test]
     async fn test_wrong_token_returns_401() {
         let app = make_app("ms_v2_secret").await;
-        let resp = app.oneshot(
-            Request::builder()
-                .uri("/test")
-                .header("Authorization", "Bearer ms_v2_wrong")
-                .body(Body::empty()).unwrap()
-        ).await.unwrap();
-        assert_eq!(resp.status(), StatusCode::UNAUTHORIZED,
-            "wrong token should return 401");
+        let resp = app
+            .oneshot(
+                Request::builder()
+                    .uri("/test")
+                    .header("Authorization", "Bearer ms_v2_wrong")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(
+            resp.status(),
+            StatusCode::UNAUTHORIZED,
+            "wrong token should return 401"
+        );
     }
 
     /// Correct token -> 200.
@@ -92,13 +110,20 @@ mod tests {
     #[tokio::test]
     async fn test_correct_token_passes() {
         let app = make_app("ms_v2_secret").await;
-        let resp = app.oneshot(
-            Request::builder()
-                .uri("/test")
-                .header("Authorization", "Bearer ms_v2_secret")
-                .body(Body::empty()).unwrap()
-        ).await.unwrap();
-        assert_eq!(resp.status(), StatusCode::OK,
-            "correct token should pass through");
+        let resp = app
+            .oneshot(
+                Request::builder()
+                    .uri("/test")
+                    .header("Authorization", "Bearer ms_v2_secret")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(
+            resp.status(),
+            StatusCode::OK,
+            "correct token should pass through"
+        );
     }
 }

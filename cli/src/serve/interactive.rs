@@ -16,10 +16,10 @@ use std::collections::HashMap;
 #[derive(Debug)]
 pub struct AnswerPayload {
     #[allow(dead_code)]
-    pub ask_id:     String,
-    pub choice_id:  Option<String>,
-    pub choice_ids: Option<HashMap<String, String>>,  // multi-question: questionId → optionId
-    pub freeform:   Option<String>,
+    pub ask_id: String,
+    pub choice_id: Option<String>,
+    pub choice_ids: Option<HashMap<String, String>>, // multi-question: questionId → optionId
+    pub freeform: Option<String>,
 }
 
 // ─── Trait ────────────────────────────────────────────────────────────────────
@@ -31,7 +31,6 @@ pub trait InteractiveTool {
     /// Build the `ask_question` message payload broadcast to mobile.
     /// `call_id` is the Claude tool call id (used as `ask_id`).
     fn build_ask_payload(call_id: &str, args: &Value) -> Value;
-
 }
 
 // ─── AskUserQuestion ──────────────────────────────────────────────────────────
@@ -49,26 +48,33 @@ impl InteractiveTool for AskUserQuestion {
         let questions: Vec<Value> = args["questions"]
             .as_array()
             .map(|arr| {
-                arr.iter().enumerate().map(|(qi, q)| {
-                    let text = q["question"].as_str().unwrap_or("").to_string();
-                    // Options have no id — use array index as id
-                    let options: Vec<Value> = q["options"]
-                        .as_array()
-                        .map(|opts| {
-                            opts.iter().enumerate().map(|(oi, opt)| {
+                arr.iter()
+                    .enumerate()
+                    .map(|(qi, q)| {
+                        let text = q["question"].as_str().unwrap_or("").to_string();
+                        // Options have no id — use array index as id
+                        let options: Vec<Value> =
+                            q["options"]
+                                .as_array()
+                                .map(|opts| {
+                                    opts.iter().enumerate().map(|(oi, opt)| {
                                 let label = opt["label"].as_str().unwrap_or_default().to_string();
                                 serde_json::json!({ "id": oi.to_string(), "label": label })
                             }).collect()
+                                })
+                                .unwrap_or_default();
+                        let multi = q
+                            .get("multiSelect")
+                            .and_then(|v| v.as_bool())
+                            .unwrap_or(false);
+                        serde_json::json!({
+                            "id":          qi.to_string(),
+                            "text":        text,
+                            "options":     options,
+                            "multi_select": multi,
                         })
-                        .unwrap_or_default();
-                    let multi = q.get("multiSelect").and_then(|v| v.as_bool()).unwrap_or(false);
-                    serde_json::json!({
-                        "id":          qi.to_string(),
-                        "text":        text,
-                        "options":     options,
-                        "multi_select": multi,
                     })
-                }).collect()
+                    .collect()
             })
             .unwrap_or_default();
 
@@ -78,7 +84,6 @@ impl InteractiveTool for AskUserQuestion {
             "allow_freeform": false,
         })
     }
-
 }
 
 impl AskUserQuestion {
@@ -102,14 +107,15 @@ impl AskUserQuestion {
 
         // choice_ids maps questionIdx → optionIdx (single) or "optIdx1,optIdx2" (multi-select)
         if let Some(choice_ids) = &answer.choice_ids {
-            let mut indices: Vec<usize> = choice_ids.keys()
+            let mut indices: Vec<usize> = choice_ids
+                .keys()
                 .filter_map(|k| k.parse::<usize>().ok())
                 .collect();
             indices.sort_unstable();
             for qi in indices {
                 let opt_id_str = match choice_ids.get(&qi.to_string()) {
                     Some(s) => s.as_str(),
-                    None    => continue,
+                    None => continue,
                 };
                 // opt_id_str may be comma-joined for multi-select, e.g. "0,2"
                 let parts: Vec<&str> = opt_id_str.split(',').map(str::trim).collect();
@@ -126,12 +132,15 @@ impl AskUserQuestion {
                     answers.insert(qi.to_string(), serde_json::Value::String(label));
                 } else {
                     // Multi-selection — collect comma-joined labels
-                    let labels: Vec<String> = parts.iter().filter_map(|p| {
-                        let oi = p.parse::<usize>().ok()?;
-                        original_args["questions"][qi]["options"][oi]["label"]
-                            .as_str()
-                            .map(str::to_string)
-                    }).collect();
+                    let labels: Vec<String> = parts
+                        .iter()
+                        .filter_map(|p| {
+                            let oi = p.parse::<usize>().ok()?;
+                            original_args["questions"][qi]["options"][oi]["label"]
+                                .as_str()
+                                .map(str::to_string)
+                        })
+                        .collect();
                     answers.insert(qi.to_string(), serde_json::Value::String(labels.join(", ")));
                 }
             }
@@ -171,12 +180,17 @@ pub fn build_ask_payload(tool_name: &str, call_id: &str, args: &Value) -> Option
     }
 }
 
-
 /// Build the `updatedInput` for the `control_response` to Claude Code.
 /// Returns `None` if the tool is not recognized.
-pub fn build_updated_input(tool_name: &str, original_args: &Value, answer: &AnswerPayload) -> Option<Value> {
+pub fn build_updated_input(
+    tool_name: &str,
+    original_args: &Value,
+    answer: &AnswerPayload,
+) -> Option<Value> {
     match tool_name {
-        AskUserQuestion::TOOL_NAME => Some(AskUserQuestion::build_updated_input(original_args, answer)),
+        AskUserQuestion::TOOL_NAME => {
+            Some(AskUserQuestion::build_updated_input(original_args, answer))
+        }
         _ => None,
     }
 }
