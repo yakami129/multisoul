@@ -61,6 +61,14 @@ require_env() {
   fi
 }
 
+ensure_core_simulator_available() {
+  local output
+  output="$(xcrun simctl list runtimes 2>&1 || true)"
+  if echo "$output" | grep -Eq "Unable to locate device set|CoreSimulatorService connection became invalid|Unable to connect to simulator"; then
+    die "CoreSimulatorService is unavailable. Open Xcode/Simulator in a normal macOS session or repair Xcode platform runtimes before building locally."
+  fi
+}
+
 if [ "$BUILD_ONLY" = true ] && [ "$SUBMIT_ONLY" = true ]; then
   die "--build-only and --submit-only cannot be used together"
 fi
@@ -253,6 +261,7 @@ build_ipa() {
   info "Version: $(read_marketing_version)"
   info "iOS team for export plist: $TEAM_ID (from Xcode project; set MULTISOUL_IOS_TEAM_ID to override)"
   prepare_xcode_auth_args
+  ensure_core_simulator_available
   increment_build_number
   info "Build number: $(read_build_number)"
 
@@ -290,6 +299,7 @@ build_ipa() {
 submit_ipa() {
   require_cmd xcrun
   prepare_api_key_dir
+  mkdir -p "$LOG_DIR"
 
   if [ -z "$IPA_PATH" ]; then
     IPA_PATH="$(find "$EXPORT_DIR" -maxdepth 1 -name '*.ipa' -print -quit || true)"
@@ -298,11 +308,20 @@ submit_ipa() {
   [ -f "$IPA_PATH" ] || die "IPA not found: $IPA_PATH"
 
   info "Uploading IPA to App Store Connect"
+  local upload_log="$LOG_DIR/upload.log"
+  set +e
   xcrun altool --upload-app \
     --type ios \
     --file "$IPA_PATH" \
     --apiKey "$APP_STORE_CONNECT_API_KEY_ID" \
-    --apiIssuer "$APP_STORE_CONNECT_API_ISSUER_ID"
+    --apiIssuer "$APP_STORE_CONNECT_API_ISSUER_ID" \
+    2>&1 | tee "$upload_log"
+  local upload_status="${PIPESTATUS[0]}"
+  set -e
+
+  if [ "$upload_status" -ne 0 ] || grep -Eq "ERROR:|Failed to upload|ENTITY_ERROR" "$upload_log"; then
+    die "Upload failed. See log: $upload_log"
+  fi
 
   info "Upload submitted. Check TestFlight processing in App Store Connect."
 }
