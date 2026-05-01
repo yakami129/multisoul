@@ -45,7 +45,8 @@ jobs:
             target: aarch64-apple-darwin
             archive: tar.gz
             binary: msctl
-          - os: macos-13
+          # macos-13 retired (Dec 2025); Intel macOS builds use macos-15-intel until ~Aug 2027.
+          - os: macos-15-intel
             target: x86_64-apple-darwin
             archive: tar.gz
             binary: msctl
