@@ -10,6 +10,11 @@
 #   APP_STORE_CONNECT_API_KEY_ID=...
 #   APP_STORE_CONNECT_API_ISSUER_ID=...
 #   APP_STORE_CONNECT_API_KEY_PATH=/absolute/path/AuthKey_XXXX.p8
+#
+# Signing: team for export plist is read from ios/MultiSoul.xcodeproj DEVELOPMENT_TEAM.
+# Archive does not pass DEVELOPMENT_TEAM on the CLI (avoids ~/.zshrc APPLE_TEAM_ID
+# overriding the project and causing wrong-team / App Development profile errors).
+# Override with MULTISOUL_IOS_TEAM_ID=<10-char-team> if you fork the app to another org.
 
 set -euo pipefail
 
@@ -69,7 +74,6 @@ PROJECT="${LOCAL_IOS_PROJECT:-$IOS_DIR/MultiSoul.xcodeproj}"
 USE_PROJECT="${LOCAL_IOS_USE_PROJECT:-false}"
 SCHEME="${LOCAL_IOS_SCHEME:-MultiSoul}"
 CONFIGURATION="${LOCAL_IOS_CONFIGURATION:-Release}"
-TEAM_ID="${LOCAL_IOS_TEAM_ID:-2BF8G9AN4L}"
 BUNDLE_ID="${LOCAL_IOS_BUNDLE_ID:-com.yakami0129.multisoul}"
 EXPORT_METHOD="${LOCAL_IOS_EXPORT_METHOD:-app-store-connect}"
 DIST_DIR="${LOCAL_IOS_DIST_DIR:-$MOBILE_DIR/dist/ios-local}"
@@ -80,6 +84,20 @@ LOG_DIR="$DIST_DIR/logs"
 EXPORT_OPTIONS="$DIST_DIR/ExportOptions.plist"
 INFO_PLIST="$IOS_DIR/$SCHEME/Info.plist"
 PBXPROJ="$IOS_DIR/$SCHEME.xcodeproj/project.pbxproj"
+
+ios_team_from_pbxproj() {
+  local proj="$1"
+  local v=""
+  if [ -f "$proj" ]; then
+    v="$(sed -n 's/^[[:space:]]*DEVELOPMENT_TEAM = \(.*\);$/\1/p' "$proj" | head -n1 | tr -d ' 	')"
+  fi
+  if [ -z "$v" ]; then
+    v="2BF8G9AN4L"
+  fi
+  printf '%s' "$v"
+}
+
+TEAM_ID="${MULTISOUL_IOS_TEAM_ID:-$(ios_team_from_pbxproj "$PBXPROJ")}"
 
 prepare_api_key_dir() {
   require_env APP_STORE_CONNECT_API_KEY_ID
@@ -141,7 +159,7 @@ run_xcodebuild_archive() {
     -archivePath "$ARCHIVE_PATH"
     -derivedDataPath "$DERIVED_DATA_PATH"
     -allowProvisioningUpdates
-    DEVELOPMENT_TEAM="$TEAM_ID"
+    CODE_SIGN_STYLE=Automatic
     PRODUCT_BUNDLE_IDENTIFIER="$BUNDLE_ID"
   )
   if [ "${#xcode_auth_args[@]}" -gt 0 ]; then
@@ -233,6 +251,7 @@ build_ipa() {
 
   info "Working directory: $MOBILE_DIR"
   info "Version: $(read_marketing_version)"
+  info "iOS team for export plist: $TEAM_ID (from Xcode project; set MULTISOUL_IOS_TEAM_ID to override)"
   prepare_xcode_auth_args
   increment_build_number
   info "Build number: $(read_build_number)"

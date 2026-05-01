@@ -1,4 +1,4 @@
-import { Audio } from 'expo-av';
+import { createAudioPlayer } from 'expo-audio';
 import * as Notifications from 'expo-notifications';
 import { AppState } from 'react-native';
 
@@ -28,13 +28,16 @@ export async function notifyTaskComplete(args: NotifyTaskCompleteArgs): Promise<
 }
 
 async function playForegroundSound(): Promise<void> {
-  const { sound } = await Audio.Sound.createAsync(taskCompleteSound);
-  try {
-    await sound.playAsync();
-  } finally {
-    // Always unload to free the native audio object, even if playback fails
-    sound.unloadAsync().catch(() => {});
-  }
+  const player = createAudioPlayer(taskCompleteSound);
+  const subscription = player.addListener('playbackStatusUpdate', (status) => {
+    if (!status.didJustFinish) {
+      return;
+    }
+
+    subscription.remove();
+    player.remove();
+  });
+  player.play();
 }
 
 async function scheduleBackgroundNotification({

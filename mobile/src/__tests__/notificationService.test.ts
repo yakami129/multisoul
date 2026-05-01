@@ -2,13 +2,9 @@ import * as Notifications from 'expo-notifications';
 // eslint-disable-next-line import/order
 import { AppState } from 'react-native';
 
-// Mock expo-av using factory-only pattern to avoid jest hoisting issues
-jest.mock('expo-av', () => ({
-  Audio: {
-    Sound: {
-      createAsync: jest.fn(),
-    },
-  },
+// Mock expo-audio using factory-only pattern to avoid jest hoisting issues
+jest.mock('expo-audio', () => ({
+  createAudioPlayer: jest.fn(),
 }));
 
 // Mock expo-notifications
@@ -20,14 +16,16 @@ jest.mock('expo-notifications', () => ({
 jest.mock('../../assets/sounds/task-complete.wav', () => 1, { virtual: true });
 
 // eslint-disable-next-line import/order
-import { Audio } from 'expo-av';
+import { createAudioPlayer } from 'expo-audio';
 import { notifyTaskComplete } from '@/services/notificationService';
 
 // Typed references to the mocked functions
-const mockCreateAsync = Audio.Sound.createAsync as jest.Mock;
+const mockCreateAudioPlayer = createAudioPlayer as jest.Mock;
 
-const mockPlayAsync = jest.fn().mockResolvedValue(undefined);
-const mockUnloadAsync = jest.fn().mockResolvedValue(undefined);
+const mockPlay = jest.fn();
+const mockRemovePlayer = jest.fn();
+const mockRemoveSubscription = jest.fn();
+const mockAddListener = jest.fn();
 
 const baseArgs = {
   agentName: 'Deploy Bot',
@@ -48,9 +46,11 @@ function setAppState(state: string) {
 describe('notifyTaskComplete', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    // Reset createAsync to return fresh sound mock each test
-    mockCreateAsync.mockResolvedValue({
-      sound: { playAsync: mockPlayAsync, unloadAsync: mockUnloadAsync },
+    mockAddListener.mockReturnValue({ remove: mockRemoveSubscription });
+    mockCreateAudioPlayer.mockReturnValue({
+      addListener: mockAddListener,
+      play: mockPlay,
+      remove: mockRemovePlayer,
     });
   });
 
@@ -59,8 +59,8 @@ describe('notifyTaskComplete', () => {
 
     await notifyTaskComplete(baseArgs);
 
-    expect(mockCreateAsync).toHaveBeenCalledTimes(1);
-    expect(mockPlayAsync).toHaveBeenCalledTimes(1);
+    expect(mockCreateAudioPlayer).toHaveBeenCalledTimes(1);
+    expect(mockPlay).toHaveBeenCalledTimes(1);
     expect(Notifications.scheduleNotificationAsync).not.toHaveBeenCalled();
   });
 
@@ -69,7 +69,7 @@ describe('notifyTaskComplete', () => {
 
     await notifyTaskComplete(baseArgs);
 
-    expect(mockCreateAsync).not.toHaveBeenCalled();
+    expect(mockCreateAudioPlayer).not.toHaveBeenCalled();
     expect(Notifications.scheduleNotificationAsync).toHaveBeenCalledTimes(1);
     const call = (Notifications.scheduleNotificationAsync as jest.Mock).mock.calls[0][0];
     expect(call.content.title).toBe('Deploy Bot 任务完成');
@@ -103,11 +103,17 @@ describe('notifyTaskComplete', () => {
     expect(call.content.body).toBe('点击查看详情');
   });
 
-  it('unloads sound after playing to free memory', async () => {
+  it('removes sound player after playback finishes', async () => {
     setAppState('active');
 
     await notifyTaskComplete(baseArgs);
 
-    expect(mockUnloadAsync).toHaveBeenCalledTimes(1);
+    const statusListener = mockAddListener.mock.calls[0][1];
+    statusListener({ didJustFinish: false });
+    expect(mockRemovePlayer).not.toHaveBeenCalled();
+
+    statusListener({ didJustFinish: true });
+    expect(mockRemoveSubscription).toHaveBeenCalledTimes(1);
+    expect(mockRemovePlayer).toHaveBeenCalledTimes(1);
   });
 });

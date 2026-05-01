@@ -59,6 +59,10 @@ export function useWebSocket({
 
   // Track the highest seq we've seen so we can catch up on reconnect
   const lastSeqRef = useRef(0);
+  // Tracks whether the current connect() invocation is still the active one.
+  // Set to false in the useEffect cleanup so a stale socket's onclose won't
+  // trigger a reconnect after the effect has been torn down.
+  const isCurrentRef = useRef(true);
 
   const connect = useCallback(() => {
     if (!base_url) return;
@@ -93,8 +97,14 @@ export function useWebSocket({
       ws.onclose = () => {
         clearInterval(hb);
         setStatus('closed');
-        setTimeout(connect, backoffRef.current);
-        backoffRef.current = Math.min(backoffRef.current * 2, MAX_BACKOFF_MS);
+        // Only reconnect if this effect instance is still active.
+        // If the effect was cleaned up (conv_id changed, component unmounted),
+        // isCurrentRef.current is false and we skip reconnect to avoid a
+        // duplicate connection that would receive messages twice.
+        if (isCurrentRef.current) {
+          setTimeout(connect, backoffRef.current);
+          backoffRef.current = Math.min(backoffRef.current * 2, MAX_BACKOFF_MS);
+        }
       };
     };
 
@@ -148,8 +158,12 @@ export function useWebSocket({
   }, [base_url, token, conv_id, endpoint_id, agent_id, agent_name]);
 
   useEffect(() => {
+    isCurrentRef.current = true;
     connect();
     return () => {
+      // Mark this effect instance as stale so the socket's onclose won't
+      // trigger a reconnect after cleanup (prevents duplicate connections).
+      isCurrentRef.current = false;
       wsRef.current?.close();
     };
   }, [connect]);

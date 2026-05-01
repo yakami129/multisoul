@@ -140,22 +140,9 @@ cargo run -- serve   # 直接运行
 
 ### CLI 发布
 
-推送语义化版本 tag 会触发 GitHub Actions 发布：
+完整步骤（版本 bump、`Cargo.lock`、tag、`NPM_TOKEN`、故障排查）见 **[`docs/runbooks/cli-release.md`](docs/runbooks/cli-release.md)**。
 
-```bash
-git tag v0.1.0
-git push origin v0.1.0
-```
-
-发布产物：
-
-- GitHub Release: `msctl` 的 Linux x86_64、macOS arm64、Windows x86_64 二进制压缩包
-- GitHub Packages: `ghcr.io/yakami129/multisoul/msctl`
-- npm: `@yakami129/msctl`，内置三平台二进制，安装时不需要 GitHub token
-
-也可以在 GitHub Actions 页面手动运行 `Release CLI` workflow，并输入版本号，例如 `v0.1.0`。
-
-npm 发布需要在 GitHub 仓库配置 `NPM_TOKEN` secret。首次配置后，可以手动运行 `Publish npm Package` workflow 并输入已有 Release 版本号，例如 `v0.1.0`。
+概要：在 `main` 上对齐 `cli/Cargo.toml` / `cli/Cargo.lock` / `cli/npm/package.json` 版本，`cargo test --locked` 通过后提交，打 `v*.*.*` 并 `git push origin main` 与 `git push origin <tag>`，触发 Actions 里的 **Release CLI**（GitHub Release、GHCR、npm 等）。亦可于 Actions 中对该 workflow 使用 **Run workflow** 手动输入版本。
 
 ### Mobile
 

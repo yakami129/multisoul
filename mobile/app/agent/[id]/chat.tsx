@@ -42,12 +42,20 @@ export default function AgentChatRoute() {
     id: agent_id,
     endpoint_id,
     agent_name,
-  } = useLocalSearchParams<{ id: string; endpoint_id: string; agent_name?: string }>();
+    conv_id: initialConvId,
+  } = useLocalSearchParams<{
+    id: string;
+    endpoint_id: string;
+    agent_name?: string;
+    conv_id?: string;
+  }>();
   const router = useRouter();
   const [input, setInput] = useState('');
   const [isAwaitingResponse, setIsAwaitingResponse] = useState(false);
   const [typewriterSeq, setTypewriterSeq] = useState<number | null>(null);
-  const [convId, setConvId] = useState<string | null>(null);
+  // If navigated from a notification, initialConvId is already set — use it directly
+  // instead of creating a new conversation.
+  const [convId, setConvId] = useState<string | null>(initialConvId ?? null);
   const scrollRef = useRef<ScrollView>(null);
 
   const endpoint = useEndpointStore((s) => s.endpoints.find((e) => e.id === endpoint_id));
@@ -100,9 +108,27 @@ export default function AgentChatRoute() {
       : { base_url: '', token: '', conv_id: '', endpoint_id: '', agent_id: '', agent_name: '' },
   );
 
-  // Create a new conversation on mount
+  // If navigated from a notification, load the existing conversation's messages.
+  // Otherwise create a new conversation.
   useEffect(() => {
     if (!endpoint || !agent_id) return;
+
+    if (initialConvId) {
+      // Notification deep-link: load existing conversation, don't create a new one
+      fetchMessages(endpoint.base_url, endpoint.token, initialConvId)
+        .then((msgs) => {
+          lastSeenAgentActivitySeqRef.current = getLatestAgentActivitySeq(msgs);
+          lastAnimatedAgentTextSeqRef.current = getLatestAgentTextSeq(msgs);
+          hasLoadedInitialMessagesRef.current = true;
+          setMessages(initialConvId, msgs);
+        })
+        .catch(() => {
+          hasLoadedInitialMessagesRef.current = true;
+        });
+      return;
+    }
+
+    // Normal entry: create a new conversation
     // Bug 3 fix: capture conv.id in a closure-local variable so the second .then()
     // doesn't read the stale convId state (which is still null at that point).
     let newConvId: string;
@@ -121,7 +147,7 @@ export default function AgentChatRoute() {
       .catch(() => {
         hasLoadedInitialMessagesRef.current = true;
       });
-  }, [endpoint, agent_id, setMessages]);
+  }, [endpoint, agent_id, initialConvId, setMessages]);
 
   const handleSend = async () => {
     const text = input.trim();
