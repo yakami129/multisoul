@@ -91,3 +91,4 @@
 | REST/WS 强制 Bearer auth | 需要运行时测试或精细 AST 分析，ROI 待评估 |
 | AskQuestion 决策必须用工具调用 | 需要 LLM 语义判断，规则边界不清晰；保留为 prompt-level 软约束 |
 | DB schema 改动必须走 migration | 文件路径约定即可，但当前 schema 改动频率低，先观察 |
+| Bug fix 必须有回归测试 | 需要判断 bug 边界与有效断言，先作为 `CLAUDE.md` 软约束；后续可用 PR 模板或变更集检查辅助 |

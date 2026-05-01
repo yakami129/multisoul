@@ -33,7 +33,13 @@
     },
     "plugins": [
       "expo-router",
-      "expo-audio"
+      "expo-audio",
+      [
+        "expo-notifications",
+        {
+          "iosDisplayInForeground": false
+        }
+      ]
     ],
     "extra": {
       "router": {},

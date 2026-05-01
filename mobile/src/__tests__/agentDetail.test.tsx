@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react-native';
+import { act, render, screen, waitFor } from '@testing-library/react-native';
 import React from 'react';
 import AgentDetailScreen from '../../app/agent/[id]/index';
 import { useEndpointStore } from '../store/endpointStore';
@@ -61,7 +61,9 @@ describe('AgentDetailScreen', () => {
   });
 
   afterEach(() => {
-    useEndpointStore.setState({ endpoints: [] });
+    act(() => {
+      useEndpointStore.setState({ endpoints: [] });
+    });
     fetchAgent.mockReset();
   });
 

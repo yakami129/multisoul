@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { fetchMessages } from '@/features/chat/services/chatService';
 import { markAskAnswered } from '@/features/inbox/services/inboxService';
 import { buildAskQuestionInboxItem } from '@/features/inbox/utils/buildAskQuestionInboxItem';
+import { mirrorAskQuestionsToInbox } from '@/features/inbox/utils/mirrorAskQuestionsToInbox';
 import { notifyTaskComplete } from '@/services/notificationService';
 import { useChatStore } from '@/store/chatStore';
 import { useInboxStore } from '@/store/inboxStore';
@@ -83,6 +84,14 @@ export function useWebSocket({
             msgs.forEach((m) => {
               appendMessageRef.current(conv_id, m);
               if (m.seq > lastSeqRef.current) lastSeqRef.current = m.seq;
+            });
+            void mirrorAskQuestionsToInbox({
+              messages: msgs,
+              endpoint_id,
+              agent_id,
+              agent_name,
+              conversation_id: conv_id,
+              addItem: addInboxItemRef.current,
             });
           }
         })

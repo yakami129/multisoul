@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react-native';
+import { act, render, screen } from '@testing-library/react-native';
 import React from 'react';
 import SettingsScreen from '../../app/(tabs)/settings';
 import { useEndpointStore } from '../store/endpointStore';
@@ -49,7 +49,9 @@ describe('SettingsScreen', () => {
   });
 
   afterEach(() => {
-    useEndpointStore.setState({ endpoints: [] });
+    act(() => {
+      useEndpointStore.setState({ endpoints: [] });
+    });
   });
 
   it('renders settings screen with endpoint list', () => {

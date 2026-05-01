@@ -1,6 +1,8 @@
 import { Bot, Info } from 'lucide-react-native';
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, TextInput, StyleSheet } from 'react-native';
+
+const CUSTOM_ID = '__custom__';
 
 interface QuestionItem {
   id: string;
@@ -24,23 +26,47 @@ export default function MultiAskQuestionCard({
   onConfirm,
 }: Props) {
   const [answers, setAnswers] = useState<Record<string, string>>(initialAnswers ?? {});
+  const [customTexts, setCustomTexts] = useState<Record<string, string>>({});
   const [answered, setAnswered] = useState(answeredProp);
 
   const total = questions.length;
-  // currentIndex = number of questions answered so far
-  const currentIndex = Object.keys(answers).length;
+  // currentIndex = number of questions answered so far (with valid answers)
+  const currentIndex = questions.filter((q) => {
+    const ans = answers[q.id];
+    if (!ans) return false;
+    if (ans === CUSTOM_ID) return (customTexts[q.id]?.trim().length ?? 0) > 0;
+    return true;
+  }).length;
   const allAnswered = currentIndex >= total;
   const progressWidth = total > 0 ? (currentIndex / total) * 100 : 0;
 
   const handleSelect = (questionId: string, optionId: string) => {
     if (answered) return;
-    setAnswers((prev) => ({ ...prev, [questionId]: optionId }));
+    if (optionId === CUSTOM_ID) {
+      // Select Other but don't advance yet — wait for text input
+      setAnswers((prev) => ({ ...prev, [questionId]: CUSTOM_ID }));
+    } else {
+      setAnswers((prev) => ({ ...prev, [questionId]: optionId }));
+    }
+  };
+
+  const handleCustomText = (questionId: string, text: string) => {
+    setCustomTexts((prev) => ({ ...prev, [questionId]: text }));
+    // Store the typed text as the answer so the card advances once text is non-empty
+    if (text.trim()) {
+      setAnswers((prev) => ({ ...prev, [questionId]: CUSTOM_ID }));
+    }
   };
 
   const handleConfirm = () => {
     if (!allAnswered || answered) return;
     setAnswered(true);
-    onConfirm(answers);
+    const resolved: Record<string, string> = {};
+    for (const q of questions) {
+      const raw = answers[q.id];
+      resolved[q.id] = raw === CUSTOM_ID ? (customTexts[q.id]?.trim() ?? '') : raw;
+    }
+    onConfirm(resolved);
   };
 
   const handleCancel = () => {
@@ -93,17 +119,31 @@ export default function MultiAskQuestionCard({
               {/* Show options only for active question; show selected option for done questions */}
               {isActive && (
                 <View style={s.opts}>
-                  {q.options.map((opt, optIndex) => {
+                  {[...q.options, { id: CUSTOM_ID, label: 'Other' }].map((opt, optIndex) => {
                     const selected = selectedOptId === opt.id;
+                    const isCustomRow = opt.id === CUSTOM_ID;
                     return (
                       <TouchableOpacity
                         key={`${q.id}-${opt.id}-${optIndex}`}
+                        accessibilityLabel={opt.label}
                         style={[s.opt, selected && s.optSelected]}
                         onPress={() => handleSelect(q.id, opt.id)}
                         activeOpacity={0.7}
                       >
                         <View style={[s.radio, selected && s.radioSelected]} />
-                        <Text style={s.optLabel}>{opt.label}</Text>
+                        {isCustomRow && selected ? (
+                          <TextInput
+                            style={s.customInput}
+                            placeholder="Type your answer..."
+                            placeholderTextColor="#0F6B0F"
+                            value={customTexts[q.id] ?? ''}
+                            onChangeText={(text) => handleCustomText(q.id, text)}
+                            maxLength={200}
+                            autoFocus
+                          />
+                        ) : (
+                          <Text style={s.optLabel}>{opt.label}</Text>
+                        )}
                       </TouchableOpacity>
                     );
                   })}
@@ -112,17 +152,24 @@ export default function MultiAskQuestionCard({
 
               {isDone && selectedOptId != null && (
                 <View style={s.opts}>
-                  {q.options
-                    .filter((opt) => opt.id === selectedOptId)
-                    .map((opt, optIndex) => (
-                      <View
-                        key={`${q.id}-${opt.id}-selected-${optIndex}`}
-                        style={[s.opt, s.optSelected]}
-                      >
-                        <View style={[s.radio, s.radioSelected]} />
-                        <Text style={s.optLabel}>{opt.label}</Text>
-                      </View>
-                    ))}
+                  {selectedOptId === CUSTOM_ID ? (
+                    <View style={[s.opt, s.optSelected]}>
+                      <View style={[s.radio, s.radioSelected]} />
+                      <Text style={s.optLabel}>{customTexts[q.id] ?? 'Other'}</Text>
+                    </View>
+                  ) : (
+                    q.options
+                      .filter((opt) => opt.id === selectedOptId)
+                      .map((opt, optIndex) => (
+                        <View
+                          key={`${q.id}-${opt.id}-selected-${optIndex}`}
+                          style={[s.opt, s.optSelected]}
+                        >
+                          <View style={[s.radio, s.radioSelected]} />
+                          <Text style={s.optLabel}>{opt.label}</Text>
+                        </View>
+                      ))
+                  )}
                 </View>
               )}
             </View>
@@ -133,10 +180,11 @@ export default function MultiAskQuestionCard({
       {/* Actions — hidden after answered */}
       {!answered && (
         <View style={s.actions}>
-          <TouchableOpacity style={s.cancelBtn} onPress={handleCancel}>
+          <TouchableOpacity accessibilityLabel="Cancel" style={s.cancelBtn} onPress={handleCancel}>
             <Text style={s.cancelText}>Cancel</Text>
           </TouchableOpacity>
           <TouchableOpacity
+            accessibilityLabel="Confirm"
             style={[s.confirmBtn, !allAnswered && s.confirmBtnDisabled]}
             onPress={handleConfirm}
           >
@@ -258,6 +306,13 @@ const s = StyleSheet.create({
     fontFamily: 'Geist',
     fontSize: 13,
     color: '#20C20E',
+  },
+  customInput: {
+    flex: 1,
+    fontFamily: 'Geist',
+    fontSize: 13,
+    color: '#20C20E',
+    paddingVertical: 0,
   },
   actions: {
     flexDirection: 'row',

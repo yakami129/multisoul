@@ -46,7 +46,7 @@ class MockWebSocket {
   onclose: (() => void) | null = null;
   onerror: (() => void) | null = null;
   send = jest.fn();
-  close = jest.fn();
+  close = jest.fn(() => this.onclose?.());
 }
 let mockWs: MockWebSocket;
 global.WebSocket = jest.fn().mockImplementation(() => {
@@ -60,7 +60,7 @@ describe('useWebSocket task_status notification', () => {
   });
 
   it('calls notifyTaskComplete when task_status completed message arrives', async () => {
-    renderHook(() =>
+    const { unmount } = renderHook(() =>
       useWebSocket({
         base_url: 'http://localhost:8080',
         token: 'tok',
@@ -100,10 +100,12 @@ describe('useWebSocket task_status notification', () => {
       convId: 'conv-1',
       endpointId: 'ep-1',
     });
+
+    unmount();
   });
 
   it('does NOT call notifyTaskComplete for task_status with status=running', async () => {
-    renderHook(() =>
+    const { unmount } = renderHook(() =>
       useWebSocket({
         base_url: 'http://localhost:8080',
         token: 'tok',
@@ -136,5 +138,7 @@ describe('useWebSocket task_status notification', () => {
     });
 
     expect(mockNotifyTaskComplete).not.toHaveBeenCalled();
+
+    unmount();
   });
 });

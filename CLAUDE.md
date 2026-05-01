@@ -54,6 +54,12 @@ pnpm typecheck
 pnpm test -- --watchAll=false
 ```
 
+### Regression Tests
+
+- Every bug fix must include a focused regression test that fails before the fix and passes after the fix.
+- If the bug crosses layers, cover the boundary that broke (for example: WebSocket → store, DB persistence → UI load, route fetch → Inbox backfill).
+- Do not ship behavior-only fixes without tests unless the user explicitly accepts the risk; document the reason in the final response.
+
 ### CLI (Rust)
 
 ```bash

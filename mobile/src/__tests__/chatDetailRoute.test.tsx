@@ -3,6 +3,7 @@ import React from 'react';
 import { fetchMessages } from '@/features/chat/services/chatService';
 import { useChatStore } from '@/store/chatStore';
 import { useEndpointStore } from '@/store/endpointStore';
+import { useInboxStore } from '@/store/inboxStore';
 import type { WsMessage } from '@/types';
 import ChatDetailScreen from '../../app/chat/[id]';
 
@@ -26,6 +27,7 @@ jest.mock('@/features/chat/services/chatService', () => ({
 
 jest.mock('@/features/inbox/services/inboxService', () => ({
   loadAnsweredAsks: jest.fn().mockResolvedValue(new Map()),
+  writeInboxItem: jest.fn().mockResolvedValue(undefined),
 }));
 
 jest.mock('@/features/chat/components/MessageBubble', () => ({
@@ -84,6 +86,7 @@ beforeEach(() => {
       },
     ],
   });
+  useInboxStore.setState({ items: [] });
   (fetchMessages as jest.Mock).mockResolvedValue(historyMessages);
 });
 
@@ -143,4 +146,29 @@ test('animates agent text that arrives after initial history is loaded', async (
   });
 
   await waitFor(() => expect(getByText('fresh websocket response [typewriter]')).toBeTruthy());
+});
+
+test('mirrors unanswered historical ask_question messages to inbox', async () => {
+  const askMessage: WsMessage = {
+    type: 'message',
+    seq: 3,
+    role: 'ask_question',
+    payload: {
+      ask_id: 'ask-1',
+      allow_freeform: false,
+      questions: [{ id: '0', text: 'Deploy now?', options: [{ id: 'yes', label: 'Yes' }] }],
+    },
+    created_at: 3,
+  };
+  (fetchMessages as jest.Mock).mockResolvedValue([askMessage]);
+
+  render(<ChatDetailScreen />);
+
+  await waitFor(() =>
+    expect(useInboxStore.getState().items[0]).toMatchObject({
+      id: 'ask-1',
+      kind: 'pending_question',
+      body: 'Deploy now?',
+    }),
+  );
 });

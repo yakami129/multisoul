@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, waitFor } from '@testing-library/react-native';
+import { act, render, screen, waitFor } from '@testing-library/react-native';
 import React from 'react';
 import AgentListScreen from '../../app/(tabs)/index';
 import { useEndpointStore } from '../../src/store/endpointStore';
@@ -49,9 +49,10 @@ const mockAgents: Agent[] = [
   },
 ];
 
+let queryClient: QueryClient;
+
 function wrapper({ children }: { children: React.ReactNode }) {
-  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return <QueryClientProvider client={qc}>{children}</QueryClientProvider>;
+  return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
 }
 
 /// Agent list: renders agents returned by fetchAllAgents
@@ -70,6 +71,9 @@ describe('AgentListScreen', () => {
   const { fetchAllAgents } = require('../../src/features/agents/services/agentService');
 
   beforeEach(() => {
+    queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false, gcTime: Infinity } },
+    });
     // Seed the endpoint store so the query is enabled
     useEndpointStore.setState({
       endpoints: [
@@ -86,7 +90,10 @@ describe('AgentListScreen', () => {
   });
 
   afterEach(() => {
-    useEndpointStore.setState({ endpoints: [] });
+    queryClient.clear();
+    act(() => {
+      useEndpointStore.setState({ endpoints: [] });
+    });
     fetchAllAgents.mockReset();
   });
 

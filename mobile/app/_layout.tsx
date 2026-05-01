@@ -10,9 +10,9 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ErrorBoundary } from '../src/components/ErrorBoundary';
 import { SplashScreen } from '../src/components/SplashScreen';
 import { initDb } from '../src/db';
+import { buildNotificationInboxItem } from '../src/features/inbox/utils/buildNotificationInboxItem';
 import { useEndpointStore } from '../src/store/endpointStore';
 import { useInboxStore } from '../src/store/inboxStore';
-import { type InboxItem, type InboxKind } from '../src/types';
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 2, staleTime: 10_000 } },
@@ -49,26 +49,12 @@ export default function RootLayout() {
 
   useEffect(() => {
     const sub = Notifications.addNotificationReceivedListener((notification) => {
-      const data = notification.request.content.data as Record<string, string | undefined>;
-      if (data?.inbox_id) {
-        const inboxKind: InboxKind =
-          data.kind === 'pending_question' ||
-          data.kind === 'complex_done' ||
-          data.kind === 'complex_failed'
-            ? data.kind
-            : 'complex_done';
-        const item: InboxItem = {
-          id: data.inbox_id,
-          endpoint_id: data.endpoint_id ?? '',
-          agent_id: data.agent_id ?? '',
-          conversation_id: data.conversation_id ?? '',
-          kind: inboxKind,
-          title: notification.request.content.title ?? '',
-          body: notification.request.content.body ?? '',
-          payload: null,
-          received_at: Date.now(),
-          read_at: null,
-        };
+      const item = buildNotificationInboxItem({
+        data: notification.request.content.data ?? {},
+        title: notification.request.content.title ?? '',
+        body: notification.request.content.body ?? '',
+      });
+      if (item) {
         void addInboxItem(item);
       }
     });

@@ -19,9 +19,11 @@ import {
   getLatestAgentTextSeq,
 } from '@/features/chat/utils/chatRenderState';
 import { loadAnsweredAsks } from '@/features/inbox/services/inboxService';
+import { mirrorAskQuestionsToInbox } from '@/features/inbox/utils/mirrorAskQuestionsToInbox';
 import { useWebSocket } from '@/hooks/useWebSocket';
 import { useChatStore } from '@/store/chatStore';
 import { useEndpointStore } from '@/store/endpointStore';
+import { useInboxStore } from '@/store/inboxStore';
 import { type WsMessage } from '@/types';
 
 // Stable fallback — never recreated, so Zustand won't see a changed snapshot
@@ -49,6 +51,7 @@ export default function ChatDetailScreen() {
   const messagesMap = useChatStore((s) => s.messages);
   const messages = messagesMap[conv_id] ?? EMPTY;
   const setMessages = useChatStore((s) => s.setMessages);
+  const addInboxItem = useInboxStore((s) => s.addItem);
   const conversation = conversations.find((c) => c.id === conv_id);
   const latestAgentActivitySeq = getLatestAgentActivitySeq(messages);
   const latestAgentSeq = getLatestAgentTextSeq(messages);
@@ -101,11 +104,19 @@ export default function ChatDetailScreen() {
           };
         });
         setMessages(conv_id, merged);
+        void mirrorAskQuestionsToInbox({
+          messages: merged,
+          endpoint_id: endpoint_id ?? '',
+          agent_id: conversation?.agent_id ?? '',
+          agent_name: conversation?.agent_name,
+          conversation_id: conv_id,
+          addItem: addInboxItem,
+        });
       })
       .catch(() => {
         hasLoadedInitialMessagesRef.current = true;
       });
-  }, [conv_id, endpoint, setMessages]);
+  }, [conv_id, endpoint, endpoint_id, conversation, setMessages, addInboxItem]);
 
   const handleSend = async () => {
     const text = input.trim();

@@ -22,9 +22,11 @@ import {
   getLatestAgentActivitySeq,
   getLatestAgentTextSeq,
 } from '../../../src/features/chat/utils/chatRenderState';
+import { mirrorAskQuestionsToInbox } from '../../../src/features/inbox/utils/mirrorAskQuestionsToInbox';
 import { useWebSocket } from '../../../src/hooks/useWebSocket';
 import { useChatStore } from '../../../src/store/chatStore';
 import { useEndpointStore } from '../../../src/store/endpointStore';
+import { useInboxStore } from '../../../src/store/inboxStore';
 import { type WsMessage, type TaskStatusPayload } from '../../../src/types';
 
 // Stable fallback — never recreated, so Zustand won't see a changed snapshot (Bug 1 fix)
@@ -64,6 +66,7 @@ export default function AgentChatRoute() {
   const messagesMap = useChatStore((s) => s.messages);
   const messages = messagesMap[convId ?? ''] ?? EMPTY;
   const setMessages = useChatStore((s) => s.setMessages);
+  const addInboxItem = useInboxStore((s) => s.addItem);
 
   // For each task_id, only show the latest task_status message — hides redundant RUNNING rows
   const displayMessages = useMemo(() => {
@@ -121,6 +124,14 @@ export default function AgentChatRoute() {
           lastAnimatedAgentTextSeqRef.current = getLatestAgentTextSeq(msgs);
           hasLoadedInitialMessagesRef.current = true;
           setMessages(initialConvId, msgs);
+          void mirrorAskQuestionsToInbox({
+            messages: msgs,
+            endpoint_id: endpoint_id ?? '',
+            agent_id: agent_id ?? '',
+            agent_name,
+            conversation_id: initialConvId,
+            addItem: addInboxItem,
+          });
         })
         .catch(() => {
           hasLoadedInitialMessagesRef.current = true;
@@ -143,11 +154,19 @@ export default function AgentChatRoute() {
         lastAnimatedAgentTextSeqRef.current = getLatestAgentTextSeq(msgs);
         hasLoadedInitialMessagesRef.current = true;
         setMessages(newConvId, msgs);
+        void mirrorAskQuestionsToInbox({
+          messages: msgs,
+          endpoint_id: endpoint_id ?? '',
+          agent_id: agent_id ?? '',
+          agent_name,
+          conversation_id: newConvId,
+          addItem: addInboxItem,
+        });
       })
       .catch(() => {
         hasLoadedInitialMessagesRef.current = true;
       });
-  }, [endpoint, agent_id, initialConvId, setMessages]);
+  }, [endpoint, endpoint_id, agent_id, agent_name, initialConvId, setMessages, addInboxItem]);
 
   const handleSend = async () => {
     const text = input.trim();

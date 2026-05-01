@@ -4,9 +4,18 @@ import { type InboxItem, type InboxKind, type AskQuestionPayload } from '@/types
 export async function writeInboxItem(item: InboxItem): Promise<void> {
   const db = getDb();
   await db.runAsync(
-    `INSERT OR IGNORE INTO inbox
+    `INSERT INTO inbox
      (id, endpoint_id, agent_id, conversation_id, kind, title, body, payload, received_at, read_at)
-     VALUES (?,?,?,?,?,?,?,?,?,NULL)`,
+     VALUES (?,?,?,?,?,?,?,?,?,NULL)
+     ON CONFLICT(id) DO UPDATE SET
+       endpoint_id = excluded.endpoint_id,
+       agent_id = excluded.agent_id,
+       conversation_id = excluded.conversation_id,
+       kind = excluded.kind,
+       title = excluded.title,
+       body = excluded.body,
+       payload = excluded.payload,
+       received_at = excluded.received_at`,
     [
       item.id,
       item.endpoint_id,
