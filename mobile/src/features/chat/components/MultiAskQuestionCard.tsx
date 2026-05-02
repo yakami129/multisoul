@@ -189,8 +189,7 @@ export default function MultiAskQuestionCard({
                               }}
                               style={[
                                 s.useAnswerBtn,
-                                (customTexts[q.id]?.trim().length ?? 0) === 0 &&
-                                  s.useAnswerBtnOff,
+                                (customTexts[q.id]?.trim().length ?? 0) === 0 && s.useAnswerBtnOff,
                               ]}
                               onPress={() => handleCommitCustomText(q.id)}
                             >
