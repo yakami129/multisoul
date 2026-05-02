@@ -43,8 +43,8 @@ test('selecting Other reveals an inline text input', () => {
   expect(queryByPlaceholderText('Type your answer...')).toBeTruthy();
 });
 
-// T-3: Confirm is disabled until the user types something in the Other input
-test('Confirm stays disabled until Other input has text', () => {
+// T-3: Use answer is disabled until the user types something in the Other input
+test('Use answer stays disabled until Other input has text', () => {
   const { getByLabelText, getByPlaceholderText } = render(
     <AskQuestionCard
       question="Pick one"
@@ -56,12 +56,32 @@ test('Confirm stays disabled until Other input has text', () => {
 
   fireEvent.press(getByLabelText('Other'));
 
-  const confirmBtn = getByLabelText('Confirm');
-  expect(confirmBtn.props.accessibilityState?.disabled).toBe(true);
+  const useAnswerBtn = getByLabelText('Use answer');
+  expect(useAnswerBtn.props.accessibilityState?.disabled).toBe(true);
 
   fireEvent.changeText(getByPlaceholderText('Type your answer...'), 'my custom answer');
 
-  expect(confirmBtn.props.accessibilityState?.disabled).toBe(false);
+  expect(useAnswerBtn.props.accessibilityState?.disabled).toBe(false);
+});
+
+test('Confirm stays disabled while Other input text is uncommitted', () => {
+  const { getByLabelText, getByPlaceholderText } = render(
+    <AskQuestionCard
+      question="Pick one"
+      options={baseOptions}
+      onCancel={jest.fn()}
+      onConfirm={jest.fn()}
+    />,
+  );
+
+  fireEvent.press(getByLabelText('Other'));
+  fireEvent.changeText(getByPlaceholderText('Type your answer...'), 'x');
+
+  expect(getByLabelText('Confirm').props.accessibilityState?.disabled).toBe(true);
+
+  fireEvent.press(getByLabelText('Use answer'));
+
+  expect(getByLabelText('Confirm').props.accessibilityState?.disabled).toBe(false);
 });
 
 // T-4: onConfirm receives the typed text when Other is selected (single-select)
@@ -78,6 +98,7 @@ test('onConfirm receives typed text when Other is selected in single-select mode
 
   fireEvent.press(getByLabelText('Other'));
   fireEvent.changeText(getByPlaceholderText('Type your answer...'), 'my custom answer');
+  fireEvent.press(getByLabelText('Use answer'));
   fireEvent.press(getByLabelText('Confirm'));
 
   expect(onConfirm).toHaveBeenCalledWith('my custom answer');
@@ -100,6 +121,7 @@ test('onConfirm includes typed text alongside other selected ids in multi-select
   fireEvent.press(getByLabelText('Option A'));
   fireEvent.press(getByLabelText('Other'));
   fireEvent.changeText(getByPlaceholderText('Type your answer...'), 'extra');
+  fireEvent.press(getByLabelText('Use answer'));
   fireEvent.press(getByLabelText('Confirm'));
 
   expect(onConfirm).toHaveBeenCalledWith('a,extra');
@@ -118,6 +140,7 @@ test('answered state shows the typed text for Other selection', () => {
 
   fireEvent.press(getByLabelText('Other'));
   fireEvent.changeText(getByPlaceholderText('Type your answer...'), 'my custom answer');
+  fireEvent.press(getByLabelText('Use answer'));
   fireEvent.press(getByLabelText('Confirm'));
 
   expect(getByText('my custom answer')).toBeTruthy();
