@@ -151,6 +151,7 @@ fn send_payloads(payloads: Vec<PushPayload>) {
     }
 }
 
+
 #[allow(dead_code)]
 fn send_push_to_tokens(db: &rusqlite::Connection, push: &TaskStatusPush) {
     let payloads = build_payloads_for_tokens(db, push);
