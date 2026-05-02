@@ -104,14 +104,6 @@ cd /Users/alan/Documents/codes/yakami0129/multisoul/mobile && ./scripts/publish-
 
 用 `run_in_background: true` 异步执行，然后持续 `tail -f /tmp/publish-ios.log` 监听日志输出，直到脚本结束。
 
-**当用户说"本地发布 iOS"或类似指令时，指的是使用本机 Xcode 打包并上传，Claude 应直接执行：**
-
-```bash
-cd /Users/alan/Documents/codes/yakami0129/multisoul/mobile && ./scripts/publish-ios-local.sh > /tmp/publish-ios-local.log 2>&1
-```
-
-同样异步执行并持续监听 `/tmp/publish-ios-local.log`，直到脚本结束。
-
 ---
 
 ## Architecture
