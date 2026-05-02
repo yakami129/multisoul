@@ -181,7 +181,6 @@ fn session_worker(
     }
 }
 
-
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
 fn spawn_claude(project_path: &str, session_id: Option<&str>) -> Option<(Child, ChildStdin)> {

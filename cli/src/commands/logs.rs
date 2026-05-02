@@ -74,7 +74,6 @@ pub fn handle(args: LogsArgs) -> Result<()> {
     }
 }
 
-
 // ── filtering ──────────────────────────────────────────────────────────────
 
 struct Filter {
