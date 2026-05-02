@@ -198,12 +198,11 @@ impl Renderer {
         } else {
             let ts = rec.timestamp.format("%Y-%m-%dT%H:%M:%S");
             let level = pad_level(&rec.level);
-            let span_info = rec.conv_id().map(|c| format!(" conv={c}")).unwrap_or_default();
-            let target_short = rec
-                .target
-                .rsplit("::")
-                .next()
-                .unwrap_or(&rec.target);
+            let span_info = rec
+                .conv_id()
+                .map(|c| format!(" conv={c}"))
+                .unwrap_or_default();
+            let target_short = rec.target.rsplit("::").next().unwrap_or(&rec.target);
             let fields_extras = extra_fields(&rec.fields);
             if self.color {
                 let (level_col, reset) = ansi_for_level(&rec.level);
@@ -262,24 +261,20 @@ fn extra_fields(fields: &serde_json::Value) -> String {
 
 // ── batch scan (default mode) ──────────────────────────────────────────────
 
-fn batch_scan(
-    files: &[PathBuf],
-    filter: &Filter,
-    tail: usize,
-    renderer: &Renderer,
-) -> Result<()> {
+fn batch_scan(files: &[PathBuf], filter: &Filter, tail: usize, renderer: &Renderer) -> Result<()> {
     // Gather matching records (raw line + parsed) from newest file backwards
     // until we have enough to satisfy --tail after filtering.
     let mut kept: VecDeque<(String, LogRecord)> = VecDeque::with_capacity(tail.max(16));
 
     for file in files.iter().rev() {
-        let f = std::fs::File::open(file)
-            .with_context(|| format!("opening {}", file.display()))?;
+        let f = std::fs::File::open(file).with_context(|| format!("opening {}", file.display()))?;
         let reader = BufReader::new(f);
         let lines: Vec<String> = reader.lines().map_while(Result::ok).collect();
         // walk the current file newest to oldest
         for line in lines.iter().rev() {
-            let Some(rec) = LogRecord::from_line(line) else { continue };
+            let Some(rec) = LogRecord::from_line(line) else {
+                continue;
+            };
             if !filter.keeps(&rec) {
                 continue;
             }
@@ -303,11 +298,7 @@ fn batch_scan(
 
 // ── follow mode ────────────────────────────────────────────────────────────
 
-fn follow_stream(
-    log_dir: &std::path::Path,
-    filter: &Filter,
-    renderer: &Renderer,
-) -> Result<()> {
+fn follow_stream(log_dir: &std::path::Path, filter: &Filter, renderer: &Renderer) -> Result<()> {
     let mut path = logging::current_log_path(log_dir);
     let mut file = open_or_wait(&path)?;
     file.seek(SeekFrom::End(0)).ok();

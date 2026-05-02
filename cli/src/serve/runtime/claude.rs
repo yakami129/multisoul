@@ -389,7 +389,13 @@ struct WsEnvelope {
     created_at: i64,
 }
 
-pub(super) fn broadcast(state: &AppState, conv_id: &str, seq: i64, role: &'static str, payload: Value) {
+pub(super) fn broadcast(
+    state: &AppState,
+    conv_id: &str,
+    seq: i64,
+    role: &'static str,
+    payload: Value,
+) {
     let env = WsEnvelope {
         kind: "message",
         seq,

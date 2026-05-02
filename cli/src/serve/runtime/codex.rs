@@ -23,7 +23,6 @@ mod codex_turn;
 
 use codex_turn::{complete_turn, process_turn};
 
-
 // ─── public API ───────────────────────────────────────────────────────────────
 
 /// Called from the HTTP handler when a new user message arrives for a codex agent.
@@ -212,7 +211,6 @@ fn spawn_codex(
     Some((child, stdin))
 }
 
-
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
 /// Returns the `codex exec` mode flags for the given mode string.
@@ -326,7 +324,13 @@ struct WsEnvelope {
     created_at: i64,
 }
 
-pub(super) fn broadcast(state: &AppState, conv_id: &str, seq: i64, role: &'static str, payload: Value) {
+pub(super) fn broadcast(
+    state: &AppState,
+    conv_id: &str,
+    seq: i64,
+    role: &'static str,
+    payload: Value,
+) {
     let env = WsEnvelope {
         kind: "message",
         seq,

@@ -253,7 +253,12 @@ pub fn build_task_status_push(
     }))
 }
 
-pub fn send_task_status_push(db: &rusqlite::Connection, conv_id: &str, status: &str, summary: &str) {
+pub fn send_task_status_push(
+    db: &rusqlite::Connection,
+    conv_id: &str,
+    status: &str,
+    summary: &str,
+) {
     match build_task_status_push(db, conv_id, status, summary) {
         Ok(Some(push)) => send_push_to_tokens_async(db, &push),
         Ok(None) => {}

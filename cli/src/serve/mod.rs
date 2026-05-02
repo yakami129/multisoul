@@ -60,12 +60,7 @@ pub async fn run_server(state: AppState, addr: std::net::SocketAddr) -> Result<(
 }
 
 mod http_trace {
-    use axum::{
-        extract::Request,
-        http::StatusCode,
-        middleware::Next,
-        response::Response,
-    };
+    use axum::{extract::Request, http::StatusCode, middleware::Next, response::Response};
     use std::time::Instant;
     use tracing::{info, warn, Instrument};
     use uuid::Uuid;

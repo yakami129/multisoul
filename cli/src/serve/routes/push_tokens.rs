@@ -43,8 +43,15 @@ pub async fn register_token(
     db.execute(
         "INSERT INTO push_tokens (id, expo_push_token, device_label, endpoint_id, registered_at)
          VALUES (?1,?2,?3,?4,?5)",
-        rusqlite::params![id, body.expo_push_token, body.device_label, body.endpoint_id, now],
-    ).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        rusqlite::params![
+            id,
+            body.expo_push_token,
+            body.device_label,
+            body.endpoint_id,
+            now
+        ],
+    )
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     Ok((
         StatusCode::CREATED,
         Json(PushTokenRow {

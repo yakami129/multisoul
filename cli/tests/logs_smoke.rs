@@ -66,7 +66,7 @@ fn ndjson(level: &str, message: &str, conv: Option<&str>, extra: &str) -> String
 /// Scenario 1: ask_question stuck — `--conv <id>` should surface the pending event.
 #[test]
 fn scenario_ask_question_stuck() {
-    let lines = vec![
+    let lines = [
         ndjson("INFO", "turn_start", Some("cnv_abc"), ""),
         ndjson(
             "INFO",
@@ -96,8 +96,13 @@ fn scenario_ask_question_stuck() {
 /// Scenario 2: 401 debug — `--level warn+` should filter out info noise.
 #[test]
 fn scenario_401_filter_by_level() {
-    let lines = vec![
-        ndjson("INFO", "http_request", None, r#""method":"GET","status":200"#),
+    let lines = [
+        ndjson(
+            "INFO",
+            "http_request",
+            None,
+            r#""method":"GET","status":200"#,
+        ),
         ndjson(
             "WARN",
             "http_error",
@@ -125,7 +130,7 @@ fn scenario_401_filter_by_level() {
 /// Scenario 3: push failure — `--grep push_` should isolate push events.
 #[test]
 fn scenario_push_failed_grep() {
-    let lines = vec![
+    let lines = [
         ndjson("INFO", "turn_start", Some("cnv_x"), ""),
         ndjson(
             "INFO",
@@ -156,7 +161,7 @@ fn scenario_push_failed_grep() {
 /// Scenario 4: agent crash — `--since 10m` + `--grep agent_` surfaces exit + respawn.
 #[test]
 fn scenario_agent_crash_timeline() {
-    let lines = vec![
+    let lines = [
         ndjson(
             "INFO",
             "agent_spawn",
@@ -177,10 +182,7 @@ fn scenario_agent_crash_timeline() {
         ),
     ];
     let lines: Vec<&str> = lines.iter().map(|s| s.as_str()).collect();
-    let (stdout, _stderr, ok) = run_logs(
-        &["logs", "--since", "10m", "--grep", "agent_"],
-        &lines,
-    );
+    let (stdout, _stderr, ok) = run_logs(&["logs", "--since", "10m", "--grep", "agent_"], &lines);
     assert!(ok);
     for needle in ["agent_spawn", "agent_exit", "agent_respawn", "137"] {
         assert!(
@@ -197,8 +199,7 @@ fn json_mode_emits_ndjson() {
     let (stdout, _stderr, ok) = run_logs(&["logs", "--json"], &[&line]);
     assert!(ok);
     let first = stdout.lines().next().unwrap_or("");
-    let v: serde_json::Value =
-        serde_json::from_str(first).expect("line should parse as JSON");
+    let v: serde_json::Value = serde_json::from_str(first).expect("line should parse as JSON");
     assert_eq!(v["level"], "INFO");
     assert_eq!(v["fields"]["message"], "agent_spawn");
     assert_eq!(v["fields"]["pid"], 111);
