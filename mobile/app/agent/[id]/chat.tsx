@@ -250,10 +250,8 @@ export default function AgentChatRoute() {
               value={input}
               onChangeText={setInput}
               editable={!composerDisabled}
-              returnKeyType="send"
-              onSubmitEditing={() => {
-                void handleSend();
-              }}
+              multiline
+              textAlignVertical="top"
             />
           </View>
           <TouchableOpacity
@@ -291,26 +289,30 @@ const s = StyleSheet.create({
   scroll: { flex: 1 },
   scrollContent: { padding: 16, gap: 12 },
   inputBar: {
-    height: 60,
+    minHeight: 60,
+    maxHeight: 160,
     backgroundColor: '#061206',
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-end',
     paddingHorizontal: 12,
+    paddingVertical: 10,
     gap: 8,
     borderTopWidth: 1,
     borderTopColor: '#0F2B0F',
   },
   inputField: {
     flex: 1,
-    height: 36,
+    minHeight: 36,
+    maxHeight: 120,
     backgroundColor: '#0A1A0A',
     borderRadius: 2,
     borderWidth: 1,
     borderColor: '#0F2B0F',
     paddingHorizontal: 14,
+    paddingVertical: 8,
     justifyContent: 'center',
   },
   inputDisabled: { opacity: 0.4 },
-  input: { fontFamily: 'Geist', fontSize: 14, color: '#20C20E' },
+  input: { fontFamily: 'Geist', fontSize: 14, color: '#20C20E', minHeight: 20 },
   waitText: { fontFamily: 'Geist Mono', fontSize: 10, color: '#33FF33', letterSpacing: 1 },
 });
