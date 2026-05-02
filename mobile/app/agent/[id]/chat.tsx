@@ -217,7 +217,7 @@ export default function AgentChatRoute() {
           <TouchableOpacity onPress={() => router.back()}>
             <ChevronLeft size={24} color="#20C20E" />
           </TouchableOpacity>
-          <Text style={s.navTitle}>CHAT</Text>
+          <Text style={s.navTitle}>{agent_name ?? 'CHAT'}</Text>
           <View style={[s.dot, { backgroundColor: status === 'open' ? '#33FF33' : '#2D8B2D' }]} />
         </View>
 
