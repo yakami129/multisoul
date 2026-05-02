@@ -1,5 +1,7 @@
 # MultiSoul Mobile UI Redesign Implementation Plan
 
+> **来源：** 由 `mobile/docs/superpowers/plans/2026-04-19-ui-redesign.md` 迁入；命令默认在仓库根下执行 `cd mobile`。
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Replace all `StyleSheet.create()` with NativeWind v4 utility classes, introduce a shared design token system, self-written UI components (Button/Card/Badge/Input), Lucide icons, Reanimated animations, and Dark Mode support across all three screens.
@@ -44,7 +46,7 @@
 - [ ] **Step 1: Install NativeWind v4 and peer dependencies**
 
 ```bash
-cd /path/to/multisoul/mobile
+cd mobile
 pnpm add nativewind tailwindcss
 pnpm add -D react-native-reanimated lucide-react-native
 ```

@@ -1,5 +1,7 @@
 # GitHub Actions CI/CD Implementation Plan
 
+> **来源：** 由 `docs/superpowers/plans/2025-07-14-github-actions-cicd.md` 迁入；命令中的路径已改为从仓库根目录执行。
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** 完善三个 GitHub Actions workflow：`ci.yml`（加 `workflow_call` + clippy/fmt/prettier）、`release-cli.yml`（加 CI 前置 + macOS Intel 平台）、新建 `release-ios.yml`（EAS Build + TestFlight）。
@@ -62,7 +64,7 @@ on:
 - [ ] **Step 4: 验证 YAML 语法**
 
 ```bash
-cd /Users/alan/Documents/codes/yakami0129/multisoul
+cd "$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 python3 -c "import yaml; yaml.safe_load(open('.github/workflows/ci.yml'))" && echo "YAML OK"
 ```
 
@@ -130,7 +132,7 @@ git commit -m "ci: add workflow_call trigger, clippy, fmt, prettier checks"
 - [ ] **Step 6: 验证 YAML 语法**
 
 ```bash
-cd /Users/alan/Documents/codes/yakami0129/multisoul
+cd "$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 python3 -c "import yaml; yaml.safe_load(open('.github/workflows/release-cli.yml'))" && echo "YAML OK"
 ```
 
@@ -155,7 +157,7 @@ git commit -m "ci: add CI gate and x86_64-apple-darwin to release-cli workflow"
 - [ ] **Step 1: 删除文件**
 
 ```bash
-rm /Users/alan/Documents/codes/yakami0129/multisoul/.github/workflows/publish-npm.yml
+rm .github/workflows/publish-npm.yml
 ```
 
 - [ ] **Step 2: Commit**
@@ -236,7 +238,7 @@ jobs:
 - [ ] **Step 2: 验证 YAML 语法**
 
 ```bash
-cd /Users/alan/Documents/codes/yakami0129/multisoul
+cd "$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 python3 -c "import yaml; yaml.safe_load(open('.github/workflows/release-ios.yml'))" && echo "YAML OK"
 ```
 

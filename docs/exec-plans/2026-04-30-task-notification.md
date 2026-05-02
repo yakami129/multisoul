@@ -1,5 +1,8 @@
 # Task Completion Notification Implementation Plan
 
+> **来源：** 由 `docs/superpowers/plans/2026-04-30-task-notification.md` 迁入 `docs/exec-plans/`。
+> **关联：** 设计 [`../design-docs/2026-04-30-task-notification-design.md`](../design-docs/2026-04-30-task-notification-design.md) · 产品规格 [`../product-specs/SPEC-task-notification.md`](../product-specs/SPEC-task-notification.md)
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Play a sound (foreground) or push a local notification (background) when an agent task completes, with tap-to-navigate to the task's chat screen.

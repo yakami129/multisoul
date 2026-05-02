@@ -1,5 +1,7 @@
 # Code Structure Refactor Implementation Plan
 
+> **来源：** 由 `mobile/docs/superpowers/plans/2026-04-19-code-structure-refactor.md` 迁入 `docs/exec-plans/`。
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Restructure the codebase from a flat src/ + fat app/ pages layout into a feature-based architecture with clear layer boundaries.

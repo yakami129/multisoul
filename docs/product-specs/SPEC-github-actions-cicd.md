@@ -1,5 +1,7 @@
 # GitHub Actions CI/CD SPEC
 
+> **来源：** 由 `docs/specs/github-actions-cicd-spec.md` 迁入 canonical 路径（`docs/product-specs/`）。
+
 ## 1. 背景与目标
 
 MultiSoul monorepo 包含 Rust CLI（`msctl`）和 React Native iOS App。目标是通过 GitHub Actions 将 CI 检查、CLI 发布（npm）、iOS 发布（TestFlight）串联成自动化流水线，减少人工操作，保证发布质量。

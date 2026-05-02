@@ -2,6 +2,7 @@
 title: Task Completion Notification — Design
 date: 2026-04-30
 status: approved
+migrated_from: docs/superpowers/specs/2026-04-30-task-notification-design.md
 ---
 
 # Task Completion Notification — Design

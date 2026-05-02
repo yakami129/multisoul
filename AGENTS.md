@@ -59,6 +59,7 @@ Monorepo 两大件：
 | **RN UI 常见坑** | [`mobile/docs/rules/ui-pitfalls.md`](mobile/docs/rules/ui-pitfalls.md) |
 | **完整命令、env 表、UI checklist** | [`CLAUDE.md`](CLAUDE.md)（详细工程手册） |
 | **面向人类的快速上手** | [`README.md`](README.md) |
+| **`docs/specs/`、`docs/superpowers/`** | **勿再新增权威文档**；规格/计划规约见 [`docs/superpowers/README.md`](docs/superpowers/README.md) |
 
 ## 5. 改完代码必跑的验证
 
@@ -93,7 +94,7 @@ cd mobile && ./scripts/publish-ios.sh
 - 用户场景常常 **不便打字**。涉及决策（方案选择、是否继续、风险权衡）一律用 `AskUserQuestion` 工具给 2-5 个结构化选项，**不要让用户敲字回答**
 - 行动前先检索本地文件，不要凭记忆回答
 - 修改代码后必须按 §5 跑验证；引入了 lint error 要修
-- 新增产品决策 → 写到 `docs/product-specs/`；新增设计权衡 → 写到 `docs/design-docs/YYYY-MM-DD-<feature>-design.md`；新增施工计划 → `docs/exec-plans/`
+- **文档落盘**：产品 / 功能规格（要做什么、验收）→ **只** [`docs/product-specs/`](docs/product-specs/)（`SPEC-<feature>.md`）；实施 / 执行计划 → **只** [`docs/exec-plans/`](docs/exec-plans/)（`YYYY-MM-DD-<feature>.md`）；设计权衡 → `docs/design-docs/YYYY-MM-DD-<feature>-design.md`（命名见 [`docs/design-docs/README.md`](docs/design-docs/README.md)）。**勿**在 [`docs/specs/`](docs/specs/)、[`docs/superpowers/`](docs/superpowers/) 新增权威内容。**Superpowers skills**（`writing-plans`、`executing-plans`、`brainstorming` 等）在本仓库写规格或计划时**必须**使用上述 canonical 路径 · [`docs/superpowers/README.md`](docs/superpowers/README.md)
 - 不要把规则塞进本文。本文只长指针，不长内容
 
 ## 8. 添加新规则的原则（Harness 增量学习）

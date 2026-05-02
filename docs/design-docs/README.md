@@ -9,6 +9,8 @@
 - 与既有系统的边界、契约
 - 不写步骤化施工（那是 `../exec-plans/` 的事）
 
+若 **Superpowers** 产出的是方案权衡而非步骤清单，仍落在本目录（`-design.md`）；规格与计划分别见 [`../product-specs/`](../product-specs/)、[`../exec-plans/`](../exec-plans/) · [`../superpowers/README.md`](../superpowers/README.md)。
+
 ## 命名约定
 
 - `YYYY-MM-DD-<kebab-case-feature>-design.md`
@@ -26,6 +28,7 @@
 
 按时间倒序：
 
+- `2026-04-30-task-notification-design.md` — 任务完成通知技术设计（自 `docs/superpowers/specs/` 迁入）
 - `2026-04-29-codex-runtime-integration-design.md` — Codex runtime 集成方案
 - `2026-04-28-inbox-delete-design.md` — Inbox 删除交互设计
 - `2026-04-27-askquestion-sync-design.md` — AskQuestion 同步协议设计

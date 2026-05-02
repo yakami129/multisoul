@@ -13,9 +13,13 @@
 - 总规格：`SPEC.md`
 - 单 feature：`SPEC-<kebab-case-feature>.md`，例如 `SPEC-list-refresh.md`
 
+**Superpowers**（如 `writing-plans`）产出的「规格 / PRD / 要做什么」**必须**写入本目录上述命名，**不得**默认写入 `docs/specs/` 或 `docs/superpowers/specs/`。规约总述：[`../superpowers/README.md`](../superpowers/README.md)。
+
 ## 现有文档
 
 | 文件 | 说明 |
 |------|------|
 | [`SPEC.md`](./SPEC.md) | MultiSoul 主产品规格 |
 | [`SPEC-list-refresh.md`](./SPEC-list-refresh.md) | 列表刷新行为规格 |
+| [`SPEC-task-notification.md`](./SPEC-task-notification.md) | Agent 任务完成通知规格 |
+| [`SPEC-github-actions-cicd.md`](./SPEC-github-actions-cicd.md) | GitHub Actions CI/CD 规格（自 `docs/specs/github-actions-cicd-spec.md` 迁入） |

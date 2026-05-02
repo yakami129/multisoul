@@ -14,6 +14,7 @@
 | [`references/`](./references/) | API/协议/环境变量等机器可读契约 | 想查 REST/WS 路径、消息类型、env vars |
 | [`quality/`](./quality/) | 规则、检查清单、code conventions（"法律"层） | 改动前要查的硬约束、UI/code 规范、release checklist |
 | [`runbooks/`](./runbooks/) | 操作型 SOP（发布、调试、应急） | 要发版本、排查线上问题、操作运行时 |
+| [`specs/`](./specs/) · [`superpowers/`](./superpowers/) | **遗留目录，非权威树** | 见 [`superpowers/README.md`](./superpowers/README.md)；新规格/计划勿写入 |
 
 ## 不在这里的
 
@@ -28,9 +29,10 @@
 
 ## 添加新文档时
 
-- **产品决策 / 验收标准** → `product-specs/SPEC-<feature>.md`
+- **产品决策 / 验收标准 / 功能规格** → `product-specs/SPEC-<feature>.md`（**不要**写到 `specs/` 或 `superpowers/`）
 - **某次实现的方案权衡** → `design-docs/YYYY-MM-DD-<feature>-design.md`
-- **多步骤施工计划** → `exec-plans/YYYY-MM-DD-<feature>.md`
+- **多步骤施工计划** → `exec-plans/YYYY-MM-DD-<feature>.md`（**不要**写到 `superpowers/plans/` 作为权威落点）
+- **Superpowers skills**（`writing-plans`、`executing-plans`、`brainstorming` 等）在本仓库落盘时**必须**遵守以上三行路径
 - **稳定的契约/枚举** → `references/<topic>.md`
 - **新增硬约束/check** → `quality/<topic>.md`
 - **新发布或运维流程** → `runbooks/<topic>.md`

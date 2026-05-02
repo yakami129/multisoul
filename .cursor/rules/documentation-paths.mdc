@@ -1,0 +1,16 @@
+---
+description: Canonical paths for product specs, exec plans, and Superpowers skill outputs
+alwaysApply: true
+---
+
+# MultiSoul 文档落点（强制）
+
+在本仓库**新建或写入**下列内容时，**必须**使用 canonical 目录；**不得**把权威规格或实施计划写入 `docs/specs/`、`docs/superpowers/`（遗留树，见 `docs/superpowers/README.md`）。
+
+| 内容类型 | 写入目录 | 命名 |
+|----------|----------|------|
+| 产品 / 功能规格（要做什么、为什么、验收） | `docs/product-specs/` | `SPEC-<kebab-feature>.md` 或 `SPEC.md` |
+| 实施 / 执行计划（步骤、checkpoint、依赖） | `docs/exec-plans/` | `YYYY-MM-DD-<kebab-feature>.md` |
+| 方案权衡、接口与状态机设计 | `docs/design-docs/` | `YYYY-MM-DD-<kebab-feature>-design.md` |
+
+**Superpowers**（包括但不限于 `writing-plans`、`executing-plans`、`brainstorming`）在本仓库落盘时，遵守上表；与默认插件目录冲突时，**以本仓库 `AGENTS.md` 与 `docs/superpowers/README.md` 为准**。

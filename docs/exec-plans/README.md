@@ -13,6 +13,8 @@
 - `YYYY-MM-DD-<kebab-case-feature>.md`
 - 日期是计划开始日期
 
+**Superpowers**（如 `executing-plans`、`writing-plans` 中的施工拆解）产出的执行计划**必须**写入本目录上述命名，**不得**默认写入 `docs/superpowers/plans/` 作为权威落点。规约总述：[`../superpowers/README.md`](../superpowers/README.md)。
+
 ## 与 `design-docs/` 的区别
 
 设计先行，执行其后。一个 feature 通常先有 `design-docs/<X>-design.md` 拍板方案，再有 `exec-plans/<X>.md` 拆步骤施工。两者通过 feature 名互链。
@@ -21,6 +23,8 @@
 
 按时间倒序：
 
+- `2026-05-01-inbox-askquestion-regression.md`
+- `2026-04-30-task-notification.md` — 任务完成通知（自 `docs/superpowers/plans/` 迁入）
 - `2026-04-29-codex-runtime-integration.md`
 - `2026-04-28-inbox-delete.md`
 - `2026-04-27-swipe-to-delete-recent.md`
@@ -33,3 +37,6 @@
 - `2026-04-26-mobile-refactor.md`
 - `2026-04-26-cli-serve.md`
 - `2026-04-26-chat-waiting-typewriter.md`
+- `2026-04-19-mobile-ui-redesign.md` — Mobile UI 改造计划（自 `mobile/docs/superpowers/plans/` 迁入）
+- `2026-04-19-mobile-code-structure-refactor.md` — Mobile 目录结构重构（自 `mobile/docs/superpowers/plans/` 迁入）
+- `2025-07-14-github-actions-cicd.md` — GitHub Actions CI/CD 施工（自 `docs/superpowers/plans/` 迁入）
