@@ -120,19 +120,26 @@
 
 当前两层（pre-commit + CI）解决"代码层正确性"，但缺少**运行时反馈**。Agent 完成实现后，需要能自己跑、查日志、看效果，不依赖人手动启动应用。
 
-### 2.1 [HIGH] CLI runtime log channel
+### 2.1 [HIGH] CLI runtime log channel `[in progress]`
 
 **起因**：用户报 bug "Agent 在 ask_question 后卡住了"，Agent 必须自己能 reproduce + 查日志，不能问用户拷贝。
 
-**候选实现**：
-- 给 `msctl serve` 加结构化日志（`tracing` + `tracing-subscriber`），输出 JSON 到 `~/.cache/msctl/serve.log`
-- 提供 `msctl logs` 子命令：`--tail N`、`--filter conv_id=<id>`、`--since <duration>`
-- 日志级别遵循 trace/debug/info/warn/error 标准
+**定稿设计**：[`docs/design-docs/2026-05-02-cli-tracing-design.md`](../design-docs/2026-05-02-cli-tracing-design.md)
+
+**关键决策**（详见 design-doc）：
+- tracing + tracing-subscriber + tracing-appender
+- NDJSON 输出到 `~/.cache/msctl/serve.log.YYYY-MM-DD`，按天轮转保留 7 天
+- `msctl logs` 支持 `--tail / --follow / --since / --conv / --level / --json / --grep`
+- balanced 脱敏（token 屏蔽 / user_text 前 200 字符）
+- 一次性替换 `cli/src/serve/**` 全部 eprintln!；保留 `commands/**` 的用户交互 println
 
 **DoD**：
-- [ ] `cli/src/serve/` 注入 `tracing::info!()` / `tracing::error!()` 到关键事件（消息流入、agent spawn、ask_question pending、推送）
-- [ ] `msctl logs --tail 50 --conv <id>` 可用
-- [ ] `docs/runbooks/debugging.md` 写"Agent 卡住时怎么查"
+- [x] 定稿 design-doc
+- [ ] `cli/src/logging.rs` init_subscriber + redact helpers
+- [ ] `cli/src/commands/logs.rs` 支持 7 个参数
+- [ ] 全仓 `eprintln!` 替换（serve/** 部分）
+- [ ] 4 个验收场景可在 5 秒内定位问题
+- [ ] `docs/runbooks/debugging.md` 落档
 
 ### 2.2 [MED] HTTP/WS 行为录制 + 重放
 
