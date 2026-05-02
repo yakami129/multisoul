@@ -9,34 +9,24 @@ use std::fs::{self, File};
 use std::io::Write;
 use std::process::Command;
 
-/// Run `msctl logs <args...>` with a synthetic log dir placed under XDG cache.
-///
-/// We isolate by setting platform cache env vars to a tempdir.
+/// Run `msctl logs <args...>` with a synthetic log dir.
 fn run_logs(args: &[&str], lines: &[&str]) -> (String, String, bool) {
     let tmp = tempfile::tempdir().expect("tempdir");
-    let home = tmp.path();
-    let log_dir_linux = home.join(".cache/msctl");
-    let log_dir_mac = home.join("Library/Caches/msctl");
-    let log_dir_windows = home.join("AppData/Local/msctl");
-    fs::create_dir_all(&log_dir_linux).unwrap();
-    fs::create_dir_all(&log_dir_mac).unwrap();
-    fs::create_dir_all(&log_dir_windows).unwrap();
+    let log_dir = tmp.path().join("logs");
+    fs::create_dir_all(&log_dir).unwrap();
 
     let today = chrono::Utc::now().format("%Y-%m-%d").to_string();
-    for dir in [&log_dir_linux, &log_dir_mac, &log_dir_windows] {
-        let path = dir.join(format!("serve.log.{today}"));
-        let mut f = File::create(&path).unwrap();
-        for line in lines {
-            writeln!(f, "{line}").unwrap();
-        }
+    let path = log_dir.join(format!("serve.log.{today}"));
+    let mut f = File::create(&path).unwrap();
+    for line in lines {
+        writeln!(f, "{line}").unwrap();
     }
 
     let bin = env!("CARGO_BIN_EXE_msctl");
     let output = Command::new(bin)
         .args(args)
-        .env("HOME", home)
-        .env("XDG_CACHE_HOME", home.join(".cache"))
-        .env("LOCALAPPDATA", home.join("AppData/Local"))
+        .arg("--log-dir")
+        .arg(&log_dir)
         .output()
         .expect("run msctl logs");
     let stdout = String::from_utf8_lossy(&output.stdout).to_string();

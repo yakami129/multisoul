@@ -42,10 +42,18 @@ pub struct LogsArgs {
     /// Regex applied to the message field (case-sensitive).
     #[arg(long)]
     pub grep: Option<String>,
+
+    /// Override log directory. Hidden for tests and diagnostics.
+    #[arg(long, hide = true)]
+    pub log_dir: Option<PathBuf>,
 }
 
 pub fn handle(args: LogsArgs) -> Result<()> {
-    let log_dir = logging::default_log_dir()?;
+    let log_dir = args
+        .log_dir
+        .clone()
+        .map(Ok)
+        .unwrap_or_else(logging::default_log_dir)?;
     if !log_dir.exists() {
         eprintln!(
             "no logs yet — run `msctl serve` first ({}).",
