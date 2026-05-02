@@ -3,12 +3,18 @@
 //! Messages are sent via std::sync::mpsc channel from the HTTP handler.
 
 use crate::db::now_ms;
-use crate::serve::interactive::{self, AnswerPayload};
+use crate::logging;
 use crate::serve::{push, state::AppState};
 use serde_json::Value;
 use std::io::{BufRead, BufReader, Write};
 use std::process::{Child, ChildStdin, Command, Stdio};
+use tracing::{debug, error, info, info_span, warn};
 use uuid::Uuid;
+
+#[path = "claude_stream.rs"]
+mod claude_stream;
+
+use claude_stream::process_turn;
 
 // ─── public API ──────────────────────────────────────────────────────────────
 
@@ -19,17 +25,11 @@ pub fn send_to_session(state: &AppState, conv_id: &str, user_text: &str, project
     if let Some(tx) = sessions.get(conv_id) {
         // Session already running — enqueue the message
         if tx.send(user_text.to_string()).is_ok() {
-            eprintln!(
-                "[runtime] queued message for existing session conv_id={}",
-                conv_id
-            );
+            debug!(conv_id = %conv_id, "runtime_message_queued");
             return;
         }
         // Channel broken (worker crashed) — fall through to create a new one
-        eprintln!(
-            "[runtime] session channel broken, respawning conv_id={}",
-            conv_id
-        );
+        warn!(conv_id = %conv_id, "runtime_channel_broken_respawning");
     }
 
     // Create a new session
@@ -57,7 +57,9 @@ fn session_worker(
     project_path: String,
     rx: std::sync::mpsc::Receiver<String>,
 ) {
-    eprintln!("[runtime] session_worker started conv_id={}", conv_id);
+    let span = info_span!("session_worker", conv_id = %conv_id, runtime = "claude");
+    let _enter = span.enter();
+    info!("session_worker_started");
 
     // Create the answer channel for this conversation (WS handler sends here)
     let answer_rx = state.create_answer_channel(&conv_id);
@@ -73,19 +75,12 @@ fn session_worker(
             return;
         }
     };
-    eprintln!(
-        "[runtime] claude spawned pid={:?} conv_id={}",
-        child.id(),
-        conv_id
-    );
+    info!(pid = ?child.id(), resume = ?session_id, "agent_spawn");
 
     // Read the system event to capture/update session_id
     let mut reader = BufReader::new(child.stdout.take().expect("no stdout"));
     if read_system_event(&mut reader, &state, &conv_id, &mut session_id) {
-        eprintln!(
-            "[runtime] stale claude session_id detected, starting fresh conv_id={}",
-            conv_id
-        );
+        warn!("agent_stale_session_detected");
         clear_session_id(&state, &conv_id);
         session_id = None;
         let _ = child.kill();
@@ -109,17 +104,16 @@ fn session_worker(
             Ok(t) => t,
             Err(_) => {
                 // Channel closed — serve is shutting down
-                eprintln!(
-                    "[runtime] channel closed, killing claude conv_id={}",
-                    conv_id
-                );
+                info!("session_channel_closed_shutting_down");
                 let _ = child.kill();
                 return;
             }
         };
-        eprintln!(
-            "[runtime] processing message conv_id={} text={:?}",
-            conv_id, user_text
+        let text_preview = logging::truncate(&user_text, 200);
+        info!(
+            user_text_len = user_text.chars().count(),
+            user_text_preview = %text_preview,
+            "turn_start"
         );
 
         // Try to process the turn; on failure, respawn and retry (up to 3x)
@@ -135,23 +129,22 @@ fn session_worker(
             ) {
                 Ok(()) => {
                     ok = true;
+                    info!(attempt, "turn_end");
                     break;
                 }
                 Err(e) => {
-                    eprintln!(
-                        "[runtime] turn error (attempt {}): {} conv_id={}",
-                        attempt, e, conv_id
-                    );
+                    warn!(attempt, error = %e, "turn_error");
                     // Kill the dead process and respawn
                     let _ = child.kill();
                     let _ = child.wait();
                     match spawn_claude(&project_path, session_id.as_deref()) {
                         Some((c, s)) => {
+                            warn!(attempt, reason = "turn_error", "agent_respawn");
                             child = c;
                             stdin = s;
                             reader = BufReader::new(child.stdout.take().expect("no stdout"));
                             if read_system_event(&mut reader, &state, &conv_id, &mut session_id) {
-                                eprintln!("[runtime] stale claude session_id detected on respawn, retrying fresh conv_id={}", conv_id);
+                                warn!("agent_stale_session_on_respawn");
                                 clear_session_id(&state, &conv_id);
                                 session_id = None;
                                 let _ = child.kill();
@@ -173,7 +166,7 @@ fn session_worker(
                             }
                         }
                         None => {
-                            eprintln!("[runtime] respawn failed conv_id={}", conv_id);
+                            error!(attempt, "agent_respawn_failed");
                             break;
                         }
                     }
@@ -182,6 +175,7 @@ fn session_worker(
         }
 
         if !ok {
+            error!("turn_failed_after_retries");
             mark_failed(&state, &conv_id);
         }
     }
@@ -215,7 +209,7 @@ fn spawn_claude(project_path: &str, session_id: Option<&str>) -> Option<(Child, 
         .stdout(Stdio::piped())
         .stderr(Stdio::inherit())
         .spawn()
-        .map_err(|e| eprintln!("[runtime] spawn failed: {}", e))
+        .map_err(|e| error!(error = %e, "agent_spawn_failed"))
         .ok()?;
 
     let stdin = child.stdin.take()?;
@@ -223,7 +217,7 @@ fn spawn_claude(project_path: &str, session_id: Option<&str>) -> Option<(Child, 
 }
 
 /// Write a user message JSON line to claude's stdin.
-fn write_user_message(stdin: &mut ChildStdin, user_text: &str) -> Result<(), String> {
+pub(super) fn write_user_message(stdin: &mut ChildStdin, user_text: &str) -> Result<(), String> {
     let msg = serde_json::json!({
         "type": "user",
         "message": { "role": "user", "content": [{ "type": "text", "text": user_text }] }
@@ -280,7 +274,7 @@ fn read_system_event(
         if trimmed.is_empty() {
             continue;
         }
-        eprintln!("[runtime] system read: {}", trimmed);
+        debug!(line = %trimmed, "agent_system_line");
         if let Ok(raw) = serde_json::from_str::<Value>(trimmed) {
             if is_stale_session_error(&raw) {
                 return true;
@@ -289,7 +283,7 @@ fn read_system_event(
                 if let Some(sid) = raw["session_id"].as_str().filter(|s| !s.is_empty()) {
                     *session_id = Some(sid.to_string());
                     save_session_id(state, conv_id, sid);
-                    eprintln!("[runtime] captured session_id={}", sid);
+                    debug!(session_id = %sid, "agent_session_captured");
                 }
                 return false; // system event consumed
             }
@@ -313,259 +307,6 @@ fn is_stale_session_error(raw: &Value) -> bool {
                 })
             })
             .unwrap_or(false)
-}
-
-/// Write user message and read stdout until the `result` event.
-/// Returns Ok(()) on success, Err if the process pipe breaks.
-///
-/// When Claude calls `AskUserQuestion`, this function:
-///   1. Emits an `ask_question` WS message (via handle_assistant_event)
-///   2. Blocks on `answer_rx.recv()` until the mobile user responds
-///   3. Writes the `tool_result` back to Claude's stdin
-///   4. Resumes reading stdout
-fn process_turn(
-    stdin: &mut ChildStdin,
-    reader: &mut BufReader<std::process::ChildStdout>,
-    state: &AppState,
-    conv_id: &str,
-    user_text: &str,
-    answer_rx: &std::sync::mpsc::Receiver<AnswerPayload>,
-) -> Result<(), String> {
-    // Update conversation status → running
-    {
-        let db = state.db.lock().unwrap();
-        let _ = db.execute(
-            "UPDATE conversations SET status = 'running' WHERE id = ?1",
-            [conv_id],
-        );
-    }
-
-    write_user_message(stdin, user_text)?;
-    eprintln!("[runtime] wrote user message, reading stdout...");
-
-    let mut line = String::new();
-    loop {
-        line.clear();
-        match reader.read_line(&mut line) {
-            Ok(0) => return Err("stdout EOF (claude exited)".into()),
-            Err(e) => return Err(format!("read error: {}", e)),
-            Ok(_) => {}
-        }
-        let trimmed = line.trim();
-        if trimmed.is_empty() {
-            continue;
-        }
-        eprintln!("[runtime] stdout: {}", trimmed);
-
-        let raw: Value = match serde_json::from_str(trimmed) {
-            Ok(v) => v,
-            Err(_) => continue,
-        };
-
-        match raw["type"].as_str().unwrap_or("") {
-            "system" => {
-                // session_id can appear again on reconnect; ignore here (already captured)
-            }
-            "control_request" => {
-                // Claude Code requests permission to use a tool.
-                // For AskUserQuestion: intercept here, broadcast ask_question to mobile,
-                // wait for the user's answer, then embed answers in updatedInput —
-                // matching the cc-connect reference implementation.
-                let request_id = raw["request_id"].as_str().unwrap_or("").to_string();
-                let tool_name = raw["request"]["tool_name"]
-                    .as_str()
-                    .unwrap_or("unknown")
-                    .to_string();
-                let orig_input = raw["request"]
-                    .get("input")
-                    .cloned()
-                    .unwrap_or_else(|| serde_json::json!({}));
-
-                let updated_input = if interactive::is_interactive(&tool_name) {
-                    let has_questions = orig_input["questions"]
-                        .as_array()
-                        .is_some_and(|a| !a.is_empty());
-
-                    if has_questions {
-                        // Broadcast ask_question to mobile and wait for answer
-                        if let Some(payload) =
-                            interactive::build_ask_payload(&tool_name, &request_id, &orig_input)
-                        {
-                            eprintln!(
-                                "[runtime] ask_question (via control_request) payload={}",
-                                payload
-                            );
-                            let db = state.db.lock().unwrap();
-                            if let Ok(seq) = insert_message(&db, conv_id, "ask_question", &payload)
-                            {
-                                drop(db);
-                                broadcast(state, conv_id, seq, "ask_question", payload);
-                            }
-                        }
-                        eprintln!("[runtime] waiting for user answer ask_id={}", request_id);
-                        let answer = answer_rx.recv().map_err(|_| {
-                            "answer channel closed while waiting for AskUserQuestion".to_string()
-                        })?;
-                        eprintln!(
-                            "[runtime] got answer ask_id={} choice_id={:?}",
-                            request_id, answer.choice_id
-                        );
-                        interactive::build_updated_input(&tool_name, &orig_input, &answer)
-                            .unwrap_or(orig_input)
-                    } else {
-                        eprintln!("[runtime] AskUserQuestion control_request — questions not yet complete, auto-approving");
-                        orig_input
-                    }
-                } else {
-                    orig_input
-                };
-
-                eprintln!(
-                    "[runtime] control_request request_id={} tool={} — responding allow",
-                    request_id, tool_name
-                );
-                let response = serde_json::json!({
-                    "type": "control_response",
-                    "response": {
-                        "subtype":    "success",
-                        "request_id": request_id,
-                        "response": {
-                            "behavior":     "allow",
-                            "updatedInput": updated_input,
-                        }
-                    }
-                });
-                let resp_line = format!(
-                    "{}
-",
-                    response
-                );
-                stdin
-                    .write_all(resp_line.as_bytes())
-                    .map_err(|e| format!("control_response write: {}", e))?;
-                stdin
-                    .flush()
-                    .map_err(|e| format!("control_response flush: {}", e))?;
-                eprintln!("[runtime] control_response sent (behavior=allow)");
-            }
-            "assistant" => {
-                // AskUserQuestion is handled at control_request time (not here).
-                // handle_assistant_event skips AskUserQuestion tool_use items.
-                handle_assistant_event(&raw, state, conv_id);
-            }
-            "user" => {
-                handle_user_event(&raw, state, conv_id);
-            }
-            "result" => {
-                handle_result_event(&raw, state, conv_id);
-                return Ok(()); // turn complete — loop back to rx.recv()
-            }
-            _ => {}
-        }
-    }
-}
-
-/// Processes an assistant event, broadcasting messages to mobile.
-///
-/// AskUserQuestion tool_use items are skipped here — they are handled at
-/// `control_request` time (before the assistant event) per the cc-connect
-/// reference implementation.
-fn handle_assistant_event(raw: &Value, state: &AppState, conv_id: &str) {
-    let content = match raw["message"]["content"].as_array() {
-        Some(c) => c.clone(),
-        None => return,
-    };
-
-    for item in &content {
-        match item["type"].as_str().unwrap_or("") {
-            "text" => {
-                let text = item["text"].as_str().unwrap_or("");
-                if text.is_empty() {
-                    continue;
-                }
-                let payload = serde_json::json!({ "text": text });
-                let db = state.db.lock().unwrap();
-                if let Ok(seq) = insert_message(&db, conv_id, "agent_text", &payload) {
-                    drop(db);
-                    broadcast(state, conv_id, seq, "agent_text", payload);
-                }
-            }
-            "tool_use" => {
-                let tool_name = item["name"].as_str().unwrap_or("unknown").to_string();
-                let call_id = item["id"].as_str().unwrap_or("").to_string();
-                let args = item["input"].clone();
-
-                if interactive::is_interactive(&tool_name) {
-                    // AskUserQuestion is handled at control_request time — skip here.
-                    eprintln!(
-                        "[runtime] skipping AskUserQuestion tool_use in assistant event call_id={}",
-                        call_id
-                    );
-                } else {
-                    let args_str = serde_json::to_string(&args).unwrap_or_default();
-                    let payload = serde_json::json!({ "tool": tool_name, "args": args_str, "call_id": call_id });
-                    let db = state.db.lock().unwrap();
-                    if let Ok(seq) = insert_message(&db, conv_id, "tool_call", &payload) {
-                        drop(db);
-                        broadcast(state, conv_id, seq, "tool_call", payload);
-                    }
-                }
-            }
-            _ => {}
-        }
-    }
-}
-
-fn handle_user_event(raw: &Value, state: &AppState, conv_id: &str) {
-    let content = match raw["message"]["content"].as_array() {
-        Some(c) => c,
-        None => return,
-    };
-    for item in content {
-        if item["type"].as_str() != Some("tool_result") {
-            continue;
-        }
-        let call_id = item["tool_use_id"].as_str().unwrap_or("").to_string();
-        let is_error = item["is_error"].as_bool().unwrap_or(false);
-        let raw_content = item["content"].as_str().unwrap_or("").to_string();
-        let summary = raw_content;
-        let payload =
-            serde_json::json!({ "call_id": call_id, "ok": !is_error, "summary": summary });
-        let db = state.db.lock().unwrap();
-        if let Ok(seq) = insert_message(&db, conv_id, "tool_result", &payload) {
-            drop(db);
-            broadcast(state, conv_id, seq, "tool_result", payload);
-        }
-    }
-}
-
-fn handle_result_event(raw: &Value, state: &AppState, conv_id: &str) {
-    let status = if raw["is_error"].as_bool().unwrap_or(false) {
-        "failed"
-    } else {
-        "completed"
-    };
-    let raw_result = raw["result"].as_str().unwrap_or("").to_string();
-    let summary = raw_result;
-    eprintln!("[runtime] result status={} conv_id={}", status, conv_id);
-
-    {
-        let db = state.db.lock().unwrap();
-        let _ = db.execute(
-            "UPDATE conversations SET status = ?1 WHERE id = ?2",
-            rusqlite::params![status, conv_id],
-        );
-    }
-
-    let payload = serde_json::json!({
-        "task_id": conv_id, "status": status, "importance": "normal", "summary": summary
-    });
-    let db = state.db.lock().unwrap();
-    if let Ok(seq) = insert_message(&db, conv_id, "task_status", &payload) {
-        push::send_task_status_push(&db, conv_id, status, &summary);
-        drop(db);
-        broadcast(state, conv_id, seq, "task_status", payload);
-    }
 }
 
 // ─── DB helpers ───────────────────────────────────────────────────────────────
@@ -613,7 +354,7 @@ fn mark_failed(state: &AppState, conv_id: &str) {
     }
 }
 
-fn insert_message(
+pub(super) fn insert_message(
     db: &rusqlite::Connection,
     conv_id: &str,
     role: &str,
@@ -648,7 +389,7 @@ struct WsEnvelope {
     created_at: i64,
 }
 
-fn broadcast(state: &AppState, conv_id: &str, seq: i64, role: &'static str, payload: Value) {
+pub(super) fn broadcast(state: &AppState, conv_id: &str, seq: i64, role: &'static str, payload: Value) {
     let env = WsEnvelope {
         kind: "message",
         seq,
@@ -659,10 +400,7 @@ fn broadcast(state: &AppState, conv_id: &str, seq: i64, role: &'static str, payl
     if let Ok(json) = serde_json::to_string(&env) {
         let tx = state.get_or_create_sender(conv_id);
         let n = tx.send(json).unwrap_or(0);
-        eprintln!(
-            "[runtime] broadcast role={} seq={} receivers={}",
-            role, seq, n
-        );
+        debug!(role, seq, receivers = n, "broadcast");
     }
 }
 

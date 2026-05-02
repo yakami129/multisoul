@@ -3,6 +3,7 @@ use rusqlite::Connection;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use tokio::sync::broadcast;
+use tracing::warn;
 
 pub type ConvBus = Arc<Mutex<HashMap<String, broadcast::Sender<String>>>>;
 pub type SessionMap = Arc<Mutex<HashMap<String, std::sync::mpsc::Sender<String>>>>;
@@ -53,22 +54,21 @@ impl AppState {
         let txs = self.answer_txs.lock().unwrap();
         match txs.get(conv_id) {
             None => {
-                eprintln!(
-                    "[state] send_answer: no channel registered for conv_id={}",
-                    conv_id
-                );
-                eprintln!(
-                    "[state] registered conv_ids: {:?}",
-                    txs.keys().collect::<Vec<_>>()
+                let registered: Vec<String> = txs.keys().cloned().collect();
+                warn!(
+                    conv_id = %conv_id,
+                    registered = ?registered,
+                    "answer_no_channel"
                 );
                 false
             }
             Some(tx) => match tx.try_send(answer) {
                 Ok(()) => true,
                 Err(e) => {
-                    eprintln!(
-                        "[state] send_answer: try_send failed conv_id={} reason={:?}",
-                        conv_id, e
+                    warn!(
+                        conv_id = %conv_id,
+                        reason = ?e,
+                        "answer_send_failed"
                     );
                     false
                 }

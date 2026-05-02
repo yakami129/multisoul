@@ -10,12 +10,19 @@
 //! the next message arrives the process is already waiting for stdin.
 
 use serde_json::Value;
-use std::io::{BufRead, BufReader, Write};
 use std::process::{Child, ChildStdin, Command, Stdio};
+use tracing::{debug, error, info, info_span, warn};
 use uuid::Uuid;
 
 use crate::db::now_ms;
-use crate::serve::{push, state::AppState};
+use crate::logging;
+use crate::serve::state::AppState;
+
+#[path = "codex_turn.rs"]
+mod codex_turn;
+
+use codex_turn::{complete_turn, process_turn};
+
 
 // ─── public API ───────────────────────────────────────────────────────────────
 
@@ -30,16 +37,10 @@ pub fn send_to_session(
     let mut sessions = state.sessions.lock().unwrap();
     if let Some(tx) = sessions.get(conv_id) {
         if tx.send(user_text.to_string()).is_ok() {
-            eprintln!(
-                "[codex] queued message for existing session conv_id={}",
-                conv_id
-            );
+            debug!(conv_id = %conv_id, "runtime_message_queued");
             return;
         }
-        eprintln!(
-            "[codex] session channel broken, respawning conv_id={}",
-            conv_id
-        );
+        warn!(conv_id = %conv_id, "runtime_channel_broken_respawning");
     }
 
     let (tx, rx) = std::sync::mpsc::channel::<String>();
@@ -67,7 +68,9 @@ fn session_worker(
     mode: String,
     rx: std::sync::mpsc::Receiver<String>,
 ) {
-    eprintln!("[codex] session_worker started conv_id={}", conv_id);
+    let span = info_span!("session_worker", conv_id = %conv_id, runtime = "codex", mode = %mode);
+    let _enter = span.enter();
+    info!("session_worker_started");
 
     let mut thread_id: Option<String> = load_thread_id(&state, &conv_id);
 
@@ -79,7 +82,7 @@ fn session_worker(
         let user_text = match rx.recv() {
             Ok(t) => t,
             Err(_) => {
-                eprintln!("[codex] channel closed conv_id={}", conv_id);
+                info!("session_channel_closed_shutting_down");
                 // Kill the pre-warmed process if nobody sent a follow-up message.
                 if let Some((mut c, _s)) = pre_spawned.take() {
                     let _ = c.kill();
@@ -88,7 +91,12 @@ fn session_worker(
                 return;
             }
         };
-        eprintln!("[codex] processing message conv_id={}", conv_id);
+        let preview = logging::truncate(&user_text, 200);
+        info!(
+            user_text_len = user_text.chars().count(),
+            user_text_preview = %preview,
+            "turn_start"
+        );
 
         let mut ok = false;
         for attempt in 1..=3 {
@@ -96,24 +104,18 @@ fn session_worker(
             // Retries always spawn fresh.
             let process = if attempt == 1 {
                 pre_spawned.take().or_else(|| {
-                    eprintln!("[codex] no pre-warm, spawning fresh conv_id={}", conv_id);
+                    debug!("codex_no_pre_warm_spawning_fresh");
                     spawn_codex(&project_path, thread_id.as_deref(), &mode)
                 })
             } else {
-                eprintln!(
-                    "[codex] retry spawn attempt={} conv_id={}",
-                    attempt, conv_id
-                );
+                warn!(attempt, "codex_retry_spawn");
                 spawn_codex(&project_path, thread_id.as_deref(), &mode)
             };
 
             let (child, stdin) = match process {
                 Some(p) => p,
                 None => {
-                    eprintln!(
-                        "[codex] spawn failed attempt={} conv_id={}",
-                        attempt, conv_id
-                    );
+                    error!(attempt, "agent_spawn_failed");
                     continue;
                 }
             };
@@ -121,13 +123,11 @@ fn session_worker(
             match process_turn(&state, &conv_id, &user_text, child, stdin, &mut thread_id) {
                 Ok(()) => {
                     ok = true;
+                    info!(attempt, "turn_end");
                     break;
                 }
                 Err(e) => {
-                    eprintln!(
-                        "[codex] turn error attempt={} error={} conv_id={}",
-                        attempt, e, conv_id
-                    );
+                    warn!(attempt, error = %e, "turn_error");
                 }
             }
         }
@@ -140,20 +140,15 @@ fn session_worker(
                 match spawn_codex(&project_path, Some(tid), &mode) {
                     Some(p) => {
                         pre_spawned = Some(p);
-                        eprintln!(
-                            "[codex] pre-warmed next resume process tid={} conv_id={}",
-                            tid, conv_id
-                        );
+                        debug!(thread_id = %tid, "codex_pre_warm_ok");
                     }
                     None => {
-                        eprintln!(
-                            "[codex] pre-warm spawn failed, will spawn on demand conv_id={}",
-                            conv_id
-                        );
+                        warn!("codex_pre_warm_spawn_failed");
                     }
                 }
             }
         } else {
+            error!("turn_failed_after_retries");
             mark_failed(&state, &conv_id);
         }
     }
@@ -196,7 +191,7 @@ fn spawn_codex(
         a
     };
 
-    eprintln!("[codex] spawn args: {:?}", args);
+    debug!(args = ?args, "codex_spawn_args");
 
     let mut child = Command::new("codex")
         .args(&args)
@@ -205,201 +200,13 @@ fn spawn_codex(
         .stdout(Stdio::piped())
         .stderr(Stdio::inherit())
         .spawn()
-        .map_err(|e| eprintln!("[codex] spawn failed: {}", e))
+        .map_err(|e| error!(error = %e, "agent_spawn_failed"))
         .ok()?;
 
     let stdin = child.stdin.take()?;
     Some((child, stdin))
 }
 
-// ─── turn processing ─────────────────────────────────────────────────────────
-
-/// Process one turn using the already-spawned `child` and `stdin`.
-/// Writes the prompt, closes stdin (→ EOF so codex starts), then reads
-/// stdout until `turn.completed` or `turn.failed`.
-fn process_turn(
-    state: &AppState,
-    conv_id: &str,
-    user_text: &str,
-    mut child: Child,
-    stdin: ChildStdin,
-    thread_id: &mut Option<String>,
-) -> Result<(), String> {
-    eprintln!(
-        "[codex] process_turn pid={:?} conv_id={}",
-        child.id(),
-        conv_id
-    );
-
-    // Write prompt then drop stdin → EOF → codex starts processing
-    {
-        let mut stdin = stdin;
-        let line = format!("{}\n", user_text);
-        stdin
-            .write_all(line.as_bytes())
-            .map_err(|e| format!("stdin write: {}", e))?;
-        stdin.flush().map_err(|e| format!("stdin flush: {}", e))?;
-        // stdin dropped here → EOF sent to codex
-    }
-    eprintln!("[codex] wrote prompt (stdin closed), reading stdout...");
-
-    {
-        let db = state.db.lock().unwrap();
-        let _ = db.execute(
-            "UPDATE conversations SET status = 'running' WHERE id = ?1",
-            [conv_id],
-        );
-    }
-
-    let mut reader = BufReader::new(child.stdout.take().expect("no stdout"));
-
-    let mut line = String::new();
-    loop {
-        line.clear();
-        match reader.read_line(&mut line) {
-            Ok(0) => return Err("stdout EOF (codex exited)".into()),
-            Err(e) => return Err(format!("read error: {}", e)),
-            Ok(_) => {}
-        }
-        let trimmed = line.trim();
-        if trimmed.is_empty() {
-            continue;
-        }
-        eprintln!("[codex] stdout: {}", trimmed);
-
-        let raw: Value = match serde_json::from_str(trimmed) {
-            Ok(v) => v,
-            Err(_) => continue,
-        };
-
-        match raw["type"].as_str().unwrap_or("") {
-            "thread.started" => {
-                if let Some(tid) = raw["thread_id"].as_str() {
-                    *thread_id = Some(tid.to_string());
-                    save_thread_id(state, conv_id, tid);
-                    eprintln!("[codex] thread_id={}", tid);
-                }
-            }
-            "item.completed" => {
-                handle_item_completed(&raw, state, conv_id);
-            }
-            "turn.completed" => {
-                // Reap the child without risking a stdout-pipe deadlock:
-                // we've stopped reading stdout, so any further writes by
-                // codex could block it. kill is harmless after turn.completed.
-                let _ = child.kill();
-                let _ = child.wait();
-                complete_turn(state, conv_id, "completed");
-                return Ok(());
-            }
-            "turn.failed" => {
-                let msg = raw["error"]["message"]
-                    .as_str()
-                    .unwrap_or("turn failed")
-                    .to_string();
-                let _ = child.kill();
-                let _ = child.wait();
-                complete_turn(state, conv_id, "failed");
-                return Err(msg);
-            }
-            _ => {}
-        }
-    }
-}
-
-// ─── event handlers ──────────────────────────────────────────────────────────
-
-fn handle_item_completed(raw: &Value, state: &AppState, conv_id: &str) {
-    let item = match raw["item"].as_object() {
-        Some(i) => i,
-        None => return,
-    };
-    let item_type = item.get("type").and_then(|v| v.as_str()).unwrap_or("");
-
-    match item_type {
-        "agent_message" | "message" => {
-            let text = extract_text_from_array(item, "content", "output_text");
-            if !text.is_empty() {
-                let payload = serde_json::json!({ "text": text });
-                let db = state.db.lock().unwrap();
-                if let Ok(seq) = insert_message(&db, conv_id, "agent_text", &payload) {
-                    drop(db);
-                    broadcast(state, conv_id, seq, "agent_text", payload);
-                }
-            }
-        }
-        "reasoning" => {
-            let text = extract_text_from_array(item, "summary", "summary_text");
-            if !text.is_empty() {
-                let payload = serde_json::json!({ "text": text });
-                let db = state.db.lock().unwrap();
-                if let Ok(seq) = insert_message(&db, conv_id, "agent_text", &payload) {
-                    drop(db);
-                    broadcast(state, conv_id, seq, "agent_text", payload);
-                }
-            }
-        }
-        "command_execution" => {
-            let command = item
-                .get("command")
-                .and_then(|v| v.as_str())
-                .unwrap_or("")
-                .to_string();
-            let output = item
-                .get("aggregated_output")
-                .and_then(|v| v.as_str())
-                .unwrap_or("")
-                .trim()
-                .to_string();
-            let exit_code = item.get("exit_code").and_then(|v| v.as_i64()).unwrap_or(0);
-            let ok = exit_code == 0;
-            let call_id = Uuid::new_v4().to_string();
-
-            let tool_payload =
-                serde_json::json!({ "tool": "Bash", "args": command, "call_id": call_id });
-            {
-                let db = state.db.lock().unwrap();
-                if let Ok(seq) = insert_message(&db, conv_id, "tool_call", &tool_payload) {
-                    drop(db);
-                    broadcast(state, conv_id, seq, "tool_call", tool_payload);
-                }
-            }
-
-            let result_payload =
-                serde_json::json!({ "call_id": call_id, "ok": ok, "summary": output });
-            let db = state.db.lock().unwrap();
-            if let Ok(seq) = insert_message(&db, conv_id, "tool_result", &result_payload) {
-                drop(db);
-                broadcast(state, conv_id, seq, "tool_result", result_payload);
-            }
-        }
-        _ => {
-            eprintln!("[codex] unhandled item type: {}", item_type);
-        }
-    }
-}
-
-fn complete_turn(state: &AppState, conv_id: &str, status: &str) {
-    {
-        let db = state.db.lock().unwrap();
-        let _ = db.execute(
-            "UPDATE conversations SET status = ?1 WHERE id = ?2",
-            rusqlite::params![status, conv_id],
-        );
-    }
-    let payload = serde_json::json!({
-        "task_id": conv_id,
-        "status": status,
-        "importance": "normal",
-        "summary": ""
-    });
-    let db = state.db.lock().unwrap();
-    if let Ok(seq) = insert_message(&db, conv_id, "task_status", &payload) {
-        push::send_task_status_push(&db, conv_id, status, "");
-        drop(db);
-        broadcast(state, conv_id, seq, "task_status", payload);
-    }
-}
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
@@ -467,7 +274,7 @@ fn mark_failed(state: &AppState, conv_id: &str) {
     complete_turn(state, conv_id, "failed");
 }
 
-fn insert_message(
+pub(super) fn insert_message(
     db: &rusqlite::Connection,
     conv_id: &str,
     role: &str,
@@ -502,7 +309,7 @@ struct WsEnvelope {
     created_at: i64,
 }
 
-fn broadcast(state: &AppState, conv_id: &str, seq: i64, role: &'static str, payload: Value) {
+pub(super) fn broadcast(state: &AppState, conv_id: &str, seq: i64, role: &'static str, payload: Value) {
     let env = WsEnvelope {
         kind: "message",
         seq,
@@ -513,10 +320,7 @@ fn broadcast(state: &AppState, conv_id: &str, seq: i64, role: &'static str, payl
     if let Ok(json) = serde_json::to_string(&env) {
         let tx = state.get_or_create_sender(conv_id);
         let n = tx.send(json).unwrap_or(0);
-        eprintln!(
-            "[codex] broadcast role={} seq={} receivers={}",
-            role, seq, n
-        );
+        debug!(role, seq, receivers = n, "broadcast");
     }
 }
 

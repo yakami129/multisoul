@@ -7,6 +7,7 @@ use axum::{
 };
 use futures_util::{SinkExt, StreamExt};
 use std::collections::HashMap;
+use tracing::{info, info_span, warn, Instrument};
 
 pub async fn ws_handler(
     ws: WebSocketUpgrade,
@@ -17,32 +18,39 @@ pub async fn ws_handler(
 }
 
 async fn handle_socket(socket: WebSocket, state: AppState, conv_id: String) {
-    let (mut sender, mut receiver) = socket.split();
-    let tx = state.get_or_create_sender(&conv_id);
-    let mut rx = tx.subscribe();
+    let span = info_span!("ws_connection", conv_id = %conv_id);
+    async move {
+        info!("ws_connect");
+        let (mut sender, mut receiver) = socket.split();
+        let tx = state.get_or_create_sender(&conv_id);
+        let mut rx = tx.subscribe();
 
-    let mut send_task = tokio::spawn(async move {
-        while let Ok(msg) = rx.recv().await {
-            if sender.send(Message::Text(msg)).await.is_err() {
-                break;
+        let mut send_task = tokio::spawn(async move {
+            while let Ok(msg) = rx.recv().await {
+                if sender.send(Message::Text(msg)).await.is_err() {
+                    break;
+                }
             }
-        }
-    });
+        });
 
-    let state2 = state.clone();
-    let conv_id2 = conv_id.clone();
-    let mut recv_task = tokio::spawn(async move {
-        while let Some(Ok(msg)) = receiver.next().await {
-            if let Message::Text(text) = msg {
-                handle_client_message(&state2, &conv_id2, &text).await;
+        let state2 = state.clone();
+        let conv_id2 = conv_id.clone();
+        let mut recv_task = tokio::spawn(async move {
+            while let Some(Ok(msg)) = receiver.next().await {
+                if let Message::Text(text) = msg {
+                    handle_client_message(&state2, &conv_id2, &text).await;
+                }
             }
-        }
-    });
+        });
 
-    tokio::select! {
-        _ = &mut send_task => recv_task.abort(),
-        _ = &mut recv_task => send_task.abort(),
+        tokio::select! {
+            _ = &mut send_task => recv_task.abort(),
+            _ = &mut recv_task => send_task.abort(),
+        }
+        info!("ws_disconnect");
     }
+    .instrument(span)
+    .await
 }
 
 async fn handle_client_message(state: &AppState, conv_id: &str, text: &str) {
@@ -84,7 +92,11 @@ async fn handle_client_message(state: &AppState, conv_id: &str, text: &str) {
                 freeform,
             };
             let sent = state.send_answer(conv_id, answer);
-            eprintln!("[ws] answer routed conv_id={} sent={}", conv_id, sent);
+            if sent {
+                info!(conv_id = %conv_id, "answer_routed");
+            } else {
+                warn!(conv_id = %conv_id, "answer_dropped_no_session");
+            }
         }
         _ => {}
     }

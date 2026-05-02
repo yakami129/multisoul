@@ -3,6 +3,7 @@ use clap::{Parser, Subcommand};
 mod commands;
 mod config;
 mod db;
+mod logging;
 mod serve;
 
 #[derive(Parser)]
@@ -10,6 +11,10 @@ mod serve;
 struct Cli {
     #[command(subcommand)]
     command: Commands,
+
+    /// Log level for `msctl serve` (trace/debug/info/warn/error). Ignored by other subcommands.
+    #[arg(long, global = true, default_value = logging::DEFAULT_LEVEL)]
+    log_level: String,
 }
 
 #[derive(Subcommand)]
@@ -31,6 +36,8 @@ enum Commands {
         #[command(subcommand)]
         subcommand: commands::daemon::DaemonCommands,
     },
+    /// Inspect the local serve log
+    Logs(commands::logs::LogsArgs),
 }
 
 fn main() -> anyhow::Result<()> {
@@ -39,8 +46,15 @@ fn main() -> anyhow::Result<()> {
         Commands::Auth { subcommand } => commands::auth::handle(subcommand),
         Commands::Agent { subcommand } => commands::agent::handle(subcommand),
         Commands::Serve(args) => {
+            let log_dir = logging::default_log_dir()?;
+            // Hold the guard for the duration of main; dropping it flushes the appender.
+            let _guard = logging::init_subscriber(logging::Config {
+                log_dir,
+                level: cli.log_level,
+            })?;
             tokio::runtime::Runtime::new()?.block_on(commands::serve::handle(args))
         }
         Commands::Daemon { subcommand } => commands::daemon::handle(subcommand),
+        Commands::Logs(args) => commands::logs::handle(args),
     }
 }

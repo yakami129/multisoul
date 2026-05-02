@@ -1,6 +1,8 @@
 #![allow(dead_code)]
 
+use crate::logging;
 use serde::{Deserialize, Serialize};
+use tracing::{error, info, warn};
 
 const EXPO_PUSH_URL: &str = "https://exp.host/--/api/v2/push/send";
 
@@ -46,14 +48,14 @@ pub fn send_push_to_all(
         let mut stmt = match db.prepare("SELECT expo_push_token FROM push_tokens") {
             Ok(s) => s,
             Err(e) => {
-                eprintln!("[push] DB error: {}", e);
+                error!(error = %e, "push_db_error");
                 return;
             }
         };
         let x = match stmt.query_map([], |r| r.get(0)) {
             Ok(rows) => rows.filter_map(|r| r.ok()).collect(),
             Err(e) => {
-                eprintln!("[push] query error: {}", e);
+                error!(error = %e, "push_query_error");
                 vec![]
             }
         };
@@ -83,14 +85,14 @@ fn build_payloads_for_tokens(db: &rusqlite::Connection, push: &TaskStatusPush) -
         let mut stmt = match db.prepare("SELECT expo_push_token, endpoint_id FROM push_tokens") {
             Ok(s) => s,
             Err(e) => {
-                eprintln!("[push] DB error: {}", e);
+                error!(error = %e, "push_db_error");
                 return vec![];
             }
         };
         let x = match stmt.query_map([], |r| Ok((r.get(0)?, r.get(1)?))) {
             Ok(rows) => rows.filter_map(|r| r.ok()).collect(),
             Err(e) => {
-                eprintln!("[push] query error: {}", e);
+                error!(error = %e, "push_query_error");
                 vec![]
             }
         };
@@ -123,18 +125,28 @@ fn build_payloads_for_tokens(db: &rusqlite::Connection, push: &TaskStatusPush) -
 fn send_payloads(payloads: Vec<PushPayload>) {
     let client = reqwest::blocking::Client::new();
     for payload in payloads {
-        let token = payload.to.clone();
+        let token_hash = logging::token_hash(&payload.to);
         match client.post(EXPO_PUSH_URL).json(&payload).send() {
             Ok(resp) => {
                 if let Ok(er) = resp.json::<ExpoResponse>() {
                     for ticket in er.data {
                         if ticket.status != "ok" {
-                            eprintln!("[push] Expo error for {}: {:?}", token, ticket.message);
+                            warn!(
+                                token_hash = %token_hash,
+                                error_type = ticket.message.as_deref().unwrap_or(""),
+                                "push_failed"
+                            );
+                        } else {
+                            info!(token_hash = %token_hash, "push_send");
                         }
                     }
                 }
             }
-            Err(e) => eprintln!("[push] Failed to send to {}: {}", token, e),
+            Err(e) => warn!(
+                token_hash = %token_hash,
+                error = %e,
+                "push_failed"
+            ),
         }
     }
 }
@@ -245,7 +257,7 @@ pub fn send_task_status_push(db: &rusqlite::Connection, conv_id: &str, status: &
     match build_task_status_push(db, conv_id, status, summary) {
         Ok(Some(push)) => send_push_to_tokens_async(db, &push),
         Ok(None) => {}
-        Err(e) => eprintln!("[push] failed to build task status push: {}", e),
+        Err(e) => error!(conv_id = %conv_id, error = %e, "push_build_failed"),
     }
 }
 

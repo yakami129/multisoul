@@ -20,6 +20,7 @@ Monorepo 两大件：
 - **不可硬编码 token** —— 检测 `ms_v2_xxx` / `Bearer xxx`
 - **Mobile 颜色合规** —— 仅 [`mobile/docs/design.md`](mobile/docs/design.md) §2 白名单内的色
 - **本文 ≤ 120 行** —— 超长则拒绝 commit
+- **单文件 ≤ 500 行** —— `mobile/src|app`、`cli/src` 源码；超长需拆分封装（见 mechanized-constraints）
 - **mobile 禁 `console.log`** —— 仅允许 `console.warn` / `console.error`
 - **改包必跑 typecheck/cargo check**
 
@@ -51,6 +52,7 @@ Monorepo 两大件：
 | **API 路径、消息类型、env vars** | [`docs/references/`](docs/references/)（占位）+ [`README.md`](README.md) |
 | **代码规范、release checklist** | [`docs/quality/`](docs/quality/)（占位）+ [`CLAUDE.md`](CLAUDE.md) |
 | **iOS 发布、CLI 发布等 SOP** | [`docs/runbooks/cli-release.md`](docs/runbooks/cli-release.md) · [`mobile/docs/ios-publish.md`](mobile/docs/ios-publish.md) · [`docs/runbooks/README.md`](docs/runbooks/README.md) |
+| **`msctl serve` 跑挂了怎么查** | [`docs/runbooks/debugging.md`](docs/runbooks/debugging.md) — `msctl logs` 4 个故事 |
 | **UI 设计系统**（颜色、字号、间距） | [`mobile/docs/design.md`](mobile/docs/design.md) |
 | **RN UI 常见坑** | [`mobile/docs/rules/ui-pitfalls.md`](mobile/docs/rules/ui-pitfalls.md) |
 | **完整命令、env 表、UI checklist** | [`CLAUDE.md`](CLAUDE.md)（详细工程手册） |
