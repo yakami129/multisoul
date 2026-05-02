@@ -38,6 +38,10 @@ Monorepo 两大件：
 - DB schema 改动走 migration —— 不允许运行时 `CREATE TABLE`（本仓库中 SQLite 由 `cli/src/db.rs` 统一演进，纪律同上）
 - REST/WS 强制 Bearer auth —— 唯一例外 `GET /api/v1/healthz`
 - 决策用 `AskUserQuestion` 工具调用 —— 不在自由文本问选择题
+- **禁止直接 push main** —— 所有变更必须通过 PR；直接 push 会被 GitHub branch protection 拒绝
+- **PR 开启前必须验证** —— `cargo test` + `cargo build` + `pnpm typecheck` + `pnpm test --watchAll=false` 全部通过
+- **开 PR 需用户确认** —— Claude Code 自动 commit 到功能分支后，必须等用户确认才能执行 `gh pr create`
+- **CI 失败自动修复** —— 读取 `gh run view --log-failed` 日志，尝试修复 lint/type/fmt 错误后 re-push；逻辑错误上报用户
 
 ---
 
@@ -296,3 +300,24 @@ The mobile app uses a **Vault-Tec PIP-BOY terminal aesthetic** (Fallout CRT gree
 `msctl` 以 **`~/.config/msctl/config.toml`** 与本机 SQLite 为主；端口、token、Tailscale Funnel 等见 `msctl serve --help` 与 [`ARCHITECTURE.md`](ARCHITECTURE.md)。机器可读的 env / 契约占位见 [`docs/references/`](docs/references/) 与 [`README.md`](README.md)。
 
 ---
+
+## 13. PR 工作流（Claude Code 行为约束）
+
+### 开发时
+- 优先使用 `git worktree`（skill `superpowers:using-git-worktrees`）隔离开发
+- 分支命名：`feat/<desc>`, `fix/<desc>`, `chore/<desc>`
+
+### 完成功能后
+1. 在分支上运行 `cargo test` + `cargo build` + `cd mobile && pnpm typecheck` + `pnpm test -- --watchAll=false`
+2. 用 `commit` skill 提交代码
+3. **等用户确认**后，执行 `gh pr create`，PR body 包含 Summary / Test plan / Risk 三段
+4. 等待 CI 结果（`gh pr checks`）
+
+### CI 失败时
+1. `gh run view --log-failed` 读取日志
+2. 尝试修复 lint/type/fmt 错误并 re-push
+3. 复杂错误上报用户等待指示
+
+### 禁止
+- `git push origin main`（任何情况）
+- 在 main 分支上 commit
