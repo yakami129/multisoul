@@ -11,18 +11,19 @@ use std::process::Command;
 
 /// Run `msctl logs <args...>` with a synthetic log dir placed under XDG cache.
 ///
-/// We isolate by setting both `XDG_CACHE_HOME` (Linux) and `HOME` (for
-/// `dirs::cache_dir()` resolution on macOS) to a tempdir.
+/// We isolate by setting platform cache env vars to a tempdir.
 fn run_logs(args: &[&str], lines: &[&str]) -> (String, String, bool) {
     let tmp = tempfile::tempdir().expect("tempdir");
     let home = tmp.path();
     let log_dir_linux = home.join(".cache/msctl");
     let log_dir_mac = home.join("Library/Caches/msctl");
+    let log_dir_windows = home.join("AppData/Local/msctl");
     fs::create_dir_all(&log_dir_linux).unwrap();
     fs::create_dir_all(&log_dir_mac).unwrap();
+    fs::create_dir_all(&log_dir_windows).unwrap();
 
     let today = chrono::Utc::now().format("%Y-%m-%d").to_string();
-    for dir in [&log_dir_linux, &log_dir_mac] {
+    for dir in [&log_dir_linux, &log_dir_mac, &log_dir_windows] {
         let path = dir.join(format!("serve.log.{today}"));
         let mut f = File::create(&path).unwrap();
         for line in lines {
@@ -35,6 +36,7 @@ fn run_logs(args: &[&str], lines: &[&str]) -> (String, String, bool) {
         .args(args)
         .env("HOME", home)
         .env("XDG_CACHE_HOME", home.join(".cache"))
+        .env("LOCALAPPDATA", home.join("AppData/Local"))
         .output()
         .expect("run msctl logs");
     let stdout = String::from_utf8_lossy(&output.stdout).to_string();
