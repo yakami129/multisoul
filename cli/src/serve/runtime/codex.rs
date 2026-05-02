@@ -15,7 +15,7 @@ use std::process::{Child, ChildStdin, Command, Stdio};
 use uuid::Uuid;
 
 use crate::db::now_ms;
-use crate::serve::state::AppState;
+use crate::serve::{push, state::AppState};
 
 // ─── public API ───────────────────────────────────────────────────────────────
 
@@ -395,6 +395,7 @@ fn complete_turn(state: &AppState, conv_id: &str, status: &str) {
     });
     let db = state.db.lock().unwrap();
     if let Ok(seq) = insert_message(&db, conv_id, "task_status", &payload) {
+        push::send_task_status_push(&db, conv_id, status, "");
         drop(db);
         broadcast(state, conv_id, seq, "task_status", payload);
     }

@@ -63,6 +63,7 @@ fn init_schema(conn: &Connection) -> Result<()> {
             id              TEXT PRIMARY KEY,
             expo_push_token TEXT NOT NULL,
             device_label    TEXT NOT NULL,
+            endpoint_id     TEXT,
             registered_at   INTEGER NOT NULL
         );
     "#,
@@ -72,6 +73,7 @@ fn init_schema(conn: &Connection) -> Result<()> {
     let _ =
         conn.execute_batch("ALTER TABLE agents ADD COLUMN mode TEXT NOT NULL DEFAULT 'full-auto';");
     let _ = conn.execute_batch("ALTER TABLE conversations ADD COLUMN codex_thread_id TEXT;");
+    let _ = conn.execute_batch("ALTER TABLE push_tokens ADD COLUMN endpoint_id TEXT;");
     Ok(())
 }
 

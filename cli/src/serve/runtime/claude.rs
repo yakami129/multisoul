@@ -4,7 +4,7 @@
 
 use crate::db::now_ms;
 use crate::serve::interactive::{self, AnswerPayload};
-use crate::serve::state::AppState;
+use crate::serve::{push, state::AppState};
 use serde_json::Value;
 use std::io::{BufRead, BufReader, Write};
 use std::process::{Child, ChildStdin, Command, Stdio};
@@ -562,6 +562,7 @@ fn handle_result_event(raw: &Value, state: &AppState, conv_id: &str) {
     });
     let db = state.db.lock().unwrap();
     if let Ok(seq) = insert_message(&db, conv_id, "task_status", &payload) {
+        push::send_task_status_push(&db, conv_id, status, &summary);
         drop(db);
         broadcast(state, conv_id, seq, "task_status", payload);
     }
@@ -606,6 +607,7 @@ fn mark_failed(state: &AppState, conv_id: &str) {
     let payload = serde_json::json!({ "task_id": conv_id, "status": "failed", "importance": "normal", "summary": "" });
     let db2 = state.db.lock().unwrap();
     if let Ok(seq) = insert_message(&db2, conv_id, "task_status", &payload) {
+        push::send_task_status_push(&db2, conv_id, "failed", "");
         drop(db2);
         broadcast(state, conv_id, seq, "task_status", payload);
     }

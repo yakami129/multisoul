@@ -11,6 +11,7 @@ use uuid::Uuid;
 pub struct RegisterTokenBody {
     pub expo_push_token: String,
     pub device_label: String,
+    pub endpoint_id: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -18,6 +19,7 @@ pub struct PushTokenRow {
     pub id: String,
     pub expo_push_token: String,
     pub device_label: String,
+    pub endpoint_id: Option<String>,
     pub registered_at: i64,
 }
 
@@ -32,8 +34,16 @@ pub async fn register_token(
     let id = Uuid::new_v4().to_string();
     let now = now_ms();
     db.execute(
-        "INSERT INTO push_tokens (id, expo_push_token, device_label, registered_at) VALUES (?1,?2,?3,?4)",
-        rusqlite::params![id, body.expo_push_token, body.device_label, now],
+        "DELETE FROM push_tokens
+         WHERE expo_push_token = ?1
+           AND ((endpoint_id IS NULL AND ?2 IS NULL) OR endpoint_id = ?2)",
+        rusqlite::params![body.expo_push_token, body.endpoint_id],
+    )
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    db.execute(
+        "INSERT INTO push_tokens (id, expo_push_token, device_label, endpoint_id, registered_at)
+         VALUES (?1,?2,?3,?4,?5)",
+        rusqlite::params![id, body.expo_push_token, body.device_label, body.endpoint_id, now],
     ).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     Ok((
         StatusCode::CREATED,
@@ -41,6 +51,7 @@ pub async fn register_token(
             id,
             expo_push_token: body.expo_push_token,
             device_label: body.device_label,
+            endpoint_id: body.endpoint_id,
             registered_at: now,
         }),
     ))

@@ -2,6 +2,8 @@ pub mod auth;
 pub mod daemon;
 pub mod interactive;
 pub mod push;
+#[cfg(test)]
+mod push_tests;
 pub mod routes;
 pub mod runtime;
 pub mod state;

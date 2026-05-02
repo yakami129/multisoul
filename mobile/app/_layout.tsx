@@ -11,6 +11,7 @@ import { ErrorBoundary } from '../src/components/ErrorBoundary';
 import { SplashScreen } from '../src/components/SplashScreen';
 import { initDb } from '../src/db';
 import { buildNotificationInboxItem } from '../src/features/inbox/utils/buildNotificationInboxItem';
+import { registerPushTokenForEndpoints } from '../src/services/pushTokenService';
 import { useEndpointStore } from '../src/store/endpointStore';
 import { useInboxStore } from '../src/store/inboxStore';
 
@@ -34,6 +35,7 @@ Notifications.setNotificationHandler({
 export default function RootLayout() {
   const [splashDone, setSplashDone] = useState(false);
   const loadEndpoints = useEndpointStore((s) => s.load);
+  const endpoints = useEndpointStore((s) => s.endpoints);
   const loadInbox = useInboxStore((s) => s.load);
   const addInboxItem = useInboxStore((s) => s.addItem);
 
@@ -42,10 +44,14 @@ export default function RootLayout() {
       await initDb();
       await loadEndpoints();
       await loadInbox();
-      await registerPushToken();
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (endpoints.length === 0) return;
+    void registerPushTokenForEndpoints(endpoints);
+  }, [endpoints]);
 
   useEffect(() => {
     const sub = Notifications.addNotificationReceivedListener((notification) => {
@@ -108,25 +114,8 @@ export default function RootLayout() {
   );
 }
 
-async function registerPushToken(): Promise<void> {
-  try {
-    const { status } = await Notifications.requestPermissionsAsync();
-    if (status !== 'granted') return;
-    const token = (
-      await Notifications.getExpoPushTokenAsync({
-        projectId: 'multisoul-local-dev',
-      })
-    ).data;
-    const AsyncStorage = (await import('@react-native-async-storage/async-storage')).default;
-    await AsyncStorage.setItem('expo_push_token', token);
-  } catch (e) {
-    // Push token registration is optional — silently skip in dev/simulator
-    console.warn('[push] registerPushToken skipped:', e);
-  }
-}
-
 function getNotificationNavTarget(data: Record<string, string | undefined>): string | null {
-  if (data?.type !== 'task_completed') return null;
+  if (data?.type !== 'task_completed' && data?.type !== 'task_failed') return null;
   const { agentId, convId, endpointId } = data;
   if (!agentId || !convId || !endpointId) return null;
   return `/agent/${agentId}/chat?conv_id=${convId}&endpoint_id=${endpointId}`;
