@@ -1,7 +1,7 @@
 //! Codex turn: one prompt/stdout cycle and item handlers.
 
 use serde_json::Value;
-use std::io::{BufRead, BufReader, Write};
+use std::io::{BufRead, BufReader, Read, Write};
 use std::process::{Child, ChildStdin};
 use tracing::{debug, warn};
 use uuid::Uuid;
@@ -41,12 +41,21 @@ pub(super) fn process_turn(
     }
 
     let mut reader = BufReader::new(child.stdout.take().expect("no stdout"));
+    let mut stderr = child.stderr.take();
 
     let mut line = String::new();
     loop {
         line.clear();
         match reader.read_line(&mut line) {
-            Ok(0) => return Err("stdout EOF (codex exited)".into()),
+            Ok(0) => {
+                let _ = child.kill();
+                let _ = child.wait();
+                let stderr_tail = read_stderr_tail(&mut stderr);
+                if stderr_tail.is_empty() {
+                    return Err("stdout EOF (codex exited)".into());
+                }
+                return Err(format!("stdout EOF (codex exited): {}", stderr_tail));
+            }
             Err(e) => return Err(format!("read error: {}", e)),
             Ok(_) => {}
         }
@@ -93,6 +102,27 @@ pub(super) fn process_turn(
             }
             _ => {}
         }
+    }
+}
+
+fn read_stderr_tail(stderr: &mut Option<std::process::ChildStderr>) -> String {
+    let Some(stderr) = stderr.as_mut() else {
+        return String::new();
+    };
+    let mut buf = String::new();
+    let _ = stderr.read_to_string(&mut buf);
+    let trimmed = buf.trim();
+    if trimmed.chars().count() <= 500 {
+        trimmed.to_string()
+    } else {
+        trimmed
+            .chars()
+            .rev()
+            .take(500)
+            .collect::<String>()
+            .chars()
+            .rev()
+            .collect()
     }
 }
 

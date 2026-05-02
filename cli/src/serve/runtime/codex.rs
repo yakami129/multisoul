@@ -127,6 +127,11 @@ fn session_worker(
                     break;
                 }
                 Err(e) => {
+                    if is_stale_thread_error(&e) {
+                        warn!(attempt, thread_id = ?thread_id, "codex_stale_thread_detected");
+                        clear_thread_id(&state, &conv_id);
+                        thread_id = None;
+                    }
                     warn!(attempt, error = %e, "turn_error");
                 }
             }
@@ -198,7 +203,7 @@ fn spawn_codex(
         .current_dir(project_path)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
-        .stderr(Stdio::inherit())
+        .stderr(Stdio::piped())
         .spawn()
         .map_err(|e| error!(error = %e, "agent_spawn_failed"))
         .ok()?;
@@ -268,6 +273,18 @@ fn save_thread_id(state: &AppState, conv_id: &str, thread_id: &str) {
         "UPDATE conversations SET codex_thread_id = ?1 WHERE id = ?2",
         rusqlite::params![thread_id, conv_id],
     );
+}
+
+fn clear_thread_id(state: &AppState, conv_id: &str) {
+    let db = state.db.lock().unwrap();
+    let _ = db.execute(
+        "UPDATE conversations SET codex_thread_id = NULL WHERE id = ?1",
+        [conv_id],
+    );
+}
+
+fn is_stale_thread_error(error: &str) -> bool {
+    error.contains("thread ") && error.contains(" not found")
 }
 
 fn mark_failed(state: &AppState, conv_id: &str) {
@@ -414,5 +431,35 @@ mod tests {
             "suggest should add no flags"
         );
         assert!(mode_flags("").is_empty(), "empty mode should add no flags");
+    }
+
+    #[test]
+    fn clears_stale_codex_thread_id() {
+        let conn = rusqlite::Connection::open_in_memory().unwrap();
+        conn.execute_batch(
+            "CREATE TABLE conversations (
+                id TEXT PRIMARY KEY,
+                codex_thread_id TEXT
+            );",
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO conversations (id, codex_thread_id) VALUES ('conv-1', 'thread-old')",
+            [],
+        )
+        .unwrap();
+        let state = AppState::new(conn, "token".to_string());
+
+        clear_thread_id(&state, "conv-1");
+
+        let db = state.db.lock().unwrap();
+        let thread_id: Option<String> = db
+            .query_row(
+                "SELECT codex_thread_id FROM conversations WHERE id = 'conv-1'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(thread_id, None);
     }
 }

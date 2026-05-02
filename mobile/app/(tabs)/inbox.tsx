@@ -3,6 +3,7 @@ import React, { useCallback, useState } from 'react';
 import { SafeAreaView, StyleSheet } from 'react-native';
 import { sendConversationAnswer } from '@/features/chat/services/chatService';
 import InboxScreen from '@/features/inbox/components/InboxScreen';
+import { markAskAnswered } from '@/features/inbox/services/inboxService';
 import { useChatStore } from '@/store/chatStore';
 import { useEndpointStore } from '@/store/endpointStore';
 import { useInboxStore } from '@/store/inboxStore';
@@ -56,8 +57,9 @@ export default function InboxTab() {
         choice_id,
         freeform,
       });
-      void removeItem(item.id);
-      markAnswered(item.conversation_id, ask_id);
+      await markAskAnswered(ask_id, item.conversation_id, choice_id);
+      await removeItem(item.id);
+      markAnswered(item.conversation_id, ask_id, choice_id);
     } catch {
       /* ignore */
     }
@@ -75,8 +77,9 @@ export default function InboxTab() {
         ask_id,
         choice_ids,
       });
-      void removeItem(item.id);
-      markAnswered(item.conversation_id, ask_id);
+      await markAskAnswered(ask_id, item.conversation_id, undefined, choice_ids);
+      await removeItem(item.id);
+      markAnswered(item.conversation_id, ask_id, undefined, choice_ids);
     } catch {
       /* ignore */
     }
