@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository. **Facts and constraints below mirror [`AGENTS.md`](AGENTS.md)** where they overlap; this file adds commands, UI checklist, and architecture detail.
 
 ## Mandatory: Read AGENTS.md at Session Start
 
@@ -8,18 +8,90 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ---
 
-## Project Overview
+## 1. 项目概览（与 AGENTS.md 一致）
 
-MultiSoul is an Agent Registry Platform — a monorepo with three components:
+MultiSoul 是 **个人 AI Agent 随身控制台**。手机端遥控本地运行的 AI Agent（Claude Code / Codex），实时看工具调用、回应决策请求、收完成推送。**零中心后端**，数据 100% 留在用户本机。
 
-- **`mobile/`** — React Native + Expo (SDK 54), NativeWind, React Query, Zustand
-- **`cli/`** — Rust (`msctl`), clap 4.x, blocking reqwest
+Monorepo 两大件：
 
-Full product spec: `docs/product-specs/SPEC.md`. Agent navigation map: `AGENTS.md`. System architecture: `ARCHITECTURE.md`.
+- **`mobile/`** — React Native + Expo SDK 55，NativeWind，React Query，Zustand，expo-router，expo-sqlite
+- **`cli/`** — Rust，可执行文件名 `msctl`（axum 0.7，tokio 1，rusqlite 0.31 bundled，clap 4）
+
+产品规格：`docs/product-specs/SPEC.md`。系统架构：`ARCHITECTURE.md`。
 
 ---
 
-## Interaction & Output Constraints (Low-Input Scenarios)
+## 2. 关键约束（与 AGENTS.md 一致；违反前先看 §9 常用命令）
+
+机械化（pre-commit + CI 拦截，详见 [`docs/quality/mechanized-constraints.md`](docs/quality/mechanized-constraints.md)）：
+
+- **不可硬编码 token** —— 检测 `ms_v2_xxx` / `Bearer xxx`
+- **Mobile 颜色合规** —— 仅 [`mobile/docs/design.md`](mobile/docs/design.md) §2 白名单内的色
+- **AGENTS.md ≤ 120 行** —— 超长则拒绝 commit
+- **单文件 ≤ 500 行** —— `mobile/src|app`、`cli/src` 源码；超长需拆分封装（见 mechanized-constraints）
+- **mobile 禁 `console.log`** —— 仅允许 `console.warn` / `console.error`
+- **改包必跑 typecheck/cargo check**
+
+人类可读软约束：
+
+- 不要碰 `~/.config/msctl/*` —— 用户本地数据
+- DB schema 改动走 migration —— 不允许运行时 `CREATE TABLE`（本仓库中 SQLite 由 `cli/src/db.rs` 统一演进，纪律同上）
+- REST/WS 强制 Bearer auth —— 唯一例外 `GET /api/v1/healthz`
+- 决策用 `AskUserQuestion` 工具调用 —— 不在自由文本问选择题
+
+---
+
+## 3. 技术栈速览（与 AGENTS.md 一致）
+
+| 域 | 栈 |
+|----|----|
+| Mobile | React Native, Expo SDK 55, expo-router, Zustand, React Query, NativeWind, expo-sqlite |
+| CLI | Rust, axum 0.7, tokio 1, rusqlite 0.31 (bundled), clap 4 |
+| 协议 | REST (JSON) + WebSocket (stream-json), 全部 Bearer auth |
+| 推送 | Expo Push Service（CLI 直调 `exp.host`） |
+| 公网 | Tailscale Funnel |
+
+---
+
+## 4. 文档地图（与 AGENTS.md 一致）
+
+| 问题 | 去哪儿 |
+|------|--------|
+| **整体架构、协议、数据流** | [`ARCHITECTURE.md`](ARCHITECTURE.md) |
+| **要做什么、为什么做**（产品规格、验收） | [`docs/product-specs/`](docs/product-specs/) |
+| **某 feature 怎么设计的**（方案权衡） | [`docs/design-docs/`](docs/design-docs/) |
+| **历史执行计划、施工步骤** | [`docs/exec-plans/`](docs/exec-plans/) |
+| **API 路径、消息类型、env vars** | [`docs/references/`](docs/references/)（占位）+ [`README.md`](README.md) |
+| **代码规范、release checklist** | [`docs/quality/`](docs/quality/)（占位）+ 本文 |
+| **iOS 发布、CLI 发布等 SOP** | [`docs/runbooks/cli-release.md`](docs/runbooks/cli-release.md) · [`mobile/docs/ios-publish.md`](mobile/docs/ios-publish.md) · [`docs/runbooks/README.md`](docs/runbooks/README.md) |
+| **`msctl serve` 跑挂了怎么查** | [`docs/runbooks/debugging.md`](docs/runbooks/debugging.md) — `msctl logs` 4 个故事 |
+| **UI 设计系统**（颜色、字号、间距） | [`mobile/docs/design.md`](mobile/docs/design.md) |
+| **RN UI 常见坑** | [`mobile/docs/rules/ui-pitfalls.md`](mobile/docs/rules/ui-pitfalls.md) |
+| **Agent 短导航地图** | [`AGENTS.md`](AGENTS.md) |
+| **面向人类的快速上手** | [`README.md`](README.md) |
+
+---
+
+## 5. 改完代码必跑的验证（与 AGENTS.md 一致）
+
+| 改了 | 跑 |
+|------|----|
+| `mobile/**` TS/TSX | `cd mobile && pnpm typecheck` |
+| `mobile/**` 测试相关 | `cd mobile && pnpm test -- --watchAll=false` |
+| `cli/**` Rust | `cd cli && cargo test` |
+| `cli/**` 编译检查 | `cd cli && cargo build` |
+| 改了 UI | 对照 [`mobile/docs/design.md`](mobile/docs/design.md) §11 checklist |
+| 改了 RN 列表/刷新 | 对照 [`mobile/docs/rules/ui-pitfalls.md`](mobile/docs/rules/ui-pitfalls.md) |
+
+### Regression Tests
+
+- Every bug fix must include a focused regression test that fails before the fix and passes after the fix.
+- If the bug crosses layers, cover the boundary that broke (for example: WebSocket → store, DB persistence → UI load, route fetch → Inbox backfill).
+- Do not ship behavior-only fixes without tests unless the user explicitly accepts the risk; document the reason in the final response.
+
+---
+
+## 6. Interaction & Output Constraints (Low-Input Scenarios)
 
 - Assume by default that the user may be in a situation where typing is inconvenient; minimize the need for free-text input.
 - **MANDATORY: When user decisions are needed** (e.g., choosing an approach, whether to continue, selecting environment, risk trade-offs, release options, architecture choices), **ALWAYS use the `AskUserQuestion` tool with structured options** instead of asking the user to type manually. Never ask decision questions in plain text.
@@ -30,7 +102,30 @@ Full product spec: `docs/product-specs/SPEC.md`. Agent navigation map: `AGENTS.m
 
 ---
 
-## Commands
+## 7. 给 Agent 的协作约定（与 AGENTS.md 一致）
+
+- 用户场景常常 **不便打字**。涉及决策（方案选择、是否继续、风险权衡）一律用 `AskUserQuestion` 工具给 2-5 个结构化选项，**不要让用户敲字回答**
+- 行动前先检索本地文件，不要凭记忆回答
+- 修改代码后必须按 §5 跑验证；引入了 lint error 要修
+- 新增产品决策 → 写到 `docs/product-specs/`；新增设计权衡 → 写到 `docs/design-docs/YYYY-MM-DD-<feature>-design.md`；新增施工计划 → `docs/exec-plans/`
+- 不要把规则塞进 `AGENTS.md`。`AGENTS.md` 只长指针，不长内容
+
+---
+
+## 8. 添加新规则的原则（与 AGENTS.md 一致，Harness 增量学习）
+
+每条新规则都应来自一次真实的 Agent 犯错。流程：
+
+1. Agent 犯错 → 分析根因
+2. 把约束写到对应位置（`CLAUDE.md` / `docs/quality/` / `mobile/docs/design.md` 等）
+3. 在 `AGENTS.md` §4 的地图里加指针（如果是新类别）
+4. 必要时把约束机械化（lint / hook / CI），让规则从"建议"升级为"法律"
+
+> `AGENTS.md` 超过 120 行就该重构 —— 把详细内容沉淀到 `docs/` 子目录，导航文件只保留指针。
+
+---
+
+## 9. 常用命令（精简版见 AGENTS.md；此处为展开版）
 
 ### Mobile (React Native / Expo)
 
@@ -54,12 +149,6 @@ pnpm typecheck
 pnpm test -- --watchAll=false
 ```
 
-### Regression Tests
-
-- Every bug fix must include a focused regression test that fails before the fix and passes after the fix.
-- If the bug crosses layers, cover the boundary that broke (for example: WebSocket → store, DB persistence → UI load, route fetch → Inbox backfill).
-- Do not ship behavior-only fixes without tests unless the user explicitly accepts the risk; document the reason in the final response.
-
 ### CLI (Rust)
 
 ```bash
@@ -76,8 +165,10 @@ cargo test
 
 # Run a single test
 cargo test <test_name>
-```
 
+# Local HTTP/WS
+cargo run -- serve
+```
 
 ### iOS 发布 (EAS Build + TestFlight)
 
@@ -96,64 +187,69 @@ cd mobile
 
 发布前确认 `eas.json` 中 `submit.production.ios` 已填写 `appleId`、`ascAppId`、`appleTeamId`。
 
-**当用户说"发布一下 iOS"或类似指令时，Claude 应直接执行：**
+**当用户说「发布一下 iOS」或类似指令时，Claude 应直接执行**（在仓库根目录下，异步跑脚本并跟日志）：
 
 ```bash
-cd /Users/alan/Documents/codes/yakami0129/multisoul/mobile && ./scripts/publish-ios.sh > /tmp/publish-ios.log 2>&1
+cd mobile && ./scripts/publish-ios.sh > /tmp/publish-ios.log 2>&1
 ```
 
 用 `run_in_background: true` 异步执行，然后持续 `tail -f /tmp/publish-ios.log` 监听日志输出，直到脚本结束。
 
 ---
 
-## Architecture
+## 10. 系统架构摘要（与 ARCHITECTURE.md 一致；非旧版 Java 后端）
 
-### Backend Domain Structure
+- **msctl serve**：本机 axum 服务，REST `/api/v1/*`、WebSocket `/ws/conversations/{id}`、Expo Push 出站。
+- **数据**：SQLite 于 `~/.config/msctl/serve.db`（agents、conversations、messages、tasks、push_tokens 等），由 `cli/src/db.rs` 管理。
+- **认证**：除 `GET /api/v1/healthz` 外，HTTP/WS 需 `Authorization: Bearer <token>`（部分场景亦支持 query token；以 `ARCHITECTURE.md` 为准）。
+- **运行时**：`cli/src/serve/runtime*` 等对接 Claude Code / Codex 等。
 
-Each domain (`agent/`, `auth/`, `user/`) follows the same pattern:
-- `*Controller.java` — REST endpoints
-- `*Service.java` — business logic
-- `*Repository.java` — Spring Data JPA
-- `*Request.java` / `*Response.java` — DTOs
+主要 HTTP 路由（摘自 `ARCHITECTURE.md`）：
 
-`common/` holds shared utilities (AES-256-GCM encryption, error handling).
+```
+GET   /api/v1/healthz
+GET   /api/v1/agents
+GET   /api/v1/agents/:id
+GET   /api/v1/agents/:id/conversations
+POST  /api/v1/agents/:id/conversations
+GET   /api/v1/conversations/:id/messages
+POST  /api/v1/conversations/:id/messages
+POST  /api/v1/push-tokens
+DEL   /api/v1/push-tokens/:id
+WS    /ws/conversations/:id
+```
 
-Database migrations live in `src/main/resources/db/migration/` (Flyway). Schema is `validate`-only at runtime — all changes must go through migration scripts.
-
-API Key format: `ms_<random32chars>`, stored as SHA-256 hash. Agent `auth_value` is AES-256-GCM encrypted; key injected via `ENCRYPTION_KEY` env var.
-
-All endpoints require `Authorization: Bearer <api_key>` except `POST /api/v1/users` and `POST /api/v1/auth/keys`.
-
-### Mobile Structure
+### Mobile 目录结构（与 ARCHITECTURE.md 一致）
 
 ```
 mobile/src/
-├── api.ts          # Axios client, base URL config
-├── types.ts        # Shared TypeScript types
-├── store/          # Zustand stores
-├── features/       # Feature modules (agents/, settings/)
-└── components/     # Shared UI components (ui/)
-mobile/app/         # Expo Router file-based routing
-├── (tabs)/         # Tab navigator screens
-└── agent/          # Agent detail screens
+├── api.ts            # Axios client，base URL = 当前选中端点
+├── types.ts          # 跨模块 TS 类型
+├── store/            # Zustand：本地/认证状态
+├── features/         # agents/, chat/, inbox/, settings/ 等
+└── components/       # 共享 UI（含 ui/）
+
+mobile/app/           # Expo Router
+├── (tabs)/
+└── agent/
 ```
 
-State: Zustand for local/auth state, React Query for server state (30s polling for agent status).
+状态：Zustand（本地/认证）、React Query（服务端状态，如 30s 轮询）、expo-sqlite（Inbox 等持久化）。
 
-### CLI Structure
+### CLI 目录结构（与 ARCHITECTURE.md 一致）
 
 ```
 cli/src/
-├── main.rs         # clap command tree entry point
-├── config.rs       # ~/.config/msctl/config.toml read/write
-└── commands/
-    ├── auth.rs     # msctl auth login / status
-    └── agent.rs    # msctl agent register/list/get/update/delete/invoke
+├── main.rs           # clap 命令树入口
+├── config.rs         # ~/.config/msctl/config.toml 读写
+├── db.rs             # SQLite 初始化与 schema
+├── commands/         # auth, agent, serve, logs, ...
+└── serve/            # mod, state, auth, push, runtime, routes, ...
 ```
 
 ---
 
-## UI Design System
+## 11. UI Design System
 
 The mobile app uses a **Vault-Tec PIP-BOY terminal aesthetic** (Fallout CRT green-phosphor). Full spec: `mobile/docs/design.md` (source) and `mobile/docs/design.html` (rendered reference).
 
@@ -194,13 +290,8 @@ The mobile app uses a **Vault-Tec PIP-BOY terminal aesthetic** (Fallout CRT gree
 
 ---
 
-## Environment Variables
+## 12. 环境变量与配置
 
-| Variable | Default | Notes |
-|----------|---------|-------|
-| `ENCRYPTION_KEY` | `change-me-32-chars-minimum-key!!` | Must be ≥32 chars in production |
-| `DB_HOST` | `localhost` | |
-| `DB_PORT` | `5432` | |
-| `DB_NAME` | `multisoul` | |
-| `DB_USER` | `multisoul` | |
-| `DB_PASSWORD` | `multisoul` | |
+`msctl` 以 **`~/.config/msctl/config.toml`** 与本机 SQLite 为主；端口、token、Tailscale Funnel 等见 `msctl serve --help` 与 [`ARCHITECTURE.md`](ARCHITECTURE.md)。机器可读的 env / 契约占位见 [`docs/references/`](docs/references/) 与 [`README.md`](README.md)。
+
+---

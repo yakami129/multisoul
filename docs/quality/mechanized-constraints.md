@@ -63,13 +63,23 @@
 | 行为 | 改 `mobile/**` 触发 `pnpm typecheck`；改 `cli/**/*.rs` 触发 `cargo check` |
 | 性能 | 文档/脚本变更不触发，避免无关惩罚 |
 
-### R6 · CI 远端兜底
+### R6 · 单文件 ≤ 500 行
+
+| | |
+|---|---|
+| 脚本 | [`scripts/check-max-file-lines.sh`](../../scripts/check-max-file-lines.sh) |
+| 起因 | 超长单文件不利于审阅与 Agent 局部修改，易重复逻辑 |
+| 检测 | `mobile/{src,app}/**/*.{ts,tsx}`、`cli/src/**/*.rs` 物理行数 ≤ 500 |
+| 排除 | `__tests__/`、`*.test.*`、`fixtures/` |
+| 修复方式 | 拆文件、抽模块、去重；错误信息提示 LLM 按职责拆分而非放宽上限 |
+
+### R7 · CI 远端兜底
 
 | | |
 |---|---|
 | 实现 | [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml) |
 | 触发 | `pull_request` 与 `push: main` |
-| Job 1 (`repo-checks`) | 跑 R1-R3 三个脚本 |
+| Job 1 (`repo-checks`) | 跑 R1-R3 与 R6 共四个脚本 |
 | Job 2 (`mobile-check`) | `pnpm typecheck` + `pnpm lint` + `pnpm test` |
 | Job 3 (`cli-check`) | `cargo build --all-targets` + `cargo test` |
 | 角色 | 兜底 —— 若开发者本地用 `--no-verify` 跳过 husky，CI 仍拒绝 merge |

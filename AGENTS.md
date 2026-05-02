@@ -3,6 +3,8 @@
 > 本文是 **地图，不是说明书**（约 100 行）。它告诉你"去哪儿查"，不复制具体内容。
 > 详细规则、命令、设计请按下方指针深入。
 > 设计参考：[Harness Engineering](https://www.engineering.fyi/article/harness-engineering-leveraging-codex-in-an-agent-first-world)
+>
+> **与 [`CLAUDE.md`](CLAUDE.md) 对齐**：项目描述、关键约束、技术栈、文档地图、改完验证、协作约定、新规则原则等 **同一主题在两边表述一致**；`CLAUDE.md` 另含展开命令、架构摘要、UI 设计系统。
 
 ## 1. 这是什么
 

@@ -17,6 +17,9 @@ bash scripts/check-no-secrets.sh --staged
 # 3. Mobile palette compliance (regex over staged mobile/ files)
 bash scripts/check-mobile-colors.sh --staged
 
+# 3b. Single-file line cap (staged paths only)
+bash scripts/check-max-file-lines.sh --staged
+
 # 4. ESLint + prettier on staged TS/TSX (existing lint-staged config)
 staged_mobile=$(git diff --cached --name-only --diff-filter=ACMR | grep -E '^mobile/(src|app)/.*\.(ts|tsx)$' || true)
 if [ -n "$staged_mobile" ]; then
