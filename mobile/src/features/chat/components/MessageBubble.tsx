@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Animated, Easing, View, Text, StyleSheet } from 'react-native';
+import { Animated, Easing, View, Text, StyleSheet, Image, Modal, Pressable } from 'react-native';
 import {
   type WsMessage,
   type AskQuestionPayload,
@@ -22,6 +22,7 @@ interface Props {
   onAnswerMulti?: (ask_id: string, choice_ids: Record<string, string>) => void;
   typewriter?: boolean;
   waiting?: boolean;
+  imageUri?: string;
 }
 
 export function MessageBubble({
@@ -30,9 +31,11 @@ export function MessageBubble({
   onAnswerMulti,
   typewriter = false,
   waiting = false,
+  imageUri,
 }: Props) {
   const agentText = msg.role === 'agent_text' ? ((msg.payload as AgentTextPayload).text ?? '') : '';
   const [visibleChars, setVisibleChars] = useState(typewriter ? 0 : agentText.length);
+  const [previewVisible, setPreviewVisible] = useState(false);
   const shineProgress = useRef(new Animated.Value(0)).current;
   const shineTranslateX = shineProgress.interpolate({
     inputRange: [0, 1],
@@ -111,14 +114,41 @@ export function MessageBubble({
   }
 
   switch (msg.role) {
-    case 'user_text':
+    case 'user_text': {
+      const payload = msg.payload as UserTextPayload;
+      const hasImage = !!payload.file_id;
+
       return (
         <View style={s.userWrap}>
+          {hasImage && imageUri ? (
+            <Modal visible={previewVisible} transparent animationType="fade">
+              <Pressable style={s.modalOverlay} onPress={() => setPreviewVisible(false)}>
+                <Image source={{ uri: imageUri }} style={s.previewImage} resizeMode="contain" />
+              </Pressable>
+            </Modal>
+          ) : null}
           <View style={s.userBubble}>
-            <Text style={s.userText}>{(msg.payload as UserTextPayload).text}</Text>
+            {hasImage ? (
+              imageUri ? (
+                <Pressable onPress={() => setPreviewVisible(true)}>
+                  <Image
+                    testID="user-image-thumb"
+                    source={{ uri: imageUri }}
+                    style={s.thumbImage}
+                    resizeMode="cover"
+                  />
+                </Pressable>
+              ) : (
+                <Text style={s.attachmentPlaceholder}>📎 Image</Text>
+              )
+            ) : null}
+            {payload.text ? (
+              <Text style={[s.userText, hasImage ? s.imageCaption : null]}>{payload.text}</Text>
+            ) : null}
           </View>
         </View>
       );
+    }
 
     case 'agent_text': {
       const isScanning = typewriter && visibleChars < agentText.length;
@@ -269,6 +299,31 @@ const s = StyleSheet.create({
     width: WAITING_TEXT_WIDTH,
     textShadowColor: '#20C20E',
     textShadowRadius: 8,
+  },
+  thumbImage: {
+    width: 120,
+    height: 120,
+    borderRadius: 2,
+    marginBottom: 4,
+  },
+  attachmentPlaceholder: {
+    fontFamily: 'Geist',
+    fontSize: 12,
+    color: '#040D04',
+    marginBottom: 4,
+  },
+  imageCaption: {
+    marginTop: 4,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(4,13,4,0.95)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  previewImage: {
+    width: '100%',
+    height: '80%',
   },
   statusRow: {
     flexDirection: 'row',
