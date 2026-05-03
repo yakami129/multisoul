@@ -27,15 +27,18 @@ import { MarkdownMessage, CopyButton } from './MarkdownMessage';
 describe('MarkdownMessage', () => {
   it('renders markdown root for normal content', () => {
     const { getByTestId } = render(<MarkdownMessage content="# Hello\n\nsome text" />);
+    // 断言失败 = markdown-root 不存在 — MarkdownMessage 未正常挂载
     expect(getByTestId('markdown-root')).toBeTruthy();
   });
 
   it('renders markdown root without crash for code block content', () => {
     const { getByTestId } = render(<MarkdownMessage content={'```js\nconsole.log(1)\n```'} />);
+    // 断言失败 = markdown-root 不存在 — 代码块内容导致 MarkdownMessage 崩溃或未挂载
     expect(getByTestId('markdown-root')).toBeTruthy();
   });
 
   it('renders without crash for empty content', () => {
+    // 断言失败 = 空字符串 content 导致 MarkdownMessage 抛出异常
     expect(() => render(<MarkdownMessage content="" />)).not.toThrow();
   });
 });
@@ -60,20 +63,25 @@ describe('CopyButton', () => {
     jest.useFakeTimers();
     const { getByText, queryByText, getByTestId } = render(<CopyButton code="const x = 1" />);
 
+    // 断言失败 = 初始状态应显示 "COPY" 按钮文字
     expect(getByText('COPY')).toBeTruthy();
 
     await act(async () => {
       fireEvent.press(getByTestId('copy-btn'));
     });
 
+    // 断言失败 = press 后 "COPY" 应消失，说明状态未切换到 copied=true
     expect(queryByText('COPY')).toBeNull();
+    // 断言失败 = press 后应显示 "✓ COPIED" 反馈文字
     expect(queryByText('✓ COPIED')).toBeTruthy();
     expect(Clipboard.setStringAsync).toHaveBeenCalledWith('const x = 1');
 
     act(() => {
       jest.advanceTimersByTime(1600);
     });
+    // 断言失败 = 1600ms 后应恢复显示 "COPY"，说明 setTimeout 重置未生效
     expect(queryByText('COPY')).toBeTruthy();
+    // 断言失败 = 1600ms 后 "✓ COPIED" 应消失，说明 copied 状态未正确重置
     expect(queryByText('✓ COPIED')).toBeNull();
 
     jest.useRealTimers();
