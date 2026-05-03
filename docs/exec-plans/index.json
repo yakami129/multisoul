@@ -4,7 +4,8 @@
   "documents": [
     {
       "file": "2026-05-03-ios-permission-guard.md",
-      "title": "iOS 权限声明守护"
+      "title": "iOS 权限声明守护",
+      "lastCompletedCommit": "8c32f547d9b8792f3036cf452adb0425994b912a"
     },
     {
       "file": "2026-05-03-doc-code-hash-guard.md",
