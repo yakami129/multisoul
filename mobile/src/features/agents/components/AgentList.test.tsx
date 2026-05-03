@@ -77,7 +77,7 @@ describe('AgentList', () => {
     expect(getByText('FAILED TO LOAD')).toBeTruthy();
   });
 
-  it('calls onAgentPress with agent id', () => {
+  it('calls onAgentPress with agent id, endpoint id, and name', () => {
     const onAgentPress = jest.fn();
     const { getByText } = render(
       <AgentList
@@ -91,7 +91,7 @@ describe('AgentList', () => {
       />,
     );
     fireEvent.press(getByText('ALPHA'));
-    expect(onAgentPress).toHaveBeenCalledWith('a1', 'ep-1');
+    expect(onAgentPress).toHaveBeenCalledWith('a1', 'ep-1', 'Alpha');
   });
 
   it('does not show pull refresh spinner for background fetches', () => {
