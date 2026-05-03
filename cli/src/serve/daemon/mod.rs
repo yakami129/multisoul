@@ -23,6 +23,7 @@ pub struct Status {
 }
 
 pub trait Manager {
+    #[cfg(target_os = "macos")]
     fn install(&self, cfg: &Config) -> Result<()>;
     fn uninstall(&self) -> Result<()>;
     fn start(&self) -> Result<()>;
