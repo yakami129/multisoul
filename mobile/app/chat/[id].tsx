@@ -1,7 +1,7 @@
 import * as ImageManipulator from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { ChevronLeft, ImageIcon, Send, X } from 'lucide-react-native';
+import { ChevronLeft, ImageIcon, Send, Square, X } from 'lucide-react-native';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   Alert,
@@ -18,7 +18,12 @@ import {
   Pressable,
 } from 'react-native';
 import { MessageBubble } from '@/features/chat/components/MessageBubble';
-import { postMessage, fetchMessages, uploadImage } from '@/features/chat/services/chatService';
+import {
+  postMessage,
+  fetchMessages,
+  uploadImage,
+  abortConversation,
+} from '@/features/chat/services/chatService';
 import {
   getLatestAgentActivitySeq,
   getLatestAgentTextSeq,
@@ -365,17 +370,32 @@ export default function ChatDetailScreen() {
             />
           </View>
           <TouchableOpacity
-            accessibilityLabel="Send message"
+            accessibilityLabel={isAwaitingResponse ? 'Stop conversation' : 'Send message'}
             accessibilityRole="button"
+            testID="send-stop-button"
             onPress={() => {
-              void handleSend();
+              if (isAwaitingResponse) {
+                if (endpoint) {
+                  void abortConversation(endpoint.base_url, endpoint.token, conv_id)
+                    .then(() => {
+                      setIsAwaitingResponse(false);
+                    })
+                    .catch((e: unknown) => {
+                      console.warn('abort failed', e);
+                    });
+                }
+              } else {
+                void handleSend();
+              }
             }}
-            disabled={composerDisabled}
+            style={[s.sendStopBtn, isAwaitingResponse ? s.stopBtn : s.sendBtn]}
           >
             {isAwaitingResponse ? (
-              <Text style={s.waitText}>WAIT</Text>
+              <View testID="stop-icon">
+                <Square size={14} color="#FF4444" />
+              </View>
             ) : (
-              <Send size={20} color={composerDisabled ? '#2D8B2D' : '#20C20E'} />
+              <Send size={16} color="#040D04" />
             )}
           </TouchableOpacity>
         </View>

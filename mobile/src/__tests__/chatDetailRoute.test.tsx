@@ -27,6 +27,7 @@ jest.mock('@/features/chat/services/chatService', () => ({
   fetchMessages: jest.fn(),
   postMessage: jest.fn(),
   uploadImage: jest.fn(),
+  abortConversation: jest.fn().mockResolvedValue(undefined),
 }));
 
 jest.mock('expo-image-picker', () => ({
@@ -239,6 +240,57 @@ test('uploads selected image and renders the sent image message with local uri',
   });
 
   await waitFor(() => expect(getByText(' file:///compressed.jpg')).toBeTruthy());
+});
+
+describe('send/stop button', () => {
+  beforeEach(() => {
+    (fetchMessages as jest.Mock).mockResolvedValue([]);
+    (postMessage as jest.Mock).mockImplementation(() => new Promise(() => {})); // never resolves
+  });
+
+  it('shows stop icon when isAwaitingResponse', async () => {
+    const { getByTestId, queryByTestId } = render(<ChatDetailScreen />);
+
+    // Initially no stop icon
+    expect(queryByTestId('stop-icon')).toBeNull();
+
+    await act(async () => {
+      fireEvent.changeText(getByTestId('message-input'), 'hello');
+    });
+    await act(async () => {
+      fireEvent.press(getByTestId('send-stop-button'));
+    });
+
+    await waitFor(() => {
+      expect(getByTestId('stop-icon')).toBeTruthy();
+    });
+  });
+
+  it('calls abortConversation when stop button pressed', async () => {
+    const { abortConversation } = require('@/features/chat/services/chatService');
+    const { getByTestId } = render(<ChatDetailScreen />);
+
+    await act(async () => {
+      fireEvent.changeText(getByTestId('message-input'), 'hello');
+    });
+    await act(async () => {
+      fireEvent.press(getByTestId('send-stop-button'));
+    });
+
+    await waitFor(() => expect(getByTestId('stop-icon')).toBeTruthy());
+
+    await act(async () => {
+      fireEvent.press(getByTestId('send-stop-button'));
+    });
+
+    await waitFor(() => {
+      expect(abortConversation).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.any(String),
+        'conv-1',
+      );
+    });
+  });
 });
 
 describe('Header status badge', () => {

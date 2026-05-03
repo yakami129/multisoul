@@ -60,6 +60,19 @@ export const s = StyleSheet.create({
   inputDisabled: { opacity: 0.4 },
   input: { fontFamily: 'Geist', fontSize: 14, color: '#20C20E', minHeight: 20 },
   waitText: { fontFamily: 'Geist Mono', fontSize: 10, color: '#33FF33', letterSpacing: 1 },
+  sendStopBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 2,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+  },
+  sendBtn: { backgroundColor: '#20C20E' },
+  stopBtn: {
+    backgroundColor: '#1A0000',
+    borderWidth: 1,
+    borderColor: '#FF4444',
+  },
   previewRow: {
     backgroundColor: '#040D04',
     maxHeight: 68,
