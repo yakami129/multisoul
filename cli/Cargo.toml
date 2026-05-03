@@ -19,7 +19,7 @@ rand       = "0.8"
 chrono     = { version = "0.4", features = ["serde"] }
 rusqlite   = { version = "0.31", features = ["bundled"] }
 tokio      = { version = "1", features = ["full"] }
-axum       = { version = "0.7", features = ["ws"] }
+axum       = { version = "0.7", features = ["ws", "multipart"] }
 tower-http = { version = "0.5", features = ["cors"] }
 tower      = { version = "0.4", features = ["util"] }
 reqwest    = { version = "0.11", features = ["blocking", "json"] }
@@ -30,6 +30,7 @@ tracing    = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json", "fmt"] }
 tracing-appender = "0.2"
 regex      = "1"
+base64     = "0.22"
 
 [dev-dependencies]
 mockito  = "1"
