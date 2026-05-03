@@ -66,6 +66,7 @@ export type MessagePayload =
 
 export interface UserTextPayload {
   text: string;
+  file_id?: string;
 }
 export interface AgentTextPayload {
   text: string;

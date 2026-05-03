@@ -51,7 +51,11 @@ mod tests {
         use tempfile::tempdir;
         let dir = tempdir().unwrap();
         let conn = db::open_at(&dir.path().join("t.db")).unwrap();
-        let state = AppState::new(conn, token.to_string());
+        let state = AppState::new(
+            conn,
+            token.to_string(),
+            std::path::PathBuf::from("/tmp/uploads"),
+        );
         axum::Router::new()
             .route("/test", axum::routing::get(|| async { "ok" }))
             .layer(axum::middleware::from_fn_with_state(

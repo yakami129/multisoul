@@ -99,7 +99,11 @@ mod tests {
     async fn make_app(token: &str) -> axum::Router {
         let dir = tempdir().unwrap();
         let conn = db::open_at(&dir.path().join("t.db")).unwrap();
-        let state = AppState::new(conn, token.to_string());
+        let state = AppState::new(
+            conn,
+            token.to_string(),
+            std::path::PathBuf::from("/tmp/uploads"),
+        );
         axum::Router::new()
             .route("/api/v1/push-tokens", axum::routing::post(register_token))
             .route(

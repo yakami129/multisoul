@@ -9,7 +9,7 @@ use std::process::ChildStdin;
 use std::time::Instant;
 use tracing::{debug, info};
 
-use super::{broadcast, insert_message, write_user_message};
+use super::{broadcast, insert_message, write_user_message, write_user_message_with_image};
 
 /// Write user message and read stdout until the `result` event.
 /// Returns Ok(()) on success, Err if the process pipe breaks.
@@ -19,12 +19,15 @@ use super::{broadcast, insert_message, write_user_message};
 ///   2. Blocks on `answer_rx.recv()` until the mobile user responds
 ///   3. Writes the `tool_result` back to Claude's stdin
 ///   4. Resumes reading stdout
+#[allow(clippy::too_many_arguments)]
 pub(super) fn process_turn(
     stdin: &mut ChildStdin,
     reader: &mut BufReader<std::process::ChildStdout>,
     state: &AppState,
     conv_id: &str,
     user_text: &str,
+    file_id: Option<&str>,
+    uploads_dir: &std::path::Path,
     answer_rx: &std::sync::mpsc::Receiver<AnswerPayload>,
 ) -> Result<(), String> {
     // Update conversation status → running
@@ -36,7 +39,15 @@ pub(super) fn process_turn(
         );
     }
 
-    write_user_message(stdin, user_text)?;
+    match file_id {
+        Some(fid) => {
+            let file_path = uploads_dir.join(fid);
+            write_user_message_with_image(stdin, user_text, &file_path)?;
+        }
+        None => {
+            write_user_message(stdin, user_text)?;
+        }
+    }
     debug!("claude_user_message_written");
 
     let mut line = String::new();

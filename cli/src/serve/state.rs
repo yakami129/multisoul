@@ -1,28 +1,38 @@
 use crate::serve::interactive::AnswerPayload;
 use rusqlite::Connection;
 use std::collections::HashMap;
+use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use tokio::sync::broadcast;
 use tracing::warn;
 
+/// Message sent from HTTP handler to session worker via channel.
+#[derive(Debug)]
+pub struct SessionMessage {
+    pub user_text: String,
+    pub file_id: Option<String>,
+}
+
 pub type ConvBus = Arc<Mutex<HashMap<String, broadcast::Sender<String>>>>;
-pub type SessionMap = Arc<Mutex<HashMap<String, std::sync::mpsc::Sender<String>>>>;
+pub type SessionMap = Arc<Mutex<HashMap<String, std::sync::mpsc::Sender<SessionMessage>>>>;
 pub type AnswerMap = Arc<Mutex<HashMap<String, std::sync::mpsc::SyncSender<AnswerPayload>>>>;
 
 #[derive(Clone)]
 pub struct AppState {
     pub db: Arc<Mutex<Connection>>,
     pub token: String,
+    pub uploads_dir: PathBuf,
     pub bus: ConvBus,
     pub sessions: SessionMap,
     pub answer_txs: AnswerMap,
 }
 
 impl AppState {
-    pub fn new(conn: Connection, token: String) -> Self {
+    pub fn new(conn: Connection, token: String, uploads_dir: PathBuf) -> Self {
         AppState {
             db: Arc::new(Mutex::new(conn)),
             token,
+            uploads_dir,
             bus: Arc::new(Mutex::new(HashMap::new())),
             sessions: Arc::new(Mutex::new(HashMap::new())),
             answer_txs: Arc::new(Mutex::new(HashMap::new())),
@@ -74,5 +84,57 @@ impl AppState {
                 }
             },
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::tempdir;
+
+    /// AppState::new accepts uploads_dir and stores it correctly.
+    ///
+    /// 执行：构造 AppState，验证 uploads_dir 字段被保留。
+    ///
+    /// 预期结果：
+    ///   - uploads_dir 与传入路径相同
+    #[test]
+    fn test_app_state_stores_uploads_dir() {
+        use crate::db;
+        let dir = tempdir().unwrap();
+        let uploads_dir = dir.path().join("uploads");
+        let conn = db::open_at(&dir.path().join("t.db")).unwrap();
+        let state = AppState::new(conn, "ms_v2_tok".to_string(), uploads_dir.clone());
+        assert_eq!(
+            state.uploads_dir, uploads_dir,
+            "uploads_dir should be stored in AppState"
+        );
+    }
+
+    /// SessionMessage carries both user_text and file_id.
+    ///
+    /// 预期结果：
+    ///   - text 和 file_id 都能正确读取
+    #[test]
+    fn test_session_message_fields() {
+        let msg = SessionMessage {
+            user_text: "hello".to_string(),
+            file_id: Some("abc.jpg".to_string()),
+        };
+        assert_eq!(msg.user_text, "hello", "user_text should match");
+        assert_eq!(
+            msg.file_id.as_deref(),
+            Some("abc.jpg"),
+            "file_id should match"
+        );
+
+        let text_only = SessionMessage {
+            user_text: "text only".to_string(),
+            file_id: None,
+        };
+        assert!(
+            text_only.file_id.is_none(),
+            "file_id should be None for text-only"
+        );
     }
 }

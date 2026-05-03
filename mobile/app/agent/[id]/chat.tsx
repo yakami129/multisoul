@@ -1,9 +1,13 @@
+import * as ImageManipulator from 'expo-image-manipulator';
+import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { ChevronLeft, Send } from 'lucide-react-native';
+import { ChevronLeft, ImageIcon, Send, X } from 'lucide-react-native';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  Image,
   KeyboardAvoidingView,
   Platform,
+  Pressable,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -17,6 +21,7 @@ import {
   createConversation,
   fetchMessages,
   postMessage,
+  uploadImage,
 } from '../../../src/features/chat/services/chatService';
 import {
   getLatestAgentActivitySeq,
@@ -58,6 +63,9 @@ export default function AgentChatRoute() {
   // If navigated from a notification, initialConvId is already set — use it directly
   // instead of creating a new conversation.
   const [convId, setConvId] = useState<string | null>(initialConvId ?? null);
+  const [pendingImageUri, setPendingImageUri] = useState<string | null>(null);
+  const imageMapRef = useRef<Map<string, string>>(new Map());
+  const [isUploading, setIsUploading] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
 
   const endpoint = useEndpointStore((s) => s.endpoints.find((e) => e.id === endpoint_id));
@@ -168,19 +176,48 @@ export default function AgentChatRoute() {
       });
   }, [endpoint, endpoint_id, agent_id, agent_name, initialConvId, setMessages, addInboxItem]);
 
+  async function pickImage() {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: false,
+      quality: 1,
+    });
+    if (result.canceled || !result.assets[0]) return;
+
+    const asset = result.assets[0];
+    const compressed = await ImageManipulator.manipulateAsync(asset.uri, [], {
+      compress: 0.8,
+      format: ImageManipulator.SaveFormat.JPEG,
+    });
+    setPendingImageUri(compressed.uri);
+  }
+
   const handleSend = async () => {
     const text = input.trim();
-    if (!text || !endpoint || !convId) return;
+    if ((!text && !pendingImageUri) || !endpoint || !convId) return;
     lastSeenAgentActivitySeqRef.current = getLatestAgentActivitySeq(displayMessages);
     lastAnimatedAgentTextSeqRef.current = getLatestAgentTextSeq(displayMessages);
     hasLoadedInitialMessagesRef.current = true;
     setInput('');
     setIsAwaitingResponse(true);
     setTypewriterSeq(null);
+
+    let file_id: string | undefined;
+    const capturedUri = pendingImageUri;
+    setPendingImageUri(null);
+
     try {
-      await postMessage(endpoint.base_url, endpoint.token, convId, text);
+      if (capturedUri) {
+        setIsUploading(true);
+        const result = await uploadImage(endpoint.base_url, endpoint.token, capturedUri);
+        file_id = result.file_id;
+        imageMapRef.current.set(file_id, capturedUri);
+        setIsUploading(false);
+      }
+      await postMessage(endpoint.base_url, endpoint.token, convId, text, file_id);
       setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
     } catch {
+      setIsUploading(false);
       setIsAwaitingResponse(false);
     }
   };
@@ -241,7 +278,25 @@ export default function AgentChatRoute() {
           )}
         </ScrollView>
 
+        {pendingImageUri ? (
+          <View style={s.pendingImageWrap}>
+            <Image source={{ uri: pendingImageUri }} style={s.pendingThumb} />
+            <Pressable style={s.pendingRemove} onPress={() => setPendingImageUri(null)}>
+              <X size={12} color="#040D04" />
+            </Pressable>
+          </View>
+        ) : null}
+
         <View style={s.inputBar}>
+          <TouchableOpacity
+            onPress={() => {
+              void pickImage();
+            }}
+            disabled={composerDisabled || isUploading}
+            style={s.imageBtn}
+          >
+            <ImageIcon size={16} color={composerDisabled ? '#2D8B2D' : '#20C20E'} />
+          </TouchableOpacity>
           <View style={[s.inputField, composerDisabled && s.inputDisabled]}>
             <TextInput
               style={s.input}
@@ -315,4 +370,32 @@ const s = StyleSheet.create({
   inputDisabled: { opacity: 0.4 },
   input: { fontFamily: 'Geist', fontSize: 14, color: '#20C20E', minHeight: 20 },
   waitText: { fontFamily: 'Geist Mono', fontSize: 10, color: '#33FF33', letterSpacing: 1 },
+  pendingImageWrap: {
+    paddingHorizontal: 12,
+    paddingBottom: 4,
+  },
+  pendingThumb: {
+    width: 60,
+    height: 60,
+    borderRadius: 2,
+    borderWidth: 1,
+    borderColor: '#0F2B0F',
+  },
+  pendingRemove: {
+    position: 'absolute',
+    top: -6,
+    right: -6,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: '#20C20E',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  imageBtn: {
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 });

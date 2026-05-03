@@ -45,3 +45,31 @@ test('reveals agent text with scanner cursor while preserving original color', (
 
   expect(getByText('system online')).toBeTruthy();
 });
+
+describe('MessageBubble image rendering', () => {
+  const makeUserMsg = (payload: object): WsMessage => ({
+    type: 'message',
+    seq: 1,
+    role: 'user_text',
+    payload: payload as WsMessage['payload'],
+    created_at: 0,
+  });
+
+  it('renders image thumbnail when imageUri is provided', () => {
+    const msg = makeUserMsg({ text: '', file_id: 'abc.jpg' });
+    const { getByTestId } = render(<MessageBubble msg={msg} imageUri="file:///local/photo.jpg" />);
+    expect(getByTestId('user-image-thumb')).toBeTruthy();
+  });
+
+  it('renders attachment placeholder when file_id present but no imageUri', () => {
+    const msg = makeUserMsg({ text: '', file_id: 'abc.jpg' });
+    const { getByText } = render(<MessageBubble msg={msg} />);
+    expect(getByText('📎 Image')).toBeTruthy();
+  });
+
+  it('renders plain text bubble when no file_id', () => {
+    const msg = makeUserMsg({ text: 'hello' });
+    const { getByText } = render(<MessageBubble msg={msg} />);
+    expect(getByText('hello')).toBeTruthy();
+  });
+});

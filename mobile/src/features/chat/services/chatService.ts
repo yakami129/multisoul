@@ -52,9 +52,32 @@ export async function postMessage(
   token: string,
   conv_id: string,
   text: string,
+  file_id?: string,
 ): Promise<void> {
   const client = getEndpointClient(base_url, token);
-  await client.post(`/api/v1/conversations/${conv_id}/messages`, { text });
+  const body: { text: string; file_id?: string } = { text };
+  if (file_id) body.file_id = file_id;
+  await client.post(`/api/v1/conversations/${conv_id}/messages`, body);
+}
+
+export async function uploadImage(
+  base_url: string,
+  token: string,
+  localUri: string,
+): Promise<{ file_id: string }> {
+  const client = getEndpointClient(base_url, token);
+
+  const formData = new FormData();
+  formData.append('file', {
+    uri: localUri,
+    type: 'image/jpeg',
+    name: 'upload.jpg',
+  } as unknown as Blob);
+
+  const res = await client.post<{ file_id: string }>('/api/v1/uploads', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+  return res.data;
 }
 
 export async function sendConversationAnswer(
