@@ -1,0 +1,347 @@
+# 接入新 CLI Runtime 开发指南
+
+> 文档类型：设计文档 · 操作指南  
+> 创建日期：2026-05-03  
+> 适用读者：熟悉 Rust / axum / tokio 的开发者
+
+---
+
+## 1. 概述
+
+MultiSoul CLI（`msctl`）通过 **Runtime 适配层** 驱动 AI agent 子进程。当前内置两个 runtime：
+
+| runtime 标识 | 实现文件 | 驱动的子进程 |
+|---|---|---|
+| `claude-code`（默认） | `cli/src/serve/runtime/claude.rs` | `claude` 可执行文件（Claude Code SDK） |
+| `codex` | `cli/src/serve/runtime/codex.rs` | `codex` 可执行文件（OpenAI Codex CLI） |
+
+本文档说明如何接入第三个（或更多）runtime，复用已有骨架，只需实现差异部分。
+
+---
+
+## 2. 架构速览
+
+```
+HTTP POST /api/v1/conversations/:id/messages
+        │
+        ▼
+serve/routes/messages.rs          ← 解析请求，调用 runtime 分发
+        │
+        ▼
+serve/runtime/mod.rs              ← send_to_session()，按 agent.runtime 字段 match
+        │
+        ├── "codex"  ──▶  codex.rs   :: send_to_session()
+        └── _        ──▶  claude.rs  :: send_to_session()
+```
+
+每个 runtime 运行在 **独立的 blocking 线程**（`tokio::task::spawn_blocking`）中，通过 `std::sync::mpsc` 接收来自 HTTP handler 的消息，通过 `tokio::sync::broadcast` 向 WebSocket 客户端推送事件。
+
+---
+
+## 3. 核心数据结构
+
+### 3.1 AppState（`serve/state.rs`）
+
+```rust
+pub struct AppState {
+    pub db: Arc<Mutex<Connection>>,      // SQLite（agents / conversations / messages）
+    pub token: String,                   // Bearer token
+    pub uploads_dir: PathBuf,            // 文件上传目录
+    pub bus: ConvBus,                    // conv_id → broadcast::Sender<String>（WS 推送）
+    pub sessions: SessionMap,            // conv_id → mpsc::Sender<SessionMessage>（runtime 写入）
+    pub answer_txs: AnswerMap,           // conv_id → mpsc::SyncSender<AnswerPayload>（交互回答）
+}
+```
+
+**关键约定：**
+- `sessions` map 里若已有该 conv 的 sender，说明 worker 正在运行，直接 `tx.send()` 即可。
+- sender 断裂（worker crash）时重建，这是唯一允许重建 worker 的时机。
+
+### 3.2 SessionMessage
+
+```rust
+pub struct SessionMessage {
+    pub user_text: String,
+    pub file_id: Option<String>,   // 上传文件 ID（可选）
+}
+```
+
+---
+
+## 4. 接入新 Runtime — 分步指南
+
+### Step 1：创建 runtime 模块文件
+
+在 `cli/src/serve/runtime/` 下新建 `<your_runtime>.rs`：
+
+```rust
+//! <YourRuntime> runtime adapter.
+//! 驱动 `<your-cli> ...` 子进程。
+
+use crate::serve::state::AppState;
+use tracing::{debug, error, info, info_span, warn};
+
+pub fn send_to_session(
+    state: &AppState,
+    conv_id: &str,
+    user_text: &str,
+    project_path: &str,
+    // 根据需要增减参数，例如 mode: &str
+) {
+    let mut sessions = state.sessions.lock().unwrap();
+
+    // 若 worker 已在运行，直接入队
+    if let Some(tx) = sessions.get(conv_id) {
+        if tx.send(crate::serve::state::SessionMessage {
+            user_text: user_text.to_string(),
+            file_id: None,
+        }).is_ok() {
+            debug!(conv_id = %conv_id, "runtime_message_queued");
+            return;
+        }
+        warn!(conv_id = %conv_id, "runtime_channel_broken_respawning");
+    }
+
+    // 首次或重建：创建新 channel + worker
+    let (tx, rx) = std::sync::mpsc::channel::<crate::serve::state::SessionMessage>();
+    sessions.insert(conv_id.to_string(), tx.clone());
+    drop(sessions); // 释放锁再 spawn
+
+    let _ = tx.send(crate::serve::state::SessionMessage {
+        user_text: user_text.to_string(),
+        file_id: None,
+    });
+
+    let state2 = state.clone();
+    let conv_id2 = conv_id.to_string();
+    let project_path2 = project_path.to_string();
+
+    tokio::task::spawn_blocking(move || {
+        session_worker(state2, conv_id2, project_path2, rx);
+    });
+}
+```
+
+> **为什么用 `spawn_blocking`？**  
+> 子进程 I/O（`read_line` / `write_all`）是同步阻塞的。在 blocking 线程里跑不会阻塞 Tokio 异步运行时。
+
+---
+
+### Step 2：实现 session_worker
+
+`session_worker` 是 runtime 的核心循环，负责：
+
+1. 从 `rx` 读取用户消息
+2. 启动 / 复用子进程
+3. 写入 stdin → 读取 stdout → 解析事件
+4. 通过 `insert_message` + `broadcast` 将事件推送给 mobile
+
+**模板（参考 codex 风格）：**
+
+```rust
+fn session_worker(
+    state: AppState,
+    conv_id: String,
+    project_path: String,
+    rx: std::sync::mpsc::Receiver<crate::serve::state::SessionMessage>,
+) {
+    let span = info_span!("session_worker", conv_id = %conv_id, runtime = "<your_runtime>");
+    let _enter = span.enter();
+    info!("session_worker_started");
+
+    loop {
+        // 1. 等待下一条消息
+        let msg = match rx.recv() {
+            Ok(m) => m,
+            Err(_) => {
+                info!("session_channel_closed");
+                return;
+            }
+        };
+
+        // 2. 启动子进程（或复用预热进程）
+        let (mut child, mut stdin) = match spawn_your_cli(&project_path) {
+            Some(p) => p,
+            None => {
+                error!("agent_spawn_failed");
+                mark_conv_failed(&state, &conv_id);
+                continue;
+            }
+        };
+
+        // 3. 写入 stdin
+        use std::io::Write;
+        let _ = writeln!(stdin, "{}", msg.user_text);
+        drop(stdin); // 大多数 CLI 需要关闭 stdin 才会开始处理
+
+        // 4. 读取 stdout，解析事件
+        use std::io::BufRead;
+        let stdout = child.stdout.take().unwrap();
+        let reader = std::io::BufReader::new(stdout);
+        for line in reader.lines() {
+            let line = match line { Ok(l) => l, Err(_) => break };
+            handle_output_line(&state, &conv_id, &line);
+        }
+
+        let _ = child.wait();
+    }
+}
+```
+
+---
+
+### Step 3：实现事件处理
+
+每条输出行通常是一个 JSON 事件。解析后调用 `insert_message` 存库、`broadcast` 推送 WS：
+
+```rust
+fn handle_output_line(state: &AppState, conv_id: &str, line: &str) {
+    let v: serde_json::Value = match serde_json::from_str(line) {
+        Ok(v) => v,
+        Err(_) => return, // 非 JSON 行忽略
+    };
+
+    match v["type"].as_str().unwrap_or("") {
+        "text" => {
+            let text = v["content"].as_str().unwrap_or("");
+            let payload = serde_json::json!({ "text": text });
+            let db = state.db.lock().unwrap();
+            if let Ok(seq) = insert_message(&db, conv_id, "agent_text", &payload) {
+                drop(db);
+                broadcast(state, conv_id, seq, "agent_text", payload);
+            }
+        }
+        "done" => {
+            complete_conversation(state, conv_id, "completed");
+        }
+        "error" => {
+            complete_conversation(state, conv_id, "failed");
+        }
+        _ => {}
+    }
+}
+```
+
+**mobile 能识别的 message role（`payload.role`）：**
+
+| role | 含义 |
+|---|---|
+| `agent_text` | 普通文字回复 |
+| `tool_call` | 工具调用（含 `tool`, `args`, `call_id`） |
+| `tool_result` | 工具执行结果（含 `call_id`, `ok`, `summary`） |
+| `ask_question` | 向用户提问（含 `questions` 数组） |
+| `task_status` | 任务完成/失败（含 `status`, `summary`） |
+
+---
+
+### Step 4：注册到 mod.rs
+
+打开 `cli/src/serve/runtime/mod.rs`，添加模块声明和 match arm：
+
+```rust
+mod claude;
+pub mod codex;
+pub mod your_runtime;   // 新增
+
+pub fn send_to_session(
+    state: &AppState,
+    conv_id: &str,
+    user_text: &str,
+    file_id: Option<&str>,
+    project_path: &str,
+    runtime: &str,
+    mode: &str,
+) {
+    match runtime {
+        "codex"        => codex::send_to_session(state, conv_id, user_text, project_path, mode),
+        "your-runtime" => your_runtime::send_to_session(state, conv_id, user_text, project_path),
+        _              => claude::send_to_session(state, conv_id, user_text, file_id, project_path),
+    }
+}
+```
+
+---
+
+### Step 5：扩展 DB schema（按需）
+
+若新 runtime 需要持久化额外状态（如会话 ID、线程 ID），在 `cli/src/db.rs` 的 `init_schema` 末尾用 **migration 方式** 添加字段，**不修改** `CREATE TABLE` 语句：
+
+```rust
+// 在 init_schema() 末尾追加 migration
+let _ = conn.execute_batch(
+    "ALTER TABLE conversations ADD COLUMN your_runtime_session_id TEXT;"
+);
+```
+
+> **规则**：所有 schema 变更走 `ALTER TABLE … ADD COLUMN`，不允许在运行时 `DROP`/`CREATE TABLE`，确保向后兼容现有用户数据。
+
+---
+
+### Step 6：扩展 agents 表的 runtime 枚举
+
+`agents.runtime` 列当前接受任意字符串，无 CHECK 约束，直接插入即可。  
+若需在 mobile 端展示新 runtime，在 `mobile/src/types.ts` 的 `Agent` 类型里更新 `runtime` 字段的字面量联合类型。
+
+---
+
+## 5. Claude Code 实现要点（供参考）
+
+Claude Code 使用 **JSON stream protocol**，每行一个 JSON 事件：
+
+```
+{"type":"system","session_id":"..."}
+{"type":"assistant","message":{"content":[{"type":"text","text":"..."}]}}
+{"type":"control_request","request_id":"...","request":{"tool_name":"AskUserQuestion","input":{...}}}
+{"type":"result","is_error":false,"result":"..."}
+```
+
+关键差异点：
+- **`control_request`**：Claude Code 会先发 `control_request` 请求 tool 权限，runtime 必须回写 `control_response` 才能继续。`AskUserQuestion` 在此阶段拦截并等待 mobile 用户作答。
+- **`claude_session_id`**：第一条 `system` 事件携带 `session_id`，存入 DB 后用于会话恢复（`--resume`）。
+- **stdin 协议**：用户消息以 JSON lines 写入，格式见 `claude_io.rs`。
+
+---
+
+## 6. Codex 实现要点（供参考）
+
+Codex 使用 `codex exec` / `codex exec resume <thread_id>` 命令：
+
+- **线程 ID**：第一轮执行后会拿到 `codex_thread_id`，后续 resume 时传入。
+- **预热（pre-warm）**：每轮成功后立即在后台 spawn 下一个 `codex exec resume` 进程，抵消 Node.js 启动延迟。
+- **模式标志**：`mode` 字段映射到 `--full-auto` / `--dangerously-bypass-approvals-and-sandbox` 等 CLI 标志（见 `codex::mode_flags()`）。
+- **重试**：失败时最多重试 3 次；若遇到 `"thread ... not found"` 错误，清空 `codex_thread_id` 重新开始。
+
+---
+
+## 7. 常见陷阱
+
+| 陷阱 | 原因 | 解决方法 |
+|---|---|---|
+| 死锁：先锁 `db` 再锁 `sessions` | 两把锁顺序不一致 | 统一按 `sessions → db` 顺序；或 `drop()` 后再取下一把锁 |
+| Worker crash 但 sessions map 未清理 | sender 变悬空 | 检测到 `tx.send()` 失败时重建 worker（参考两个 runtime 的模板） |
+| `spawn_blocking` 里调用 `.await` | blocking 线程不能 await | 所有 DB 和 I/O 操作使用同步 API |
+| stdin 未关闭导致子进程挂起 | 很多 CLI 等 EOF 才开始处理 | 写完后 `drop(stdin)` 或显式 close |
+| broadcast channel 已无接收者 | WS 断开后 send 返回 0 | 正常情况，用 `unwrap_or(0)` 忽略 |
+
+---
+
+## 8. 验证清单
+
+完成实现后，按 `CLAUDE.md §5` 跑：
+
+```bash
+cd cli && cargo check          # 编译检查
+cd cli && cargo test           # 单元测试
+
+# 集成验证（本地）
+cargo run -- serve &
+# 在 DB 里插一条 runtime="your-runtime" 的 agent
+# 发消息，确认 WS 收到 agent_text / task_status 事件
+```
+
+移动端适配（如有）：
+
+```bash
+cd mobile && pnpm typecheck
+cd mobile && pnpm test -- --watchAll=false
+```
