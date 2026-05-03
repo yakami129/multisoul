@@ -59,9 +59,9 @@ Chat
 
 ## 5. 行为要求
 
-- 点击 Agent 卡片后导航到 `/agent/{agent_id}/chat?endpoint_id={endpoint_id}&agent_name={encoded_agent_name}`。
+- 点击 Agent 卡片后先创建 conversation，再导航到 `/chat/{conversation_id}?endpoint_id={endpoint_id}&agent_id={agent_id}&agent_name={encoded_agent_name}`。
 - `agent_name` 需 URL encode，避免空格、中文或特殊字符破坏路由参数。
-- Chat 页面继续使用现有创建 conversation 逻辑，本功能不新增 conversation 复用策略。
+- Chat list 打开的 `/chat/[id]` 是唯一权威对话页面；Agent 卡片、Agent 详情、通知等入口不得维护并行对话页面。
 - 如果 Agent 列表为空、加载中或加载失败，保持现有 UI 与交互不变。
 - 下拉刷新、后台自动刷新、错误重试不受影响。
 
@@ -72,7 +72,7 @@ Chat
 | Agent 名称包含空格、中文或特殊字符 | 传入 Chat 路由前 encode，Chat 页面正常展示 |
 | Agent 来自非默认 endpoint | 必须携带该卡片自己的 `endpoint_id` |
 | 用户从 Agent 详情页点击 `OPEN CHAT` | 保持现有可用 |
-| 用户从通知或 Inbox 进入已有 conversation | 不受影响，继续通过 `conv_id` 加载历史对话 |
+| 用户从通知或 Inbox 进入已有 conversation | 不受影响，继续通过 `/chat/{conversation_id}` 加载历史对话 |
 | Agent 列表正在刷新时点击卡片 | 使用当前渲染卡片携带的 Agent 数据导航 |
 
 ## 7. 非功能性需求

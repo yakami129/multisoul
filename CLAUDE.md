@@ -43,6 +43,7 @@ Monorepo 两大件：
 - **PR 开启前必须验证** —— `cargo test` + `cargo build` + `pnpm typecheck` + `pnpm test --watchAll=false` 全部通过
 - **开 PR 需用户确认** —— Claude Code 自动 commit 到功能分支后，必须等用户确认才能执行 `gh pr create`
 - **CI 失败自动修复** —— 读取 `gh run view --log-failed` 日志，修复 lint/type/fmt 错误后 re-push；**修复 = 解决根本原因**（重构代码、删未用项、修类型），绝不用 `#[allow]` / `// eslint-disable` / `@ts-ignore` 压制；逻辑错误上报用户
+- **同一用户流程只能有一个权威实现** —— 不要为同一 screen / route / protocol 复制并行实现；新增入口必须复用既有权威组件或抽共享模块。发现旧版分叉时，迁移入口并删除旧实现，测试覆盖入口收敛。
 
 ---
 
@@ -113,6 +114,7 @@ Monorepo 两大件：
 - 用户场景常常 **不便打字**。涉及决策（方案选择、是否继续、风险权衡）一律用 `AskUserQuestion` 工具给 2-5 个结构化选项，**不要让用户敲字回答**
 - 行动前先检索本地文件，不要凭记忆回答
 - 修改代码后必须按 §5 跑验证；引入了 lint error **必须修根本原因，禁止用 `#[allow]` / `// eslint-disable` / `@ts-ignore` 等抑制指令掩盖**
+- 同一用户流程只能有一个权威实现；避免为不同入口复制 screen / route / protocol 逻辑。需要多入口时，让入口只做参数准备，统一跳到同一页面或调用同一模块。
 - **文档落盘**：产品 / 功能规格 → **只** [`docs/product-specs/`](docs/product-specs/)（`SPEC-<feature>.md`）；实施 / 执行计划 → **只** [`docs/exec-plans/`](docs/exec-plans/)（`YYYY-MM-DD-<feature>.md`）；设计权衡 → `docs/design-docs/YYYY-MM-DD-<feature>-design.md`（命名见 [`docs/design-docs/README.md`](docs/design-docs/README.md)）。**勿**在 [`docs/specs/`](docs/specs/)、[`docs/superpowers/`](docs/superpowers/) 新增权威内容。**Superpowers skills**（`writing-plans`、`executing-plans`、`brainstorming` 等）在本仓库落盘**必须**使用上述路径 · [`docs/superpowers/README.md`](docs/superpowers/README.md)
 - 不要把规则塞进 `AGENTS.md`。`AGENTS.md` 只长指针，不长内容
 

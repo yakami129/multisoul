@@ -5,6 +5,7 @@ import AgentListScreen from './index';
 
 const mockPush = jest.fn();
 const mockFetchAllAgents = jest.fn();
+const mockCreateConversation = jest.fn();
 
 jest.mock('expo-router', () => ({
   useRouter: () => ({ push: mockPush }),
@@ -26,6 +27,10 @@ jest.mock('../../src/store/endpointStore', () => ({
 
 jest.mock('../../src/features/agents/services/agentService', () => ({
   fetchAllAgents: (...args: unknown[]) => mockFetchAllAgents(...args),
+}));
+
+jest.mock('../../src/features/chat/services/chatService', () => ({
+  createConversation: (...args: unknown[]) => mockCreateConversation(...args),
 }));
 
 jest.mock('react-native-safe-area-context', () => ({
@@ -50,6 +55,15 @@ describe('AgentListScreen', () => {
   beforeEach(() => {
     mockPush.mockClear();
     mockFetchAllAgents.mockReset();
+    mockCreateConversation.mockReset();
+    mockCreateConversation.mockResolvedValue({
+      id: 'conv-1',
+      agent_id: 'a1',
+      title: 'New Chat',
+      created_at: 1,
+      last_message_at: 1,
+      status: 'idle',
+    });
   });
 
   it('opens chat directly when an agent card is pressed', async () => {
@@ -70,8 +84,10 @@ describe('AgentListScreen', () => {
     await waitFor(() => expect(getByText('ALPHA AGENT')).toBeTruthy());
     fireEvent.press(getByText('ALPHA AGENT'));
 
-    expect(mockPush).toHaveBeenCalledWith(
-      '/agent/a1/chat?endpoint_id=ep-1&agent_name=Alpha%20Agent',
+    await waitFor(() =>
+      expect(mockPush).toHaveBeenCalledWith(
+        '/chat/conv-1?endpoint_id=ep-1&agent_id=a1&agent_name=Alpha%20Agent',
+      ),
     );
   });
 
@@ -87,14 +103,24 @@ describe('AgentListScreen', () => {
         endpoint_label: 'Mac',
       },
     ]);
+    mockCreateConversation.mockResolvedValue({
+      id: 'conv-2',
+      agent_id: 'a2',
+      title: 'New Chat',
+      created_at: 1,
+      last_message_at: 1,
+      status: 'idle',
+    });
 
     const { getByText } = renderScreen();
 
     await waitFor(() => expect(getByText('修复 BOT/QA')).toBeTruthy());
     fireEvent.press(getByText('修复 BOT/QA'));
 
-    expect(mockPush).toHaveBeenCalledWith(
-      `/agent/a2/chat?endpoint_id=ep-1&agent_name=${encodeURIComponent('修复 Bot/QA')}`,
+    await waitFor(() =>
+      expect(mockPush).toHaveBeenCalledWith(
+        `/chat/conv-2?endpoint_id=ep-1&agent_id=a2&agent_name=${encodeURIComponent('修复 Bot/QA')}`,
+      ),
     );
   });
 });

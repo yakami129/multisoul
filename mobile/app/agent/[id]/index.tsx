@@ -2,6 +2,8 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { AgentDetail } from '../../../src/features/agents/components/AgentDetail';
 import { fetchAgent, invokeAgent } from '../../../src/features/agents/services/agentService';
+import { createConversation } from '../../../src/features/chat/services/chatService';
+import { buildChatDetailPath } from '../../../src/features/chat/utils/chatRoutes';
 import { useEndpointStore } from '../../../src/store/endpointStore';
 import { type Agent } from '../../../src/types';
 
@@ -44,10 +46,19 @@ export default function AgentDetailScreen() {
     return conv_id;
   };
 
-  const handleChat = () => {
+  const handleChat = async () => {
     const ep_id = endpoint_id ?? agent?.endpoint_id ?? '';
-    const agent_name = encodeURIComponent(agent?.name ?? '');
-    router.push(`/agent/${id}/chat?endpoint_id=${ep_id}&agent_name=${agent_name}`);
+    const ep = endpoints.find((e) => e.id === ep_id);
+    if (!ep || !id) return;
+    const conv = await createConversation(ep.base_url, ep.token, id, 'New Chat');
+    router.push(
+      buildChatDetailPath({
+        conversationId: conv.id,
+        endpointId: ep_id,
+        agentId: id,
+        agentName: agent?.name,
+      }),
+    );
   };
 
   return (
@@ -57,7 +68,9 @@ export default function AgentDetailScreen() {
       isError={isError}
       onBack={() => router.back()}
       onInvoke={handleInvoke}
-      onChat={handleChat}
+      onChat={() => {
+        void handleChat();
+      }}
     />
   );
 }

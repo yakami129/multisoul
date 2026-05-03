@@ -33,6 +33,7 @@ Monorepo 两大件：
 - DB schema 改动走 migration —— 不允许运行时 `CREATE TABLE`
 - REST/WS 强制 Bearer auth —— 唯一例外 `GET /api/v1/healthz`
 - 决策用 `AskUserQuestion` 工具调用 —— 不在自由文本问选择题
+- 同一用户流程只保留一个权威实现 —— 详见 [`CLAUDE.md`](CLAUDE.md) §2/§7
 
 ## 3. 技术栈速览
 

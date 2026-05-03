@@ -140,7 +140,7 @@ agents
   id           TEXT PK
   name         TEXT UNIQUE
   project_path TEXT          ← Agent 工作目录
-  runtime      TEXT          ← claude-code | codex | ...
+  runtime      TEXT          ← claude-code | codex | cursor-cli | …
   created_at   INTEGER
 
 conversations
@@ -148,7 +148,9 @@ conversations
   agent_id          TEXT → agents(id) CASCADE
   title             TEXT
   status            TEXT      ← idle | running | completed | failed
-  claude_session_id TEXT      ← 用于 --resume 恢复
+  claude_session_id TEXT      ← Claude Code --resume
+  codex_thread_id   TEXT      ← Codex thread id
+  cursor_session_id TEXT      ← Cursor Agent CLI --resume
   created_at        INTEGER
   last_message_at   INTEGER
 
@@ -189,8 +191,8 @@ routes/messages.rs :: post_message()
   │  2. 广播到 WS bus
   │  3. 调用 runtime::send_to_session()
   ▼
-runtime.rs :: session_worker()  [blocking thread]
-  │  spawn agent 进程（claude / codex）—— stream-json 协议
+serve/runtime/* :: session_worker()  [blocking thread]
+  │  spawn agent 进程（claude / codex / cursor `agent`）—— stream-json 或等价协议
   │  主循环：rx.recv() → process_turn()
   ▼
 process_turn()

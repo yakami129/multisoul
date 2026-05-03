@@ -62,7 +62,17 @@ interface PendingImage {
 }
 
 export default function ChatDetailScreen() {
-  const { id: conv_id, endpoint_id } = useLocalSearchParams<{ id: string; endpoint_id: string }>();
+  const {
+    id: conv_id,
+    endpoint_id,
+    agent_id,
+    agent_name,
+  } = useLocalSearchParams<{
+    id: string;
+    endpoint_id: string;
+    agent_id?: string;
+    agent_name?: string;
+  }>();
   const router = useRouter();
   const [input, setInput] = useState('');
   const [isAwaitingResponse, setIsAwaitingResponse] = useState(false);
@@ -107,8 +117,8 @@ export default function ChatDetailScreen() {
           token: endpoint.token,
           conv_id,
           endpoint_id: endpoint_id ?? '',
-          agent_id: conversation?.agent_id ?? '',
-          agent_name: conversation?.agent_name ?? '',
+          agent_id: conversation?.agent_id ?? agent_id ?? '',
+          agent_name: conversation?.agent_name ?? agent_name ?? '',
         }
       : { base_url: '', token: '', conv_id, endpoint_id: '', agent_id: '', agent_name: '' },
   );
@@ -139,8 +149,8 @@ export default function ChatDetailScreen() {
         void mirrorAskQuestionsToInbox({
           messages: merged,
           endpoint_id: endpoint_id ?? '',
-          agent_id: conversation?.agent_id ?? '',
-          agent_name: conversation?.agent_name,
+          agent_id: conversation?.agent_id ?? agent_id ?? '',
+          agent_name: conversation?.agent_name ?? agent_name,
           conversation_id: conv_id,
           addItem: addInboxItem,
         });
@@ -148,7 +158,16 @@ export default function ChatDetailScreen() {
       .catch(() => {
         hasLoadedInitialMessagesRef.current = true;
       });
-  }, [conv_id, endpoint, endpoint_id, conversation, setMessages, addInboxItem]);
+  }, [
+    conv_id,
+    endpoint,
+    endpoint_id,
+    agent_id,
+    agent_name,
+    conversation,
+    setMessages,
+    addInboxItem,
+  ]);
 
   async function pickImage() {
     if (pendingImages.length >= 5) {

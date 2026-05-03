@@ -11,6 +11,7 @@ import { ErrorBoundary } from '../src/components/ErrorBoundary';
 import { SplashScreen } from '../src/components/SplashScreen';
 import { initDb } from '../src/db';
 import { buildNotificationInboxItem } from '../src/features/inbox/utils/buildNotificationInboxItem';
+import { getNotificationNavTarget } from '../src/services/notificationNavigation';
 import { registerPushTokenForEndpoints } from '../src/services/pushTokenService';
 import { useEndpointStore } from '../src/store/endpointStore';
 import { useInboxStore } from '../src/store/inboxStore';
@@ -112,11 +113,4 @@ export default function RootLayout() {
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );
-}
-
-function getNotificationNavTarget(data: Record<string, string | undefined>): string | null {
-  if (data?.type !== 'task_completed' && data?.type !== 'task_failed') return null;
-  const { agentId, convId, endpointId } = data;
-  if (!agentId || !convId || !endpointId) return null;
-  return `/agent/${agentId}/chat?conv_id=${convId}&endpoint_id=${endpointId}`;
 }

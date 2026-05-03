@@ -14,6 +14,7 @@ MultiSoul CLI（`msctl`）通过 **Runtime 适配层** 驱动 AI agent 子进程
 |---|---|---|
 | `claude-code`（默认） | `cli/src/serve/runtime/claude.rs` | `claude` 可执行文件（Claude Code SDK） |
 | `codex` | `cli/src/serve/runtime/codex.rs` | `codex` 可执行文件（OpenAI Codex CLI） |
+| `cursor-cli` | `cli/src/serve/runtime/cursor.rs` | `agent`（Cursor Agent CLI，`CURSOR_AGENT_BIN` 可覆盖） |
 
 本文档说明如何接入第三个（或更多）runtime，复用已有骨架，只需实现差异部分。
 
@@ -30,8 +31,9 @@ serve/routes/messages.rs          ← 解析请求，调用 runtime 分发
         ▼
 serve/runtime/mod.rs              ← send_to_session()，按 agent.runtime 字段 match
         │
-        ├── "codex"  ──▶  codex.rs   :: send_to_session()
-        └── _        ──▶  claude.rs  :: send_to_session()
+        ├── "codex"       ──▶  codex.rs   :: send_to_session()
+        ├── "cursor-cli"  ──▶  cursor.rs  :: send_to_session()
+        └── _             ──▶  claude.rs  :: send_to_session()
 ```
 
 每个 runtime 运行在 **独立的 blocking 线程**（`tokio::task::spawn_blocking`）中，通过 `std::sync::mpsc` 接收来自 HTTP handler 的消息，通过 `tokio::sync::broadcast` 向 WebSocket 客户端推送事件。

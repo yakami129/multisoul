@@ -1,16 +1,22 @@
-import { act, render, screen, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import React from 'react';
 import AgentDetailScreen from '../../app/agent/[id]/index';
 import { useEndpointStore } from '../store/endpointStore';
+
+const mockPush = jest.fn();
 
 jest.mock('../features/agents/services/agentService', () => ({
   fetchAgent: jest.fn(),
   invokeAgent: jest.fn(),
 }));
 
+jest.mock('../features/chat/services/chatService', () => ({
+  createConversation: jest.fn(),
+}));
+
 jest.mock('expo-router', () => ({
   useLocalSearchParams: () => ({ id: 'uuid-1', endpoint_id: 'ep-1' }),
-  useRouter: () => ({ back: jest.fn(), push: jest.fn() }),
+  useRouter: () => ({ back: jest.fn(), push: mockPush }),
 }));
 
 jest.mock('react-native-safe-area-context', () => ({
@@ -44,8 +50,10 @@ const mockAgent = {
 ///   - 'Local' endpoint label visible
 describe('AgentDetailScreen', () => {
   const { fetchAgent } = require('../features/agents/services/agentService');
+  const { createConversation } = require('../features/chat/services/chatService');
 
   beforeEach(() => {
+    mockPush.mockClear();
     useEndpointStore.setState({
       endpoints: [
         {
@@ -58,6 +66,14 @@ describe('AgentDetailScreen', () => {
       ],
     });
     fetchAgent.mockResolvedValue(mockAgent);
+    createConversation.mockResolvedValue({
+      id: 'conv-123',
+      agent_id: 'uuid-1',
+      title: 'New Chat',
+      created_at: 1,
+      last_message_at: 1,
+      status: 'idle',
+    });
   });
 
   afterEach(() => {
@@ -65,6 +81,7 @@ describe('AgentDetailScreen', () => {
       useEndpointStore.setState({ endpoints: [] });
     });
     fetchAgent.mockReset();
+    createConversation.mockReset();
   });
 
   it('renders agent details', async () => {
@@ -85,5 +102,21 @@ describe('AgentDetailScreen', () => {
     await waitFor(() => {
       expect(screen.getByText('FAILED TO LOAD')).toBeTruthy();
     });
+  });
+
+  it('opens the canonical chat detail screen from OPEN CHAT', async () => {
+    render(<AgentDetailScreen />);
+
+    await waitFor(() => {
+      expect(screen.getByText('WEATHER AGENT')).toBeTruthy();
+    });
+
+    fireEvent.press(screen.getByText('OPEN CHAT'));
+
+    await waitFor(() =>
+      expect(mockPush).toHaveBeenCalledWith(
+        '/chat/conv-123?endpoint_id=ep-1&agent_id=uuid-1&agent_name=Weather%20Agent',
+      ),
+    );
   });
 });

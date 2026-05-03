@@ -74,6 +74,9 @@ fn init_schema(conn: &Connection) -> Result<()> {
         conn.execute_batch("ALTER TABLE agents ADD COLUMN mode TEXT NOT NULL DEFAULT 'full-auto';");
     let _ = conn.execute_batch("ALTER TABLE conversations ADD COLUMN codex_thread_id TEXT;");
     let _ = conn.execute_batch("ALTER TABLE push_tokens ADD COLUMN endpoint_id TEXT;");
+    let _ = conn.execute_batch(
+        "ALTER TABLE conversations ADD COLUMN cursor_session_id TEXT;",
+    );
     Ok(())
 }
 
@@ -168,6 +171,19 @@ mod tests {
         assert!(
             has_thread_id,
             "conversations.codex_thread_id column must exist after migration"
+        );
+
+        let has_cursor_session: bool = conn
+            .query_row(
+                "SELECT COUNT(*) FROM pragma_table_info('conversations') WHERE name='cursor_session_id'",
+                [],
+                |r| r.get::<_, i64>(0),
+            )
+            .unwrap()
+            > 0;
+        assert!(
+            has_cursor_session,
+            "conversations.cursor_session_id column must exist after migration"
         );
     }
 

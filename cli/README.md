@@ -48,6 +48,9 @@ cargo run -- auth status
 # 注册 Agent
 cargo run -- agent register --name demo --project /Users/alan/Documents/codes/yakami0129/multisoul --runtime claude-code
 
+# Cursor Agent CLI（本机已安装 `agent`，非交互需 `--trust` + `--force`，由 runtime 自动传入）
+cargo run -- agent register --name cursor-demo --project /path/to/repo --runtime cursor-cli
+
 # 列表与详情
 cargo run -- agent list
 cargo run -- agent get <agent-id>

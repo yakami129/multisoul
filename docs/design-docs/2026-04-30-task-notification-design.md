@@ -45,7 +45,7 @@ WebSocket message (task_status, status=completed)
 
 `addNotificationResponseReceivedListener` in `app/_layout.tsx` reads `userInfo` and calls:
 ```
-router.push(`/agent/${agentId}/chat?conv_id=${convId}&endpoint_id=${endpointId}`)
+router.push(`/chat/${convId}?endpoint_id=${endpointId}&agent_id=${agentId}`)
 ```
 This handles both foreground tap and cold-start tap (via `getLastNotificationResponseAsync` on mount).
 

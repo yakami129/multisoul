@@ -13,9 +13,10 @@ pub enum AgentCommands {
         name: String,
         #[arg(long)]
         project: String,
+        /// Runtime: claude-code | codex | cursor-cli (Cursor Agent CLI, `agent` on PATH)
         #[arg(long, default_value = "claude-code")]
         runtime: String,
-        /// Permission mode (codex only): suggest | auto-edit | full-auto | yolo
+        /// Permission mode (codex) or agent mode hint (cursor-cli: ask | plan): suggest | auto-edit | full-auto | yolo
         #[arg(long, default_value = "full-auto")]
         mode: String,
     },
@@ -312,5 +313,28 @@ mod tests {
             )
             .unwrap();
         assert_eq!(mode, "full-auto", "mode should be stored as-is");
+    }
+
+    /// cursor-cli runtime string is stored like any other runtime.
+    #[test]
+    fn test_insert_agent_cursor_cli_runtime() {
+        let dir = tempfile::tempdir().unwrap();
+        let conn = crate::db::open_at(&dir.path().join("test.db")).unwrap();
+        insert_agent(
+            &conn,
+            "cursor-agent",
+            "/tmp/proj",
+            "cursor-cli",
+            "full-auto",
+        )
+        .unwrap();
+        let rt: String = conn
+            .query_row(
+                "SELECT runtime FROM agents WHERE name = 'cursor-agent'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(rt, "cursor-cli");
     }
 }

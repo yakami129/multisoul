@@ -9,6 +9,10 @@ jest.mock('../../src/features/agents/services/agentService', () => ({
   fetchAllAgents: jest.fn(),
 }));
 
+jest.mock('../../src/features/chat/services/chatService', () => ({
+  createConversation: jest.fn(),
+}));
+
 jest.mock('expo-router', () => ({
   useRouter: () => ({ push: jest.fn() }),
   Link: ({ children }: any) => children,

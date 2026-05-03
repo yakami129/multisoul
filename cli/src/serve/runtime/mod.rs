@@ -1,11 +1,12 @@
 mod claude;
 pub mod codex;
+mod cursor;
 
 use crate::serve::state::AppState;
 
 /// Dispatch a user message to the appropriate runtime backend.
-/// `runtime` matches the agent's `runtime` column ("claude-code" | "codex").
-/// `mode` is the agent's `mode` column (only used by codex).
+/// `runtime` matches the agent's `runtime` column (`claude-code` | `codex` | `cursor-cli` | …).
+/// `mode` is the agent's `mode` column (codex flags; cursor-cli maps `ask` / `plan`).
 pub fn send_to_session(
     state: &AppState,
     conv_id: &str,
@@ -17,6 +18,7 @@ pub fn send_to_session(
 ) {
     match runtime {
         "codex" => codex::send_to_session(state, conv_id, user_text, project_path, mode),
+        "cursor-cli" => cursor::send_to_session(state, conv_id, user_text, project_path, mode),
         _ => claude::send_to_session(state, conv_id, user_text, file_id, project_path),
     }
 }
