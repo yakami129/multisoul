@@ -88,8 +88,10 @@ export default function ChatDetailScreen() {
   const messagesMap = useChatStore((s) => s.messages);
   const messages = messagesMap[conv_id] ?? EMPTY;
   const setMessages = useChatStore((s) => s.setMessages);
+  const updateConversation = useChatStore((s) => s.updateConversation);
   const addInboxItem = useInboxStore((s) => s.addItem);
   const conversation = conversations.find((c) => c.id === conv_id);
+  const navTitle = conversation?.agent_name ?? agent_name ?? conversation?.title ?? 'CHAT';
   const latestAgentActivitySeq = getLatestAgentActivitySeq(messages);
   const latestAgentSeq = getLatestAgentTextSeq(messages);
   const lastSeenAgentActivitySeqRef = useRef(latestAgentActivitySeq);
@@ -240,6 +242,7 @@ export default function ChatDetailScreen() {
     lastSeenAgentActivitySeqRef.current = getLatestAgentActivitySeq(messages);
     lastAnimatedAgentTextSeqRef.current = getLatestAgentTextSeq(messages);
     hasLoadedInitialMessagesRef.current = true;
+    updateConversation(conv_id, { status: 'running' });
     setInput('');
     setPendingImages([]);
     setIsAwaitingResponse(true);
@@ -262,10 +265,20 @@ export default function ChatDetailScreen() {
   };
 
   const isOffline = !endpoint || status === 'closed';
-  const composerDisabled = isOffline || isAwaitingResponse;
+  // Agent is "running" if we are waiting for the first response (optimistic) OR
+  // if the server has explicitly set the conversation status to 'running'.
+  // Using conversation.status as the authoritative source prevents the race
+  // where isAwaitingResponse was reset as soon as the first agent message
+  // arrived, causing the stop button to disappear mid-run.
+  const conversationStatus = conversation?.status ?? 'idle';
+  const isAgentRunning = isAwaitingResponse || conversationStatus === 'running';
+  const composerDisabled = isOffline || isAgentRunning;
 
   useEffect(() => {
     if (isAwaitingResponse && latestAgentActivitySeq > lastSeenAgentActivitySeqRef.current) {
+      // First agent activity arrived — the optimistic "awaiting" phase is over.
+      // We can clear the local flag; visibility of the stop button is now
+      // driven by conversation.status (set by the WebSocket hook).
       setIsAwaitingResponse(false);
       lastSeenAgentActivitySeqRef.current = latestAgentActivitySeq;
     } else if (
@@ -283,6 +296,15 @@ export default function ChatDetailScreen() {
     }
   }, [isAwaitingResponse, latestAgentActivitySeq, latestAgentSeq]);
 
+  // Sync local isAwaitingResponse with conversation.status.
+  // If the server reports the conversation is no longer running (idle/completed/failed),
+  // clear the local optimistic flag so the stop button disappears correctly.
+  useEffect(() => {
+    if (isAwaitingResponse && conversationStatus !== 'running') {
+      setIsAwaitingResponse(false);
+    }
+  }, [conversationStatus, isAwaitingResponse]);
+
   const badge = isOffline
     ? { label: 'OFFLINE', bg: '#1A0000', dot: '#FFB000' }
     : (STATUS_BADGE[conversation?.status ?? 'idle'] ?? STATUS_BADGE.idle);
@@ -297,7 +319,7 @@ export default function ChatDetailScreen() {
           <TouchableOpacity onPress={() => router.back()}>
             <ChevronLeft size={24} color="#20C20E" />
           </TouchableOpacity>
-          <Text style={s.navTitle}>CHAT</Text>
+          <Text style={s.navTitle}>{navTitle}</Text>
           <View style={[s.statusBadge, { backgroundColor: badge.bg }]}>
             <View style={[s.statusDot, { backgroundColor: badge.dot }]} />
             <Text testID="status-badge-text" style={s.statusBadgeText}>
@@ -322,7 +344,7 @@ export default function ChatDetailScreen() {
               imageUri={imageUriForMessage(msg)}
             />
           ))}
-          {isAwaitingResponse && incomingAgentActivitySeq === null && (
+          {isAgentRunning && incomingAgentActivitySeq === null && (
             <MessageBubble msg={WAITING_MESSAGE} waiting />
           )}
         </ScrollView>
@@ -389,11 +411,11 @@ export default function ChatDetailScreen() {
             />
           </View>
           <TouchableOpacity
-            accessibilityLabel={isAwaitingResponse ? 'Stop conversation' : 'Send message'}
+            accessibilityLabel={isAgentRunning ? 'Stop conversation' : 'Send message'}
             accessibilityRole="button"
             testID="send-stop-button"
             onPress={() => {
-              if (isAwaitingResponse) {
+              if (isAgentRunning) {
                 if (endpoint) {
                   void abortConversation(endpoint.base_url, endpoint.token, conv_id)
                     .then(() => {
@@ -402,14 +424,16 @@ export default function ChatDetailScreen() {
                     .catch((e: unknown) => {
                       console.warn('abort failed', e);
                     });
+                } else {
+                  console.warn('abort: no endpoint available');
                 }
               } else {
                 void handleSend();
               }
             }}
-            style={[s.sendStopBtn, isAwaitingResponse ? s.stopBtn : s.sendBtn]}
+            style={[s.sendStopBtn, isAgentRunning ? s.stopBtn : s.sendBtn]}
           >
-            {isAwaitingResponse ? (
+            {isAgentRunning ? (
               <View testID="stop-icon">
                 <Square size={14} color="#FF4444" />
               </View>

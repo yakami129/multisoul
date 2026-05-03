@@ -125,6 +125,28 @@ test('renders fetched historical agent text without typewriter replay', async ()
   expect(queryByText('historical response [typewriter]')).toBeNull();
 });
 
+test('shows the current agent name in the header', async () => {
+  const { getByText } = render(<ChatDetailScreen />);
+
+  await waitFor(() => expect(getByText('Agent')).toBeTruthy());
+});
+
+test('updates the status badge when conversation metadata changes', async () => {
+  const { getByTestId } = render(<ChatDetailScreen />);
+
+  await waitFor(() => expect(getByTestId('status-badge-text').props.children).toBe('IDLE'));
+
+  act(() => {
+    useChatStore.setState((state) => ({
+      conversations: state.conversations.map((conv) =>
+        conv.id === 'conv-1' ? { ...conv, status: 'running' } : conv,
+      ),
+    }));
+  });
+
+  await waitFor(() => expect(getByTestId('status-badge-text').props.children).toBe('RUNNING'));
+});
+
 test('animates the next agent text after sending a message', async () => {
   (fetchMessages as jest.Mock).mockResolvedValue([]);
   const { getByPlaceholderText, getByText } = render(<ChatDetailScreen />);
@@ -246,6 +268,81 @@ describe('send/stop button', () => {
   beforeEach(() => {
     (fetchMessages as jest.Mock).mockResolvedValue([]);
     (postMessage as jest.Mock).mockImplementation(() => new Promise(() => {})); // never resolves
+  });
+
+  it('keeps stop icon visible even after an agent_text message arrives (race condition regression)', async () => {
+    // Bug: isAwaitingResponse was reset to false as soon as ANY agent activity arrived,
+    // even while the agent was still running. This caused the stop button to disappear
+    // mid-run after the first agent_text message.
+    //
+    // The fix: stop-button visibility must remain until conversation.status
+    // explicitly returns to non-running (idle / completed / failed).
+    //
+    // Scenario:
+    //   1. User sends message → stop-icon appears
+    //   2. Agent sends first agent_text (still running) → stop-icon MUST stay
+    const { getByTestId } = render(<ChatDetailScreen />);
+
+    await act(async () => {
+      fireEvent.changeText(getByTestId('message-input'), 'hello');
+    });
+    await act(async () => {
+      fireEvent.press(getByTestId('send-stop-button'));
+    });
+
+    await waitFor(() => expect(getByTestId('stop-icon')).toBeTruthy());
+
+    // Simulate agent sending its first message while still running
+    act(() => {
+      useChatStore.getState().setMessages('conv-1', [
+        { type: 'message', seq: 1, role: 'user_text', payload: { text: 'hello' }, created_at: 1 },
+        {
+          type: 'message',
+          seq: 2,
+          role: 'agent_text',
+          payload: { text: 'thinking...' },
+          created_at: 2,
+        },
+      ]);
+      // conversation.status remains 'running' — agent has not finished
+      useChatStore.setState((s) => ({
+        conversations: s.conversations.map((c) =>
+          c.id === 'conv-1' ? { ...c, status: 'running' } : c,
+        ),
+      }));
+    });
+
+    // Stop icon must still be visible — agent is still running
+    await waitFor(() => {
+      expect(getByTestId('stop-icon')).toBeTruthy();
+    });
+  });
+
+  it('hides stop icon after conversation.status returns to idle (agent finished)', async () => {
+    // After the agent finishes (status → idle / completed), the stop icon should disappear.
+    const { getByTestId, queryByTestId } = render(<ChatDetailScreen />);
+
+    await act(async () => {
+      fireEvent.changeText(getByTestId('message-input'), 'hello');
+    });
+    await act(async () => {
+      fireEvent.press(getByTestId('send-stop-button'));
+    });
+
+    await waitFor(() => expect(getByTestId('stop-icon')).toBeTruthy());
+
+    // Agent finishes — status returns to idle
+    act(() => {
+      useChatStore.setState((s) => ({
+        conversations: s.conversations.map((c) =>
+          c.id === 'conv-1' ? { ...c, status: 'idle' } : c,
+        ),
+      }));
+    });
+
+    await waitFor(() => {
+      expect(queryByTestId('stop-icon')).toBeNull();
+    });
   });
 
   it('shows stop icon when isAwaitingResponse', async () => {
