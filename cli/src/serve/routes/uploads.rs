@@ -6,7 +6,6 @@ use axum::{
     Json,
 };
 use serde::Serialize;
-use std::path::PathBuf;
 use tracing::warn;
 use uuid::Uuid;
 
@@ -69,6 +68,7 @@ mod tests {
         extract::DefaultBodyLimit,
         http::{Request, StatusCode},
     };
+    use std::path::PathBuf;
     use tempfile::tempdir;
     use tower::ServiceExt;
 
