@@ -41,6 +41,10 @@ pub async fn build_router(state: AppState) -> Router {
             axum::routing::delete(push_tokens::delete_token),
         )
         .route("/ws/conversations/:id", axum::routing::get(ws::ws_handler))
+        .route(
+            "/api/v1/uploads",
+            axum::routing::post(uploads::upload_image),
+        )
         .layer(middleware::from_fn(http_trace::trace_request))
         .layer(middleware::from_fn_with_state(
             state.clone(),
