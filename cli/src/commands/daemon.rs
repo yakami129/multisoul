@@ -1,8 +1,9 @@
 use crate::commands::serve::{advertised_base_url, generate_token, print_qr};
 use crate::config::{load_config, save_config};
+#[cfg(target_os = "macos")]
+use crate::serve::daemon::Config as DaemonConfig;
 use crate::serve::daemon::{
-    self, default_log_file, load_meta, new_manager, remove_meta, resolve_binary, save_meta,
-    Config as DaemonConfig, Meta,
+    self, default_log_file, load_meta, new_manager, remove_meta, resolve_binary, save_meta, Meta,
 };
 use anyhow::Result;
 use clap::{ArgAction, Subcommand};
@@ -103,19 +104,20 @@ fn install(port_arg: Option<u16>, tailnet: bool, force: bool) -> Result<()> {
 
     let binary = resolve_binary()?;
     let log_file = default_log_file();
-    let env_path = std::env::var("PATH")
-        .unwrap_or_else(|_| "/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin".into());
 
-    let daemon_cfg = DaemonConfig {
-        binary_path: binary.clone(),
-        token: cfg.serve_token.clone(),
-        port: cfg.serve_port,
-        tailnet,
-        log_file: log_file.clone(),
-        env_path,
-    };
-
-    mgr.install(&daemon_cfg)?;
+    #[cfg(target_os = "macos")]
+    {
+        let env_path = std::env::var("PATH")
+            .unwrap_or_else(|_| "/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin".into());
+        mgr.install(&DaemonConfig {
+            binary_path: binary.clone(),
+            token: cfg.serve_token.clone(),
+            port: cfg.serve_port,
+            tailnet,
+            log_file: log_file.clone(),
+            env_path,
+        })?;
+    }
 
     save_meta(&Meta {
         log_file: log_file.clone(),

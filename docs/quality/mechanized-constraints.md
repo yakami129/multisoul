@@ -73,13 +73,23 @@
 | 排除 | `__tests__/`、`*.test.*`、`fixtures/` |
 | 修复方式 | 拆文件、抽模块、去重；错误信息提示 LLM 按职责拆分而非放宽上限 |
 
+### R8 · 禁止 `#[allow(...)]`
+
+| | |
+|---|---|
+| 脚本 | [`scripts/check-no-allow.sh`](../../scripts/check-no-allow.sh) |
+| 起因 | PR #4 中用 `#[allow(clippy::too_many_arguments)]` 掩盖了 `process_turn` 参数过多的设计问题，而不是重构 |
+| 检测 | `cli/src/**/*.rs` 中出现 `#[allow(` 即拒绝 commit / CI fail |
+| 修复方式 | 解决根本原因：`too_many_arguments` → 封 context struct；`dead_code` → 删未使用代码或接入调用链；`unused_imports` → 删 import；`unused_variables` → 前缀 `_` |
+| 例外 | 无。真的需要 `#[allow]` 意味着代码需要重构 |
+
 ### R7 · CI 远端兜底
 
 | | |
 |---|---|
 | 实现 | [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml) |
 | 触发 | `pull_request` 与 `push: main` |
-| Job 1 (`repo-checks`) | 跑 R1-R3 与 R6 共四个脚本 |
+| Job 1 (`repo-checks`) | 跑 R1-R3、R6、R8 共五个脚本 |
 | Job 2 (`mobile-check`) | `pnpm typecheck` + `pnpm lint` + `pnpm test` |
 | Job 3 (`cli-check`) | `cargo build --all-targets` + `cargo test` |
 | 角色 | 兜底 —— 若开发者本地用 `--no-verify` 跳过 husky，CI 仍拒绝 merge |

@@ -2,10 +2,10 @@ use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
-#[allow(dead_code)]
+#[cfg(target_os = "macos")]
 pub const SERVICE_LABEL: &str = "com.multisoul.msctl";
 
-#[allow(dead_code)]
+#[cfg(target_os = "macos")]
 pub struct Config {
     pub binary_path: String,
     pub token: String,
@@ -23,6 +23,7 @@ pub struct Status {
 }
 
 pub trait Manager {
+    #[cfg(target_os = "macos")]
     fn install(&self, cfg: &Config) -> Result<()>;
     fn uninstall(&self) -> Result<()>;
     fn start(&self) -> Result<()>;

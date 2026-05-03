@@ -25,6 +25,7 @@ Monorepo 两大件：
 - **单文件 ≤ 500 行** —— `mobile/src|app`、`cli/src` 源码；超长需拆分封装（见 mechanized-constraints）
 - **mobile 禁 `console.log`** —— 仅允许 `console.warn` / `console.error`
 - **改包必跑 typecheck/cargo check**
+- **Rust 禁止 `#[allow(...)]`** —— `cli/src` 中不得用 `#[allow]` 压制编译器/clippy 诊断；[`scripts/check-no-allow.sh`](scripts/check-no-allow.sh) 拦截
 
 人类可读软约束：
 
@@ -93,7 +94,7 @@ cd mobile && ./scripts/publish-ios.sh
 
 - 用户场景常常 **不便打字**。涉及决策（方案选择、是否继续、风险权衡）一律用 `AskUserQuestion` 工具给 2-5 个结构化选项，**不要让用户敲字回答**
 - 行动前先检索本地文件，不要凭记忆回答
-- 修改代码后必须按 §5 跑验证；引入了 lint error 要修
+- 修改代码后必须按 §5 跑验证；引入了 lint error **必须修根本原因，禁止用 `#[allow]` / `// eslint-disable` / `@ts-ignore` 抑制**
 - **文档落盘**：产品 / 功能规格（要做什么、验收）→ **只** [`docs/product-specs/`](docs/product-specs/)（`SPEC-<feature>.md`）；实施 / 执行计划 → **只** [`docs/exec-plans/`](docs/exec-plans/)（`YYYY-MM-DD-<feature>.md`）；设计权衡 → `docs/design-docs/YYYY-MM-DD-<feature>-design.md`（命名见 [`docs/design-docs/README.md`](docs/design-docs/README.md)）。**勿**在 [`docs/specs/`](docs/specs/)、[`docs/superpowers/`](docs/superpowers/) 新增权威内容。**Superpowers skills**（`writing-plans`、`executing-plans`、`brainstorming` 等）在本仓库写规格或计划时**必须**使用上述 canonical 路径 · [`docs/superpowers/README.md`](docs/superpowers/README.md)
 - 不要把规则塞进本文。本文只长指针，不长内容
 
@@ -103,7 +104,8 @@ cd mobile && ./scripts/publish-ios.sh
 
 1. Agent 犯错 → 分析根因
 2. 把约束写到对应位置（CLAUDE.md / quality/ / design.md）
-3. 在本文 §4 的地图里加指针（如果是新类别）
-4. 必要时把约束机械化（lint / hook / CI），让规则从"建议"升级为"法律"
+3. **CLAUDE.md 和 AGENTS.md 必须同步更新** —— 两者约束列表保持镜像，改一个必须改另一个
+4. 在本文 §4 的地图里加指针（如果是新类别）
+5. 必要时把约束机械化（lint / hook / CI），让规则从"建议"升级为"法律"
 
 > 长度控制：本文超过 120 行就该重构 —— 把详细内容沉淀到 `docs/` 子目录，本文只保留指针。
