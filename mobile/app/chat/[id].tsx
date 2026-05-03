@@ -8,7 +8,6 @@ import {
   Image,
   Linking,
   SafeAreaView,
-  StyleSheet,
   ScrollView,
   View,
   Text,
@@ -31,6 +30,7 @@ import { useChatStore } from '@/store/chatStore';
 import { useEndpointStore } from '@/store/endpointStore';
 import { useInboxStore } from '@/store/inboxStore';
 import { type UserTextPayload, type WsMessage } from '@/types';
+import { s } from './styles';
 
 // Stable fallback — never recreated, so Zustand won't see a changed snapshot
 const EMPTY: WsMessage[] = [];
@@ -40,6 +40,14 @@ const WAITING_MESSAGE: WsMessage = {
   role: 'agent_text',
   payload: { text: '' },
   created_at: 0,
+};
+
+const STATUS_BADGE: Record<string, { label: string; bg: string; dot: string }> = {
+  running: { label: 'RUNNING', bg: '#0A1A0A', dot: '#33FF33' },
+  awaiting_question: { label: 'AWAITING', bg: '#1A0000', dot: '#FFB000' },
+  completed: { label: 'COMPLETED', bg: '#061206', dot: '#20C20E' },
+  failed: { label: 'FAILED', bg: '#1A0000', dot: '#FF4444' },
+  idle: { label: 'IDLE', bg: '#0A1A0A', dot: '#2D8B2D' },
 };
 
 interface PendingImage {
@@ -251,6 +259,10 @@ export default function ChatDetailScreen() {
     }
   }, [isAwaitingResponse, latestAgentActivitySeq, latestAgentSeq]);
 
+  const badge = isOffline
+    ? { label: 'OFFLINE', bg: '#1A0000', dot: '#FFB000' }
+    : (STATUS_BADGE[conversation?.status ?? 'idle'] ?? STATUS_BADGE.idle);
+
   return (
     <SafeAreaView style={s.safe}>
       <KeyboardAvoidingView
@@ -262,7 +274,12 @@ export default function ChatDetailScreen() {
             <ChevronLeft size={24} color="#20C20E" />
           </TouchableOpacity>
           <Text style={s.navTitle}>CHAT</Text>
-          <View style={[s.dot, { backgroundColor: status === 'open' ? '#33FF33' : '#2D8B2D' }]} />
+          <View style={[s.statusBadge, { backgroundColor: badge.bg }]}>
+            <View style={[s.statusDot, { backgroundColor: badge.dot }]} />
+            <Text testID="status-badge-text" style={s.statusBadgeText}>
+              {badge.label}
+            </Text>
+          </View>
         </View>
 
         <ScrollView
@@ -366,106 +383,3 @@ export default function ChatDetailScreen() {
     </SafeAreaView>
   );
 }
-
-const s = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#040D04' },
-  nav: {
-    height: 52,
-    backgroundColor: '#061206',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#0F2B0F',
-  },
-  navTitle: { fontFamily: 'Anton', fontSize: 16, color: '#20C20E' },
-  dot: { width: 8, height: 8, borderRadius: 4 },
-  scroll: { flex: 1 },
-  scrollContent: { padding: 16, gap: 12 },
-  inputBar: {
-    minHeight: 60,
-    maxHeight: 160,
-    backgroundColor: '#061206',
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    gap: 8,
-    borderTopWidth: 1,
-    borderTopColor: '#0F2B0F',
-  },
-  inputField: {
-    flex: 1,
-    minHeight: 36,
-    maxHeight: 120,
-    backgroundColor: '#0A1A0A',
-    borderRadius: 2,
-    borderWidth: 1,
-    borderColor: '#0F2B0F',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    justifyContent: 'center',
-  },
-  inputDisabled: { opacity: 0.4 },
-  input: { fontFamily: 'Geist', fontSize: 14, color: '#20C20E', minHeight: 20 },
-  waitText: { fontFamily: 'Geist Mono', fontSize: 10, color: '#33FF33', letterSpacing: 1 },
-  previewRow: {
-    backgroundColor: '#040D04',
-    maxHeight: 68,
-  },
-  previewRowContent: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    gap: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  thumbWrapper: {
-    width: 52,
-    height: 52,
-    borderRadius: 2,
-    overflow: 'hidden',
-    backgroundColor: '#0A1A0A',
-  },
-  thumb: {
-    width: 52,
-    height: 52,
-  },
-  thumbOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(4,13,4,0.67)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  thumbFailed: { backgroundColor: 'rgba(26,0,0,0.67)' },
-  thumbOverlayText: { color: '#FF4444', fontFamily: 'Geist Mono', fontSize: 14 },
-  removeBadge: {
-    position: 'absolute',
-    top: -2,
-    right: -2,
-    width: 18,
-    height: 18,
-    borderRadius: 2,
-    backgroundColor: '#0A1A0A',
-    borderWidth: 1,
-    borderColor: '#2D8B2D',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  imageBtn: {
-    width: 36,
-    height: 36,
-    backgroundColor: '#0A1A0A',
-    borderWidth: 1,
-    borderColor: '#0F2B0F',
-    borderRadius: 2,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  imageBtnDisabled: { opacity: 0.5 },
-});

@@ -241,6 +241,77 @@ test('uploads selected image and renders the sent image message with local uri',
   await waitFor(() => expect(getByText(' file:///compressed.jpg')).toBeTruthy());
 });
 
+describe('Header status badge', () => {
+  it('shows RUNNING badge when conversation.status is running', async () => {
+    useChatStore.setState({
+      conversations: [
+        {
+          id: 'conv-1',
+          agent_id: 'agent-1',
+          title: 'T',
+          created_at: 1,
+          last_message_at: 1,
+          endpoint_id: 'endpoint-1',
+          agent_name: 'Agent',
+          status: 'running',
+        },
+      ],
+      messages: {},
+    });
+    (fetchMessages as jest.Mock).mockResolvedValue([]);
+    const { getByTestId } = render(<ChatDetailScreen />);
+    await waitFor(() => {
+      expect(getByTestId('status-badge-text').props.children).toBe('RUNNING');
+    });
+  });
+
+  it('shows AWAITING badge when conversation.status is awaiting_question', async () => {
+    useChatStore.setState({
+      conversations: [
+        {
+          id: 'conv-1',
+          agent_id: 'agent-1',
+          title: 'T',
+          created_at: 1,
+          last_message_at: 1,
+          endpoint_id: 'endpoint-1',
+          agent_name: 'Agent',
+          status: 'awaiting_question',
+        },
+      ],
+      messages: {},
+    });
+    (fetchMessages as jest.Mock).mockResolvedValue([]);
+    const { getByTestId } = render(<ChatDetailScreen />);
+    await waitFor(() => {
+      expect(getByTestId('status-badge-text').props.children).toBe('AWAITING');
+    });
+  });
+
+  it('shows IDLE badge when conversation.status is idle', async () => {
+    useChatStore.setState({
+      conversations: [
+        {
+          id: 'conv-1',
+          agent_id: 'agent-1',
+          title: 'T',
+          created_at: 1,
+          last_message_at: 1,
+          endpoint_id: 'endpoint-1',
+          agent_name: 'Agent',
+          status: 'idle',
+        },
+      ],
+      messages: {},
+    });
+    (fetchMessages as jest.Mock).mockResolvedValue([]);
+    const { getByTestId } = render(<ChatDetailScreen />);
+    await waitFor(() => {
+      expect(getByTestId('status-badge-text').props.children).toBe('IDLE');
+    });
+  });
+});
+
 describe('multi-image upload', () => {
   beforeEach(() => {
     (fetchMessages as jest.Mock).mockResolvedValue([]);
