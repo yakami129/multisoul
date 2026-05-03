@@ -1,9 +1,10 @@
 use crate::commands::serve::{advertised_base_url, generate_token, print_qr};
 use crate::config::{load_config, save_config};
 use crate::serve::daemon::{
-    self, default_log_file, load_meta, new_manager, remove_meta, resolve_binary, save_meta,
-    Config as DaemonConfig, Meta,
+    self, default_log_file, load_meta, new_manager, remove_meta, resolve_binary, save_meta, Meta,
 };
+#[cfg(target_os = "macos")]
+use crate::serve::daemon::Config as DaemonConfig;
 use anyhow::Result;
 use clap::{ArgAction, Subcommand};
 use std::net::SocketAddr;
@@ -106,16 +107,15 @@ fn install(port_arg: Option<u16>, tailnet: bool, force: bool) -> Result<()> {
     let env_path = std::env::var("PATH")
         .unwrap_or_else(|_| "/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin".into());
 
-    let daemon_cfg = DaemonConfig {
+    #[cfg(target_os = "macos")]
+    mgr.install(&DaemonConfig {
         binary_path: binary.clone(),
         token: cfg.serve_token.clone(),
         port: cfg.serve_port,
         tailnet,
         log_file: log_file.clone(),
         env_path,
-    };
-
-    mgr.install(&daemon_cfg)?;
+    })?;
 
     save_meta(&Meta {
         log_file: log_file.clone(),
