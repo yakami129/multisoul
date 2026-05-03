@@ -20,7 +20,7 @@ interface Props {
   error: unknown;
   isFetching: boolean;
   onRefetch: () => void;
-  onAgentPress: (id: string, endpoint_id: string) => void;
+  onAgentPress: (id: string, endpoint_id: string, name: string) => void;
 }
 
 export function AgentList({ agents, isLoading, isError, error, onRefetch, onAgentPress }: Props) {
@@ -90,7 +90,10 @@ export function AgentList({ agents, isLoading, isError, error, onRefetch, onAgen
         data={agents}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
-          <AgentCard agent={item} onPress={() => onAgentPress(item.id, item.endpoint_id)} />
+          <AgentCard
+            agent={item}
+            onPress={() => onAgentPress(item.id, item.endpoint_id, item.name)}
+          />
         )}
         refreshControl={
           <RefreshControl

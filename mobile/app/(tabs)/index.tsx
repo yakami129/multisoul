@@ -26,8 +26,10 @@ export default function AgentListScreen() {
       onRefetch={() => {
         void refetch();
       }}
-      onAgentPress={(id, endpoint_id) => {
-        router.push(`/agent/${id}?endpoint_id=${endpoint_id}`);
+      onAgentPress={(id, endpoint_id, name) => {
+        router.push(
+          `/agent/${id}/chat?endpoint_id=${endpoint_id}&agent_name=${encodeURIComponent(name)}`,
+        );
       }}
     />
   );
