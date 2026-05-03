@@ -71,6 +71,18 @@ mobile/app/           # Expo Router 文件路由
 | 持久化（Inbox） | expo-sqlite | 推送过来的待办、复杂任务事件 |
 | Token | AsyncStorage | 各端点的 Bearer Token |
 
+**Feature 依赖边界：**
+
+`mobile/src/features/{agents,chat,inbox,settings}/` 按业务域隔离。Feature 内部代码跨域依赖时，只能 import 对方公共入口（例如 `@/features/chat`），不能 import 对方深路径（例如 `@/features/chat/components/...` 或 `@/features/chat/services/...`）。该规则由 `mobile/eslint.config.mjs` 的 `no-restricted-imports` 在 `pnpm lint` / CI 中强制。
+
+当前 feature 内部依赖图：
+
+```
+features/inbox ──> features/chat public API
+```
+
+其中 `mobile/src/features/chat/index.ts` 暴露 Inbox 复用的 `AskQuestionCard` 与 `MultiAskQuestionCard`。`mobile/app/`、`mobile/src/store/`、`mobile/src/hooks/` 等 feature 外层 orchestration 代码暂未纳入本条边界，后续可单独收紧。
+
 详见 [`docs/design-docs/`](docs/design-docs/) 中各 feature 的设计文档。
 
 ### 2.2 `cli/` — Rust (`msctl`)

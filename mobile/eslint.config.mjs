@@ -7,6 +7,24 @@ import pluginReact from 'eslint-plugin-react';
 import pluginReactHooks from 'eslint-plugin-react-hooks';
 import tseslint from 'typescript-eslint';
 
+const mobileFeatureDomains = ['agents', 'chat', 'inbox', 'settings'];
+const crossFeatureImportRules = mobileFeatureDomains.map((domain) => ({
+  files: [`**/src/features/${domain}/**/*.{ts,tsx}`],
+  rules: {
+    'no-restricted-imports': /** @type {import('eslint').Linter.RuleEntry} */ ([
+      'error',
+      {
+        patterns: mobileFeatureDomains
+          .filter((otherDomain) => otherDomain !== domain)
+          .map((otherDomain) => ({
+            group: [`@/features/${otherDomain}/**`],
+            message: `Cross-feature imports must use the public feature entry point, for example "@/features/${otherDomain}".`,
+          })),
+      },
+    ]),
+  },
+}));
+
 export default tseslint.config(
   // ── 忽略目录 ────────────────────────────────────────────────
   {
@@ -125,4 +143,7 @@ export default tseslint.config(
       '@typescript-eslint/no-require-imports': 'off',
     },
   },
+
+  // ── Feature 边界：禁止跨 feature 深路径依赖 ────────────────
+  ...crossFeatureImportRules,
 );

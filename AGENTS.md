@@ -21,6 +21,7 @@ Monorepo 两大件：
 
 - **不可硬编码 token** —— 检测 `ms_v2_xxx` / `Bearer xxx`
 - **Mobile 颜色合规** —— 仅 [`mobile/docs/design.md`](mobile/docs/design.md) §2 白名单内的色
+- **Mobile feature 边界** —— `features/*` 跨域只能走公共入口，禁止深路径 import
 - **本文 ≤ 120 行** —— 超长则拒绝 commit
 - **单文件 ≤ 500 行** —— `mobile/src|app`、`cli/src` 源码；超长需拆分封装（见 mechanized-constraints）
 - **mobile 禁 `console.log`** —— 仅允许 `console.warn` / `console.error`
@@ -55,7 +56,7 @@ Monorepo 两大件：
 | **历史执行计划、施工步骤** | [`docs/exec-plans/`](docs/exec-plans/) |
 | **API 路径、消息类型、env vars** | [`docs/references/`](docs/references/)（占位）+ [`README.md`](README.md) |
 | **代码规范、release checklist** | [`docs/quality/`](docs/quality/)（占位）+ [`CLAUDE.md`](CLAUDE.md) |
-| **iOS 发布、CLI 发布等 SOP** | [`docs/runbooks/cli-release.md`](docs/runbooks/cli-release.md) · [`mobile/docs/ios-publish.md`](mobile/docs/ios-publish.md) · [`docs/runbooks/README.md`](docs/runbooks/README.md) |
+| **iOS 发布、CLI 发布等 SOP** | [`mobile/docs/ios-publish.md`](mobile/docs/ios-publish.md)（本地 `scripts/publish-ios-local.sh` / 云端 `publish-ios.sh`）· [`docs/runbooks/cli-release.md`](docs/runbooks/cli-release.md) · [`docs/runbooks/README.md`](docs/runbooks/README.md) |
 | **`msctl serve` 跑挂了怎么查** | [`docs/runbooks/debugging.md`](docs/runbooks/debugging.md) — `msctl logs` 4 个故事 |
 | **UI 设计系统**（颜色、字号、间距） | [`mobile/docs/design.md`](mobile/docs/design.md) |
 | **RN UI 常见坑** | [`mobile/docs/rules/ui-pitfalls.md`](mobile/docs/rules/ui-pitfalls.md) |
@@ -87,7 +88,10 @@ cd cli && cargo build
 cargo test
 cargo run -- serve                   # 启动本地 HTTP/WS
 
-# iOS 发布（用户说"发布一下 iOS"时直接执行）
+# 本地 iOS（本机 Xcode；一条命令即可，脚本内含依赖与构建；详见 mobile/docs/ios-publish.md）
+cd mobile && ./scripts/publish-ios-local.sh
+
+# 云端 EAS + TestFlight（一键）
 cd mobile && ./scripts/publish-ios.sh
 ```
 

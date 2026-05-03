@@ -14,7 +14,7 @@
 
 ## 现有指针
 
-- iOS 发布：[`../../mobile/docs/ios-publish.md`](../../mobile/docs/ios-publish.md)（co-located 在 mobile/，未迁移）
+- iOS 发布：[`../../mobile/docs/ios-publish.md`](../../mobile/docs/ios-publish.md)（本地 `mobile/scripts/publish-ios-local.sh`；云端 `publish-ios.sh` / EAS）
 - CLI 发布：[`cli-release.md`](cli-release.md)
 
 ## 与 `quality/release-checklist.md` 的区别
@@ -22,4 +22,4 @@
 | 维度 | `runbooks/` | `quality/` |
 |------|-------------|------------|
 | 性质 | "操作步骤" | "通过准则" |
-| 例子 | "运行 `./scripts/publish-ios.sh`" | "发版前必须 typecheck 通过且无 console.log" |
+| 例子 | "本地发 iOS：运行 `mobile/scripts/publish-ios-local.sh`" | "发版前必须 typecheck 通过且无 console.log" |

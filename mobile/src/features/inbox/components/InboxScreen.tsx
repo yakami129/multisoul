@@ -2,8 +2,7 @@ import { CircleCheck, Info } from 'lucide-react-native';
 import React, { useState, useRef } from 'react';
 import { View, Text, FlatList, TouchableOpacity, StyleSheet, RefreshControl } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
-import AskQuestionCard from '@/features/chat/components/AskQuestionCard';
-import MultiAskQuestionCard from '@/features/chat/components/MultiAskQuestionCard';
+import { AskQuestionCard, MultiAskQuestionCard } from '@/features/chat';
 import { type InboxItem, type AskQuestionPayload } from '@/types';
 
 interface Props {

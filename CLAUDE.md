@@ -27,6 +27,7 @@ Monorepo 两大件：
 
 - **不可硬编码 token** —— 检测 `ms_v2_xxx` / `Bearer xxx`
 - **Mobile 颜色合规** —— 仅 [`mobile/docs/design.md`](mobile/docs/design.md) §2 白名单内的色
+- **Mobile feature 边界** —— `features/*` 跨域只能走公共入口，禁止深路径 import
 - **AGENTS.md ≤ 120 行** —— 超长则拒绝 commit
 - **单文件 ≤ 500 行** —— `mobile/src|app`、`cli/src` 源码；超长需拆分封装（见 mechanized-constraints）
 - **mobile 禁 `console.log`** —— 仅允许 `console.warn` / `console.error`
@@ -69,7 +70,7 @@ Monorepo 两大件：
 | **历史执行计划、施工步骤** | [`docs/exec-plans/`](docs/exec-plans/) |
 | **API 路径、消息类型、env vars** | [`docs/references/`](docs/references/)（占位）+ [`README.md`](README.md) |
 | **代码规范、release checklist** | [`docs/quality/`](docs/quality/)（占位）+ 本文 |
-| **iOS 发布、CLI 发布等 SOP** | [`docs/runbooks/cli-release.md`](docs/runbooks/cli-release.md) · [`mobile/docs/ios-publish.md`](mobile/docs/ios-publish.md) · [`docs/runbooks/README.md`](docs/runbooks/README.md) |
+| **iOS 发布、CLI 发布等 SOP** | [`mobile/docs/ios-publish.md`](mobile/docs/ios-publish.md)（本地 `scripts/publish-ios-local.sh` / 云端 `publish-ios.sh`）· [`docs/runbooks/cli-release.md`](docs/runbooks/cli-release.md) · [`docs/runbooks/README.md`](docs/runbooks/README.md) |
 | **`msctl serve` 跑挂了怎么查** | [`docs/runbooks/debugging.md`](docs/runbooks/debugging.md) — `msctl logs` 4 个故事 |
 | **UI 设计系统**（颜色、字号、间距） | [`mobile/docs/design.md`](mobile/docs/design.md) |
 | **RN UI 常见坑** | [`mobile/docs/rules/ui-pitfalls.md`](mobile/docs/rules/ui-pitfalls.md) |
@@ -178,30 +179,46 @@ cargo test <test_name>
 cargo run -- serve
 ```
 
-### iOS 发布 (EAS Build + TestFlight)
+### iOS 发布
+
+#### 本地（本机 Xcode，日常默认）
+
+在 `mobile` 下 **只需执行** `./scripts/publish-ios-local.sh`：脚本内会 `pnpm install`、`pod install`、archive、export；上传 App Store Connect / TestFlight 需在环境中配置脚本文件头注释中的 `APP_STORE_CONNECT_*`（见 `mobile/scripts/publish-ios-local.sh`）。**无需**再单独跑 `eas login` 或把 `pnpm typecheck` 当作发布前置步骤（发版前质量闸仍以 PR / `CLAUDE.md` §5 为准）。
 
 ```bash
 cd mobile
 
-# 构建 + 提交 TestFlight（一键）
-./scripts/publish-ios.sh
+./scripts/publish-ios-local.sh
 
-# 只构建
+# 仅打 IPA：./scripts/publish-ios-local.sh --build-only
+# 仅上传已有 IPA：./scripts/publish-ios-local.sh --submit-only --ipa=/path/to/MultiSoul.ipa
+```
+
+#### 云端（EAS Build + TestFlight）
+
+```bash
+cd mobile
+
+./scripts/publish-ios.sh              # 构建 + 提交 TestFlight（一键）
 ./scripts/publish-ios.sh --build-only
-
-# 只提交最新构建
 ./scripts/publish-ios.sh --submit-only
 ```
 
 发布前确认 `eas.json` 中 `submit.production.ios` 已填写 `appleId`、`ascAppId`、`appleTeamId`。
 
-**当用户说「发布一下 iOS」或类似指令时，Claude 应直接执行**（在仓库根目录下，异步跑脚本并跟日志）：
+**当用户说「本地发布 iOS」「本机打包 iOS」或等价表述时**，在仓库根异步执行并跟日志：
+
+```bash
+cd mobile && ./scripts/publish-ios-local.sh > /tmp/publish-ios-local.log 2>&1
+```
+
+**当用户明确要云端 EAS / 沿用历史一键脚本时**：
 
 ```bash
 cd mobile && ./scripts/publish-ios.sh > /tmp/publish-ios.log 2>&1
 ```
 
-用 `run_in_background: true` 异步执行，然后持续 `tail -f /tmp/publish-ios.log` 监听日志输出，直到脚本结束。
+用 `run_in_background: true` 异步执行，然后持续 `tail -f` 对应日志文件直到结束。
 
 ---
 

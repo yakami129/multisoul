@@ -6,7 +6,12 @@ import { mirrorAskQuestionsToInbox } from '@/features/inbox/utils/mirrorAskQuest
 import { notifyTaskComplete } from '@/services/notificationService';
 import { useChatStore } from '@/store/chatStore';
 import { useInboxStore } from '@/store/inboxStore';
-import { type WsMessage, type AskQuestionPayload, type TaskStatusPayload } from '@/types';
+import {
+  type WsMessage,
+  type AskQuestionPayload,
+  type TaskStatusPayload,
+  type Conversation,
+} from '@/types';
 
 type WsStatus = 'connecting' | 'open' | 'closed';
 
@@ -40,6 +45,7 @@ export function useWebSocket({
   const backoffRef = useRef(1000);
   const appendMessage = useChatStore((s) => s.appendMessage);
   const setMessages = useChatStore((s) => s.setMessages);
+  const updateConversation = useChatStore((s) => s.updateConversation);
   const addInboxItem = useInboxStore((s) => s.addItem);
   const removeInboxItem = useInboxStore((s) => s.removeItem);
 
@@ -52,6 +58,11 @@ export function useWebSocket({
   useEffect(() => {
     setMessagesRef.current = setMessages;
   }, [setMessages]);
+
+  const updateConversationRef = useRef(updateConversation);
+  useEffect(() => {
+    updateConversationRef.current = updateConversation;
+  }, [updateConversation]);
 
   const addInboxItemRef = useRef(addInboxItem);
   useEffect(() => {
@@ -139,6 +150,10 @@ export function useWebSocket({
           // When agent asks a question, mirror it to the inbox so the user
           // can answer even if they navigate away from the chat screen.
           if (msg.role === 'ask_question' && msg.payload) {
+            updateConversationRef.current(conv_id, {
+              status: 'awaiting_question',
+              last_message_at: msg.created_at,
+            });
             const p = msg.payload as AskQuestionPayload;
             const item = buildAskQuestionInboxItem({
               askPayload: p,
@@ -153,6 +168,10 @@ export function useWebSocket({
           // Notify user when a task completes
           if (msg.role === 'task_status' && msg.payload) {
             const p = msg.payload as TaskStatusPayload;
+            updateConversationRef.current(conv_id, {
+              status: p.status as Conversation['status'],
+              last_message_at: msg.created_at,
+            });
             if (p.status === 'completed') {
               void notifyTaskComplete({
                 agentName: agent_name ?? agent_id,
@@ -196,6 +215,7 @@ export function useWebSocket({
     (ask_id: string, choice_id?: string, freeform?: string) => {
       if (wsRef.current?.readyState === WebSocket.OPEN) {
         wsRef.current.send(JSON.stringify({ type: 'answer', ask_id, choice_id, freeform }));
+        updateConversationRef.current(conv_id, { status: 'running' });
         void removeInboxItem(ask_id);
         void markAskAnswered(ask_id, conv_id, choice_id);
         markAnsweredRef.current(conv_id, ask_id, choice_id);
@@ -208,6 +228,7 @@ export function useWebSocket({
     (ask_id: string, choice_ids: Record<string, string>) => {
       if (wsRef.current?.readyState === WebSocket.OPEN) {
         wsRef.current.send(JSON.stringify({ type: 'answer', ask_id, choice_ids }));
+        updateConversationRef.current(conv_id, { status: 'running' });
         void removeInboxItem(ask_id);
         void markAskAnswered(ask_id, conv_id, undefined, choice_ids);
         markAnsweredRef.current(conv_id, ask_id, undefined, choice_ids);

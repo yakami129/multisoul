@@ -30,6 +30,7 @@ jest.mock('@/store/chatStore', () => ({
       appendMessage: jest.fn(),
       setMessages: jest.fn(),
       markAnswered: jest.fn(),
+      updateConversation: jest.fn(),
     }),
 }));
 jest.mock('@/store/inboxStore', () => ({

@@ -155,13 +155,22 @@ pnpm test -- --watchAll=false   # 运行测试
 
 ### iOS 发布
 
+**本地（本机 Xcode，一条命令）**：
+
 ```bash
 cd mobile
-eas build --platform ios --profile production
-eas submit --platform ios --profile production --latest
+./scripts/publish-ios-local.sh
 ```
 
-详细步骤见 [mobile/docs/ios-publish.md](/Users/alan/Documents/codes/yakami0129/multisoul/mobile/docs/ios-publish.md)。
+**云端（EAS + TestFlight）**：
+
+```bash
+cd mobile
+./scripts/publish-ios.sh
+# 或分步：eas build / eas submit，见 mobile/docs/ios-publish.md
+```
+
+详细说明（环境变量、签名、EAS 配置）见 [mobile/docs/ios-publish.md](mobile/docs/ios-publish.md)。
 
 ---
 

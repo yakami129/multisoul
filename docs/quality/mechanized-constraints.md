@@ -54,6 +54,16 @@
 | 起因 | 多次 `[Debug]` 日志被忘在生产代码中；console.warn/error 已能覆盖真实诊断需求 |
 | 修复方式 | 调试用日志删除，或改为 `console.warn` / `console.error`（语义级别允许） |
 
+### R10 · Mobile feature 禁止跨域深路径 import
+
+| | |
+|---|---|
+| 实现 | [`mobile/eslint.config.mjs`](../../mobile/eslint.config.mjs) `no-restricted-imports` 分域规则 |
+| 起因 | Inbox 直接复用 Chat 内部组件，容易形成隐藏依赖；后续 Chat 内部重构会误伤 Inbox |
+| 检测 | `mobile/src/features/{agents,chat,inbox,settings}/**/*.{ts,tsx}` 不能 import 其他 feature 的 `/**` 深路径 |
+| 允许 | 跨 feature 只能走公共入口，例如 `@/features/chat`；路由壳、store、hook 的全局边界后续另行收紧 |
+| 修复方式 | 在被依赖 feature 新增或扩展公共入口 `index.ts`，调用方改用 `@/features/<domain>` |
+
 ### R5 · 改动包必跑 typecheck
 
 | | |
@@ -99,7 +109,7 @@
 | 实现 | [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml) |
 | 触发 | `pull_request` 与 `push: main` |
 | Job 1 (`repo-checks`) | 跑 R1-R3、R6、R8、R9 共六个脚本 |
-| Job 2 (`mobile-check`) | `pnpm typecheck` + `pnpm lint` + `pnpm test` |
+| Job 2 (`mobile-check`) | `pnpm typecheck` + `pnpm lint`（含 R4、R10）+ `pnpm test` |
 | Job 3 (`cli-check`) | `cargo build --all-targets` + `cargo test` |
 | 角色 | 兜底 —— 若开发者本地用 `--no-verify` 跳过 husky，CI 仍拒绝 merge |
 

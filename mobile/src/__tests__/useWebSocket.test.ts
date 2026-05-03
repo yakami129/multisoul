@@ -5,6 +5,7 @@ import { buildAskQuestionInboxItem } from '@/features/inbox/utils/buildAskQuesti
 import { useWebSocket } from '@/hooks/useWebSocket';
 
 const mockAddItem = jest.fn().mockResolvedValue(undefined);
+const mockUpdateConversation = jest.fn();
 
 jest.mock('@/features/chat/services/chatService', () => ({
   fetchMessages: jest.fn().mockResolvedValue([]),
@@ -26,6 +27,7 @@ jest.mock('@/store/chatStore', () => ({
       appendMessage: jest.fn(),
       setMessages: jest.fn(),
       markAnswered: jest.fn(),
+      updateConversation: mockUpdateConversation,
     }),
 }));
 
@@ -96,6 +98,46 @@ describe('useWebSocket ask_question inbox mirroring', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     (fetchMessages as jest.Mock).mockResolvedValue([]);
+  });
+
+  it('updates conversation status when task_status arrives over websocket', async () => {
+    const { unmount } = renderHook(() =>
+      useWebSocket({
+        base_url: 'http://localhost:8080',
+        token: 'tok',
+        conv_id: 'conv-1',
+        endpoint_id: 'ep-1',
+        agent_id: 'agent-1',
+        agent_name: 'Deploy Bot',
+      }),
+    );
+
+    await act(async () => {
+      mockWs.onopen?.();
+    });
+
+    await act(async () => {
+      mockWs.onmessage?.({
+        data: JSON.stringify({
+          type: 'message',
+          seq: 6,
+          role: 'task_status',
+          payload: {
+            task_id: 'conv-1',
+            status: 'completed',
+            importance: 'normal',
+            summary: 'Done',
+          },
+          created_at: 1234,
+        }),
+      });
+    });
+
+    expect(mockUpdateConversation).toHaveBeenCalledWith('conv-1', {
+      status: 'completed',
+      last_message_at: 1234,
+    });
+    unmount();
   });
 
   it('mirrors ask_question messages fetched during reconnect catch-up to inbox', async () => {
