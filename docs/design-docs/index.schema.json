@@ -28,6 +28,31 @@
           "title": {
             "type": "string",
             "minLength": 1
+          },
+          "trackedFiles": {
+            "type": "array",
+            "description": "Code files whose content hash must stay synchronized with this design document.",
+            "items": {
+              "type": "object",
+              "required": ["path", "sha256", "reason"],
+              "additionalProperties": false,
+              "properties": {
+                "path": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "Repo-root relative path to a tracked code file."
+                },
+                "sha256": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                },
+                "reason": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "Why this code file affects the design document."
+                }
+              }
+            }
           }
         }
       }

@@ -177,6 +177,8 @@ AI 生成代码的独特退化：文档漂移、风格不一致、复制粘贴�
 
 **起因**：本次重构暴露：SPEC.md §"目录结构（最终）"段已落后于真实结构（仍写 `docs/SPEC.md`）。这种漂移会持续发生。
 
+**当前 pilot**：`docs/design-docs/2026-05-03-new-cli-runtime-integration-guide.md` 已接入 Doc-Code Hash Guard（见 [`docs/design-docs/2026-05-03-doc-code-hash-guard-design.md`](../design-docs/2026-05-03-doc-code-hash-guard-design.md)），用于验证“关联代码变更必须驱动文档更新”的 blocking gate。
+
 **候选实现**：
 - 一个 `scripts/audit-docs.sh` 后台 agent，每周跑：
   - 比对 `docs/` 中提到的文件路径与真实文件存在性

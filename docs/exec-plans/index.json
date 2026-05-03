@@ -3,6 +3,10 @@
   "version": 1,
   "documents": [
     {
+      "file": "2026-05-03-doc-code-hash-guard.md",
+      "title": "Doc-Code Hash Guard Implementation Plan"
+    },
+    {
       "file": "2026-05-03-chat-ios-ux.md",
       "title": "Chat iOS UX 改造 Implementation Plan"
     },

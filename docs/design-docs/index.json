@@ -4,11 +4,57 @@
   "documents": [
     {
       "file": "2026-05-03-new-cli-runtime-integration-guide.md",
-      "title": "接入新 CLI Runtime 开发指南"
+      "title": "接入新 CLI Runtime 开发指南",
+      "trackedFiles": [
+        {
+          "path": "cli/src/serve/runtime/mod.rs",
+          "sha256": "26548a6cce76f9fcbba4228088340d2443f7ad9e77d8bcf08f6508d47e8a1519",
+          "reason": "Runtime 分发入口；文档说明新增 runtime module 与 match arm。"
+        },
+        {
+          "path": "cli/src/serve/state.rs",
+          "sha256": "67581467840a8269362edd33870b3dfd62f05bc1731442edec9b0beaf3e8d1b2",
+          "reason": "AppState、SessionMessage 与 runtime worker 通信结构由文档核心数据结构章节引用。"
+        },
+        {
+          "path": "cli/src/serve/routes/messages.rs",
+          "sha256": "0d65d9504aad3422be9782cc156955ec4eb137a8795545933f717f94e2afd623",
+          "reason": "HTTP message route 调用 runtime 分发；文档架构图与入口流程依赖该行为。"
+        },
+        {
+          "path": "cli/src/serve/runtime/claude.rs",
+          "sha256": "6220f0b4b0286105d8ebfb4273884a695236e045461c121b0a651d23e2b6e165",
+          "reason": "Claude runtime 是默认 adapter，文档以其行为说明 runtime 模板与特殊注意事项。"
+        },
+        {
+          "path": "cli/src/serve/runtime/codex.rs",
+          "sha256": "ec6dbae4fd0c7401dcf23adb94747c61ae06dfd729d0e198c80dc886099f2f96",
+          "reason": "Codex runtime 是现有 adapter 示例；文档 runtime 列表与接入说明引用它。"
+        },
+        {
+          "path": "cli/src/serve/runtime/cursor.rs",
+          "sha256": "3382eb092a497fb2bc38231ce0ad973409f78410c15f2613e1cd49f8cb0b702d",
+          "reason": "Cursor runtime 是新接入 adapter 示例；文档 runtime 列表与 CLI 约定引用它。"
+        },
+        {
+          "path": "cli/src/db.rs",
+          "sha256": "419cc0d7958987835ca7bb5546895f6d6ce8cd74d6588e000a786505fd6a0245",
+          "reason": "文档说明 runtime 持久化字段和 migration 纪律；DB schema 演进会影响该章节。"
+        },
+        {
+          "path": "mobile/src/types.ts",
+          "sha256": "5399bb51cea59f229ec57752941be6d0160edde9a275b94dec476076474edf42",
+          "reason": "文档说明 mobile Agent.runtime 类型展示联动；类型变化会影响该说明。"
+        }
+      ]
     },
     {
       "file": "2026-05-03-mobile-feature-boundaries-design.md",
       "title": "Mobile Feature 边界设计"
+    },
+    {
+      "file": "2026-05-03-doc-code-hash-guard-design.md",
+      "title": "Doc-Code Hash Guard 设计"
     },
     {
       "file": "2026-05-02-cli-tracing-design.md",

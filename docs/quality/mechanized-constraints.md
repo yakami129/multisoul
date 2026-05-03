@@ -102,13 +102,23 @@
 | 检测 | `docs/product-specs/`、`docs/design-docs/`、`docs/exec-plans/` 各自目录下 `*.md`（除 `README.md`）与该目录 `index.json` 中 `documents[].file` **双射**；文件名须符合各目录命名约定（由 `docs-indices.json` 内正则表达）；`documents` 排序须与配置一致（规格目录升序、设计与计划目录按文件名降序） |
 | 修复方式 | 增删改权威 `.md` 时同步更新对应目录的 `index.json`（`title` 为人类可读标题）；各目录 `README` 只指针到 `index.json`，不维护平行列表；新增一类权威目录时在 `docs-indices.json` 注册一条 `indices[]` |
 
+### R11 · Design doc 关联代码 hash 保鲜
+
+| | |
+|---|---|
+| 脚本 | [`scripts/check-doc-code-hashes.py`](../../scripts/check-doc-code-hashes.py) |
+| 起因 | 开发指南引用的代码文件会随时间变化；文档未同步时会误导人类和 Agent |
+| 检测 | `docs/design-docs/index.json` 中带 `trackedFiles` 的文档必须满足：tracked code 变更时对应文档同 PR 修改，且 `sha256` 刷新为当前文件内容 |
+| 当前 pilot | [`docs/design-docs/2026-05-03-new-cli-runtime-integration-guide.md`](../design-docs/2026-05-03-new-cli-runtime-integration-guide.md) 追踪 runtime 分发、adapter、DB 与 mobile 类型文件 |
+| 修复方式 | 根据 tracked file diff 更新对应设计文档，再运行 `python3 scripts/check-doc-code-hashes.py --update` 刷新 hash |
+
 ### R7 · CI 远端兜底
 
 | | |
 |---|---|
 | 实现 | [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml) |
 | 触发 | `pull_request` 与 `push: main` |
-| Job 1 (`repo-checks`) | 跑 R1-R3、R6、R8、R9 共六个脚本 |
+| Job 1 (`repo-checks`) | 跑 R1-R3、R6、R8、R9、R11 共七个脚本 |
 | Job 2 (`mobile-check`) | `pnpm typecheck` + `pnpm lint`（含 R4、R10）+ `pnpm test` |
 | Job 3 (`cli-check`) | `cargo build --all-targets` + `cargo test` |
 | 角色 | 兜底 —— 若开发者本地用 `--no-verify` 跳过 husky，CI 仍拒绝 merge |

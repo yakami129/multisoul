@@ -27,6 +27,7 @@ Monorepo 两大件：
 - **mobile 禁 `console.log`** —— 仅允许 `console.warn` / `console.error`
 - **改包必跑 typecheck/cargo check**
 - **Rust 禁止 `#[allow(...)]`** —— `cli/src` 中不得用 `#[allow]` 压制编译器/clippy 诊断；[`scripts/check-no-allow.sh`](scripts/check-no-allow.sh) 拦截
+- **Design doc 代码 hash 保鲜** —— tracked code 变更必须同步更新关联设计文档与 hash
 
 人类可读软约束：
 

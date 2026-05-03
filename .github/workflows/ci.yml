@@ -16,6 +16,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: AGENTS.md size cap
         run: bash scripts/check-agents-md-size.sh
@@ -34,6 +36,9 @@ jobs:
 
       - name: docs knowledge indices match files
         run: python3 scripts/check-docs-indices.py
+
+      - name: docs code hashes stay fresh
+        run: python3 scripts/check-doc-code-hashes.py --check
 
   mobile-check:
     name: mobile (typecheck + lint + test)
