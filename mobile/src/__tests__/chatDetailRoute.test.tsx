@@ -1,6 +1,8 @@
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
+import * as ImageManipulator from 'expo-image-manipulator';
+import * as ImagePicker from 'expo-image-picker';
 import React from 'react';
-import { fetchMessages } from '@/features/chat/services/chatService';
+import { fetchMessages, postMessage, uploadImage } from '@/features/chat/services/chatService';
 import { useChatStore } from '@/store/chatStore';
 import { useEndpointStore } from '@/store/endpointStore';
 import { useInboxStore } from '@/store/inboxStore';
@@ -23,6 +25,19 @@ jest.mock('@/hooks/useWebSocket', () => ({
 jest.mock('@/features/chat/services/chatService', () => ({
   fetchMessages: jest.fn(),
   postMessage: jest.fn(),
+  uploadImage: jest.fn(),
+}));
+
+jest.mock('expo-image-picker', () => ({
+  launchImageLibraryAsync: jest.fn(),
+  launchCameraAsync: jest.fn(),
+  requestMediaLibraryPermissionsAsync: jest.fn().mockResolvedValue({ status: 'granted' }),
+  requestCameraPermissionsAsync: jest.fn().mockResolvedValue({ status: 'granted' }),
+}));
+
+jest.mock('expo-image-manipulator', () => ({
+  manipulateAsync: jest.fn(),
+  SaveFormat: { JPEG: 'jpeg' },
 }));
 
 jest.mock('@/features/inbox/services/inboxService', () => ({
@@ -31,12 +46,13 @@ jest.mock('@/features/inbox/services/inboxService', () => ({
 }));
 
 jest.mock('@/features/chat/components/MessageBubble', () => ({
-  MessageBubble: ({ msg, typewriter, waiting }: any) => {
+  MessageBubble: ({ msg, typewriter, waiting, imageUri }: any) => {
     const { Text } = require('react-native');
     return (
       <Text>
         {waiting ? 'waiting' : msg.payload.text}
         {typewriter ? ' [typewriter]' : ''}
+        {imageUri ? ` ${imageUri}` : ''}
       </Text>
     );
   },
@@ -88,6 +104,15 @@ beforeEach(() => {
   });
   useInboxStore.setState({ items: [] });
   (fetchMessages as jest.Mock).mockResolvedValue(historyMessages);
+  (postMessage as jest.Mock).mockResolvedValue(undefined);
+  (uploadImage as jest.Mock).mockResolvedValue({ file_id: 'file-1' });
+  (ImagePicker.launchImageLibraryAsync as jest.Mock).mockResolvedValue({
+    canceled: false,
+    assets: [{ uri: 'file:///picked.jpg' }],
+  });
+  (ImageManipulator.manipulateAsync as jest.Mock).mockResolvedValue({
+    uri: 'file:///compressed.jpg',
+  });
 });
 
 test('renders fetched historical agent text without typewriter replay', async () => {
@@ -171,4 +196,88 @@ test('mirrors unanswered historical ask_question messages to inbox', async () =>
       body: 'Deploy now?',
     }),
   );
+});
+
+test('renders image picker button in chat list detail composer', () => {
+  const { getByLabelText, getByTestId } = render(<ChatDetailScreen />);
+
+  expect(getByLabelText('Attach image')).toBeTruthy();
+  expect(getByTestId('attach-image-button')).toBeTruthy();
+});
+
+test('uploads selected image and renders the sent image message with local uri', async () => {
+  const { getByLabelText, getByText, queryByTestId } = render(<ChatDetailScreen />);
+
+  await act(async () => {
+    fireEvent.press(getByLabelText('Attach image'));
+  });
+  await waitFor(() => expect(queryByTestId('img-preview-row')).not.toBeNull());
+
+  fireEvent.press(getByLabelText('Send message'));
+
+  await waitFor(() =>
+    expect(postMessage).toHaveBeenCalledWith(
+      'http://localhost:8080',
+      'token',
+      'conv-1',
+      '',
+      'file-1',
+    ),
+  );
+
+  act(() => {
+    useChatStore.getState().setMessages('conv-1', [
+      {
+        type: 'message',
+        seq: 5,
+        role: 'user_text',
+        payload: { text: '', file_id: 'file-1' },
+        created_at: 5,
+      },
+    ]);
+  });
+
+  await waitFor(() => expect(getByText(' file:///compressed.jpg')).toBeTruthy());
+});
+
+describe('multi-image upload', () => {
+  beforeEach(() => {
+    (fetchMessages as jest.Mock).mockResolvedValue([]);
+    (uploadImage as jest.Mock).mockResolvedValue({ file_id: 'file-abc' });
+    (ImageManipulator.manipulateAsync as jest.Mock).mockResolvedValue({
+      uri: 'compressed://img.jpg',
+    });
+    (ImagePicker.launchImageLibraryAsync as jest.Mock).mockResolvedValue({
+      canceled: false,
+      assets: [{ uri: 'file://img.jpg' }],
+    });
+  });
+
+  it('shows image preview row after selecting an image', async () => {
+    const { getByTestId, queryByTestId } = render(<ChatDetailScreen />);
+    await waitFor(() => expect(queryByTestId('img-preview-row')).toBeNull());
+
+    await act(async () => {
+      fireEvent.press(getByTestId('attach-image-button'));
+    });
+
+    await waitFor(() => {
+      expect(queryByTestId('img-preview-row')).not.toBeNull();
+    });
+  });
+
+  it('removes image when × badge tapped', async () => {
+    const { getByTestId, queryByTestId } = render(<ChatDetailScreen />);
+    await act(async () => {
+      fireEvent.press(getByTestId('attach-image-button'));
+    });
+    await waitFor(() => expect(queryByTestId('img-preview-row')).not.toBeNull());
+
+    await act(async () => {
+      fireEvent.press(getByTestId('remove-img-0'));
+    });
+    await waitFor(() => {
+      expect(queryByTestId('img-preview-row')).toBeNull();
+    });
+  });
 });

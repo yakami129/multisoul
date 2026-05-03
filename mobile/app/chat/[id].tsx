@@ -1,7 +1,12 @@
+import * as ImageManipulator from 'expo-image-manipulator';
+import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { ChevronLeft, Send } from 'lucide-react-native';
+import { ChevronLeft, ImageIcon, Send, X } from 'lucide-react-native';
 import React, { useEffect, useRef, useState } from 'react';
 import {
+  Alert,
+  Image,
+  Linking,
   SafeAreaView,
   StyleSheet,
   ScrollView,
@@ -11,9 +16,10 @@ import {
   TouchableOpacity,
   KeyboardAvoidingView,
   Platform,
+  Pressable,
 } from 'react-native';
 import { MessageBubble } from '@/features/chat/components/MessageBubble';
-import { postMessage, fetchMessages } from '@/features/chat/services/chatService';
+import { postMessage, fetchMessages, uploadImage } from '@/features/chat/services/chatService';
 import {
   getLatestAgentActivitySeq,
   getLatestAgentTextSeq,
@@ -24,7 +30,7 @@ import { useWebSocket } from '@/hooks/useWebSocket';
 import { useChatStore } from '@/store/chatStore';
 import { useEndpointStore } from '@/store/endpointStore';
 import { useInboxStore } from '@/store/inboxStore';
-import { type WsMessage } from '@/types';
+import { type UserTextPayload, type WsMessage } from '@/types';
 
 // Stable fallback — never recreated, so Zustand won't see a changed snapshot
 const EMPTY: WsMessage[] = [];
@@ -36,12 +42,20 @@ const WAITING_MESSAGE: WsMessage = {
   created_at: 0,
 };
 
+interface PendingImage {
+  localUri: string;
+  fileId: string | null;
+  status: 'uploading' | 'uploaded' | 'failed';
+}
+
 export default function ChatDetailScreen() {
   const { id: conv_id, endpoint_id } = useLocalSearchParams<{ id: string; endpoint_id: string }>();
   const router = useRouter();
   const [input, setInput] = useState('');
   const [isAwaitingResponse, setIsAwaitingResponse] = useState(false);
   const [typewriterSeq, setTypewriterSeq] = useState<number | null>(null);
+  const [pendingImages, setPendingImages] = useState<PendingImage[]>([]);
+  const imageMapRef = useRef<Map<string, string>>(new Map());
   const scrollRef = useRef<ScrollView>(null);
 
   const endpoint = useEndpointStore((s) => s.endpoints.find((e) => e.id === endpoint_id));
@@ -67,6 +81,11 @@ export default function ChatDetailScreen() {
       ? latestAgentSeq
       : null;
   const activeTypewriterSeq = incomingAgentTextSeq ?? typewriterSeq;
+  const imageUriForMessage = (msg: WsMessage) => {
+    if (msg.role !== 'user_text') return undefined;
+    const fileId = (msg.payload as UserTextPayload).file_id;
+    return fileId ? imageMapRef.current.get(fileId) : undefined;
+  };
 
   const { status, sendAnswer, sendAnswerMulti } = useWebSocket(
     endpoint
@@ -118,17 +137,92 @@ export default function ChatDetailScreen() {
       });
   }, [conv_id, endpoint, endpoint_id, conversation, setMessages, addInboxItem]);
 
+  async function pickImage() {
+    if (pendingImages.length >= 5) {
+      Alert.alert('最多选择 5 张图片');
+      return;
+    }
+
+    const doLaunch = async (launcher: () => Promise<ImagePicker.ImagePickerResult>) => {
+      const result = await launcher();
+      if (result.canceled || !result.assets?.[0]) return;
+      const asset = result.assets[0];
+      const compressed = await ImageManipulator.manipulateAsync(asset.uri, [], {
+        compress: 0.8,
+        format: ImageManipulator.SaveFormat.JPEG,
+      });
+      const localUri = compressed.uri;
+      setPendingImages((prev) => [...prev, { localUri, fileId: null, status: 'uploading' }]);
+      if (!endpoint) return;
+      try {
+        const res = await uploadImage(endpoint.base_url, endpoint.token, localUri);
+        imageMapRef.current.set(res.file_id, localUri);
+        setPendingImages((prev) =>
+          prev.map((img) =>
+            img.localUri === localUri && img.status === 'uploading'
+              ? { ...img, fileId: res.file_id, status: 'uploaded' }
+              : img,
+          ),
+        );
+      } catch {
+        setPendingImages((prev) =>
+          prev.map((img) =>
+            img.localUri === localUri && img.status === 'uploading'
+              ? { ...img, status: 'failed' }
+              : img,
+          ),
+        );
+      }
+    };
+
+    const requestAndLaunch = async (
+      permFn: () => Promise<ImagePicker.PermissionResponse>,
+      launcher: () => Promise<ImagePicker.ImagePickerResult>,
+    ) => {
+      const { status: permStatus } = await permFn();
+      if (permStatus !== 'granted') {
+        Alert.alert('需要权限', '请在设置中开启相册/相机权限', [
+          { text: '取消', style: 'cancel' },
+          {
+            text: '去设置',
+            onPress: () => {
+              void Linking.openSettings();
+            },
+          },
+        ]);
+        return;
+      }
+      await doLaunch(launcher);
+    };
+
+    await requestAndLaunch(ImagePicker.requestMediaLibraryPermissionsAsync, () =>
+      ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 1 }),
+    );
+  }
+
   const handleSend = async () => {
     const text = input.trim();
-    if (!text || !endpoint) return;
+    const uploadedImages = pendingImages.filter((img) => img.status === 'uploaded' && img.fileId);
+    if ((!text && uploadedImages.length === 0) || !endpoint) return;
+
     lastSeenAgentActivitySeqRef.current = getLatestAgentActivitySeq(messages);
     lastAnimatedAgentTextSeqRef.current = getLatestAgentTextSeq(messages);
     hasLoadedInitialMessagesRef.current = true;
     setInput('');
+    setPendingImages([]);
     setIsAwaitingResponse(true);
     setTypewriterSeq(null);
+
     try {
-      await postMessage(endpoint.base_url, endpoint.token, conv_id, text);
+      if (uploadedImages.length > 0) {
+        for (let i = 0; i < uploadedImages.length; i++) {
+          const img = uploadedImages[i];
+          const msgText = i === uploadedImages.length - 1 ? text : '';
+          await postMessage(endpoint.base_url, endpoint.token, conv_id, msgText, img.fileId!);
+        }
+      } else {
+        await postMessage(endpoint.base_url, endpoint.token, conv_id, text);
+      }
       setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
     } catch {
       setIsAwaitingResponse(false);
@@ -184,6 +278,7 @@ export default function ChatDetailScreen() {
               typewriter={msg.seq === activeTypewriterSeq}
               onAnswer={sendAnswer}
               onAnswerMulti={sendAnswerMulti}
+              imageUri={imageUriForMessage(msg)}
             />
           ))}
           {isAwaitingResponse && incomingAgentActivitySeq === null && (
@@ -191,7 +286,52 @@ export default function ChatDetailScreen() {
           )}
         </ScrollView>
 
+        {pendingImages.length > 0 && (
+          <ScrollView
+            testID="img-preview-row"
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={s.previewRow}
+            contentContainerStyle={s.previewRowContent}
+          >
+            {pendingImages.map((img, idx) => (
+              <View key={idx} style={s.thumbWrapper}>
+                <Image source={{ uri: img.localUri }} style={s.thumb} />
+                {img.status === 'uploading' && (
+                  <View style={s.thumbOverlay}>
+                    <Text style={s.thumbOverlayText}>...</Text>
+                  </View>
+                )}
+                {img.status === 'failed' && (
+                  <View style={[s.thumbOverlay, s.thumbFailed]}>
+                    <Text style={s.thumbOverlayText}>!</Text>
+                  </View>
+                )}
+                <Pressable
+                  testID={`remove-img-${idx}`}
+                  style={s.removeBadge}
+                  onPress={() => setPendingImages((prev) => prev.filter((_, i) => i !== idx))}
+                >
+                  <X size={8} color="#20C20E" />
+                </Pressable>
+              </View>
+            ))}
+          </ScrollView>
+        )}
+
         <View style={s.inputBar}>
+          <TouchableOpacity
+            accessibilityLabel="Attach image"
+            accessibilityRole="button"
+            testID="attach-image-button"
+            onPress={() => {
+              void pickImage();
+            }}
+            disabled={composerDisabled}
+            style={[s.imageBtn, composerDisabled && s.imageBtnDisabled]}
+          >
+            <ImageIcon size={16} color={composerDisabled ? '#2D8B2D' : '#20C20E'} />
+          </TouchableOpacity>
           <View style={[s.inputField, composerDisabled && s.inputDisabled]}>
             <TextInput
               style={s.input}
@@ -207,6 +347,8 @@ export default function ChatDetailScreen() {
             />
           </View>
           <TouchableOpacity
+            accessibilityLabel="Send message"
+            accessibilityRole="button"
             onPress={() => {
               void handleSend();
             }}
@@ -241,26 +383,89 @@ const s = StyleSheet.create({
   scroll: { flex: 1 },
   scrollContent: { padding: 16, gap: 12 },
   inputBar: {
-    height: 60,
+    minHeight: 60,
+    maxHeight: 160,
     backgroundColor: '#061206',
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-end',
     paddingHorizontal: 12,
+    paddingVertical: 10,
     gap: 8,
     borderTopWidth: 1,
     borderTopColor: '#0F2B0F',
   },
   inputField: {
     flex: 1,
-    height: 36,
+    minHeight: 36,
+    maxHeight: 120,
     backgroundColor: '#0A1A0A',
     borderRadius: 2,
     borderWidth: 1,
     borderColor: '#0F2B0F',
     paddingHorizontal: 14,
+    paddingVertical: 8,
     justifyContent: 'center',
   },
   inputDisabled: { opacity: 0.4 },
-  input: { fontFamily: 'Geist', fontSize: 14, color: '#20C20E' },
+  input: { fontFamily: 'Geist', fontSize: 14, color: '#20C20E', minHeight: 20 },
   waitText: { fontFamily: 'Geist Mono', fontSize: 10, color: '#33FF33', letterSpacing: 1 },
+  previewRow: {
+    backgroundColor: '#040D04',
+    maxHeight: 68,
+  },
+  previewRowContent: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    gap: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  thumbWrapper: {
+    width: 52,
+    height: 52,
+    borderRadius: 8,
+    overflow: 'hidden',
+    backgroundColor: '#0A1A0A',
+  },
+  thumb: {
+    width: 52,
+    height: 52,
+  },
+  thumbOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: '#040D04',
+    opacity: 0.67,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  thumbFailed: { backgroundColor: '#1A0000' },
+  thumbOverlayText: { color: '#FF4444', fontFamily: 'Geist Mono', fontSize: 14 },
+  removeBadge: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: '#0A1A0A',
+    borderWidth: 1,
+    borderColor: '#2D8B2D',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  imageBtn: {
+    width: 36,
+    height: 36,
+    backgroundColor: '#0A1A0A',
+    borderWidth: 1,
+    borderColor: '#0F2B0F',
+    borderRadius: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  imageBtnDisabled: { opacity: 0.5 },
 });
