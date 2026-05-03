@@ -1,3 +1,4 @@
+import { X } from 'lucide-react-native';
 import React, { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, View, Text, StyleSheet, Image, Modal, Pressable } from 'react-native';
 import {
@@ -122,22 +123,31 @@ export function MessageBubble({
       return (
         <View style={s.userWrap}>
           {hasImage && imageUri ? (
-            <Modal visible={previewVisible} transparent animationType="fade">
-              <Pressable style={s.modalOverlay} onPress={() => setPreviewVisible(false)}>
+            <Modal
+              testID="fullscreen-modal"
+              visible={previewVisible}
+              transparent
+              animationType="fade"
+              onRequestClose={() => setPreviewVisible(false)}
+            >
+              <View style={s.modalOverlay}>
+                <Pressable
+                  testID="fullscreen-close-btn"
+                  style={s.fullscreenClose}
+                  onPress={() => setPreviewVisible(false)}
+                >
+                  <X size={18} color="#20C20E" />
+                </Pressable>
                 <Image source={{ uri: imageUri }} style={s.previewImage} resizeMode="contain" />
-              </Pressable>
+                <Text style={s.previewFilename}>{payload.file_id}</Text>
+              </View>
             </Modal>
           ) : null}
           <View style={s.userBubble}>
             {hasImage ? (
               imageUri ? (
-                <Pressable onPress={() => setPreviewVisible(true)}>
-                  <Image
-                    testID="user-image-thumb"
-                    source={{ uri: imageUri }}
-                    style={s.thumbImage}
-                    resizeMode="cover"
-                  />
+                <Pressable testID="user-image-thumb" onPress={() => setPreviewVisible(true)}>
+                  <Image source={{ uri: imageUri }} style={s.thumbImage} resizeMode="cover" />
                 </Pressable>
               ) : (
                 <Text style={s.attachmentPlaceholder}>📎 Image</Text>
@@ -146,6 +156,7 @@ export function MessageBubble({
             {payload.text ? (
               <Text style={[s.userText, hasImage ? s.imageCaption : null]}>{payload.text}</Text>
             ) : null}
+            {hasImage && imageUri ? <Text style={s.enlargeHint}>Tap to enlarge →</Text> : null}
           </View>
         </View>
       );
@@ -347,6 +358,32 @@ const s = StyleSheet.create({
   },
   imageCaption: {
     marginTop: 4,
+  },
+  enlargeHint: {
+    fontFamily: 'Inter',
+    fontSize: 10,
+    color: 'rgba(4,13,4,0.8)',
+    marginTop: 4,
+  },
+  fullscreenClose: {
+    position: 'absolute',
+    top: 56,
+    right: 20,
+    width: 40,
+    height: 40,
+    borderRadius: 2,
+    backgroundColor: '#0A1A0A',
+    borderWidth: 1,
+    borderColor: '#0F2B0F',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 10,
+  },
+  previewFilename: {
+    fontFamily: 'Inter',
+    fontSize: 11,
+    color: '#2D8B2D',
+    marginTop: 12,
   },
   modalOverlay: {
     flex: 1,
