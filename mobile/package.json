@@ -26,6 +26,7 @@
     "expo-asset": "~55.0.16",
     "expo-audio": "~55.0.14",
     "expo-camera": "~55.0.16",
+    "expo-clipboard": "^55.0.13",
     "expo-constants": "~55.0.14",
     "expo-image-manipulator": "^55.0.15",
     "expo-image-picker": "^55.0.19",
@@ -39,6 +40,7 @@
     "react-native": "0.83.6",
     "react-native-gesture-handler": "^2.31.1",
     "react-native-get-random-values": "~1.11.0",
+    "react-native-markdown-display": "^7.0.2",
     "react-native-reanimated": "4.2.1",
     "react-native-safe-area-context": "~5.6.2",
     "react-native-screens": "~4.23.0",
@@ -89,7 +91,9 @@
   },
   "expo": {
     "install": {
-      "exclude": ["react-native-gesture-handler"]
+      "exclude": [
+        "react-native-gesture-handler"
+      ]
     }
   },
   "private": true,
