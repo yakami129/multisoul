@@ -7,6 +7,10 @@
       "title": "Agent 卡片直达对话 SPEC"
     },
     {
+      "file": "SPEC-chat-ios-ux.md",
+      "title": "Chat iOS UX 改造 SPEC"
+    },
+    {
       "file": "SPEC-chat-media.md",
       "title": "Chat 图片上传 SPEC"
     },

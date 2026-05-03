@@ -3,6 +3,10 @@
   "version": 1,
   "documents": [
     {
+      "file": "2026-05-03-chat-ios-ux.md",
+      "title": "Chat iOS UX 改造 Implementation Plan"
+    },
+    {
       "file": "2026-05-03-agent-card-chat-entry.md",
       "title": "Agent Card Chat Entry Implementation Plan"
     },
