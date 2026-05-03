@@ -118,6 +118,7 @@ Monorepo 两大件：
 - 修改代码后必须按 §5 跑验证；引入了 lint error **必须修根本原因，禁止用 `#[allow]` / `// eslint-disable` / `@ts-ignore` 等抑制指令掩盖**
 - 同一用户流程只能有一个权威实现；避免为不同入口复制 screen / route / protocol 逻辑。需要多入口时，让入口只做参数准备，统一跳到同一页面或调用同一模块。
 - **文档落盘**：产品 / 功能规格 → **只** [`docs/product-specs/`](docs/product-specs/)（`SPEC-<feature>.md`）；实施 / 执行计划 → **只** [`docs/exec-plans/`](docs/exec-plans/)（`YYYY-MM-DD-<feature>.md`）；设计权衡 → `docs/design-docs/YYYY-MM-DD-<feature>-design.md`（命名见 [`docs/design-docs/README.md`](docs/design-docs/README.md)）。**勿**在 [`docs/specs/`](docs/specs/)、[`docs/superpowers/`](docs/superpowers/) 新增权威内容。**Superpowers skills**（`writing-plans`、`executing-plans`、`brainstorming` 等）在本仓库落盘**必须**使用上述路径 · [`docs/superpowers/README.md`](docs/superpowers/README.md)
+- **Exec plan 施工**：`docs/exec-plans/*.md` 所列任务 **全部验证通过后一次** `git commit`；**不要**套用 Superpowers `subagent-driven-development` 的「每任务一 commit」。该次提交后把对应 `documents[]` 条目的 `lastCompletedCommit` 写入 [`docs/exec-plans/index.json`](docs/exec-plans/index.json)（40 位小写 hex，`git rev-parse HEAD`），便于 `git revert <sha>` 撤回该批改动。
 - 不要把规则塞进 `AGENTS.md`。`AGENTS.md` 只长指针，不长内容
 
 ---
