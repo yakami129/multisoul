@@ -35,18 +35,18 @@ pub fn send_to_session(
 ) {
     let mut sessions = state.sessions.lock().unwrap();
     if let Some(tx) = sessions.get(conv_id) {
-        if tx.send(user_text.to_string()).is_ok() {
+        if tx.send(crate::serve::state::SessionMessage { user_text: user_text.to_string(), file_id: None }).is_ok() {
             debug!(conv_id = %conv_id, "runtime_message_queued");
             return;
         }
         warn!(conv_id = %conv_id, "runtime_channel_broken_respawning");
     }
 
-    let (tx, rx) = std::sync::mpsc::channel::<String>();
+    let (tx, rx) = std::sync::mpsc::channel::<crate::serve::state::SessionMessage>();
     sessions.insert(conv_id.to_string(), tx.clone());
     drop(sessions);
 
-    let _ = tx.send(user_text.to_string());
+    let _ = tx.send(crate::serve::state::SessionMessage { user_text: user_text.to_string(), file_id: None });
 
     let state2 = state.clone();
     let conv_id2 = conv_id.to_string();
@@ -65,7 +65,7 @@ fn session_worker(
     conv_id: String,
     project_path: String,
     mode: String,
-    rx: std::sync::mpsc::Receiver<String>,
+    rx: std::sync::mpsc::Receiver<crate::serve::state::SessionMessage>,
 ) {
     let span = info_span!("session_worker", conv_id = %conv_id, runtime = "codex", mode = %mode);
     let _enter = span.enter();
@@ -79,7 +79,7 @@ fn session_worker(
 
     loop {
         let user_text = match rx.recv() {
-            Ok(t) => t,
+            Ok(msg) => msg.user_text,
             Err(_) => {
                 info!("session_channel_closed_shutting_down");
                 // Kill the pre-warmed process if nobody sent a follow-up message.
@@ -200,6 +200,7 @@ fn spawn_codex(
     let mut child = Command::new("codex")
         .args(&args)
         .current_dir(project_path)
+        .env("HUSKY", "0")
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -452,7 +453,7 @@ mod tests {
             [],
         )
         .unwrap();
-        let state = AppState::new(conn, "token".to_string());
+        let state = AppState::new(conn, "token".to_string(), std::path::PathBuf::from("/tmp/uploads"));
 
         clear_thread_id(&state, "conv-1");
 

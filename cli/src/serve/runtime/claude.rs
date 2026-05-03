@@ -24,7 +24,7 @@ pub fn send_to_session(state: &AppState, conv_id: &str, user_text: &str, project
     let mut sessions = state.sessions.lock().unwrap();
     if let Some(tx) = sessions.get(conv_id) {
         // Session already running — enqueue the message
-        if tx.send(user_text.to_string()).is_ok() {
+        if tx.send(crate::serve::state::SessionMessage { user_text: user_text.to_string(), file_id: None }).is_ok() {
             debug!(conv_id = %conv_id, "runtime_message_queued");
             return;
         }
@@ -33,12 +33,12 @@ pub fn send_to_session(state: &AppState, conv_id: &str, user_text: &str, project
     }
 
     // Create a new session
-    let (tx, rx) = std::sync::mpsc::channel::<String>();
+    let (tx, rx) = std::sync::mpsc::channel::<crate::serve::state::SessionMessage>();
     sessions.insert(conv_id.to_string(), tx.clone());
     drop(sessions); // release lock before spawn_blocking
 
     // Enqueue the first message
-    let _ = tx.send(user_text.to_string());
+    let _ = tx.send(crate::serve::state::SessionMessage { user_text: user_text.to_string(), file_id: None });
 
     // Spawn the session worker in a blocking thread
     let state2 = state.clone();
@@ -55,7 +55,7 @@ fn session_worker(
     state: AppState,
     conv_id: String,
     project_path: String,
-    rx: std::sync::mpsc::Receiver<String>,
+    rx: std::sync::mpsc::Receiver<crate::serve::state::SessionMessage>,
 ) {
     let span = info_span!("session_worker", conv_id = %conv_id, runtime = "claude");
     let _enter = span.enter();
@@ -101,7 +101,7 @@ fn session_worker(
     // Main loop: wait for message → write → read until result → repeat
     loop {
         let user_text = match rx.recv() {
-            Ok(t) => t,
+            Ok(msg) => msg.user_text,
             Err(_) => {
                 // Channel closed — serve is shutting down
                 info!("session_channel_closed_shutting_down");

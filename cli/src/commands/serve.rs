@@ -7,6 +7,7 @@ use clap::Args;
 use rand::Rng;
 use serde::Deserialize;
 use std::net::SocketAddr;
+use std::path::PathBuf;
 
 #[derive(Args)]
 pub struct ServeArgs {
@@ -39,7 +40,11 @@ pub fn generate_token() -> String {
 pub async fn handle(args: ServeArgs) -> Result<()> {
     let token = args.token.unwrap_or_else(generate_token);
     let conn = db::open()?;
-    let state = AppState::new(conn, token.clone());
+    let uploads_dir: PathBuf = dirs::config_dir()
+        .unwrap_or_else(|| PathBuf::from("."))
+        .join("msctl")
+        .join("uploads");
+    let state = AppState::new(conn, token.clone(), uploads_dir);
 
     let bind_addr: SocketAddr = if args.tailnet {
         format!("0.0.0.0:{}", args.port).parse()?
