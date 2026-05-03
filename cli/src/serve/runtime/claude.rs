@@ -5,7 +5,7 @@
 use crate::logging;
 use crate::serve::state::AppState;
 use serde_json::Value;
-use std::io::{BufRead, BufReader, Write};
+use std::io::{BufRead, BufReader};
 use std::process::{Child, ChildStdin, Command, Stdio};
 use tracing::{debug, error, info, info_span, warn};
 
@@ -22,11 +22,20 @@ use claude_stream::process_turn;
 
 /// Called from the HTTP handler when a new user message arrives.
 /// Gets or creates a long-lived session for this conversation.
-pub fn send_to_session(state: &AppState, conv_id: &str, user_text: &str, project_path: &str) {
+pub fn send_to_session(
+    state: &AppState,
+    conv_id: &str,
+    user_text: &str,
+    file_id: Option<&str>,
+    project_path: &str,
+) {
     let mut sessions = state.sessions.lock().unwrap();
     if let Some(tx) = sessions.get(conv_id) {
         // Session already running — enqueue the message
-        if tx.send(crate::serve::state::SessionMessage { user_text: user_text.to_string(), file_id: None }).is_ok() {
+        if tx.send(crate::serve::state::SessionMessage {
+            user_text: user_text.to_string(),
+            file_id: file_id.map(str::to_string),
+        }).is_ok() {
             debug!(conv_id = %conv_id, "runtime_message_queued");
             return;
         }
@@ -40,7 +49,10 @@ pub fn send_to_session(state: &AppState, conv_id: &str, user_text: &str, project
     drop(sessions); // release lock before spawn_blocking
 
     // Enqueue the first message
-    let _ = tx.send(crate::serve::state::SessionMessage { user_text: user_text.to_string(), file_id: None });
+    let _ = tx.send(crate::serve::state::SessionMessage {
+        user_text: user_text.to_string(),
+        file_id: file_id.map(str::to_string),
+    });
 
     // Spawn the session worker in a blocking thread
     let state2 = state.clone();
@@ -102,8 +114,8 @@ fn session_worker(
 
     // Main loop: wait for message → write → read until result → repeat
     loop {
-        let user_text = match rx.recv() {
-            Ok(msg) => msg.user_text,
+        let msg = match rx.recv() {
+            Ok(msg) => msg,
             Err(_) => {
                 // Channel closed — serve is shutting down
                 info!("session_channel_closed_shutting_down");
@@ -111,6 +123,8 @@ fn session_worker(
                 return;
             }
         };
+        let user_text = msg.user_text;
+        let file_id = msg.file_id;
         let text_preview = logging::truncate(&user_text, 200);
         info!(
             user_text_len = user_text.chars().count(),
@@ -127,6 +141,8 @@ fn session_worker(
                 &state,
                 &conv_id,
                 &user_text,
+                file_id.as_deref(),
+                &state.uploads_dir,
                 &answer_rx,
             ) {
                 Ok(()) => {
@@ -218,85 +234,10 @@ fn spawn_claude(project_path: &str, session_id: Option<&str>) -> Option<(Child, 
     Some((child, stdin))
 }
 
-/// Write a user message JSON line to claude's stdin.
-pub(super) fn write_user_message(sink: &mut impl Write, user_text: &str) -> Result<(), String> {
-    let msg = serde_json::json!({
-        "type": "user",
-        "message": { "role": "user", "content": [{ "type": "text", "text": user_text }] }
-    });
-    let line = format!("{}\n", msg);
-    sink.write_all(line.as_bytes())
-        .map_err(|e| format!("stdin write: {}", e))?;
-    sink.flush()
-        .map_err(|e| format!("stdin flush (user_message): {}", e))
-}
+#[path = "claude_io.rs"]
+mod claude_io;
 
-/// Write a user message with an image content block (and optional text) to Claude's stdin.
-/// The image is read from `file_path`, base64-encoded, and media_type derived from extension.
-/// If `user_text` is non-empty, a text block is appended after the image block.
-pub(super) fn write_user_message_with_image(
-    sink: &mut impl Write,
-    user_text: &str,
-    file_path: &std::path::Path,
-) -> Result<(), String> {
-    use base64::{engine::general_purpose::STANDARD, Engine};
-
-    let media_type = match file_path.extension().and_then(|e| e.to_str()) {
-        Some("jpg") | Some("jpeg") => "image/jpeg",
-        Some("png") => "image/png",
-        other => return Err(format!("unsupported image extension: {:?}", other)),
-    };
-
-    let bytes = std::fs::read(file_path)
-        .map_err(|e| format!("read image file {}: {}", file_path.display(), e))?;
-    let data_b64 = STANDARD.encode(&bytes);
-
-    let mut content = vec![serde_json::json!({
-        "type": "image",
-        "source": {
-            "type": "base64",
-            "media_type": media_type,
-            "data": data_b64,
-        }
-    })];
-
-    if !user_text.is_empty() {
-        content.push(serde_json::json!({ "type": "text", "text": user_text }));
-    }
-
-    let msg = serde_json::json!({
-        "type": "user",
-        "message": { "role": "user", "content": content }
-    });
-    let line = format!("{}\n", msg);
-    sink.write_all(line.as_bytes())
-        .map_err(|e| format!("stdin write (image): {}", e))?;
-    sink.flush()
-        .map_err(|e| format!("stdin flush (image): {}", e))
-}
-
-/// Write a tool_result JSON line to claude's stdin (response to a tool_use).
-#[allow(dead_code)]
-fn write_tool_result(stdin: &mut ChildStdin, call_id: &str, content: &str) -> Result<(), String> {
-    let msg = serde_json::json!({
-        "type": "user",
-        "message": {
-            "role": "user",
-            "content": [{
-                "type":        "tool_result",
-                "tool_use_id": call_id,
-                "content":     content,
-            }]
-        }
-    });
-    let line = format!("{}\n", msg);
-    stdin
-        .write_all(line.as_bytes())
-        .map_err(|e| format!("stdin write (tool_result): {}", e))?;
-    stdin
-        .flush()
-        .map_err(|e| format!("stdin flush (tool_result): {}", e))
-}
+pub(super) use claude_io::{write_user_message, write_user_message_with_image};
 
 /// Read the `system` event from stdout to capture the session_id.
 /// Stops after the first system event or first non-system event.

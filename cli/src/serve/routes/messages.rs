@@ -26,6 +26,7 @@ pub struct SinceSeqQuery {
 #[derive(Deserialize)]
 pub struct PostMessageBody {
     pub text: String,
+    pub file_id: Option<String>,
 }
 
 pub async fn list_messages(
@@ -91,7 +92,11 @@ pub async fn post_message(
 
     let id = Uuid::new_v4().to_string();
     let now = now_ms();
-    let payload = serde_json::json!({ "text": body.text });
+    let payload = if let Some(ref fid) = body.file_id {
+        serde_json::json!({ "text": body.text, "file_id": fid })
+    } else {
+        serde_json::json!({ "text": body.text })
+    };
     db.execute(
         "INSERT INTO messages (id, conversation_id, role, payload, created_at, seq)
          VALUES (?1,?2,'user_text',?3,?4,?5)",
@@ -122,7 +127,15 @@ pub async fn post_message(
         .ok()
     };
     if let Some((path, rt, mode)) = agent_info {
-        runtime::send_to_session(&state, &conv_id, &body.text, &path, &rt, &mode);
+        runtime::send_to_session(
+            &state,
+            &conv_id,
+            &body.text,
+            body.file_id.as_deref(),
+            &path,
+            &rt,
+            &mode,
+        );
     }
 
     let envelope = serde_json::json!({
