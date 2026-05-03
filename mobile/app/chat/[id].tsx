@@ -80,6 +80,7 @@ export default function ChatDetailScreen() {
   const [pendingImages, setPendingImages] = useState<PendingImage[]>([]);
   const imageMapRef = useRef<Map<string, string>>(new Map());
   const scrollRef = useRef<ScrollView>(null);
+  const prevMessageCountRef = useRef(0);
 
   const endpoint = useEndpointStore((s) => s.endpoints.find((e) => e.id === endpoint_id));
   const conversations = useChatStore((s) => s.conversations);
@@ -106,11 +107,18 @@ export default function ChatDetailScreen() {
       ? latestAgentSeq
       : null;
   const activeTypewriterSeq = incomingAgentTextSeq ?? typewriterSeq;
-  const imageUriForMessage = (msg: WsMessage) => {
-    if (msg.role !== 'user_text') return undefined;
-    const fileId = (msg.payload as UserTextPayload).file_id;
-    return fileId ? imageMapRef.current.get(fileId) : undefined;
-  };
+  // Memoize the imageUri callback so MessageBubble memo can bail out reliably
+  const imageUriForMessage = React.useCallback(
+    (msg: WsMessage) => {
+      if (msg.role !== 'user_text') return undefined;
+      const fileId = (msg.payload as UserTextPayload).file_id;
+      return fileId ? imageMapRef.current.get(fileId) : undefined;
+    },
+    // imageMapRef.current mutates in place — we intentionally omit it; the
+    // function reference is stable, and Map lookups are always up-to-date.
+
+    [],
+  );
 
   const { status, sendAnswer, sendAnswerMulti } = useWebSocket(
     endpoint
@@ -332,7 +340,16 @@ export default function ChatDetailScreen() {
           ref={scrollRef}
           style={s.scroll}
           contentContainerStyle={s.scrollContent}
-          onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: false })}
+          onContentSizeChange={(_w, _h) => {
+            // Only auto-scroll when a new message is appended (count increases).
+            // Avoids triggering on every streaming text update while a message
+            // is already visible, which causes janky re-layout on long histories.
+            const currentCount = messages.length + (isAgentRunning ? 1 : 0);
+            if (currentCount > prevMessageCountRef.current) {
+              prevMessageCountRef.current = currentCount;
+              scrollRef.current?.scrollToEnd({ animated: true });
+            }
+          }}
         >
           {messages.map((msg) => (
             <MessageBubble
@@ -342,6 +359,7 @@ export default function ChatDetailScreen() {
               onAnswer={sendAnswer}
               onAnswerMulti={sendAnswerMulti}
               imageUri={imageUriForMessage(msg)}
+              waiting={false}
             />
           ))}
           {isAgentRunning && incomingAgentActivitySeq === null && (
