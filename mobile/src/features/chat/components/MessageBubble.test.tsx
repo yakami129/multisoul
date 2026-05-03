@@ -155,3 +155,123 @@ describe('MessageBubble image rendering', () => {
     expect(getByText('Tap to enlarge →')).toBeTruthy();
   });
 });
+
+// ── Markdown 渲染测试 ──────────────────────────────────────────────
+
+describe('MessageBubble agent_text markdown rendering', () => {
+  const makeAgentMsg = (text: string): WsMessage => ({
+    type: 'message',
+    seq: 10,
+    role: 'agent_text',
+    payload: { text },
+    created_at: 0,
+  });
+
+  /// 历史消息（typewriter=false）：直接渲染 MarkdownMessage，不走 Text 分支
+  ///
+  /// 数据构造：
+  ///   agent_text msg with text = "# Title"
+  ///   typewriter = false（历史消息，不打字）
+  ///
+  /// 执行过程：
+  ///   1. render MessageBubble without typewriter prop
+  ///   2. MessageBubble agent_text case: isStreaming = false → MarkdownMessage
+  ///
+  /// 预期结果：
+  ///   - testID="markdown-root" 存在（MarkdownMessage mock 渲染）
+  ///   - 不存在光标字符 "▌"
+  it('renders MarkdownMessage for historical message (no typewriter)', () => {
+    const msg = makeAgentMsg('# Title\n\nhello world');
+    const { getByTestId, queryByText } = render(<MessageBubble msg={msg} />);
+    // 断言失败 = 历史消息没有走 MarkdownMessage 分支，仍在用纯 Text 渲染
+    expect(getByTestId('markdown-root')).toBeTruthy();
+    // 断言失败 = 光标字符不应出现在历史消息中
+    expect(queryByText(/▌/)).toBeNull();
+  });
+
+  /// forceComplete=true 时：立即渲染 MarkdownMessage（不走打字机 interval）
+  ///
+  /// 数据构造：
+  ///   agent_text msg, typewriter=true, forceComplete=true
+  ///   即使 typewriter=true，forceComplete 应使其跳过流式分支
+  ///
+  /// 执行过程：
+  ///   1. render MessageBubble with typewriter=true, forceComplete=true
+  ///   2. isStreaming = typewriter && !forceComplete && ... = true && false = false
+  ///   3. 走 MarkdownMessage 分支
+  ///
+  /// 预期结果：
+  ///   - testID="markdown-root" 存在（MarkdownMessage 渲染）
+  ///   - 不存在光标 "▌"（未进入打字机 interval）
+  it('renders MarkdownMessage immediately when forceComplete=true even if typewriter=true', () => {
+    jest.useFakeTimers();
+    const msg = makeAgentMsg('hello world');
+    const { getByTestId, queryByText } = render(
+      <MessageBubble msg={msg} typewriter forceComplete />,
+    );
+    // 断言失败 = forceComplete=true 时没有立即走 MarkdownMessage 分支
+    expect(getByTestId('markdown-root')).toBeTruthy();
+    // 断言失败 = forceComplete=true 时不应出现打字机光标
+    expect(queryByText(/▌/)).toBeNull();
+    jest.useRealTimers();
+  });
+
+  /// typewriter 自然结束后切换到 MarkdownMessage
+  ///
+  /// 数据构造：
+  ///   agent_text msg with short text "hi"（2 chars）
+  ///   typewriter=true, TYPEWRITER_INTERVAL_MS=18ms
+  ///
+  /// 执行过程：
+  ///   1. 初始：isStreaming=true，显示光标
+  ///   2. advanceTimersByTime(60ms)：visibleChars >= 2，isStreaming=false
+  ///   3. 渲染 MarkdownMessage
+  ///
+  /// 预期结果：
+  ///   - 60ms 后 testID="markdown-root" 存在
+  it('switches to MarkdownMessage after typewriter completes naturally', () => {
+    jest.useFakeTimers();
+    const msg = makeAgentMsg('hi');
+    const { getByTestId } = render(<MessageBubble msg={msg} typewriter />);
+
+    act(() => {
+      jest.advanceTimersByTime(60); // 2 chars × 18ms + buffer
+    });
+
+    // 断言失败 = typewriter 结束后没有切换到 MarkdownMessage
+    expect(getByTestId('markdown-root')).toBeTruthy();
+    jest.useRealTimers();
+  });
+
+  /// typewriter 从 true 变 false 时：visibleChars 跳到末尾（不截断内容）
+  ///
+  /// 数据构造：
+  ///   agent_text msg with text "abcdefghij"（10 chars）
+  ///   先以 typewriter=true 渲染，推进 18ms（只显示 1 char）
+  ///   然后 rerender 为 typewriter=false（模拟 forceComplete 或强制停止）
+  ///
+  /// 执行过程：
+  ///   1. render typewriter=true → 18ms 后 visibleChars=1
+  ///   2. rerender typewriter=false → prevTypewriterRef=true → setVisibleChars(10)
+  ///   3. isStreaming = false → MarkdownMessage
+  ///
+  /// 预期结果：
+  ///   - rerender 后 testID="markdown-root" 存在（完整内容，不截断）
+  it('jumps to full content and renders MD when typewriter switches false', async () => {
+    jest.useFakeTimers();
+    const msg = makeAgentMsg('abcdefghij');
+    const { rerender, getByTestId } = render(<MessageBubble msg={msg} typewriter />);
+
+    act(() => {
+      jest.advanceTimersByTime(18);
+    }); // visibleChars = 1
+
+    await act(async () => {
+      rerender(<MessageBubble msg={msg} typewriter={false} />);
+    });
+
+    // 断言失败 = typewriter→false 时没有跳到末尾并切换 MarkdownMessage
+    expect(getByTestId('markdown-root')).toBeTruthy();
+    jest.useRealTimers();
+  });
+});
