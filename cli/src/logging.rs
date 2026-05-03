@@ -87,21 +87,8 @@ pub fn list_log_files(log_dir: &Path) -> Vec<PathBuf> {
 
 // ── redaction helpers ──────────────────────────────────────────────────────
 
-/// Mask a Bearer / api_key token, keeping 4 leading + trailing chars for identification.
-/// Example: `ms_v2_abcdef…xyz789` (never emits the full middle).
-#[allow(dead_code)] // public helpers; used in tests; wiring into emit paths is pending
-pub fn mask_token(token: &str) -> String {
-    if token.len() <= 10 {
-        return "<redacted>".to_string();
-    }
-    let head = &token[..6];
-    let tail = &token[token.len() - 4..];
-    format!("{head}…{tail}")
-}
-
 /// Short hash tag for a push token so the same device shows the same ID across
 /// events without leaking the token. 8 hex chars of SHA-256.
-#[allow(dead_code)]
 pub fn token_hash(token: &str) -> String {
     use std::collections::hash_map::DefaultHasher;
     use std::hash::{Hash, Hasher};
@@ -112,7 +99,6 @@ pub fn token_hash(token: &str) -> String {
 
 /// Truncate long free-text fields (user messages, tool args string values).
 /// Keeps first N chars; appends `…[+K chars]` when truncated.
-#[allow(dead_code)]
 pub fn truncate(s: &str, max: usize) -> String {
     let len = s.chars().count();
     if len <= max {
@@ -126,24 +112,6 @@ pub fn truncate(s: &str, max: usize) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn mask_token_hides_middle() {
-        // Assemble the fixture at runtime so the literal does not trip
-        // scripts/check-no-secrets.sh (which statically scans for ms_v2_*).
-        let prefix = "ms_v2_";
-        let body = "abcdefghijklmnopqrstuvwxyz1234567890";
-        let fake = format!("{prefix}{body}");
-        let m = mask_token(&fake);
-        assert!(m.starts_with("ms_v2_"));
-        assert!(m.ends_with("7890"));
-        assert!(!m.contains("abcdef"));
-    }
-
-    #[test]
-    fn mask_token_short_fully_redacted() {
-        assert_eq!(mask_token("short"), "<redacted>");
-    }
 
     #[test]
     fn token_hash_is_stable_and_short() {

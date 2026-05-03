@@ -23,7 +23,6 @@ pub struct TaskStatusPush {
     pub data: serde_json::Value,
 }
 
-#[allow(dead_code)]
 #[derive(Deserialize, Debug)]
 struct ExpoResponse {
     data: Vec<ExpoTicket>,
@@ -149,12 +148,6 @@ fn send_payloads(payloads: Vec<PushPayload>) {
             ),
         }
     }
-}
-
-#[allow(dead_code)]
-fn send_push_to_tokens(db: &rusqlite::Connection, push: &TaskStatusPush) {
-    let payloads = build_payloads_for_tokens(db, push);
-    send_payloads(payloads);
 }
 
 fn send_push_to_tokens_async(db: &rusqlite::Connection, push: &TaskStatusPush) {

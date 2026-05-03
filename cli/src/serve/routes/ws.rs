@@ -86,7 +86,7 @@ async fn handle_client_message(state: &AppState, conv_id: &str, text: &str) {
                         .collect()
                 });
             let answer = AnswerPayload {
-                ask_id,
+                _ask_id: ask_id,
                 choice_id,
                 choice_ids,
                 freeform,

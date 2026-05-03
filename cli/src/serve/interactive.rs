@@ -15,8 +15,7 @@ use std::collections::HashMap;
 
 #[derive(Debug)]
 pub struct AnswerPayload {
-    #[allow(dead_code)]
-    pub ask_id: String,
+    pub _ask_id: String,
     pub choice_id: Option<String>,
     pub choice_ids: Option<HashMap<String, String>>, // multi-question: questionId → optionId
     pub freeform: Option<String>,

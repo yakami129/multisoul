@@ -1,7 +1,6 @@
 //! I/O helpers: write stream-json messages to a Claude process stdin.
 
 use std::io::Write;
-use std::process::ChildStdin;
 
 /// Write a user message JSON line to claude's stdin.
 pub fn write_user_message(sink: &mut impl Write, user_text: &str) -> Result<(), String> {
@@ -58,31 +57,4 @@ pub fn write_user_message_with_image(
         .map_err(|e| format!("stdin write (image): {}", e))?;
     sink.flush()
         .map_err(|e| format!("stdin flush (image): {}", e))
-}
-
-/// Write a tool_result JSON line to claude's stdin (response to a tool_use).
-#[allow(dead_code)]
-pub(super) fn write_tool_result(
-    stdin: &mut ChildStdin,
-    call_id: &str,
-    content: &str,
-) -> Result<(), String> {
-    let msg = serde_json::json!({
-        "type": "user",
-        "message": {
-            "role": "user",
-            "content": [{
-                "type":        "tool_result",
-                "tool_use_id": call_id,
-                "content":     content,
-            }]
-        }
-    });
-    let line = format!("{}\n", msg);
-    stdin
-        .write_all(line.as_bytes())
-        .map_err(|e| format!("stdin write (tool_result): {}", e))?;
-    stdin
-        .flush()
-        .map_err(|e| format!("stdin flush (tool_result): {}", e))
 }

@@ -140,14 +140,17 @@ fn session_worker(
         // Try to process the turn; on failure, respawn and retry (up to 3x)
         let mut ok = false;
         for attempt in 1..=3 {
+            let turn_input = claude_stream::TurnInput {
+                user_text: &user_text,
+                file_id: file_id.as_deref(),
+                uploads_dir: &state.uploads_dir,
+            };
             match process_turn(
                 &mut stdin,
                 &mut reader,
                 &state,
                 &conv_id,
-                &user_text,
-                file_id.as_deref(),
-                &state.uploads_dir,
+                &turn_input,
                 &answer_rx,
             ) {
                 Ok(()) => {

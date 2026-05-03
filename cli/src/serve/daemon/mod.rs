@@ -2,10 +2,8 @@ use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
-#[allow(dead_code)]
 pub const SERVICE_LABEL: &str = "com.multisoul.msctl";
 
-#[allow(dead_code)]
 pub struct Config {
     pub binary_path: String,
     pub token: String,
