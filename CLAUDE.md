@@ -31,6 +31,7 @@ Monorepo 两大件：
 - **单文件 ≤ 500 行** —— `mobile/src|app`、`cli/src` 源码；超长需拆分封装（见 mechanized-constraints）
 - **mobile 禁 `console.log`** —— 仅允许 `console.warn` / `console.error`
 - **改包必跑 typecheck/cargo check**
+- **Rust 禁止 `#[allow(...)]`** —— `cli/src` 中不得用 `#[allow]` 压制任何编译器/clippy 诊断；脚本 [`scripts/check-no-allow.sh`](scripts/check-no-allow.sh) 拦截
 
 人类可读软约束：
 
@@ -41,7 +42,7 @@ Monorepo 两大件：
 - **禁止直接 push main** —— 所有变更必须通过 PR；直接 push 会被 GitHub branch protection 拒绝
 - **PR 开启前必须验证** —— `cargo test` + `cargo build` + `pnpm typecheck` + `pnpm test --watchAll=false` 全部通过
 - **开 PR 需用户确认** —— Claude Code 自动 commit 到功能分支后，必须等用户确认才能执行 `gh pr create`
-- **CI 失败自动修复** —— 读取 `gh run view --log-failed` 日志，尝试修复 lint/type/fmt 错误后 re-push；逻辑错误上报用户
+- **CI 失败自动修复** —— 读取 `gh run view --log-failed` 日志，修复 lint/type/fmt 错误后 re-push；**修复 = 解决根本原因**（重构代码、删未用项、修类型），绝不用 `#[allow]` / `// eslint-disable` / `@ts-ignore` 压制；逻辑错误上报用户
 
 ---
 
@@ -111,7 +112,7 @@ Monorepo 两大件：
 
 - 用户场景常常 **不便打字**。涉及决策（方案选择、是否继续、风险权衡）一律用 `AskUserQuestion` 工具给 2-5 个结构化选项，**不要让用户敲字回答**
 - 行动前先检索本地文件，不要凭记忆回答
-- 修改代码后必须按 §5 跑验证；引入了 lint error 要修
+- 修改代码后必须按 §5 跑验证；引入了 lint error **必须修根本原因，禁止用 `#[allow]` / `// eslint-disable` / `@ts-ignore` 等抑制指令掩盖**
 - **文档落盘**：产品 / 功能规格 → **只** [`docs/product-specs/`](docs/product-specs/)（`SPEC-<feature>.md`）；实施 / 执行计划 → **只** [`docs/exec-plans/`](docs/exec-plans/)（`YYYY-MM-DD-<feature>.md`）；设计权衡 → `docs/design-docs/YYYY-MM-DD-<feature>-design.md`（命名见 [`docs/design-docs/README.md`](docs/design-docs/README.md)）。**勿**在 [`docs/specs/`](docs/specs/)、[`docs/superpowers/`](docs/superpowers/) 新增权威内容。**Superpowers skills**（`writing-plans`、`executing-plans`、`brainstorming` 等）在本仓库落盘**必须**使用上述路径 · [`docs/superpowers/README.md`](docs/superpowers/README.md)
 - 不要把规则塞进 `AGENTS.md`。`AGENTS.md` 只长指针，不长内容
 
