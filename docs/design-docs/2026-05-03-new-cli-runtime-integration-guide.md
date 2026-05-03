@@ -234,6 +234,21 @@ fn handle_output_line(state: &AppState, conv_id: &str, line: &str) {
 | `ask_question` | 向用户提问（含 `questions` 数组） |
 | `task_status` | 任务完成/失败（含 `status`, `summary`） |
 
+**必须映射工具事件：**
+如果底层 CLI 输出任何工具生命周期事件（例如 `tool_use`、`tool_call started/completed`、`command_execution`），runtime 不能忽略。必须至少转换为：
+
+```rust
+// 工具开始
+serde_json::json!({ "tool": "Bash", "args": "pwd", "call_id": "tool-1" })
+// role = "tool_call"
+
+// 工具结束
+serde_json::json!({ "call_id": "tool-1", "ok": true, "summary": "/repo" })
+// role = "tool_result"
+```
+
+`call_id` 必须在同一次工具调用的 `tool_call` / `tool_result` 间保持一致；没有原生 ID 时用 `Uuid::new_v4()` 生成并在解析过程中保存。接入新 runtime 时需要为工具事件解析函数添加单元测试，覆盖“开始”和“完成/失败”两类事件。
+
 ---
 
 ### Step 4：注册到 mod.rs
@@ -319,6 +334,7 @@ Codex 使用 `codex exec` / `codex exec resume <thread_id>` 命令：
 
 | 陷阱 | 原因 | 解决方法 |
 |---|---|---|
+| 有工具执行但 mobile 不显示 | runtime 只处理最终文本/结果，忽略了 CLI 的工具事件 | 先用真实 CLI 跑 `--output-format stream-json` 观察 stdout schema，再把工具 started/completed 映射成 `tool_call` / `tool_result` |
 | 死锁：先锁 `db` 再锁 `sessions` | 两把锁顺序不一致 | 统一按 `sessions → db` 顺序；或 `drop()` 后再取下一把锁 |
 | Worker crash 但 sessions map 未清理 | sender 变悬空 | 检测到 `tx.send()` 失败时重建 worker（参考两个 runtime 的模板） |
 | `spawn_blocking` 里调用 `.await` | blocking 线程不能 await | 所有 DB 和 I/O 操作使用同步 API |
@@ -338,7 +354,8 @@ cd cli && cargo test           # 单元测试
 # 集成验证（本地）
 cargo run -- serve &
 # 在 DB 里插一条 runtime="your-runtime" 的 agent
-# 发消息，确认 WS 收到 agent_text / task_status 事件
+# 发一条会触发工具调用的消息（如要求运行 pwd）
+# 确认 WS 顺序至少包含 user_text → tool_call → tool_result → agent_text → task_status
 ```
 
 移动端适配（如有）：

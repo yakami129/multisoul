@@ -12,7 +12,7 @@
 
 - `YYYY-MM-DD-<kebab-case-feature>.md`
 - 日期是计划开始日期
-- **目录清单（机器可读）**：[`index.json`](index.json) + [`index.schema.json`](index.schema.json) —— 新增/重命名计划文件后必须更新 `index.json`；[`scripts/check-docs-indices.py`](../../scripts/check-docs-indices.py) 与 CI 会校验磁盘与清单双射（注册见 [`scripts/docs-indices.json`](../../scripts/docs-indices.json)）
+- **目录清单（机器可读）**：[`index.json`](index.json) + [`index.schema.json`](index.schema.json) —— 新增/重命名计划文件后必须更新 `index.json`；[`scripts/check-docs-indices.py`](../../scripts/check-docs-indices.py) 与 CI 会校验磁盘与清单双射（注册见 [`scripts/docs-indices.json`](../../scripts/docs-indices.json)）。可选字段 `lastCompletedCommit`（40 位小写 SHA）见 `AGENTS.md` / `CLAUDE.md`「Exec plan 施工」——用于记录「整包计划一次提交」的锚点，便于 `git revert`。
 
 **Superpowers**（如 `executing-plans`、`writing-plans` 中的施工拆解）产出的执行计划**必须**写入本目录上述命名，**不得**默认写入 `docs/superpowers/plans/` 作为权威落点。规约总述：[`../superpowers/README.md`](../superpowers/README.md)。
 

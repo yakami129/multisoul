@@ -28,6 +28,11 @@
           "title": {
             "type": "string",
             "minLength": 1
+          },
+          "lastCompletedCommit": {
+            "type": "string",
+            "description": "Full 40-char lowercase git object name (SHA-1) of the single commit that completed this plan after all tasks passed verification; set by humans/agents after that commit. Omit until set.",
+            "pattern": "^[0-9a-f]{40}$"
           }
         }
       }

@@ -4,6 +4,11 @@
 //!
 //! Override binary path with `CURSOR_AGENT_BIN` (default: `agent` on `PATH`).
 
+#[path = "cursor_events.rs"]
+mod cursor_events;
+#[path = "cursor_text.rs"]
+mod cursor_text;
+
 use serde_json::Value;
 use std::io::{BufRead, BufReader, Read};
 use std::process::{Child, Command, Stdio};
@@ -13,6 +18,8 @@ use uuid::Uuid;
 use crate::db::now_ms;
 use crate::logging;
 use crate::serve::{push, state::AppState};
+use cursor_events::{parse_tool_event, CursorToolEvent};
+use cursor_text::{extract_assistant_text, merge_stream_fragment};
 
 pub fn send_to_session(
     state: &AppState,
@@ -62,7 +69,8 @@ fn session_worker(
     mode: String,
     rx: std::sync::mpsc::Receiver<crate::serve::state::SessionMessage>,
 ) {
-    let span = info_span!("session_worker", conv_id = %conv_id, runtime = "cursor-cli", mode = %mode);
+    let span =
+        info_span!("session_worker", conv_id = %conv_id, runtime = "cursor-cli", mode = %mode);
     let _enter = span.enter();
     info!("session_worker_started");
 
@@ -185,6 +193,9 @@ fn process_turn(
                 let t = extract_assistant_text(&v);
                 merge_stream_fragment(&mut stream_acc, &t);
             }
+            "tool_call" => {
+                handle_tool_event(state, conv_id, &v);
+            }
             "result" => {
                 let is_err = v.get("is_error").and_then(|b| b.as_bool()).unwrap_or(false);
                 let summary = v
@@ -221,6 +232,38 @@ fn process_turn(
                 return Ok(());
             }
             _ => {}
+        }
+    }
+}
+
+fn handle_tool_event(state: &AppState, conv_id: &str, v: &Value) {
+    match parse_tool_event(v) {
+        Some(CursorToolEvent::Started {
+            call_id,
+            tool,
+            args,
+        }) => {
+            let payload = serde_json::json!({ "tool": tool, "args": args, "call_id": call_id });
+            let db = state.db.lock().unwrap();
+            if let Ok(seq) = insert_message(&db, conv_id, "tool_call", &payload) {
+                drop(db);
+                broadcast(state, conv_id, seq, "tool_call", payload);
+            }
+        }
+        Some(CursorToolEvent::Completed {
+            call_id,
+            ok,
+            summary,
+        }) => {
+            let payload = serde_json::json!({ "call_id": call_id, "ok": ok, "summary": summary });
+            let db = state.db.lock().unwrap();
+            if let Ok(seq) = insert_message(&db, conv_id, "tool_result", &payload) {
+                drop(db);
+                broadcast(state, conv_id, seq, "tool_result", payload);
+            }
+        }
+        None => {
+            warn!(event_type = ?v.get("type"), subtype = ?v.get("subtype"), "cursor_unhandled_tool_event");
         }
     }
 }
@@ -268,8 +311,7 @@ fn spawn_agent(
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
 
-    cmd.spawn()
-        .map_err(|e| format!("spawn {}: {}", bin, e))
+    cmd.spawn().map_err(|e| format!("spawn {}: {}", bin, e))
 }
 
 fn model_from_env() -> Option<String> {
@@ -280,36 +322,6 @@ fn model_from_env() -> Option<String> {
     } else {
         Some(t)
     }
-}
-
-fn merge_stream_fragment(acc: &mut String, frag: &str) {
-    if frag.is_empty() {
-        return;
-    }
-    if frag.starts_with(acc.as_str()) && frag.len() >= acc.len() {
-        *acc = frag.to_string();
-        return;
-    }
-    acc.push_str(frag);
-}
-
-fn extract_assistant_text(v: &Value) -> String {
-    let Some(msg) = v.get("message") else {
-        return String::new();
-    };
-    let Some(arr) = msg.get("content").and_then(|c| c.as_array()) else {
-        return String::new();
-    };
-    let mut out = String::new();
-    for block in arr {
-        if block.get("type").and_then(|t| t.as_str()) != Some("text") {
-            continue;
-        }
-        if let Some(t) = block.get("text").and_then(|s| s.as_str()) {
-            out.push_str(t);
-        }
-    }
-    out
 }
 
 fn read_stderr_tail(stderr: &mut Option<std::process::ChildStderr>) -> String {
@@ -362,7 +374,8 @@ fn clear_cursor_session(state: &AppState, conv_id: &str) {
 
 fn is_stale_session_error(msg: &str) -> bool {
     let m = msg.to_lowercase();
-    m.contains("session") && (m.contains("not found") || m.contains("invalid") || m.contains("expired"))
+    m.contains("session")
+        && (m.contains("not found") || m.contains("invalid") || m.contains("expired"))
 }
 
 fn mark_failed(state: &AppState, conv_id: &str) {
@@ -437,36 +450,5 @@ fn complete_turn(state: &AppState, conv_id: &str, status: &str) {
         push::send_task_status_push(&db, conv_id, status, "");
         drop(db);
         broadcast(state, conv_id, seq, "task_status", payload);
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use serde_json::json;
-
-    #[test]
-    fn merge_stream_fragment_prefix_then_deltas() {
-        let mut acc = String::new();
-        merge_stream_fragment(&mut acc, "1");
-        assert_eq!(acc, "1");
-        merge_stream_fragment(&mut acc, ",");
-        assert_eq!(acc, "1,");
-        merge_stream_fragment(&mut acc, "2");
-        assert_eq!(acc, "1,2");
-        merge_stream_fragment(&mut acc, "1,2,3");
-        assert_eq!(acc, "1,2,3");
-    }
-
-    #[test]
-    fn extract_assistant_text_reads_message_content() {
-        let v = json!({
-            "type": "assistant",
-            "message": {
-                "role": "assistant",
-                "content": [{"type": "text", "text": "Hello"}]
-            }
-        });
-        assert_eq!(extract_assistant_text(&v), "Hello");
     }
 }

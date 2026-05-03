@@ -1,5 +1,5 @@
 import { X } from 'lucide-react-native';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { memo, useEffect, useRef, useState } from 'react';
 import { Animated, Easing, View, Text, StyleSheet, Image, Modal, Pressable } from 'react-native';
 import {
   type WsMessage,
@@ -24,7 +24,7 @@ interface Props {
   imageUri?: string;
 }
 
-export function MessageBubble({
+export const MessageBubble = memo(function MessageBubble({
   msg,
   onAnswer,
   onAnswerMulti,
@@ -34,6 +34,7 @@ export function MessageBubble({
 }: Props) {
   const agentText = msg.role === 'agent_text' ? ((msg.payload as AgentTextPayload).text ?? '') : '';
   const [visibleChars, setVisibleChars] = useState(typewriter ? 0 : agentText.length);
+  const prevTypewriterRef = useRef(typewriter);
   const [previewVisible, setPreviewVisible] = useState(false);
   const dot1 = useRef(new Animated.Value(0.3)).current;
   const dot2 = useRef(new Animated.Value(0.3)).current;
@@ -45,7 +46,11 @@ export function MessageBubble({
       return undefined;
     }
 
-    setVisibleChars(0);
+    // Only reset to 0 when typewriter transitions false→true (new message)
+    if (!prevTypewriterRef.current) {
+      setVisibleChars(0);
+    }
+
     const timer = setInterval(() => {
       setVisibleChars((count: number) => {
         if (count >= agentText.length) {
@@ -58,6 +63,11 @@ export function MessageBubble({
 
     return () => clearInterval(timer);
   }, [agentText, msg.role, msg.seq, typewriter]);
+
+  // Track previous typewriter value for transition detection
+  useEffect(() => {
+    prevTypewriterRef.current = typewriter;
+  });
 
   useEffect(() => {
     if (!waiting) return undefined;
@@ -253,7 +263,7 @@ export function MessageBubble({
     default:
       return null;
   }
-}
+});
 
 const s = StyleSheet.create({
   userWrap: { width: '100%', alignItems: 'flex-end' },
