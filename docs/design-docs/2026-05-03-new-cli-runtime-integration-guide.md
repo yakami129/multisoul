@@ -345,6 +345,8 @@ Codex 使用 `codex exec` / `codex exec resume <thread_id>` 命令：
 
 ## 8. 验证清单
 
+> **2026-05-03 更新**：`cursor.rs` 中 `match "system"` arm 改为 guard pattern（`"system" if … =>`），消除 Clippy `collapsible_match` 警告，逻辑不变。
+
 完成实现后，按 `CLAUDE.md §5` 跑：
 
 ```bash
