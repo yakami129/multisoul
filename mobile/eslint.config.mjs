@@ -70,8 +70,8 @@ export default tseslint.config(
       },
     },
     rules: {
-      // ── Prettier 格式化（warn，不阻断开发）──────────────────
-      'prettier/prettier': 'warn',
+      // ── Prettier 格式化（error；CI 使用 --max-warnings 0）────
+      'prettier/prettier': 'error',
 
       // ── TypeScript：核心安全规则（error）────────────────────
       '@typescript-eslint/no-explicit-any': 'error',
@@ -81,32 +81,32 @@ export default tseslint.config(
       '@typescript-eslint/no-unsafe-return': 'error',
       '@typescript-eslint/no-unsafe-argument': 'error',
 
-      // ── TypeScript：其他规则（warn）─────────────────────────
+      // ── TypeScript：其他规则（error；CI 使用 --max-warnings 0）
       '@typescript-eslint/no-unused-vars': [
-        'warn',
+        'error',
         { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
       ],
       '@typescript-eslint/consistent-type-imports': [
-        'warn',
+        'error',
         { prefer: 'type-imports', fixStyle: 'inline-type-imports' },
       ],
-      '@typescript-eslint/no-floating-promises': 'warn',
-      '@typescript-eslint/await-thenable': 'warn',
-      '@typescript-eslint/no-misused-promises': 'warn',
+      '@typescript-eslint/no-floating-promises': 'error',
+      '@typescript-eslint/await-thenable': 'error',
+      '@typescript-eslint/no-misused-promises': 'error',
 
       // ── React Hooks：核心规则（error）───────────────────────
       'react-hooks/rules-of-hooks': 'error',
       'react-hooks/exhaustive-deps': 'error',
 
-      // ── React：其他规则（warn）──────────────────────────────
-      'react/jsx-key': 'warn',
-      'react/no-unstable-nested-components': 'warn',
-      'react/self-closing-comp': 'warn',
+      // ── React：其他规则（error；CI 使用 --max-warnings 0）───
+      'react/jsx-key': 'error',
+      'react/no-unstable-nested-components': 'error',
+      'react/self-closing-comp': 'error',
       'react/display-name': 'off',
 
-      // ── Import 排序（warn）──────────────────────────────────
+      // ── Import 排序（error；CI 使用 --max-warnings 0）────────
       'import/order': [
-        'warn',
+        'error',
         {
           groups: ['builtin', 'external', 'internal', ['parent', 'sibling', 'index']],
           pathGroups: [
@@ -121,11 +121,11 @@ export default tseslint.config(
           alphabetize: { order: 'asc', caseInsensitive: true },
         },
       ],
-      'import/no-duplicates': 'warn',
+      'import/no-duplicates': 'error',
 
-      // ── 通用（warn）─────────────────────────────────────────
+      // ── 通用（error；CI 使用 --max-warnings 0）──────────────
       'no-console': ['error', { allow: ['warn', 'error'] }],
-      'no-debugger': 'warn',
+      'no-debugger': 'error',
     },
   },
 

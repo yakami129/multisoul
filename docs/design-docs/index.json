@@ -7,6 +7,10 @@
       "title": "接入新 CLI Runtime 开发指南"
     },
     {
+      "file": "2026-05-03-mobile-feature-boundaries-design.md",
+      "title": "Mobile Feature 边界设计"
+    },
+    {
       "file": "2026-05-02-cli-tracing-design.md",
       "title": "CLI Tracing 与 msctl logs 子命令设计"
     },
