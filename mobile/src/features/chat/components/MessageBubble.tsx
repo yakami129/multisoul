@@ -45,6 +45,8 @@ export const MessageBubble = memo(function MessageBubble({
 
   useEffect(() => {
     if (!typewriter || msg.role !== 'agent_text') {
+      // Also handles typewriter=false (natural end / forceComplete): jumps visibleChars to end.
+      // Note: setting typewriter=false also triggers this effect and jumps visibleChars to end.
       setVisibleChars(agentText.length);
       return undefined;
     }
@@ -71,14 +73,6 @@ export const MessageBubble = memo(function MessageBubble({
   useEffect(() => {
     prevTypewriterRef.current = typewriter;
   });
-
-  // When typewriter transitions true → false (natural end or forceComplete from parent),
-  // jump visibleChars to end so full text is available for MD rendering.
-  useEffect(() => {
-    if (prevTypewriterRef.current && !typewriter) {
-      setVisibleChars(agentText.length);
-    }
-  }, [typewriter, agentText.length]);
 
   useEffect(() => {
     if (!waiting) return undefined;
