@@ -2,8 +2,10 @@ use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
+#[cfg(target_os = "macos")]
 pub const SERVICE_LABEL: &str = "com.multisoul.msctl";
 
+#[cfg(target_os = "macos")]
 pub struct Config {
     pub binary_path: String,
     pub token: String,

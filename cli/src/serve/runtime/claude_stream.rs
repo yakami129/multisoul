@@ -11,6 +11,13 @@ use tracing::{debug, info};
 
 use super::{broadcast, insert_message, write_user_message, write_user_message_with_image};
 
+/// Input for a single Claude turn: the user's message plus optional image attachment.
+pub(super) struct TurnInput<'a> {
+    pub user_text: &'a str,
+    pub file_id: Option<&'a str>,
+    pub uploads_dir: &'a std::path::Path,
+}
+
 /// Write user message and read stdout until the `result` event.
 /// Returns Ok(()) on success, Err if the process pipe breaks.
 ///
@@ -19,13 +26,6 @@ use super::{broadcast, insert_message, write_user_message, write_user_message_wi
 ///   2. Blocks on `answer_rx.recv()` until the mobile user responds
 ///   3. Writes the `tool_result` back to Claude's stdin
 ///   4. Resumes reading stdout
-/// Input for a single Claude turn: the user's message plus optional image attachment.
-pub(super) struct TurnInput<'a> {
-    pub user_text: &'a str,
-    pub file_id: Option<&'a str>,
-    pub uploads_dir: &'a std::path::Path,
-}
-
 pub(super) fn process_turn(
     stdin: &mut ChildStdin,
     reader: &mut BufReader<std::process::ChildStdout>,
