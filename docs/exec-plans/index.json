@@ -3,6 +3,10 @@
   "version": 1,
   "documents": [
     {
+      "file": "2026-05-03-ios-permission-guard.md",
+      "title": "iOS 权限声明守护"
+    },
+    {
       "file": "2026-05-03-doc-code-hash-guard.md",
       "title": "Doc-Code Hash Guard Implementation Plan"
     },

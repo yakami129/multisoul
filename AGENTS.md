@@ -35,6 +35,7 @@ Monorepo 两大件：
 - DB schema 改动走 migration —— 不允许运行时 `CREATE TABLE`
 - REST/WS 强制 Bearer auth —— 唯一例外 `GET /api/v1/healthz`
 - 决策用 `AskUserQuestion` 工具调用 —— 不在自由文本问选择题
+- **CI 未通过禁止合并 PR** —— 强约束，见 [`docs/runbooks/github-pr-merge-policy.md`](docs/runbooks/github-pr-merge-policy.md)
 - 同一用户流程只保留一个权威实现 —— 详见 [`CLAUDE.md`](CLAUDE.md) §2/§7
 
 ## 3. 技术栈速览
@@ -59,6 +60,7 @@ Monorepo 两大件：
 | **代码规范、release checklist** | [`docs/quality/`](docs/quality/)（占位）+ [`CLAUDE.md`](CLAUDE.md) |
 | **iOS 发布、CLI 发布等 SOP** | [`mobile/docs/ios-publish.md`](mobile/docs/ios-publish.md)（本地 `scripts/publish-ios-local.sh` / 云端 `publish-ios.sh`）· [`docs/runbooks/cli-release.md`](docs/runbooks/cli-release.md) · [`docs/runbooks/README.md`](docs/runbooks/README.md) |
 | **`msctl serve` 跑挂了怎么查** | [`docs/runbooks/debugging.md`](docs/runbooks/debugging.md) — `msctl logs` 4 个故事 |
+| **PR 合并与 CI 强闸** | [`docs/runbooks/github-pr-merge-policy.md`](docs/runbooks/github-pr-merge-policy.md) |
 | **UI 设计系统**（颜色、字号、间距） | [`mobile/docs/design.md`](mobile/docs/design.md) |
 | **RN UI 常见坑** | [`mobile/docs/rules/ui-pitfalls.md`](mobile/docs/rules/ui-pitfalls.md) |
 | **完整命令、env 表、UI checklist** | [`CLAUDE.md`](CLAUDE.md)（详细工程手册） |
@@ -102,7 +104,8 @@ cd mobile && ./scripts/publish-ios.sh
 - 行动前先检索本地文件，不要凭记忆回答
 - 修改代码后必须按 §5 跑验证；引入了 lint error **必须修根本原因，禁止用 `#[allow]` / `// eslint-disable` / `@ts-ignore` 抑制**
 - **文档落盘**：产品 / 功能规格（要做什么、验收）→ **只** [`docs/product-specs/`](docs/product-specs/)（`SPEC-<feature>.md`）；实施 / 执行计划 → **只** [`docs/exec-plans/`](docs/exec-plans/)（`YYYY-MM-DD-<feature>.md`）；设计权衡 → `docs/design-docs/YYYY-MM-DD-<feature>-design.md`（命名见 [`docs/design-docs/README.md`](docs/design-docs/README.md)）。**勿**在 [`docs/specs/`](docs/specs/)、[`docs/superpowers/`](docs/superpowers/) 新增权威内容。**Superpowers skills**（`writing-plans`、`executing-plans`、`brainstorming` 等）在本仓库写规格或计划时**必须**使用上述 canonical 路径 · [`docs/superpowers/README.md`](docs/superpowers/README.md)
-- **Exec plan 施工**：`docs/exec-plans/*.md` 所列任务 **全部验证通过后一次** `git commit`；**不要**套用 Superpowers `subagent-driven-development` 的「每任务一 commit」。该次提交后把对应 `documents[]` 条目的 `lastCompletedCommit` 写入 [`docs/exec-plans/index.json`](docs/exec-plans/index.json)（40 位小写 hex，`git rev-parse HEAD`），便于 `git revert <sha>` 撤回该批改动。
+- **Exec plan 施工**：全部任务验证通过后一次 `git commit`；不要套用 `subagent-driven-development` 的「每任务一 commit」。提交后把 `lastCompletedCommit` 写入 [`docs/exec-plans/index.json`](docs/exec-plans/index.json)（40 位 SHA）。
+- **执行方式选择（强制）**：writing-plans 写完计划后，**必须**用 `AskUserQuestion` 弹卡片让用户选「Subagent 驱动（推荐）」或「当前会话内联执行」，**禁止**纯文本提问或自行假设。
 - 不要把规则塞进本文。本文只长指针，不长内容
 
 ## 8. 添加新规则的原则（Harness 增量学习）
@@ -114,5 +117,3 @@ cd mobile && ./scripts/publish-ios.sh
 3. **CLAUDE.md 和 AGENTS.md 必须同步更新** —— 两者约束列表保持镜像，改一个必须改另一个
 4. 在本文 §4 的地图里加指针（如果是新类别）
 5. 必要时把约束机械化（lint / hook / CI），让规则从"建议"升级为"法律"
-
-> 长度控制：本文超过 120 行就该重构 —— 把详细内容沉淀到 `docs/` 子目录，本文只保留指针。

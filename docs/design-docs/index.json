@@ -53,6 +53,10 @@
       "title": "Mobile Feature 边界设计"
     },
     {
+      "file": "2026-05-03-ios-permission-guard-design.md",
+      "title": "iOS 权限声明守护设计"
+    },
+    {
       "file": "2026-05-03-doc-code-hash-guard-design.md",
       "title": "Doc-Code Hash Guard 设计"
     },

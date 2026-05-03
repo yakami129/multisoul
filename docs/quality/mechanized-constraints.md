@@ -112,16 +112,39 @@
 | 当前 pilot | [`docs/design-docs/2026-05-03-new-cli-runtime-integration-guide.md`](../design-docs/2026-05-03-new-cli-runtime-integration-guide.md) 追踪 runtime 分发、adapter、DB 与 mobile 类型文件 |
 | 修复方式 | 根据 tracked file diff 更新对应设计文档，再运行 `python3 scripts/check-doc-code-hashes.py --update` 刷新 hash |
 
+### R12 · iOS Info.plist 权限声明对齐
+
+| | |
+|---|---|
+| 脚本 | [`scripts/check-ios-permissions.sh`](../../scripts/check-ios-permissions.sh) |
+| 起因 | `feat(chat): multi-image upload` 引入 `expo-image-picker` 后未添加 `NSPhotoLibraryUsageDescription`，iOS 直接崩溃 |
+| 检测 | 扫描 `mobile/package.json` 中的 Expo 权限模块，对比 `mobile/ios/MultiSoul/Info.plist` 中的 key |
+| 触发 | pre-commit（staged 含 `mobile/package.json` 或 `mobile/ios/**`）；CI `repo-checks` 全量 |
+| 修复方式 | 在 `Info.plist` 添加缺失的 `NSXxxUsageDescription`；同步更新脚本映射表与本文档 |
+
+**模块→key 映射表：**
+
+| Expo 模块 | 必须存在的 plist key |
+|---|---|
+| `expo-image-picker` | `NSPhotoLibraryUsageDescription` |
+| `expo-camera` | `NSCameraUsageDescription` |
+| `expo-location` | `NSLocationWhenInUseUsageDescription` |
+| `expo-media-library` | `NSPhotoLibraryUsageDescription`, `NSPhotoLibraryAddUsageDescription` |
+| `expo-contacts` | `NSContactsUsageDescription` |
+| `expo-calendar` | `NSCalendarsUsageDescription` |
+| `expo-audio` | `NSMicrophoneUsageDescription` |
+
 ### R7 · CI 远端兜底
 
 | | |
 |---|---|
 | 实现 | [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml) |
 | 触发 | `pull_request` 与 `push: main` |
-| Job 1 (`repo-checks`) | 跑 R1-R3、R6、R8、R9、R11 共七个脚本 |
+| Job 1 (`repo-checks`) | 跑 R1-R3、R6、R8、R9、R11-R12 共八个脚本 |
 | Job 2 (`mobile-check`) | `pnpm typecheck` + `pnpm lint`（含 R4、R10）+ `pnpm test` |
 | Job 3 (`cli-check`) | `cargo build --all-targets` + `cargo test` |
-| 角色 | 兜底 —— 若开发者本地用 `--no-verify` 跳过 husky，CI 仍拒绝 merge |
+| 角色 | 兜底 —— 若开发者本地用 `--no-verify` 跳过 husky，CI 仍应在合并前拦住坏变更 |
+| **合并闸** | **GitHub `main` 必须启用 branch protection：`Require status checks to pass`，且三张 green（`repo checks (constraints)`、`mobile (typecheck + lint + test)`、`cli (build + test)`）；**任一失败则不得合并**；并启用 *Do not allow bypassing*，禁止以 admin 身份绕过硬闸。操作说明见 [`docs/runbooks/github-pr-merge-policy.md`](../runbooks/github-pr-merge-policy.md) |
 
 ## 加新规则的流程
 
