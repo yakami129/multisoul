@@ -2,6 +2,7 @@ import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import * as ImageManipulator from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
 import React from 'react';
+import { Alert } from 'react-native';
 import { fetchMessages, postMessage, uploadImage } from '@/features/chat/services/chatService';
 import { useChatStore } from '@/store/chatStore';
 import { useEndpointStore } from '@/store/endpointStore';
@@ -279,5 +280,96 @@ describe('multi-image upload', () => {
     await waitFor(() => {
       expect(queryByTestId('img-preview-row')).toBeNull();
     });
+  });
+
+  it('does not add more than 5 images', async () => {
+    /// 5 枚上限：第 6 次按 attach 时 Alert 被触发，图片数量不超过 5
+    ///
+    /// 执行过程：
+    ///   1. 连续按 5 次 attach → 各上传成功 → remove-img-4 出现
+    ///   2. 第 6 次按 attach → pickImage 早期 return，Alert 被调用
+    ///
+    /// 预期结果：
+    ///   - Alert.alert 被调用，参数为 '最多选择 5 张图片'
+    ///   - remove-img-5 不存在（第 6 张未被加入）
+    const { getByTestId, queryByTestId } = render(<ChatDetailScreen />);
+
+    for (let i = 0; i < 5; i++) {
+      await act(async () => {
+        fireEvent.press(getByTestId('attach-image-button'));
+      });
+    }
+    await waitFor(() => expect(queryByTestId('remove-img-4')).toBeTruthy());
+
+    const alertSpy = jest.spyOn(Alert, 'alert');
+    await act(async () => {
+      fireEvent.press(getByTestId('attach-image-button'));
+    });
+
+    expect(alertSpy).toHaveBeenCalledWith('最多选择 5 张图片');
+    expect(queryByTestId('remove-img-5')).toBeNull();
+
+    alertSpy.mockRestore();
+  });
+
+  it('sends multiple images as separate messages', async () => {
+    /// 多图逐条发送：2 张图 → postMessage 被调用 2 次，最后一次携带文字
+    ///
+    /// 数据构造：
+    ///   - 第 1 次 uploadImage → file_id: 'file-1'（mockResolvedValueOnce）
+    ///   - 第 2 次 uploadImage → file_id: 'file-2'（第 2 次 attach 前再 mock）
+    ///   - input text: 'hello'
+    ///
+    /// 执行过程：
+    ///   1. 清空 postMessage 的调用记录，防止 outer beforeEach 遗留
+    ///   2. 第 1 次 attach → compressed → uploaded file-1
+    ///   3. 重设 uploadImage mock → 第 2 次 attach → uploaded file-2
+    ///   4. 等待 remove-img-1 出现（两张图均已 uploaded）
+    ///   5. 输入 'hello'，点 Send
+    ///   6. handleSend 遍历：i=0 → postMessage(…, '', 'file-1')
+    ///                       i=1 → postMessage(…, 'hello', 'file-2')
+    ///
+    /// 预期结果：
+    ///   - postMessage 共调用 2 次（不多不少）
+    ///   - 最后一次：text='hello', file_id='file-2'
+
+    // 清空外层 beforeEach 遗留的调用记录
+    (postMessage as jest.Mock).mockClear();
+    (uploadImage as jest.Mock).mockClear();
+
+    (uploadImage as jest.Mock).mockResolvedValueOnce({ file_id: 'file-1' });
+
+    const { getByTestId, getByLabelText } = render(<ChatDetailScreen />);
+
+    await act(async () => {
+      fireEvent.press(getByTestId('attach-image-button'));
+    });
+
+    // 第 2 次 attach 前切换 mock
+    (uploadImage as jest.Mock).mockResolvedValueOnce({ file_id: 'file-2' });
+    await act(async () => {
+      fireEvent.press(getByTestId('attach-image-button'));
+    });
+
+    await waitFor(() => expect(getByTestId('remove-img-1')).toBeTruthy());
+
+    await act(async () => {
+      fireEvent.changeText(getByTestId('message-input'), 'hello');
+    });
+    await act(async () => {
+      fireEvent.press(getByLabelText('Send message'));
+    });
+
+    await waitFor(() => {
+      expect(postMessage).toHaveBeenCalledTimes(2);
+    });
+
+    expect(postMessage).toHaveBeenLastCalledWith(
+      'http://localhost:8080',
+      'token',
+      'conv-1',
+      'hello',
+      'file-2',
+    );
   });
 });

@@ -295,7 +295,7 @@ export default function ChatDetailScreen() {
             contentContainerStyle={s.previewRowContent}
           >
             {pendingImages.map((img, idx) => (
-              <View key={idx} style={s.thumbWrapper}>
+              <View key={img.localUri} style={s.thumbWrapper}>
                 <Image source={{ uri: img.localUri }} style={s.thumb} />
                 {img.status === 'uploading' && (
                   <View style={s.thumbOverlay}>
@@ -335,6 +335,7 @@ export default function ChatDetailScreen() {
           <View style={[s.inputField, composerDisabled && s.inputDisabled]}>
             <TextInput
               style={s.input}
+              testID="message-input"
               placeholder={isOffline ? 'Agent offline...' : 'Message...'}
               placeholderTextColor="#2D8B2D"
               value={input}
@@ -423,7 +424,7 @@ const s = StyleSheet.create({
   thumbWrapper: {
     width: 52,
     height: 52,
-    borderRadius: 8,
+    borderRadius: 2,
     overflow: 'hidden',
     backgroundColor: '#0A1A0A',
   },
@@ -437,12 +438,11 @@ const s = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: '#040D04',
-    opacity: 0.67,
+    backgroundColor: 'rgba(4,13,4,0.67)',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  thumbFailed: { backgroundColor: '#1A0000' },
+  thumbFailed: { backgroundColor: 'rgba(26,0,0,0.67)' },
   thumbOverlayText: { color: '#FF4444', fontFamily: 'Geist Mono', fontSize: 14 },
   removeBadge: {
     position: 'absolute',
@@ -450,7 +450,7 @@ const s = StyleSheet.create({
     right: -2,
     width: 18,
     height: 18,
-    borderRadius: 9,
+    borderRadius: 2,
     backgroundColor: '#0A1A0A',
     borderWidth: 1,
     borderColor: '#2D8B2D',
