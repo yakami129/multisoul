@@ -28,6 +28,7 @@ jest.mock('@/features/chat/services/chatService', () => ({
   createConversation: jest.fn(),
   fetchMessages: jest.fn(),
   postMessage: jest.fn(),
+  uploadImage: jest.fn(),
 }));
 
 jest.mock('@/features/inbox/services/inboxService', () => ({
@@ -82,5 +83,12 @@ describe('AgentChatRoute', () => {
         body: 'Deploy now?',
       }),
     );
+  });
+
+  it('renders an explicit image picker button in the composer', () => {
+    const { getByLabelText, getByTestId } = render(<AgentChatRoute />);
+
+    expect(getByLabelText('Attach image')).toBeTruthy();
+    expect(getByTestId('attach-image-button')).toBeTruthy();
   });
 });

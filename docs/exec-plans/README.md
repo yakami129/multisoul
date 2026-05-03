@@ -12,6 +12,7 @@
 
 - `YYYY-MM-DD-<kebab-case-feature>.md`
 - 日期是计划开始日期
+- **目录清单（机器可读）**：[`index.json`](index.json) + [`index.schema.json`](index.schema.json) —— 新增/重命名计划文件后必须更新 `index.json`；[`scripts/check-docs-indices.py`](../../scripts/check-docs-indices.py) 与 CI 会校验磁盘与清单双射（注册见 [`scripts/docs-indices.json`](../../scripts/docs-indices.json)）
 
 **Superpowers**（如 `executing-plans`、`writing-plans` 中的施工拆解）产出的执行计划**必须**写入本目录上述命名，**不得**默认写入 `docs/superpowers/plans/` 作为权威落点。规约总述：[`../superpowers/README.md`](../superpowers/README.md)。
 
@@ -21,22 +22,4 @@
 
 ## 现有文档
 
-按时间倒序：
-
-- `2026-05-01-inbox-askquestion-regression.md`
-- `2026-04-30-task-notification.md` — 任务完成通知（自 `docs/superpowers/plans/` 迁入）
-- `2026-04-29-codex-runtime-integration.md`
-- `2026-04-28-inbox-delete.md`
-- `2026-04-27-swipe-to-delete-recent.md`
-- `2026-04-27-recent-conversation-preview.md`
-- `2026-04-27-msctl-daemon.md`
-- `2026-04-27-askquestion-sync.md`
-- `2026-04-27-ask-question-multiselect.md`
-- `2026-04-26-multisoul-runtime-longrunning.md`
-- `2026-04-26-multisoul-phase2.md`
-- `2026-04-26-mobile-refactor.md`
-- `2026-04-26-cli-serve.md`
-- `2026-04-26-chat-waiting-typewriter.md`
-- `2026-04-19-mobile-ui-redesign.md` — Mobile UI 改造计划（自 `mobile/docs/superpowers/plans/` 迁入）
-- `2026-04-19-mobile-code-structure-refactor.md` — Mobile 目录结构重构（自 `mobile/docs/superpowers/plans/` 迁入）
-- `2025-07-14-github-actions-cicd.md` — GitHub Actions CI/CD 施工（自 `docs/superpowers/plans/` 迁入）
+人类可读标题与文件名对照见 [`index.json`](index.json) 的 `documents` 数组（按文件名降序，即新→旧）。**不要**在本节维护重复列表，以免与磁盘漂移。

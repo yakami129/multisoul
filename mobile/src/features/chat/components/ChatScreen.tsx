@@ -188,8 +188,7 @@ export function ChatScreen({ agentName, messages, status, onSend, onBack }: Prop
           return (
             <View
               style={{
-                marginBottom: 16,
-                maxWidth: '80%',
+                marginBottom: 12,
                 alignSelf: isUser ? 'flex-end' : 'flex-start',
               }}
             >

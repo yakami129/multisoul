@@ -12,14 +12,10 @@
 
 - 总规格：`SPEC.md`
 - 单 feature：`SPEC-<kebab-case-feature>.md`，例如 `SPEC-list-refresh.md`
+- **目录清单（机器可读）**：[`index.json`](index.json) + [`index.schema.json`](index.schema.json) —— 新增/重命名规格文件后必须更新 `index.json`；[`scripts/check-docs-indices.py`](../../scripts/check-docs-indices.py) 与 CI 会校验磁盘与清单双射（注册见 [`scripts/docs-indices.json`](../../scripts/docs-indices.json)）
 
 **Superpowers**（如 `writing-plans`）产出的「规格 / PRD / 要做什么」**必须**写入本目录上述命名，**不得**默认写入 `docs/specs/` 或 `docs/superpowers/specs/`。规约总述：[`../superpowers/README.md`](../superpowers/README.md)。
 
 ## 现有文档
 
-| 文件 | 说明 |
-|------|------|
-| [`SPEC.md`](./SPEC.md) | MultiSoul 主产品规格 |
-| [`SPEC-list-refresh.md`](./SPEC-list-refresh.md) | 列表刷新行为规格 |
-| [`SPEC-task-notification.md`](./SPEC-task-notification.md) | Agent 任务完成通知规格 |
-| [`SPEC-github-actions-cicd.md`](./SPEC-github-actions-cicd.md) | GitHub Actions CI/CD 规格（自 `docs/specs/github-actions-cicd-spec.md` 迁入） |
+人类可读标题与文件名对照见 [`index.json`](index.json) 的 `documents` 数组（按文件名升序）。**不要**在本节维护重复表格，以免与磁盘漂移。

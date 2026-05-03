@@ -29,10 +29,11 @@
 
 ## 添加新文档时
 
-- **产品决策 / 验收标准 / 功能规格** → `product-specs/SPEC-<feature>.md`（**不要**写到 `specs/` 或 `superpowers/`）
-- **某次实现的方案权衡** → `design-docs/YYYY-MM-DD-<feature>-design.md`
-- **多步骤施工计划** → `exec-plans/YYYY-MM-DD-<feature>.md`（**不要**写到 `superpowers/plans/` 作为权威落点）
-- **Superpowers skills**（`writing-plans`、`executing-plans`、`brainstorming` 等）在本仓库落盘时**必须**遵守以上三行路径
+- **产品决策 / 验收标准 / 功能规格** → `product-specs/SPEC-<feature>.md`（**不要**写到 `specs/` 或 `superpowers/`）；落盘后同步 [`product-specs/index.json`](./product-specs/index.json)
+- **某次实现的方案权衡** → `design-docs/YYYY-MM-DD-<feature>-design.md`；同步 [`design-docs/index.json`](./design-docs/index.json)
+- **多步骤施工计划** → `exec-plans/YYYY-MM-DD-<feature>.md`（**不要**写到 `superpowers/plans/` 作为权威落点）；同步 [`exec-plans/index.json`](./exec-plans/index.json)
+- **清单校验** → 三目录由 [`scripts/check-docs-indices.py`](../scripts/check-docs-indices.py)（[`scripts/docs-indices.json`](../scripts/docs-indices.json)）与 CI R9 强制执行
+- **Superpowers skills**（`writing-plans`、`executing-plans`、`brainstorming` 等）在本仓库落盘时**必须**遵守以上 `product-specs` / `design-docs` / `exec-plans` 路径与 `index.json` 同步要求
 - **稳定的契约/枚举** → `references/<topic>.md`
 - **新增硬约束/check** → `quality/<topic>.md`
 - **新发布或运维流程** → `runbooks/<topic>.md`

@@ -32,7 +32,7 @@ import { useWebSocket } from '../../../src/hooks/useWebSocket';
 import { useChatStore } from '../../../src/store/chatStore';
 import { useEndpointStore } from '../../../src/store/endpointStore';
 import { useInboxStore } from '../../../src/store/inboxStore';
-import { type WsMessage, type TaskStatusPayload } from '../../../src/types';
+import { type WsMessage, type TaskStatusPayload, type UserTextPayload } from '../../../src/types';
 
 // Stable fallback — never recreated, so Zustand won't see a changed snapshot (Bug 1 fix)
 const EMPTY: WsMessage[] = [];
@@ -105,6 +105,11 @@ export default function AgentChatRoute() {
       ? latestAgentSeq
       : null;
   const activeTypewriterSeq = incomingAgentTextSeq ?? typewriterSeq;
+  const imageUriForMessage = (msg: WsMessage) => {
+    if (msg.role !== 'user_text') return undefined;
+    const fileId = (msg.payload as UserTextPayload).file_id;
+    return fileId ? imageMapRef.current.get(fileId) : undefined;
+  };
 
   const { status, sendAnswer, sendAnswerMulti } = useWebSocket(
     endpoint && convId
@@ -271,6 +276,7 @@ export default function AgentChatRoute() {
               typewriter={msg.seq === activeTypewriterSeq}
               onAnswer={sendAnswer}
               onAnswerMulti={sendAnswerMulti}
+              imageUri={imageUriForMessage(msg)}
             />
           ))}
           {isAwaitingResponse && incomingAgentActivitySeq === null && (
@@ -289,11 +295,14 @@ export default function AgentChatRoute() {
 
         <View style={s.inputBar}>
           <TouchableOpacity
+            accessibilityLabel="Attach image"
+            accessibilityRole="button"
+            testID="attach-image-button"
             onPress={() => {
               void pickImage();
             }}
             disabled={composerDisabled || isUploading}
-            style={s.imageBtn}
+            style={[s.imageBtn, (composerDisabled || isUploading) && s.imageBtnDisabled]}
           >
             <ImageIcon size={16} color={composerDisabled ? '#2D8B2D' : '#20C20E'} />
           </TouchableOpacity>
@@ -395,7 +404,12 @@ const s = StyleSheet.create({
   imageBtn: {
     width: 36,
     height: 36,
+    backgroundColor: '#0A1A0A',
+    borderWidth: 1,
+    borderColor: '#0F2B0F',
+    borderRadius: 2,
     alignItems: 'center',
     justifyContent: 'center',
   },
+  imageBtnDisabled: { opacity: 0.5 },
 });

@@ -1,0 +1,37 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/yakami0129/multisoul/docs/product-specs/index.schema.json",
+  "title": "product-specs manifest",
+  "type": "object",
+  "required": ["version", "documents"],
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "Optional JSON Schema pointer for editor validation."
+    },
+    "version": {
+      "type": "integer",
+      "const": 1
+    },
+    "documents": {
+      "type": "array",
+      "description": "One entry per SPEC markdown in this directory (excluding README.md). Prefer ascending lexicographic order by file.",
+      "items": {
+        "type": "object",
+        "required": ["file", "title"],
+        "additionalProperties": false,
+        "properties": {
+          "file": {
+            "type": "string",
+            "pattern": "^SPEC(-[a-z0-9-]+)?\\.md$"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    }
+  },
+  "additionalProperties": false
+}

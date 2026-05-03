@@ -32,6 +32,9 @@ jobs:
       - name: No #[allow] in Rust source
         run: bash scripts/check-no-allow.sh
 
+      - name: docs knowledge indices match files
+        run: python3 scripts/check-docs-indices.py
+
   mobile-check:
     name: mobile (typecheck + lint + test)
     runs-on: ubuntu-latest

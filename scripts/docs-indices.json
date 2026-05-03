@@ -1,0 +1,24 @@
+{
+  "$schema": "./docs-indices.schema.json",
+  "version": 1,
+  "indices": [
+    {
+      "id": "design-docs",
+      "root": "docs/design-docs",
+      "filePattern": "^\\d{4}-\\d{2}-\\d{2}-[a-z0-9-]+-(design|guide)\\.md$",
+      "sortDocuments": "filename_desc"
+    },
+    {
+      "id": "product-specs",
+      "root": "docs/product-specs",
+      "filePattern": "^SPEC(-[a-z0-9-]+)?\\.md$",
+      "sortDocuments": "filename_asc"
+    },
+    {
+      "id": "exec-plans",
+      "root": "docs/exec-plans",
+      "filePattern": "^\\d{4}-\\d{2}-\\d{2}-[a-z0-9-]+\\.md$",
+      "sortDocuments": "filename_desc"
+    }
+  ]
+}

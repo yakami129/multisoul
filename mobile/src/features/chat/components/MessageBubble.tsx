@@ -12,9 +12,7 @@ import MultiAskQuestionCard from './MultiAskQuestionCard';
 import { ToolCallRow } from './ToolCallRow';
 
 const TYPEWRITER_INTERVAL_MS = 18;
-const WAITING_PHRASE = 'Thinking...';
-const WAITING_TEXT_WIDTH = 112;
-const WAITING_SHINE_WIDTH = 48;
+const DOT_PULSE_DURATION = 600;
 
 interface Props {
   msg: WsMessage;
@@ -36,15 +34,9 @@ export function MessageBubble({
   const agentText = msg.role === 'agent_text' ? ((msg.payload as AgentTextPayload).text ?? '') : '';
   const [visibleChars, setVisibleChars] = useState(typewriter ? 0 : agentText.length);
   const [previewVisible, setPreviewVisible] = useState(false);
-  const shineProgress = useRef(new Animated.Value(0)).current;
-  const shineTranslateX = shineProgress.interpolate({
-    inputRange: [0, 1],
-    outputRange: [-WAITING_SHINE_WIDTH, WAITING_TEXT_WIDTH],
-  });
-  const shineTextTranslateX = shineProgress.interpolate({
-    inputRange: [0, 1],
-    outputRange: [WAITING_SHINE_WIDTH, -WAITING_TEXT_WIDTH],
-  });
+  const dot1 = useRef(new Animated.Value(0.3)).current;
+  const dot2 = useRef(new Animated.Value(0.3)).current;
+  const dot3 = useRef(new Animated.Value(0.3)).current;
 
   useEffect(() => {
     if (!typewriter || msg.role !== 'agent_text') {
@@ -69,45 +61,47 @@ export function MessageBubble({
   useEffect(() => {
     if (!waiting) return undefined;
 
-    shineProgress.setValue(0);
-    const shineLoop = Animated.loop(
-      Animated.timing(shineProgress, {
-        toValue: 1,
-        duration: 1600,
-        easing: Easing.linear,
-        useNativeDriver: true,
-      }),
-    );
-    shineLoop.start();
+    function pulseDot(anim: Animated.Value, delay: number) {
+      return Animated.loop(
+        Animated.sequence([
+          Animated.delay(delay),
+          Animated.timing(anim, {
+            toValue: 1,
+            duration: DOT_PULSE_DURATION,
+            easing: Easing.inOut(Easing.ease),
+            useNativeDriver: true,
+          }),
+          Animated.timing(anim, {
+            toValue: 0.3,
+            duration: DOT_PULSE_DURATION,
+            easing: Easing.inOut(Easing.ease),
+            useNativeDriver: true,
+          }),
+        ]),
+      );
+    }
+
+    const a1 = pulseDot(dot1, 0);
+    const a2 = pulseDot(dot2, DOT_PULSE_DURATION * 0.4);
+    const a3 = pulseDot(dot3, DOT_PULSE_DURATION * 0.8);
+    a1.start();
+    a2.start();
+    a3.start();
 
     return () => {
-      shineLoop.stop();
+      a1.stop();
+      a2.stop();
+      a3.stop();
     };
-  }, [shineProgress, waiting]);
+  }, [dot1, dot2, dot3, waiting]);
 
   if (waiting) {
     return (
       <View style={s.aiWrap}>
-        <View style={s.waitingBubble}>
-          <View style={s.waitingTextWrap}>
-            <Text accessibilityLabel={WAITING_PHRASE} style={s.waitingText}>
-              {WAITING_PHRASE}
-            </Text>
-            <Animated.View
-              pointerEvents="none"
-              style={[s.waitingShine, { transform: [{ translateX: shineTranslateX }] }]}
-            >
-              <Animated.Text
-                style={[
-                  s.waitingText,
-                  s.waitingTextHighlight,
-                  { transform: [{ translateX: shineTextTranslateX }] },
-                ]}
-              >
-                {WAITING_PHRASE}
-              </Animated.Text>
-            </Animated.View>
-          </View>
+        <View style={[s.aiBubble, s.typingBubble]}>
+          <Animated.View accessibilityLabel="Thinking..." style={[s.dot, { opacity: dot1 }]} />
+          <Animated.View style={[s.dot, { opacity: dot2 }]} />
+          <Animated.View style={[s.dot, { opacity: dot3 }]} />
         </View>
       </View>
     );
@@ -247,25 +241,45 @@ const s = StyleSheet.create({
   userWrap: { width: '100%', alignItems: 'flex-end' },
   aiWrap: { width: '100%', alignItems: 'flex-start' },
   userBubble: {
-    maxWidth: 240,
+    width: 240,
     backgroundColor: '#20C20E',
-    borderRadius: 2,
+    borderTopLeftRadius: 12,
     borderTopRightRadius: 0,
+    borderBottomLeftRadius: 12,
+    borderBottomRightRadius: 12,
     padding: 12,
   },
   aiBubble: {
-    maxWidth: 280,
+    width: 280,
     backgroundColor: '#061206',
-    borderRadius: 2,
     borderTopLeftRadius: 0,
+    borderTopRightRadius: 12,
+    borderBottomLeftRadius: 12,
+    borderBottomRightRadius: 12,
     padding: 12,
     borderWidth: 1,
     borderColor: '#0F2B0F',
   },
   waitingBubble: {
-    maxWidth: 280,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+  },
+  dot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: '#20C20E',
+  },
+  typingBubble: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    width: 64,
+    gap: 6,
   },
   userText: { fontFamily: 'Geist', fontSize: 14, color: '#040D04', lineHeight: 20 },
   aiText: { fontFamily: 'Geist', fontSize: 14, color: '#20C20E', lineHeight: 20 },
@@ -285,18 +299,18 @@ const s = StyleSheet.create({
   waitingTextWrap: {
     overflow: 'hidden',
     position: 'relative',
-    width: WAITING_TEXT_WIDTH,
+    width: 112,
   },
   waitingShine: {
     position: 'absolute',
     top: 0,
     bottom: 0,
-    width: WAITING_SHINE_WIDTH,
+    width: 48,
     overflow: 'hidden',
   },
   waitingTextHighlight: {
     color: '#D7FFD2',
-    width: WAITING_TEXT_WIDTH,
+    width: 112,
     textShadowColor: '#20C20E',
     textShadowRadius: 8,
   },

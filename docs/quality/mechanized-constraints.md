@@ -83,13 +83,22 @@
 | 修复方式 | 解决根本原因：`too_many_arguments` → 封 context struct；`dead_code` → 删未使用代码或接入调用链；`unused_imports` → 删 import；`unused_variables` → 前缀 `_` |
 | 例外 | 无。真的需要 `#[allow]` 意味着代码需要重构 |
 
+### R9 · 权威文档目录清单与磁盘一致
+
+| | |
+|---|---|
+| 脚本 | [`scripts/check-docs-indices.py`](../../scripts/check-docs-indices.py)（配置 [`scripts/docs-indices.json`](../../scripts/docs-indices.json)） |
+| 起因 | `README.md` 手工维护的「现有文档」列表与真实文件漂移，审查与 Agent 易误判 |
+| 检测 | `docs/product-specs/`、`docs/design-docs/`、`docs/exec-plans/` 各自目录下 `*.md`（除 `README.md`）与该目录 `index.json` 中 `documents[].file` **双射**；文件名须符合各目录命名约定（由 `docs-indices.json` 内正则表达）；`documents` 排序须与配置一致（规格目录升序、设计与计划目录按文件名降序） |
+| 修复方式 | 增删改权威 `.md` 时同步更新对应目录的 `index.json`（`title` 为人类可读标题）；各目录 `README` 只指针到 `index.json`，不维护平行列表；新增一类权威目录时在 `docs-indices.json` 注册一条 `indices[]` |
+
 ### R7 · CI 远端兜底
 
 | | |
 |---|---|
 | 实现 | [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml) |
 | 触发 | `pull_request` 与 `push: main` |
-| Job 1 (`repo-checks`) | 跑 R1-R3、R6、R8 共五个脚本 |
+| Job 1 (`repo-checks`) | 跑 R1-R3、R6、R8、R9 共六个脚本 |
 | Job 2 (`mobile-check`) | `pnpm typecheck` + `pnpm lint` + `pnpm test` |
 | Job 3 (`cli-check`) | `cargo build --all-targets` + `cargo test` |
 | 角色 | 兜底 —— 若开发者本地用 `--no-verify` 跳过 husky，CI 仍拒绝 merge |

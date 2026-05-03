@@ -1,0 +1,86 @@
+{
+  "$schema": "./index.schema.json",
+  "version": 1,
+  "documents": [
+    {
+      "file": "2026-05-03-agent-card-chat-entry.md",
+      "title": "Agent Card Chat Entry Implementation Plan"
+    },
+    {
+      "file": "2026-05-02-pr-workflow.md",
+      "title": "PR-Based Development Workflow Implementation Plan"
+    },
+    {
+      "file": "2026-05-02-chat-media.md",
+      "title": "Chat 图片上传 Implementation Plan"
+    },
+    {
+      "file": "2026-05-01-inbox-askquestion-regression.md",
+      "title": "Inbox AskQuestion Regression Fix Plan"
+    },
+    {
+      "file": "2026-04-30-task-notification.md",
+      "title": "Task Completion Notification Implementation Plan"
+    },
+    {
+      "file": "2026-04-29-codex-runtime-integration.md",
+      "title": "Codex Runtime Integration Implementation Plan"
+    },
+    {
+      "file": "2026-04-28-inbox-delete.md",
+      "title": "Inbox 条目删除 Implementation Plan"
+    },
+    {
+      "file": "2026-04-27-swipe-to-delete-recent.md",
+      "title": "Swipe-to-Delete Recent Conversations Implementation Plan"
+    },
+    {
+      "file": "2026-04-27-recent-conversation-preview.md",
+      "title": "Recent 会话列表预览优化 SPEC"
+    },
+    {
+      "file": "2026-04-27-msctl-daemon.md",
+      "title": "msctl daemon Implementation Plan"
+    },
+    {
+      "file": "2026-04-27-askquestion-sync.md",
+      "title": "AskQuestion Card 双向同步修复 Implementation Plan"
+    },
+    {
+      "file": "2026-04-27-ask-question-multiselect.md",
+      "title": "AskUserQuestion Multi-Select Support Implementation Plan"
+    },
+    {
+      "file": "2026-04-26-multisoul-runtime-longrunning.md",
+      "title": "MultiSoul Runtime 长驻进程重构计划"
+    },
+    {
+      "file": "2026-04-26-multisoul-phase2.md",
+      "title": "MultiSoul Phase 2 Implementation Plan"
+    },
+    {
+      "file": "2026-04-26-mobile-refactor.md",
+      "title": "Mobile App Refactor Implementation Plan"
+    },
+    {
+      "file": "2026-04-26-cli-serve.md",
+      "title": "CLI `msctl serve` Implementation Plan"
+    },
+    {
+      "file": "2026-04-26-chat-waiting-typewriter.md",
+      "title": "Chat Waiting And Typewriter Implementation Plan"
+    },
+    {
+      "file": "2026-04-19-mobile-ui-redesign.md",
+      "title": "MultiSoul Mobile UI Redesign Implementation Plan"
+    },
+    {
+      "file": "2026-04-19-mobile-code-structure-refactor.md",
+      "title": "Code Structure Refactor Implementation Plan"
+    },
+    {
+      "file": "2025-07-14-github-actions-cicd.md",
+      "title": "GitHub Actions CI/CD Implementation Plan"
+    }
+  ]
+}

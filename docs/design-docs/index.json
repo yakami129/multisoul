@@ -1,0 +1,34 @@
+{
+  "$schema": "./index.schema.json",
+  "version": 1,
+  "documents": [
+    {
+      "file": "2026-05-03-new-cli-runtime-integration-guide.md",
+      "title": "接入新 CLI Runtime 开发指南"
+    },
+    {
+      "file": "2026-05-02-cli-tracing-design.md",
+      "title": "CLI Tracing 与 msctl logs 子命令设计"
+    },
+    {
+      "file": "2026-04-30-task-notification-design.md",
+      "title": "任务完成通知技术设计"
+    },
+    {
+      "file": "2026-04-29-codex-runtime-integration-design.md",
+      "title": "Codex runtime 集成方案"
+    },
+    {
+      "file": "2026-04-28-inbox-delete-design.md",
+      "title": "Inbox 删除交互设计"
+    },
+    {
+      "file": "2026-04-27-askquestion-sync-design.md",
+      "title": "AskQuestion 同步协议设计"
+    },
+    {
+      "file": "2026-04-26-chat-waiting-typewriter-design.md",
+      "title": "Chat 等待态打字机效果设计"
+    }
+  ]
+}

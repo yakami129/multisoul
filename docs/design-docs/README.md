@@ -13,8 +13,9 @@
 
 ## 命名约定
 
-- `YYYY-MM-DD-<kebab-case-feature>-design.md`
+- `YYYY-MM-DD-<kebab-case-feature>-design.md`（少数流程类可用 `-guide.md` 后缀）
 - 日期是文档创建/定稿日期，不是 feature 上线日期
+- **目录清单（机器可读）**：[`index.json`](index.json) + [`index.schema.json`](index.schema.json) —— 新增/重命名 `.md` 后必须更新 `index.json`；[`scripts/check-docs-indices.py`](../../scripts/check-docs-indices.py)（见 [`scripts/docs-indices.json`](../../scripts/docs-indices.json)）与 CI 会校验「磁盘上的 `*.md`（除 README）」与 `index.json` 一一对应
 
 ## 与 `exec-plans/` 的区别
 
@@ -26,10 +27,4 @@
 
 ## 现有文档
 
-按时间倒序：
-
-- `2026-04-30-task-notification-design.md` — 任务完成通知技术设计（自 `docs/superpowers/specs/` 迁入）
-- `2026-04-29-codex-runtime-integration-design.md` — Codex runtime 集成方案
-- `2026-04-28-inbox-delete-design.md` — Inbox 删除交互设计
-- `2026-04-27-askquestion-sync-design.md` — AskQuestion 同步协议设计
-- `2026-04-26-chat-waiting-typewriter-design.md` — Chat 等待态打字机效果设计
+人类可读标题与文件名对照见 [`index.json`](index.json) 的 `documents` 数组（按文件名降序，即新→旧）。**不要**在本节维护重复列表，以免与磁盘漂移。

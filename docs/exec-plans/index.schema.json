@@ -1,0 +1,37 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/yakami0129/multisoul/docs/exec-plans/index.schema.json",
+  "title": "exec-plans manifest",
+  "type": "object",
+  "required": ["version", "documents"],
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "Optional JSON Schema pointer for editor validation."
+    },
+    "version": {
+      "type": "integer",
+      "const": 1
+    },
+    "documents": {
+      "type": "array",
+      "description": "One entry per plan markdown in this directory (excluding README.md). Prefer reverse lexicographic order by file (newest first).",
+      "items": {
+        "type": "object",
+        "required": ["file", "title"],
+        "additionalProperties": false,
+        "properties": {
+          "file": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}-[a-z0-9-]+\\.md$"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    }
+  },
+  "additionalProperties": false
+}
