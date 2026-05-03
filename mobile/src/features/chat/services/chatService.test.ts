@@ -1,4 +1,4 @@
-import { postMessage } from './chatService';
+import { postMessage, abortConversation } from './chatService';
 
 jest.mock('@/api/endpointClient', () => ({
   getEndpointClient: jest.fn(),
@@ -34,5 +34,18 @@ describe('chatService', () => {
         file_id: 'abc.jpg',
       });
     });
+  });
+});
+
+describe('abortConversation', () => {
+  it('calls POST /api/v1/conversations/:id/abort with token', async () => {
+    const mockPost = jest.fn().mockResolvedValue({ data: { ok: true } });
+    jest
+      .spyOn(require('@/api/endpointClient'), 'getEndpointClient')
+      .mockReturnValue({ post: mockPost } as any);
+
+    await abortConversation('http://localhost:8080', 'tok', 'conv-1');
+
+    expect(mockPost).toHaveBeenCalledWith('/api/v1/conversations/conv-1/abort', {});
   });
 });
