@@ -19,6 +19,7 @@ use super::{broadcast, insert_message, write_user_message, write_user_message_wi
 ///   2. Blocks on `answer_rx.recv()` until the mobile user responds
 ///   3. Writes the `tool_result` back to Claude's stdin
 ///   4. Resumes reading stdout
+#[allow(clippy::too_many_arguments)]
 pub(super) fn process_turn(
     stdin: &mut ChildStdin,
     reader: &mut BufReader<std::process::ChildStdout>,

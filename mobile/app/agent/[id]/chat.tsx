@@ -1,3 +1,5 @@
+import * as ImageManipulator from 'expo-image-manipulator';
+import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ChevronLeft, ImageIcon, Send, X } from 'lucide-react-native';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
@@ -14,8 +16,6 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import * as ImageManipulator from 'expo-image-manipulator';
-import * as ImagePicker from 'expo-image-picker';
 import { MessageBubble } from '../../../src/features/chat/components/MessageBubble';
 import {
   createConversation,
@@ -185,11 +185,10 @@ export default function AgentChatRoute() {
     if (result.canceled || !result.assets[0]) return;
 
     const asset = result.assets[0];
-    const compressed = await ImageManipulator.manipulateAsync(
-      asset.uri,
-      [],
-      { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG },
-    );
+    const compressed = await ImageManipulator.manipulateAsync(asset.uri, [], {
+      compress: 0.8,
+      format: ImageManipulator.SaveFormat.JPEG,
+    });
     setPendingImageUri(compressed.uri);
   }
 
@@ -290,7 +289,9 @@ export default function AgentChatRoute() {
 
         <View style={s.inputBar}>
           <TouchableOpacity
-            onPress={() => { void pickImage(); }}
+            onPress={() => {
+              void pickImage();
+            }}
             disabled={composerDisabled || isUploading}
             style={s.imageBtn}
           >
