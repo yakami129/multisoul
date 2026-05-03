@@ -1,10 +1,10 @@
 use crate::commands::serve::{advertised_base_url, generate_token, print_qr};
 use crate::config::{load_config, save_config};
+#[cfg(target_os = "macos")]
+use crate::serve::daemon::Config as DaemonConfig;
 use crate::serve::daemon::{
     self, default_log_file, load_meta, new_manager, remove_meta, resolve_binary, save_meta, Meta,
 };
-#[cfg(target_os = "macos")]
-use crate::serve::daemon::Config as DaemonConfig;
 use anyhow::Result;
 use clap::{ArgAction, Subcommand};
 use std::net::SocketAddr;
