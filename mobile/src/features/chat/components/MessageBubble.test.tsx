@@ -26,6 +26,22 @@ test('renders minimal shining waiting status', () => {
   expect(queryByText('Planning...')).toBeNull();
 });
 
+it('renders three pulsing dots with testIDs when waiting=true', () => {
+  jest.useFakeTimers();
+  const msg: WsMessage = {
+    type: 'message',
+    seq: -1,
+    role: 'agent_text',
+    payload: { text: '' },
+    created_at: 0,
+  };
+  const { getByTestId } = render(<MessageBubble msg={msg} waiting />);
+  expect(getByTestId('waiting-dot-0')).toBeTruthy();
+  expect(getByTestId('waiting-dot-1')).toBeTruthy();
+  expect(getByTestId('waiting-dot-2')).toBeTruthy();
+  expect(getByTestId('waiting-analyzing-text')).toBeTruthy();
+});
+
 test('reveals agent text with scanner cursor while preserving original color', () => {
   jest.useFakeTimers();
   const { queryByText, getByText } = render(<MessageBubble msg={agentMessage} typewriter />);

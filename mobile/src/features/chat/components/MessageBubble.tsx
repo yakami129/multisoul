@@ -98,11 +98,18 @@ export function MessageBubble({
   if (waiting) {
     return (
       <View style={s.aiWrap}>
-        <View style={[s.aiBubble, s.typingBubble]}>
-          <Animated.View accessibilityLabel="Thinking..." style={[s.dot, { opacity: dot1 }]} />
-          <Animated.View style={[s.dot, { opacity: dot2 }]} />
-          <Animated.View style={[s.dot, { opacity: dot3 }]} />
+        <View style={[s.aiBubble, s.waitingBubble]}>
+          <Animated.View
+            testID="waiting-dot-0"
+            accessibilityLabel="Thinking..."
+            style={[s.dot, { opacity: dot1 }]}
+          />
+          <Animated.View testID="waiting-dot-1" style={[s.dot, { opacity: dot2 }]} />
+          <Animated.View testID="waiting-dot-2" style={[s.dot, { opacity: dot3 }]} />
         </View>
+        <Text testID="waiting-analyzing-text" style={s.analyzingText}>
+          Analyzing…
+        </Text>
       </View>
     );
   }
@@ -263,9 +270,21 @@ const s = StyleSheet.create({
   waitingBubble: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
     paddingHorizontal: 14,
     paddingVertical: 14,
+    gap: 6,
+    width: 64,
+    borderTopLeftRadius: 0,
+    borderTopRightRadius: 2,
+    borderBottomLeftRadius: 2,
+    borderBottomRightRadius: 2,
+  },
+  analyzingText: {
+    fontFamily: 'Inter',
+    fontSize: 10,
+    color: '#0F6B0F',
+    letterSpacing: 0.5,
+    marginTop: 4,
   },
   dot: {
     width: 7,
