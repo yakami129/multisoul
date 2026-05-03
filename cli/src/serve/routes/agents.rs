@@ -81,7 +81,11 @@ mod tests {
     async fn make_agents_app(token: &str) -> axum::Router {
         let dir = tempdir().unwrap();
         let conn = db::open_at(&dir.path().join("t.db")).unwrap();
-        let state = AppState::new(conn, token.to_string(), std::path::PathBuf::from("/tmp/uploads"));
+        let state = AppState::new(
+            conn,
+            token.to_string(),
+            std::path::PathBuf::from("/tmp/uploads"),
+        );
         axum::Router::new()
             .route("/api/v1/agents", axum::routing::get(list_agents))
             .route("/api/v1/agents/:id", axum::routing::get(get_agent))

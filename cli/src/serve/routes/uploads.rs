@@ -48,8 +48,7 @@ pub async fn upload_image(
     let file_id = format!("{}.{}", Uuid::new_v4(), ext);
     let file_path = state.uploads_dir.join(&file_id);
 
-    std::fs::create_dir_all(&state.uploads_dir)
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    std::fs::create_dir_all(&state.uploads_dir).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     std::fs::write(&file_path, &data).map_err(|e| {
         warn!(error = %e, "upload_write_failed");
@@ -138,15 +137,31 @@ mod tests {
             .await
             .unwrap();
 
-        assert_eq!(resp.status(), StatusCode::CREATED, "JPEG upload should return 201");
+        assert_eq!(
+            resp.status(),
+            StatusCode::CREATED,
+            "JPEG upload should return 201"
+        );
 
-        let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX).await.unwrap();
+        let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
         let json: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
-        let file_id = json["file_id"].as_str().expect("file_id should be a string");
-        assert!(file_id.ends_with(".jpg"), "file_id should end with .jpg, got: {}", file_id);
+        let file_id = json["file_id"]
+            .as_str()
+            .expect("file_id should be a string");
+        assert!(
+            file_id.ends_with(".jpg"),
+            "file_id should end with .jpg, got: {}",
+            file_id
+        );
 
         let file_path = upload_dir.path().join(file_id);
-        assert!(file_path.exists(), "uploaded file should exist at {}", file_path.display());
+        assert!(
+            file_path.exists(),
+            "uploaded file should exist at {}",
+            file_path.display()
+        );
     }
 
     /// PNG upload: 201 + file_id ends with .png.
@@ -172,8 +187,14 @@ mod tests {
             .await
             .unwrap();
 
-        assert_eq!(resp.status(), StatusCode::CREATED, "PNG upload should return 201");
-        let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX).await.unwrap();
+        assert_eq!(
+            resp.status(),
+            StatusCode::CREATED,
+            "PNG upload should return 201"
+        );
+        let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
         let json: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
         assert!(
             json["file_id"].as_str().unwrap_or("").ends_with(".png"),

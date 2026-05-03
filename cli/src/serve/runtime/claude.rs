@@ -15,7 +15,9 @@ mod claude_stream;
 #[path = "claude_db.rs"]
 mod claude_db;
 
-use claude_db::{broadcast, clear_session_id, insert_message, load_session_id, mark_failed, save_session_id};
+use claude_db::{
+    broadcast, clear_session_id, insert_message, load_session_id, mark_failed, save_session_id,
+};
 use claude_stream::process_turn;
 
 // ─── public API ──────────────────────────────────────────────────────────────
@@ -32,10 +34,13 @@ pub fn send_to_session(
     let mut sessions = state.sessions.lock().unwrap();
     if let Some(tx) = sessions.get(conv_id) {
         // Session already running — enqueue the message
-        if tx.send(crate::serve::state::SessionMessage {
-            user_text: user_text.to_string(),
-            file_id: file_id.map(str::to_string),
-        }).is_ok() {
+        if tx
+            .send(crate::serve::state::SessionMessage {
+                user_text: user_text.to_string(),
+                file_id: file_id.map(str::to_string),
+            })
+            .is_ok()
+        {
             debug!(conv_id = %conv_id, "runtime_message_queued");
             return;
         }
@@ -294,7 +299,6 @@ fn is_stale_session_error(raw: &Value) -> bool {
             .unwrap_or(false)
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -341,8 +345,16 @@ mod tests {
             "role should be 'user'"
         );
         let content = &json["message"]["content"][0];
-        assert_eq!(content["type"].as_str(), Some("text"), "content type should be 'text'");
-        assert_eq!(content["text"].as_str(), Some("hello"), "text should be 'hello'");
+        assert_eq!(
+            content["type"].as_str(),
+            Some("text"),
+            "content type should be 'text'"
+        );
+        assert_eq!(
+            content["text"].as_str(),
+            Some("hello"),
+            "text should be 'hello'"
+        );
     }
 
     /// write_user_message_with_image 写入图片 + 文本 content blocks。
@@ -384,8 +396,16 @@ mod tests {
         );
 
         let img = &content[0];
-        assert_eq!(img["type"].as_str(), Some("image"), "first block should be image");
-        assert_eq!(img["source"]["type"].as_str(), Some("base64"), "source type should be base64");
+        assert_eq!(
+            img["type"].as_str(),
+            Some("image"),
+            "first block should be image"
+        );
+        assert_eq!(
+            img["source"]["type"].as_str(),
+            Some("base64"),
+            "source type should be base64"
+        );
         assert_eq!(
             img["source"]["media_type"].as_str(),
             Some("image/jpeg"),
@@ -399,8 +419,16 @@ mod tests {
         );
 
         let txt = &content[1];
-        assert_eq!(txt["type"].as_str(), Some("text"), "second block should be text");
-        assert_eq!(txt["text"].as_str(), Some("look at this"), "text should match");
+        assert_eq!(
+            txt["type"].as_str(),
+            Some("text"),
+            "second block should be text"
+        );
+        assert_eq!(
+            txt["text"].as_str(),
+            Some("look at this"),
+            "text should match"
+        );
     }
 
     /// text が空でも image block だけ送信できること。
@@ -420,8 +448,16 @@ mod tests {
         let written = String::from_utf8(buf.into_inner()).unwrap();
         let json: serde_json::Value = serde_json::from_str(written.trim()).unwrap();
         let content = json["message"]["content"].as_array().unwrap();
-        assert_eq!(content.len(), 1, "should have only image block when text is empty");
-        assert_eq!(content[0]["type"].as_str(), Some("image"), "block should be image type");
+        assert_eq!(
+            content.len(),
+            1,
+            "should have only image block when text is empty"
+        );
+        assert_eq!(
+            content[0]["type"].as_str(),
+            Some("image"),
+            "block should be image type"
+        );
         assert_eq!(
             content[0]["source"]["media_type"].as_str(),
             Some("image/png"),

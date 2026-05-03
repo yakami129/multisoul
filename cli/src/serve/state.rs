@@ -132,6 +132,9 @@ mod tests {
             user_text: "text only".to_string(),
             file_id: None,
         };
-        assert!(text_only.file_id.is_none(), "file_id should be None for text-only");
+        assert!(
+            text_only.file_id.is_none(),
+            "file_id should be None for text-only"
+        );
     }
 }

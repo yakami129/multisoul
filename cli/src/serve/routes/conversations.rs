@@ -148,7 +148,11 @@ mod tests {
         let dir = tempdir().unwrap();
         let conn = db::open_at(&dir.path().join("t.db")).unwrap();
         let agent_id = insert_agent(&conn, "test-agent", "/p", "claude-code", "full-auto").unwrap();
-        let state = AppState::new(conn, token.to_string(), std::path::PathBuf::from("/tmp/uploads"));
+        let state = AppState::new(
+            conn,
+            token.to_string(),
+            std::path::PathBuf::from("/tmp/uploads"),
+        );
         let app = axum::Router::new()
             .route(
                 "/api/v1/agents/:id/conversations",
@@ -205,7 +209,11 @@ mod tests {
         let dir = tempdir().unwrap();
         let conn = db::open_at(&dir.path().join("t.db")).unwrap();
         let agent_id = insert_agent(&conn, "test-agent", "/p", "claude-code", "full-auto").unwrap();
-        let state = AppState::new(conn, token.to_string(), std::path::PathBuf::from("/tmp/uploads"));
+        let state = AppState::new(
+            conn,
+            token.to_string(),
+            std::path::PathBuf::from("/tmp/uploads"),
+        );
         let app = axum::Router::new()
             .route(
                 "/api/v1/agents/:id/conversations",

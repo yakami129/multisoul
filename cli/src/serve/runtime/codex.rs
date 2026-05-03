@@ -35,7 +35,13 @@ pub fn send_to_session(
 ) {
     let mut sessions = state.sessions.lock().unwrap();
     if let Some(tx) = sessions.get(conv_id) {
-        if tx.send(crate::serve::state::SessionMessage { user_text: user_text.to_string(), file_id: None }).is_ok() {
+        if tx
+            .send(crate::serve::state::SessionMessage {
+                user_text: user_text.to_string(),
+                file_id: None,
+            })
+            .is_ok()
+        {
             debug!(conv_id = %conv_id, "runtime_message_queued");
             return;
         }
@@ -46,7 +52,10 @@ pub fn send_to_session(
     sessions.insert(conv_id.to_string(), tx.clone());
     drop(sessions);
 
-    let _ = tx.send(crate::serve::state::SessionMessage { user_text: user_text.to_string(), file_id: None });
+    let _ = tx.send(crate::serve::state::SessionMessage {
+        user_text: user_text.to_string(),
+        file_id: None,
+    });
 
     let state2 = state.clone();
     let conv_id2 = conv_id.to_string();
@@ -453,7 +462,11 @@ mod tests {
             [],
         )
         .unwrap();
-        let state = AppState::new(conn, "token".to_string(), std::path::PathBuf::from("/tmp/uploads"));
+        let state = AppState::new(
+            conn,
+            "token".to_string(),
+            std::path::PathBuf::from("/tmp/uploads"),
+        );
 
         clear_thread_id(&state, "conv-1");
 
