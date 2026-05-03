@@ -27,35 +27,71 @@ export default function MultiAskQuestionCard({
 }: Props) {
   const [answers, setAnswers] = useState<Record<string, string>>(initialAnswers ?? {});
   const [customTexts, setCustomTexts] = useState<Record<string, string>>({});
+  const [committedCustomTexts, setCommittedCustomTexts] = useState<Record<string, string>>({});
+  const [activeIndex, setActiveIndex] = useState(0);
   const [answered, setAnswered] = useState(answeredProp);
 
   const total = questions.length;
-  // currentIndex = number of questions answered so far (with valid answers)
-  const currentIndex = questions.filter((q) => {
+  const answeredCount = questions.filter((q) => {
     const ans = answers[q.id];
     if (!ans) return false;
-    if (ans === CUSTOM_ID) return (customTexts[q.id]?.trim().length ?? 0) > 0;
+    if (ans === CUSTOM_ID) return (committedCustomTexts[q.id]?.length ?? 0) > 0;
     return true;
   }).length;
-  const allAnswered = currentIndex >= total;
-  const progressWidth = total > 0 ? (currentIndex / total) * 100 : 0;
+  const allAnswered = answeredCount >= total;
+  const progressWidth = total > 0 ? (answeredCount / total) * 100 : 0;
+
+  const getNextOpenIndex = (nextAnswers: Record<string, string>, startIndex: number) => {
+    for (let i = startIndex; i < questions.length; i += 1) {
+      if (!nextAnswers[questions[i].id]) return i;
+    }
+    for (let i = 0; i < startIndex; i += 1) {
+      if (!nextAnswers[questions[i].id]) return i;
+    }
+    return questions.length;
+  };
 
   const handleSelect = (questionId: string, optionId: string) => {
     if (answered) return;
     if (optionId === CUSTOM_ID) {
-      // Select Other but don't advance yet — wait for text input
       setAnswers((prev) => ({ ...prev, [questionId]: CUSTOM_ID }));
+      setCommittedCustomTexts((prev) => {
+        const next = { ...prev };
+        delete next[questionId];
+        return next;
+      });
     } else {
-      setAnswers((prev) => ({ ...prev, [questionId]: optionId }));
+      setAnswers((prev) => {
+        const next = { ...prev, [questionId]: optionId };
+        setActiveIndex(getNextOpenIndex(next, activeIndex + 1));
+        return next;
+      });
     }
   };
 
   const handleCustomText = (questionId: string, text: string) => {
     setCustomTexts((prev) => ({ ...prev, [questionId]: text }));
-    // Store the typed text as the answer so the card advances once text is non-empty
-    if (text.trim()) {
-      setAnswers((prev) => ({ ...prev, [questionId]: CUSTOM_ID }));
-    }
+    setCommittedCustomTexts((prev) => {
+      const next = { ...prev };
+      delete next[questionId];
+      return next;
+    });
+  };
+
+  const handleCommitCustomText = (questionId: string) => {
+    const text = customTexts[questionId]?.trim() ?? '';
+    if (!text) return;
+    setCommittedCustomTexts((prev) => ({ ...prev, [questionId]: text }));
+    setAnswers((prev) => {
+      const next = { ...prev, [questionId]: CUSTOM_ID };
+      setActiveIndex(getNextOpenIndex(next, activeIndex + 1));
+      return next;
+    });
+  };
+
+  const handleEdit = (index: number) => {
+    if (answered) return;
+    setActiveIndex(index);
   };
 
   const handleConfirm = () => {
@@ -64,7 +100,7 @@ export default function MultiAskQuestionCard({
     const resolved: Record<string, string> = {};
     for (const q of questions) {
       const raw = answers[q.id];
-      resolved[q.id] = raw === CUSTOM_ID ? (customTexts[q.id]?.trim() ?? '') : raw;
+      resolved[q.id] = raw === CUSTOM_ID ? (committedCustomTexts[q.id] ?? '') : raw;
     }
     onConfirm(resolved);
   };
@@ -85,7 +121,7 @@ export default function MultiAskQuestionCard({
         </View>
         <View style={s.headerRight}>
           <Text style={s.progress}>
-            {currentIndex} / {total}
+            {answeredCount} / {total}
           </Text>
           <Info size={16} color="#2D8B2D" />
         </View>
@@ -99,10 +135,14 @@ export default function MultiAskQuestionCard({
       {/* Questions */}
       <View style={s.body}>
         {questions.map((q, idx) => {
-          const isActive = !answered && idx === currentIndex;
-          const isDone = idx < currentIndex;
-          const opacity = answered ? 0.6 : isActive ? 1 : isDone ? 0.7 : 0.4;
           const selectedOptId = answers[q.id];
+          const hasAnswer =
+            selectedOptId === CUSTOM_ID
+              ? (committedCustomTexts[q.id]?.length ?? 0) > 0
+              : selectedOptId != null;
+          const isActive = !answered && idx === activeIndex;
+          const isDone = hasAnswer && !isActive;
+          const opacity = answered ? 0.6 : isActive ? 1 : isDone ? 0.7 : 0.4;
 
           return (
             <View
@@ -132,15 +172,30 @@ export default function MultiAskQuestionCard({
                       >
                         <View style={[s.radio, selected && s.radioSelected]} />
                         {isCustomRow && selected ? (
-                          <TextInput
-                            style={s.customInput}
-                            placeholder="Type your answer..."
-                            placeholderTextColor="#0F6B0F"
-                            value={customTexts[q.id] ?? ''}
-                            onChangeText={(text) => handleCustomText(q.id, text)}
-                            maxLength={200}
-                            autoFocus
-                          />
+                          <View style={s.customEditor}>
+                            <TextInput
+                              style={s.customInput}
+                              placeholder="Type your answer..."
+                              placeholderTextColor="#0F6B0F"
+                              value={customTexts[q.id] ?? ''}
+                              onChangeText={(text) => handleCustomText(q.id, text)}
+                              maxLength={200}
+                              autoFocus
+                            />
+                            <TouchableOpacity
+                              accessibilityLabel="Use answer"
+                              accessibilityState={{
+                                disabled: (customTexts[q.id]?.trim().length ?? 0) === 0,
+                              }}
+                              style={[
+                                s.useAnswerBtn,
+                                (customTexts[q.id]?.trim().length ?? 0) === 0 && s.useAnswerBtnOff,
+                              ]}
+                              onPress={() => handleCommitCustomText(q.id)}
+                            >
+                              <Text style={s.useAnswerText}>Use</Text>
+                            </TouchableOpacity>
+                          </View>
                         ) : (
                           <Text style={s.optLabel}>{opt.label}</Text>
                         )}
@@ -155,7 +210,16 @@ export default function MultiAskQuestionCard({
                   {selectedOptId === CUSTOM_ID ? (
                     <View style={[s.opt, s.optSelected]}>
                       <View style={[s.radio, s.radioSelected]} />
-                      <Text style={s.optLabel}>{customTexts[q.id] ?? 'Other'}</Text>
+                      <Text style={s.optLabel}>{committedCustomTexts[q.id] ?? 'Other'}</Text>
+                      {!answered && (
+                        <TouchableOpacity
+                          accessibilityLabel={`Edit ${q.id}`}
+                          style={s.editBtn}
+                          onPress={() => handleEdit(idx)}
+                        >
+                          <Text style={s.editText}>Edit</Text>
+                        </TouchableOpacity>
+                      )}
                     </View>
                   ) : (
                     q.options
@@ -167,6 +231,15 @@ export default function MultiAskQuestionCard({
                         >
                           <View style={[s.radio, s.radioSelected]} />
                           <Text style={s.optLabel}>{opt.label}</Text>
+                          {!answered && (
+                            <TouchableOpacity
+                              accessibilityLabel={`Edit ${q.id}`}
+                              style={s.editBtn}
+                              onPress={() => handleEdit(idx)}
+                            >
+                              <Text style={s.editText}>Edit</Text>
+                            </TouchableOpacity>
+                          )}
                         </View>
                       ))
                   )}
@@ -307,12 +380,53 @@ const s = StyleSheet.create({
     fontSize: 13,
     color: '#20C20E',
   },
+  customEditor: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   customInput: {
     flex: 1,
     fontFamily: 'Geist',
     fontSize: 13,
     color: '#20C20E',
     paddingVertical: 0,
+  },
+  useAnswerBtn: {
+    height: 26,
+    borderRadius: 4,
+    backgroundColor: '#20C20E',
+    paddingHorizontal: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  useAnswerBtnOff: {
+    opacity: 0.4,
+  },
+  useAnswerText: {
+    fontFamily: 'Inter',
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#040D04',
+    letterSpacing: 0.5,
+  },
+  editBtn: {
+    marginLeft: 'auto',
+    height: 26,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: '#2D8B2D',
+    paddingHorizontal: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  editText: {
+    fontFamily: 'Inter',
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#2D8B2D',
+    letterSpacing: 0.5,
   },
   actions: {
     flexDirection: 'row',
