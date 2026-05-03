@@ -104,18 +104,20 @@ fn install(port_arg: Option<u16>, tailnet: bool, force: bool) -> Result<()> {
 
     let binary = resolve_binary()?;
     let log_file = default_log_file();
-    let env_path = std::env::var("PATH")
-        .unwrap_or_else(|_| "/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin".into());
 
     #[cfg(target_os = "macos")]
-    mgr.install(&DaemonConfig {
-        binary_path: binary.clone(),
-        token: cfg.serve_token.clone(),
-        port: cfg.serve_port,
-        tailnet,
-        log_file: log_file.clone(),
-        env_path,
-    })?;
+    {
+        let env_path = std::env::var("PATH")
+            .unwrap_or_else(|_| "/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin".into());
+        mgr.install(&DaemonConfig {
+            binary_path: binary.clone(),
+            token: cfg.serve_token.clone(),
+            port: cfg.serve_port,
+            tailnet,
+            log_file: log_file.clone(),
+            env_path,
+        })?;
+    }
 
     save_meta(&Meta {
         log_file: log_file.clone(),
