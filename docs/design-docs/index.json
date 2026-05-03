@@ -33,7 +33,7 @@
         },
         {
           "path": "cli/src/serve/runtime/cursor.rs",
-          "sha256": "3382eb092a497fb2bc38231ce0ad973409f78410c15f2613e1cd49f8cb0b702d",
+          "sha256": "a3d308e655f362eb62aac973d3b5304912c83bb3f401cb1291d25622f1ced9fb",
           "reason": "Cursor runtime 是新接入 adapter 示例；文档 runtime 列表与 CLI 约定引用它。"
         },
         {
