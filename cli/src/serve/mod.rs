@@ -29,6 +29,10 @@ pub async fn build_router(state: AppState) -> Router {
             axum::routing::delete(conversations::delete_conversation),
         )
         .route(
+            "/api/v1/conversations/:id/abort",
+            axum::routing::post(conversations::abort_conversation),
+        )
+        .route(
             "/api/v1/conversations/:id/messages",
             axum::routing::get(messages::list_messages).post(messages::post_message),
         )

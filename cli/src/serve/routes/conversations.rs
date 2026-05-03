@@ -111,6 +111,47 @@ pub async fn create_conversation(
     ))
 }
 
+/// POST /api/v1/conversations/:id/abort
+/// 向正在运行的 session worker 发送中断信号（通过从 sessions map 中移除）。
+/// 若 conversation 不存在，返回 404。若无对应 session，仍返回 200（幂等）。
+pub async fn abort_conversation(
+    State(state): State<AppState>,
+    Path(conv_id): Path<String>,
+) -> Result<Json<serde_json::Value>, StatusCode> {
+    // 检查 conversation 是否存在
+    let exists = {
+        let db = state.db.lock().map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        db.query_row(
+            "SELECT COUNT(*) FROM conversations WHERE id = ?1",
+            [&conv_id],
+            |r| r.get::<_, i64>(0),
+        )
+        .map(|c| c > 0)
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+    };
+    if !exists {
+        return Err(StatusCode::NOT_FOUND);
+    }
+
+    // 从 sessions map 中移除，使 worker 的接收端失效
+    {
+        let mut sessions = state.sessions.lock().map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        sessions.remove(&conv_id);
+    }
+
+    // 将 conversation status 更新为 idle
+    {
+        let db = state.db.lock().map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        db.execute(
+            "UPDATE conversations SET status = 'idle' WHERE id = ?1",
+            [&conv_id],
+        )
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    }
+
+    Ok(Json(serde_json::json!({ "ok": true })))
+}
+
 pub async fn delete_conversation(
     State(state): State<AppState>,
     Path(conv_id): Path<String>,
@@ -325,5 +366,92 @@ mod tests {
             StatusCode::NOT_FOUND,
             "second delete must return 404"
         );
+    }
+
+    async fn make_abort_app(token: &str) -> (axum::Router, String, String) {
+        let dir = tempdir().unwrap();
+        let conn = db::open_at(&dir.path().join("t.db")).unwrap();
+        let agent_id = insert_agent(&conn, "test-agent", "/p", "claude-code", "full-auto").unwrap();
+        let state = AppState::new(conn, token.to_string(), std::path::PathBuf::from("/tmp/uploads"));
+        let app = axum::Router::new()
+            .route(
+                "/api/v1/agents/:id/conversations",
+                axum::routing::get(list_conversations).post(create_conversation),
+            )
+            .route(
+                "/api/v1/conversations/:id/abort",
+                axum::routing::post(abort_conversation),
+            )
+            .layer(axum::middleware::from_fn_with_state(state.clone(), bearer_auth))
+            .with_state(state);
+        // 创建一个 conversation 返回其 id
+        let body = serde_json::json!({ "title": "abort test" });
+        let resp = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri(format!("/api/v1/agents/{}/conversations", agent_id))
+                    .header("Authorization", "Bearer tok")
+                    .header("Content-Type", "application/json")
+                    .body(Body::from(body.to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let bytes = axum::body::to_bytes(resp.into_body(), 4096).await.unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+        let conv_id = json["id"].as_str().unwrap().to_string();
+        (app, agent_id, conv_id)
+    }
+
+    /// POST /api/v1/conversations/:id/abort 返回 200 且 body.ok == true
+    ///
+    /// Data construction:
+    ///   - Insert agent + conversation
+    /// Execution:
+    ///   - POST /api/v1/conversations/:conv_id/abort with valid Bearer token
+    /// Expected:
+    ///   - status == 200
+    ///   - body.ok == true
+    #[tokio::test]
+    async fn test_abort_conversation_returns_200() {
+        let (app, _agent_id, conv_id) = make_abort_app("tok").await;
+        let resp = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri(format!("/api/v1/conversations/{}/abort", conv_id))
+                    .header("Authorization", "Bearer tok")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::OK, "abort must return 200");
+        let bytes = axum::body::to_bytes(resp.into_body(), 4096).await.unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+        assert_eq!(json["ok"], true, "body.ok must be true");
+    }
+
+    /// POST /api/v1/conversations/nonexistent/abort 返回 404
+    ///
+    /// Expected:
+    ///   - status == 404 when conversation does not exist
+    #[tokio::test]
+    async fn test_abort_nonexistent_conversation_returns_404() {
+        let (app, _agent_id, _conv_id) = make_abort_app("tok").await;
+        let resp = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/v1/conversations/no-such-id/abort")
+                    .header("Authorization", "Bearer tok")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::NOT_FOUND, "abort unknown conv must be 404");
     }
 }
