@@ -35,17 +35,16 @@ describe('chatService', () => {
       });
     });
   });
-});
 
-describe('abortConversation', () => {
-  it('calls POST /api/v1/conversations/:id/abort with token', async () => {
-    const mockPost = jest.fn().mockResolvedValue({ data: { ok: true } });
-    jest
-      .spyOn(require('@/api/endpointClient'), 'getEndpointClient')
-      .mockReturnValue({ post: mockPost } as any);
+  describe('abortConversation', () => {
+    it('calls POST /api/v1/conversations/:id/abort with token', async () => {
+      const mockPost = jest.fn().mockResolvedValue({ data: { ok: true } });
+      const { getEndpointClient } = require('@/api/endpointClient');
+      getEndpointClient.mockReturnValue({ post: mockPost });
 
-    await abortConversation('http://localhost:8080', 'tok', 'conv-1');
+      await abortConversation('http://localhost:8080', 'tok', 'conv-1');
 
-    expect(mockPost).toHaveBeenCalledWith('/api/v1/conversations/conv-1/abort', {});
+      expect(mockPost).toHaveBeenCalledWith('/api/v1/conversations/conv-1/abort', {});
+    });
   });
 });
