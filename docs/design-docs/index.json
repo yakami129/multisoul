@@ -33,12 +33,12 @@
         },
         {
           "path": "cli/src/serve/runtime/cursor.rs",
-          "sha256": "a3d308e655f362eb62aac973d3b5304912c83bb3f401cb1291d25622f1ced9fb",
+          "sha256": "74a0f3a5453c549e72778af8c29a91b15608723fcd55f43d086cd62a2f5eacb1",
           "reason": "Cursor runtime 是新接入 adapter 示例；文档 runtime 列表与 CLI 约定引用它。"
         },
         {
           "path": "cli/src/db.rs",
-          "sha256": "419cc0d7958987835ca7bb5546895f6d6ce8cd74d6588e000a786505fd6a0245",
+          "sha256": "32c861d7040b37f6af379d6dd291142c1263fb5e29c9054d3c1b0bc6630ba878",
           "reason": "文档说明 runtime 持久化字段和 migration 纪律；DB schema 演进会影响该章节。"
         },
         {
