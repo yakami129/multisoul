@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # R12 · iOS Info.plist 权限声明守护
 # 检查 mobile/package.json 中安装的 Expo 权限模块，
-# 确认 mobile/ios/MultiSoul/Info.plist 里声明了对应的 NSXxxUsageDescription。
+# 确认对应 NSXxxUsageDescription 已声明：
+#   - 若存在 mobile/ios/MultiSoul/Info.plist（已 prebuild 并提交），则查 plist；
+#   - 否则查 mobile/app.json 的 expo.ios.infoPlist（CNG：ios/ 被 gitignore 的常见情况）。
 #
 # 用法：
 #   bash scripts/check-ios-permissions.sh           # 全量（CI）
@@ -15,11 +17,30 @@ set -euo pipefail
 repo_root=$(git rev-parse --show-toplevel)
 PACKAGE_JSON="$repo_root/mobile/package.json"
 INFO_PLIST="$repo_root/mobile/ios/MultiSoul/Info.plist"
+APP_JSON="$repo_root/mobile/app.json"
 
-# --staged 模式：仅当 staged 文件含 mobile/package.json 或 mobile/ios/** 时才运行
+key_declared_in_ios_metadata() {
+  local key="$1"
+  if [[ -f "$INFO_PLIST" ]]; then
+    grep -q "<key>${key}</key>" "$INFO_PLIST"
+    return $?
+  fi
+  python3 -c "
+import json, sys
+key = sys.argv[1]
+with open(sys.argv[2], encoding='utf-8') as f:
+    d = json.load(f)
+info = (d.get('expo') or {}).get('ios') or {}
+info_plist = info.get('infoPlist') or {}
+val = info_plist.get(key)
+sys.exit(0 if isinstance(val, str) and val.strip() else 1)
+" "$key" "$APP_JSON"
+}
+
+# --staged 模式：仅当 staged 文件含 mobile/package.json、mobile/app.json 或 mobile/ios/** 时才运行
 if [[ "${1:-}" == "--staged" ]]; then
   staged=$(git diff --cached --name-only --diff-filter=ACMR 2>/dev/null || true)
-  if ! echo "$staged" | grep -qE '^mobile/(package\.json|ios/)'; then
+  if ! echo "$staged" | grep -qE '^mobile/(package\.json|app\.json|ios/)'; then
     exit 0
   fi
 fi
@@ -51,12 +72,16 @@ sys.exit(0 if '$module' in deps else 1)
     continue
   fi
 
-  # 检查每个必要 key 是否在 Info.plist 中
+  # 检查每个必要 key 是否在 Info.plist 或 app.json infoPlist 中
   IFS=',' read -ra keys <<< "$keys_str"
   for key in "${keys[@]}"; do
-    if ! grep -q "<key>${key}</key>" "$INFO_PLIST"; then
-      echo "ERROR [R12]: '$module' is installed but Info.plist is missing <key>${key}</key>"
-      echo "  Fix: add <key>${key}</key><string>Describe why the app needs this</string> to mobile/ios/MultiSoul/Info.plist"
+    if ! key_declared_in_ios_metadata "$key"; then
+      echo "ERROR [R12]: '$module' is installed but usage description for '${key}' is missing"
+      if [[ -f "$INFO_PLIST" ]]; then
+        echo "  Fix: add <key>${key}</key><string>…</string> to mobile/ios/MultiSoul/Info.plist"
+      else
+        echo "  Fix: add \"${key}\": \"…\" under expo.ios.infoPlist in mobile/app.json (native ios/ is not in repo)"
+      fi
       fail=1
     fi
   done

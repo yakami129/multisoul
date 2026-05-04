@@ -33,7 +33,7 @@ Monorepo 两大件：
 - **mobile 禁 `console.log`** —— 仅允许 `console.warn` / `console.error`
 - **改包必跑 typecheck/cargo check**
 - **Rust 禁止 `#[allow(...)]`** —— `cli/src` 中不得用 `#[allow]` 压制任何编译器/clippy 诊断；脚本 [`scripts/check-no-allow.sh`](scripts/check-no-allow.sh) 拦截
-- **Design doc 代码 hash 保鲜** —— tracked code 变更必须同步更新关联设计文档与 hash
+- **Design doc 代码 hash 保鲜** —— tracked code 变更须先审阅 diff、更新设计文档（或于文档内说明为何正文不变），再对该篇执行 `python3 scripts/check-doc-code-hashes.py --update-doc <basename>.md`；禁止未审阅即批量刷新 hash
 
 人类可读软约束：
 

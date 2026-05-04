@@ -2,7 +2,8 @@
 <!-- 改了什么，为什么 -->
 
 ## Test plan
-- [ ] CI 通过（cargo test + cargo build + pnpm typecheck + pnpm test）
+- [ ] **GitHub Actions 全绿**（未通过则**不得合并**；required checks：`repo checks (constraints)`、`mobile (typecheck + lint + test)`、`cli (build + test)` —— 见 [`docs/runbooks/github-pr-merge-policy.md`](docs/runbooks/github-pr-merge-policy.md)）
+- [ ] 本地已跑过等价验证（`cargo test` + `cargo build` + `pnpm typecheck` + `pnpm test`）
 - [ ] 手动验证：...
 
 ## Boundary review

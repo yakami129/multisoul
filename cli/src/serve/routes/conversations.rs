@@ -120,7 +120,10 @@ pub async fn abort_conversation(
 ) -> Result<Json<serde_json::Value>, StatusCode> {
     // 检查 conversation 是否存在
     let exists = {
-        let db = state.db.lock().map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        let db = state
+            .db
+            .lock()
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
         db.query_row(
             "SELECT COUNT(*) FROM conversations WHERE id = ?1",
             [&conv_id],
@@ -135,13 +138,19 @@ pub async fn abort_conversation(
 
     // 从 sessions map 中移除，使 worker 的接收端失效
     {
-        let mut sessions = state.sessions.lock().map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        let mut sessions = state
+            .sessions
+            .lock()
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
         sessions.remove(&conv_id);
     }
 
     // 将 conversation status 更新为 idle
     {
-        let db = state.db.lock().map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        let db = state
+            .db
+            .lock()
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
         db.execute(
             "UPDATE conversations SET status = 'idle' WHERE id = ?1",
             [&conv_id],
@@ -372,7 +381,11 @@ mod tests {
         let dir = tempdir().unwrap();
         let conn = db::open_at(&dir.path().join("t.db")).unwrap();
         let agent_id = insert_agent(&conn, "test-agent", "/p", "claude-code", "full-auto").unwrap();
-        let state = AppState::new(conn, token.to_string(), std::path::PathBuf::from("/tmp/uploads"));
+        let state = AppState::new(
+            conn,
+            token.to_string(),
+            std::path::PathBuf::from("/tmp/uploads"),
+        );
         let app = axum::Router::new()
             .route(
                 "/api/v1/agents/:id/conversations",
@@ -382,7 +395,10 @@ mod tests {
                 "/api/v1/conversations/:id/abort",
                 axum::routing::post(abort_conversation),
             )
-            .layer(axum::middleware::from_fn_with_state(state.clone(), bearer_auth))
+            .layer(axum::middleware::from_fn_with_state(
+                state.clone(),
+                bearer_auth,
+            ))
             .with_state(state);
         // 创建一个 conversation 返回其 id
         let body = serde_json::json!({ "title": "abort test" });
@@ -452,6 +468,10 @@ mod tests {
             )
             .await
             .unwrap();
-        assert_eq!(resp.status(), StatusCode::NOT_FOUND, "abort unknown conv must be 404");
+        assert_eq!(
+            resp.status(),
+            StatusCode::NOT_FOUND,
+            "abort unknown conv must be 404"
+        );
     }
 }
