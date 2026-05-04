@@ -16,6 +16,7 @@
 
 - iOS 发布：[`../../mobile/docs/ios-publish.md`](../../mobile/docs/ios-publish.md)（本地 `mobile/scripts/publish-ios-local.sh`；云端 `publish-ios.sh` / EAS）
 - CLI 发布：[`cli-release.md`](cli-release.md)
+- PR 合并闸（**CI 未通过禁止合并**）：[`github-pr-merge-policy.md`](github-pr-merge-policy.md)
 
 ## 与 `quality/release-checklist.md` 的区别
 
