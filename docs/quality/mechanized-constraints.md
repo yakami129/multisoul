@@ -118,9 +118,9 @@
 |---|---|
 | 脚本 | [`scripts/check-ios-permissions.sh`](../../scripts/check-ios-permissions.sh) |
 | 起因 | `feat(chat): multi-image upload` 引入 `expo-image-picker` 后未添加 `NSPhotoLibraryUsageDescription`，iOS 直接崩溃 |
-| 检测 | 扫描 `mobile/package.json` 中的 Expo 权限模块，对比 `mobile/ios/MultiSoul/Info.plist` 中的 key |
-| 触发 | pre-commit（staged 含 `mobile/package.json` 或 `mobile/ios/**`）；CI `repo-checks` 全量 |
-| 修复方式 | 在 `Info.plist` 添加缺失的 `NSXxxUsageDescription`；同步更新脚本映射表与本文档 |
+| 检测 | 扫描 `mobile/package.json` 中的 Expo 权限模块；若存在 `mobile/ios/MultiSoul/Info.plist` 则对比 plist，否则对比 `mobile/app.json` 的 `expo.ios.infoPlist`（`ios/` 被 gitignore 时） |
+| 触发 | pre-commit（staged 含 `mobile/package.json`、`mobile/app.json` 或 `mobile/ios/**`）；CI `repo-checks` 全量 |
+| 修复方式 | 在 plist 或 `app.json` 的 `expo.ios.infoPlist` 添加缺失的 `NSXxxUsageDescription`（非空 string）；同步更新脚本映射表与本文档 |
 
 **模块→key 映射表：**
 
