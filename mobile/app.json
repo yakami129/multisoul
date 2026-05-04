@@ -7,7 +7,6 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-    "newArchEnabled": true,
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
@@ -17,7 +16,10 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.yakami0129.multisoul",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSPhotoLibraryUsageDescription": "MultiSoul needs photo library access to attach images to your agent messages.",
+        "NSCameraUsageDescription": "MultiSoul needs camera access to capture photos for your agent messages.",
+        "NSMicrophoneUsageDescription": "MultiSoul needs microphone access when you record or send audio to your agents."
       }
     },
     "android": {
@@ -39,7 +41,8 @@
         {
           "iosDisplayInForeground": false
         }
-      ]
+      ],
+      "expo-asset"
     ],
     "extra": {
       "router": {},

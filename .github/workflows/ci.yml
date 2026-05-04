@@ -40,6 +40,9 @@ jobs:
       - name: docs code hashes stay fresh
         run: python3 scripts/check-doc-code-hashes.py --check
 
+      - name: iOS Info.plist permission alignment (R12)
+        run: bash scripts/check-ios-permissions.sh
+
   mobile-check:
     name: mobile (typecheck + lint + test)
     runs-on: ubuntu-latest
@@ -61,6 +64,9 @@ jobs:
 
       - name: Install
         run: pnpm install --frozen-lockfile
+
+      - name: expo-doctor
+        run: npx expo-doctor
 
       - name: Typecheck
         run: pnpm typecheck

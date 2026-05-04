@@ -74,9 +74,7 @@ fn init_schema(conn: &Connection) -> Result<()> {
         conn.execute_batch("ALTER TABLE agents ADD COLUMN mode TEXT NOT NULL DEFAULT 'full-auto';");
     let _ = conn.execute_batch("ALTER TABLE conversations ADD COLUMN codex_thread_id TEXT;");
     let _ = conn.execute_batch("ALTER TABLE push_tokens ADD COLUMN endpoint_id TEXT;");
-    let _ = conn.execute_batch(
-        "ALTER TABLE conversations ADD COLUMN cursor_session_id TEXT;",
-    );
+    let _ = conn.execute_batch("ALTER TABLE conversations ADD COLUMN cursor_session_id TEXT;");
     Ok(())
 }
 

@@ -9,6 +9,7 @@ import {
   type ToolCallPayload,
 } from '@/types';
 import AskQuestionCard from './AskQuestionCard';
+import { MarkdownMessage } from './MarkdownMessage';
 import MultiAskQuestionCard from './MultiAskQuestionCard';
 import { ToolCallRow } from './ToolCallRow';
 
@@ -20,6 +21,7 @@ interface Props {
   onAnswer?: (ask_id: string, choice_id?: string, freeform?: string) => void;
   onAnswerMulti?: (ask_id: string, choice_ids: Record<string, string>) => void;
   typewriter?: boolean;
+  forceComplete?: boolean;
   waiting?: boolean;
   imageUri?: string;
 }
@@ -29,6 +31,7 @@ export const MessageBubble = memo(function MessageBubble({
   onAnswer,
   onAnswerMulti,
   typewriter = false,
+  forceComplete = false,
   waiting = false,
   imageUri,
 }: Props) {
@@ -42,6 +45,8 @@ export const MessageBubble = memo(function MessageBubble({
 
   useEffect(() => {
     if (!typewriter || msg.role !== 'agent_text') {
+      // Also handles typewriter=false (natural end / forceComplete): jumps visibleChars to end.
+      // Note: setting typewriter=false also triggers this effect and jumps visibleChars to end.
       setVisibleChars(agentText.length);
       return undefined;
     }
@@ -173,15 +178,25 @@ export const MessageBubble = memo(function MessageBubble({
     }
 
     case 'agent_text': {
-      const isScanning = typewriter && visibleChars < agentText.length;
-      const displayedText = typewriter
-        ? `${agentText.slice(0, visibleChars)}${isScanning ? '▌' : ''}`
-        : agentText;
+      // forceComplete bypasses typewriter even if typewriter prop is still true.
+      // This handles the case when a tool_call arrives or conversation completes
+      // mid-typewriter — the parent computes this synchronously (no setState race).
+      const isStreaming = typewriter && !forceComplete && visibleChars < agentText.length;
+      const displayedText = isStreaming ? `${agentText.slice(0, visibleChars)}▌` : agentText;
 
+      if (isStreaming) {
+        return (
+          <View style={s.aiWrap}>
+            <View style={s.aiBubble}>
+              <Text style={[s.aiText, s.typingText]}>{displayedText}</Text>
+            </View>
+          </View>
+        );
+      }
       return (
         <View style={s.aiWrap}>
           <View style={s.aiBubble}>
-            <Text style={[s.aiText, isScanning && s.typingText]}>{displayedText}</Text>
+            <MarkdownMessage content={agentText} />
           </View>
         </View>
       );

@@ -279,6 +279,14 @@ export default function ChatDetailScreen() {
   // where isAwaitingResponse was reset as soon as the first agent message
   // arrived, causing the stop button to disappear mid-run.
   const conversationStatus = conversation?.status ?? 'idle';
+  // Synchronously-computed forceComplete flag — avoids setState async race.
+  // true when: last message is a tool_call (AI text phase ended), or task completed/failed.
+  // Intentionally excludes 'idle' (initial state) to avoid mis-killing typewriter on page load.
+  const lastMsg = messages.at(-1);
+  const shouldForceComplete =
+    lastMsg?.role === 'tool_call' ||
+    conversationStatus === 'completed' ||
+    conversationStatus === 'failed';
   const isAgentRunning = isAwaitingResponse || conversationStatus === 'running';
   const composerDisabled = isOffline || isAgentRunning;
 
@@ -356,6 +364,7 @@ export default function ChatDetailScreen() {
               key={`${msg.seq}`}
               msg={msg}
               typewriter={msg.seq === activeTypewriterSeq}
+              forceComplete={msg.seq === activeTypewriterSeq && shouldForceComplete}
               onAnswer={sendAnswer}
               onAnswerMulti={sendAnswerMulti}
               imageUri={imageUriForMessage(msg)}

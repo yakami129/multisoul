@@ -31,16 +31,16 @@
 
 **Steps:**
 - [ ] Implement `--check`.
-- [ ] Implement `--update`.
+- [ ] Implement `--update-doc <DESIGN_DOC>`（仅 basename，如 `2026-05-03-new-cli-runtime-integration-guide.md`；禁止全仓批量 `--update`）。
 - [ ] Read `docs/design-docs/index.json`.
 - [ ] For every document with `trackedFiles`, compute sha256 for each repo-relative `path`.
 - [ ] In `--check`, fail when a tracked file hash differs and the corresponding design doc is not changed in the current git diff.
 - [ ] In `--check`, fail when a tracked file hash differs from the current file even after the design doc changed, because `index.json` still needs refresh.
-- [ ] In `--update`, rewrite the sha256 values in `docs/design-docs/index.json`.
+- [ ] In `--update-doc`, rewrite **仅该文档**的 `trackedFiles` sha256 于 `docs/design-docs/index.json`。
 
 **Verification:**
 - [ ] Running `python3 scripts/check-doc-code-hashes.py --check` on a clean tree exits 0 after hashes are seeded.
-- [ ] Running `python3 scripts/check-doc-code-hashes.py --update` is idempotent on a clean tree.
+- [ ] Running `python3 scripts/check-doc-code-hashes.py --update-doc 2026-05-03-new-cli-runtime-integration-guide.md` is idempotent on a clean tree.
 
 ---
 
@@ -64,7 +64,7 @@
 
 **Steps:**
 - [ ] Add `trackedFiles` entries with meaningful `reason` values.
-- [ ] Run `python3 scripts/check-doc-code-hashes.py --update`.
+- [ ] Run `python3 scripts/check-doc-code-hashes.py --update-doc 2026-05-03-new-cli-runtime-integration-guide.md`.
 
 **Verification:**
 - [ ] `python3 scripts/check-doc-code-hashes.py --check` passes.
@@ -101,12 +101,12 @@
 
 **Scenario B: Code changed, doc changed, hash stale**
 - [ ] Temporarily edit one tracked file and the linked design doc.
-- [ ] Do not run `--update`.
+- [ ] Do not run `--update-doc`.
 - [ ] Confirm `--check` fails because `index.json` hash is stale.
 
 **Scenario C: Code changed, doc changed, hash refreshed**
 - [ ] Edit tracked file and linked design doc.
-- [ ] Run `python3 scripts/check-doc-code-hashes.py --update`.
+- [ ] Run `python3 scripts/check-doc-code-hashes.py --update-doc 2026-05-03-new-cli-runtime-integration-guide.md`.
 - [ ] Confirm `--check` passes.
 
 **Cleanup:**

@@ -182,9 +182,7 @@ fn process_turn(
         };
 
         match v.get("type").and_then(|t| t.as_str()).unwrap_or("") {
-            "system"
-                if v.get("subtype").and_then(|s| s.as_str()) == Some("init") =>
-            {
+            "system" if v.get("subtype").and_then(|s| s.as_str()) == Some("init") => {
                 if let Some(sid) = v.get("session_id").and_then(|s| s.as_str()) {
                     save_cursor_session(state, conv_id, sid);
                 }
