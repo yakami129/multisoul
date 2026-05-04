@@ -4,6 +4,9 @@ Guard design docs against stale code references.
 
 Docs opt in via docs/design-docs/index.json documents[].trackedFiles.
 Each tracked file stores a whole-file sha256 plus the reason it affects the doc.
+
+Hash refresh is single-document only (--update-doc) so bulk updates cannot
+silently refresh unrelated pilot entries.
 """
 
 from __future__ import annotations
@@ -166,7 +169,9 @@ def _check(data: dict[str, Any]) -> list[str]:
                         f"[doc-code-hash] {doc_rel} is stale",
                         f"[doc-code-hash] tracked file changed: {tracked_rel}",
                         f"[doc-code-hash] reason: {reason}",
-                        "[doc-code-hash] Fix: update the design doc in the same change.",
+                        "[doc-code-hash] Fix: read the tracked file diff, update this design doc (or add a short note",
+                        "[doc-code-hash]       explaining why prose needs no change), then refresh hashes with:",
+                        f"[doc-code-hash]       python3 scripts/check-doc-code-hashes.py --update-doc {doc_file}",
                     ]
                 )
 
@@ -177,29 +182,65 @@ def _check(data: dict[str, Any]) -> list[str]:
                         f"[doc-code-hash] tracked file: {tracked_rel}",
                         f"[doc-code-hash] expected: {expected_hash}",
                         f"[doc-code-hash] current:  {current_hash}",
-                        "[doc-code-hash] Fix: run python3 scripts/check-doc-code-hashes.py --update after updating docs.",
+                        "[doc-code-hash] Fix: after the design doc reflects the code (or states why not), run:",
+                        f"[doc-code-hash]       python3 scripts/check-doc-code-hashes.py --update-doc {doc_file}",
                     ]
                 )
 
     return errors
 
 
-def _update(data: dict[str, Any]) -> bool:
-    changed = False
-    for doc in _tracked_documents(data):
-        doc_file = doc.get("file")
-        if not isinstance(doc_file, str) or not doc_file:
-            raise ValueError("tracked document missing file")
-        tracked_files = doc.get("trackedFiles")
-        if not isinstance(tracked_files, list):
-            raise ValueError(f"{doc_file}: trackedFiles must be a list")
+def _normalize_update_doc_arg(raw: str) -> str:
+    stripped = raw.strip()
+    if not stripped:
+        raise ValueError("DESIGN_DOC argument is empty")
+    candidate = Path(stripped)
+    name = candidate.name
+    if not name.endswith(".md"):
+        raise ValueError(
+            "DESIGN_DOC must be a design-doc filename ending in .md "
+            "(e.g. 2026-05-03-new-cli-runtime-integration-guide.md)"
+        )
+    return name
 
-        for entry in tracked_files:
-            tracked_rel, old_hash, _reason = _validate_entry(doc_file, entry)
-            new_hash = _sha256(_repo_path(tracked_rel))
-            if new_hash != old_hash:
-                entry["sha256"] = new_hash
-                changed = True
+
+def _find_tracked_doc(data: dict[str, Any], doc_file: str) -> dict[str, Any]:
+    documents = data.get("documents")
+    if not isinstance(documents, list):
+        raise ValueError("docs/design-docs/index.json: documents must be a list")
+
+    for doc in documents:
+        if not isinstance(doc, dict):
+            continue
+        if doc.get("file") != doc_file:
+            continue
+        if doc.get("trackedFiles"):
+            return doc
+
+    known = sorted(
+        item.get("file")
+        for item in documents
+        if isinstance(item, dict) and item.get("trackedFiles") and isinstance(item.get("file"), str)
+    )
+    known_text = ", ".join(known) if known else "(none)"
+    raise ValueError(
+        f"no document with trackedFiles matches {doc_file!r} (basename only). Known: {known_text}"
+    )
+
+
+def _update_single_document(data: dict[str, Any], doc_file: str) -> bool:
+    doc = _find_tracked_doc(data, doc_file)
+    tracked_files = doc.get("trackedFiles")
+    if not isinstance(tracked_files, list):
+        raise ValueError(f"{doc_file}: trackedFiles must be a list")
+
+    changed = False
+    for entry in tracked_files:
+        tracked_rel, old_hash, _reason = _validate_entry(doc_file, entry)
+        new_hash = _sha256(_repo_path(tracked_rel))
+        if new_hash != old_hash:
+            entry["sha256"] = new_hash
+            changed = True
 
     if changed:
         _write_index(data)
@@ -208,15 +249,31 @@ def _update(data: dict[str, Any]) -> bool:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Check or update design-doc code hashes.")
-    mode = parser.add_mutually_exclusive_group(required=True)
-    mode.add_argument("--check", action="store_true", help="Validate tracked hashes and doc updates.")
-    mode.add_argument("--update", action="store_true", help="Refresh tracked hashes in index.json.")
+    parser.add_argument("--check", action="store_true", help="Validate tracked hashes and doc updates.")
+    parser.add_argument(
+        "--update-doc",
+        metavar="DESIGN_DOC",
+        help=(
+            "Refresh sha256 only for documents[].file == DESIGN_DOC (basename, e.g. "
+            "2026-05-03-new-cli-runtime-integration-guide.md). "
+            "Paths like docs/design-docs/NAME.md are accepted; only the basename is used."
+        ),
+    )
     args = parser.parse_args()
+
+    mode_count = int(args.check) + int(args.update_doc is not None)
+    if mode_count != 1:
+        parser.error("specify exactly one of --check or --update-doc DESIGN_DOC")
 
     try:
         data = _load_index()
-        if args.update:
-            _update(data)
+        if args.update_doc is not None:
+            doc_file = _normalize_update_doc_arg(args.update_doc)
+            if not (DOCS_ROOT / doc_file).is_file():
+                raise ValueError(f"design doc not found: docs/design-docs/{doc_file}")
+            updated = _update_single_document(data, doc_file)
+            if not updated:
+                print(f"[doc-code-hash] no hash changes for {doc_file} (already fresh)")
             return 0
 
         errors = _check(data)

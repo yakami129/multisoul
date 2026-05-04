@@ -110,7 +110,7 @@
 | 起因 | 开发指南引用的代码文件会随时间变化；文档未同步时会误导人类和 Agent |
 | 检测 | `docs/design-docs/index.json` 中带 `trackedFiles` 的文档必须满足：tracked code 变更时对应文档同 PR 修改，且 `sha256` 刷新为当前文件内容 |
 | 当前 pilot | [`docs/design-docs/2026-05-03-new-cli-runtime-integration-guide.md`](../design-docs/2026-05-03-new-cli-runtime-integration-guide.md) 追踪 runtime 分发、adapter、DB 与 mobile 类型文件 |
-| 修复方式 | 根据 tracked file diff 更新对应设计文档，再运行 `python3 scripts/check-doc-code-hashes.py --update` 刷新 hash |
+| 修复方式 | 先阅读 tracked file 的 diff，按需更新设计文档正文；若语义无需改动，须在**同一篇**设计文档中写明原因（仍视为文档已审阅），再对该文档单独执行 `python3 scripts/check-doc-code-hashes.py --update-doc <basename>.md` 刷新 `index.json` 中该条目的 hash（**禁止**无审查地批量刷新多篇文档） |
 
 ### R12 · iOS Info.plist 权限声明对齐
 
