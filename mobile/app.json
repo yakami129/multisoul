@@ -5,7 +5,7 @@
     "scheme": "multisoul",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/ios-icon.png",
     "userInterfaceStyle": "light",
     "splash": {
       "image": "./assets/splash-icon.png",
@@ -13,6 +13,7 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
+      "icon": "./assets/ios-icon.png",
       "supportsTablet": true,
       "bundleIdentifier": "com.yakami0129.multisoul",
       "infoPlist": {
