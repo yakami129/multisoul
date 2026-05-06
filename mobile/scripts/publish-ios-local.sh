@@ -11,9 +11,14 @@
 #   APP_STORE_CONNECT_API_ISSUER_ID=...
 #   APP_STORE_CONNECT_API_KEY_PATH=/absolute/path/AuthKey_XXXX.p8
 #
+# Versioning (canonical, tracked in git): mobile/app.json
+#   - expo.version  -> CFBundleShortVersionString (marketing)
+#   - expo.ios.buildNumber -> CFBundleVersion + Xcode CURRENT_PROJECT_VERSION
+# Each run increments buildNumber in app.json then syncs into ios/MultiSoul/Info.plist
+# (ios/ is gitignored; do not treat Info.plist as the source of truth for build numbers.)
+#
 # Signing: team for export plist is read from ios/MultiSoul.xcodeproj DEVELOPMENT_TEAM.
-# Archive does not pass DEVELOPMENT_TEAM on the CLI (avoids ~/.zshrc APPLE_TEAM_ID
-# overriding the project and causing wrong-team / App Development profile errors).
+# Archive passes DEVELOPMENT_TEAM on the CLI when pbxproj omits it; export plist uses TEAM_ID.
 # Override with MULTISOUL_IOS_TEAM_ID=<10-char-team> if you fork the app to another org.
 
 set -euo pipefail
@@ -21,6 +26,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MOBILE_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 IOS_DIR="$MOBILE_DIR/ios"
+APP_JSON="${LOCAL_IOS_APP_JSON:-$MOBILE_DIR/app.json}"
 
 BUILD_ONLY=false
 SUBMIT_ONLY=false
@@ -168,6 +174,8 @@ run_xcodebuild_archive() {
     -derivedDataPath "$DERIVED_DATA_PATH"
     -allowProvisioningUpdates
     CODE_SIGN_STYLE=Automatic
+    # Ensure archive has an explicit team when project.pbxproj omits DEVELOPMENT_TEAM.
+    DEVELOPMENT_TEAM="$TEAM_ID"
     PRODUCT_BUNDLE_IDENTIFIER="$BUNDLE_ID"
   )
   if [ "${#xcode_auth_args[@]}" -gt 0 ]; then
@@ -191,28 +199,64 @@ run_xcodebuild_export() {
 }
 
 read_marketing_version() {
-  /usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$INFO_PLIST"
+  node -e "const j=JSON.parse(require('fs').readFileSync(process.argv[1],'utf8'));const v=j.expo&&j.expo.version;if(!v)process.exit(1);process.stdout.write(String(v));" "$APP_JSON"
 }
 
 read_build_number() {
-  /usr/libexec/PlistBuddy -c "Print :CFBundleVersion" "$INFO_PLIST"
+  node -e "const j=JSON.parse(require('fs').readFileSync(process.argv[1],'utf8'));const b=j.expo&&j.expo.ios&&j.expo.ios.buildNumber;if(b==null||String(b).trim()==='')process.exit(2);process.stdout.write(String(b).trim());" "$APP_JSON"
 }
 
-set_build_number() {
-  local next="$1"
-  /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $next" "$INFO_PLIST"
-  perl -0pi -e "s/CURRENT_PROJECT_VERSION = [^;]+;/CURRENT_PROJECT_VERSION = $next;/g" "$PBXPROJ"
+app_json_set_ios_build_number() {
+  local val="$1"
+  APP_JSON="$APP_JSON" NEXT_IOS_BUILD="$val" node -e "const fs=require('fs');const p=process.env.APP_JSON;const v=String(process.env.NEXT_IOS_BUILD);const j=JSON.parse(fs.readFileSync(p,'utf8'));if(!j.expo)j.expo={};if(!j.expo.ios)j.expo.ios={};j.expo.ios.buildNumber=v;fs.writeFileSync(p,JSON.stringify(j,null,2)+'\n');"
+}
+
+sync_native_ios_versions_from_app_json() {
+  local m b
+  m="$(read_marketing_version)"
+  b="$(read_build_number)"
+  [ -n "$m" ] || die "Missing expo.version in app.json"
+  [ -n "$b" ] || die "Missing expo.ios.buildNumber in app.json"
+  if [ -f "$INFO_PLIST" ]; then
+    /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $m" "$INFO_PLIST" \
+      || die "PlistBuddy Set CFBundleShortVersionString failed"
+    /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $b" "$INFO_PLIST" \
+      || die "PlistBuddy Set CFBundleVersion failed"
+  fi
+  if [ -f "$PBXPROJ" ]; then
+    perl -0pi -e "s/CURRENT_PROJECT_VERSION = [^;]+;/CURRENT_PROJECT_VERSION = $b;/g" "$PBXPROJ"
+  fi
+}
+
+ensure_ios_build_number_in_app_json() {
+  [ -f "$APP_JSON" ] || die "Missing app.json (expected at $APP_JSON)"
+  if read_build_number >/dev/null 2>&1; then
+    return 0
+  fi
+  local pb=""
+  if [ -f "$INFO_PLIST" ]; then
+    pb="$(/usr/libexec/PlistBuddy -c "Print :CFBundleVersion" "$INFO_PLIST" 2>/dev/null || true)"
+  fi
+  if [[ "$pb" =~ ^[0-9]+$ ]]; then
+    warn "expo.ios.buildNumber missing in app.json; bootstrapping from Info.plist: $pb"
+    app_json_set_ios_build_number "$pb"
+    return 0
+  fi
+  die "Set expo.ios.buildNumber in mobile/app.json (git-tracked). Local ios/ is gitignored; build numbers must not live only in Info.plist."
 }
 
 increment_build_number() {
   local current next
+  ensure_ios_build_number_in_app_json
+  sync_native_ios_versions_from_app_json
   current="$(read_build_number)"
   if ! [[ "$current" =~ ^[0-9]+$ ]]; then
-    die "CFBundleVersion must be numeric for local auto-increment, got: $current"
+    die "expo.ios.buildNumber must be numeric for local auto-increment, got: $current"
   fi
   next="$((current + 1))"
-  info "Incrementing iOS build number from $current to $next"
-  set_build_number "$next"
+  info "Incrementing iOS build number in app.json from $current to $next"
+  app_json_set_ios_build_number "$next"
+  sync_native_ios_versions_from_app_json
 }
 
 write_export_options() {
@@ -252,6 +296,7 @@ build_ipa() {
   else
     [ -d "$WORKSPACE" ] || die "Missing workspace: $WORKSPACE"
   fi
+  [ -f "$APP_JSON" ] || die "Missing app.json: $APP_JSON"
   [ -f "$INFO_PLIST" ] || die "Missing Info.plist: $INFO_PLIST"
   [ -f "$PBXPROJ" ] || die "Missing Xcode project file: $PBXPROJ"
 
