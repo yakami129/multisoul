@@ -1,192 +1,228 @@
 # MultiSoul
 
-个人 AI Agent 随身控制台。在手机上遥控本地运行的 AI Agent（Claude Code / Codex 等），实时查看工具调用、回应决策请求、接收任务完成推送。
+MultiSoul is a personal AI Agent console for your phone. It lets you connect to AI agents running on your own computer, watch tool calls in real time, answer approval questions, and receive task completion notifications.
 
-**零中心后端** — 所有数据 100% 留在你的本机。
+There is no central MultiSoul backend. `msctl` runs locally, stores data locally, and the mobile app connects to endpoints you own.
 
----
+## Features
 
-## 架构
+- Control local AI agents from a phone
+- View agent messages, tool calls, tool results, and task status
+- Answer `AskUserQuestion` decisions from the mobile app
+- Keep an Inbox for pending questions and completed/failed tasks
+- Connect to multiple computers through Tailscale
+- Run `msctl serve` in the foreground or as a background daemon
+
+## Architecture
 
 ```
-手机 App (React Native + Expo)
-    │  HTTPS + WSS
-    ▼
-msctl serve (本机进程)          ← Tailscale Funnel 暴露公网
-    │
-    ├── REST  /api/v1/*
-    ├── WebSocket  /ws/conversations/{id}
-    └── SQLite  ~/.config/msctl/serve.db
+Mobile App (React Native + Expo)
+        │ Tailscale / HTTPS / WSS + Bearer token
+        ▼
+msctl serve (Rust, local machine)
+        ├── Runtime adapters: Claude Code / Codex / Cursor Agent CLI
+        ├── REST + WebSocket
+        └── SQLite: ~/.config/msctl/serve.db
 ```
 
-- **mobile/** — React Native + Expo SDK 55，多端点聚合视图
-- **cli/** — Rust (`msctl`)，本地 HTTP/WS 服务 + Agent 管理
+- `cli/`: Rust CLI, binary name `msctl`
+- `mobile/`: Expo SDK 55 React Native app
+- Network: Tailscale Tailnet by default; Tailscale Funnel can expose a public HTTPS endpoint
 
----
+## Requirements
 
-## 快速开始
+- Node.js 18+
+- Rust toolchain, only needed when building `msctl` from source
+- Tailscale, required for using the phone and computer across devices
+- At least one supported agent runtime:
+  - Claude Code: `claude`
+  - Codex CLI: `codex`
+  - Cursor Agent CLI: `agent`
 
-### 1. 启动本地服务
+## Install Tailscale
+
+Install Tailscale on both your computer and your phone, then sign in to the same Tailnet.
+
+Official guide: [tailscale.com/docs/install](https://tailscale.com/docs/install)
+
+Common setup:
+
+```bash
+# macOS
+# Install from https://tailscale.com/download/mac
+
+# Linux
+curl -fsSL https://tailscale.com/install.sh | sh
+sudo tailscale up
+
+# Verify
+tailscale status
+tailscale ip
+```
+
+On iOS or Android, install Tailscale from the app store and sign in with the same account.
+
+For private device-to-device access, Tailnet mode is enough. For a public HTTPS URL, enable Tailscale Funnel in your Tailnet and start MultiSoul with `msctl serve --funnel`. See [Tailscale Funnel docs](https://tailscale.com/docs/features/tailscale-funnel).
+
+## Quick Start
+
+### 1. Install `msctl`
 
 ```bash
 npm install -g @yakami129/msctl
-
-# 启动服务（自动生成 token，默认端口 8765）
-msctl serve
-
-# 指定端口和 token
-msctl serve --port 8765 --token ms_v2_your_token
-
-# 通过 Tailscale Funnel 暴露公网（外网访问）
-msctl serve --funnel
 ```
 
-启动后终端会打印连接地址和 QR 码，用手机 App 扫码或手动填入即可配对。
-
-### 2. 注册 Agent
+From source:
 
 ```bash
-# 注册一个 Claude Code agent
-msctl agent register --name blog-fixer --project /path/to/project --runtime claude-code
-
-# 查看所有 agent
-msctl agent list
-
-# 发起对话
-msctl agent invoke <agent-id> --message "帮我加一个深色模式开关"
+cd cli
+cargo build
+cargo run -- --help
 ```
 
-### 3. 运行手机 App
+### 2. Start the Agent service
+
+Fastest background setup:
+
+```bash
+msctl daemon quickstart --token test --port 8765 --tailnet true
+```
+
+This saves the token, installs the background service, starts `msctl serve`, binds it for Tailnet access, and prints a pairing QR code.
+
+Useful daemon commands:
+
+```bash
+msctl daemon status
+msctl daemon logs -f
+msctl daemon restart
+msctl daemon stop
+```
+
+Foreground mode:
+
+```bash
+msctl serve --tailnet --port 8765 --token test
+```
+
+For real personal use, replace `test` with your own long token.
+
+### 3. Register an Agent
+
+Codex:
+
+```bash
+msctl agent register \
+  --name work-codex \
+  --project /path/to/project \
+  --runtime codex \
+  --mode full-auto
+```
+
+Claude Code:
+
+```bash
+msctl agent register \
+  --name work-claude \
+  --project /path/to/project \
+  --runtime claude-code
+```
+
+Cursor Agent CLI:
+
+```bash
+msctl agent register \
+  --name work-cursor \
+  --project /path/to/project \
+  --runtime cursor-cli \
+  --mode ask
+```
+
+Check registration:
+
+```bash
+msctl agent list
+```
+
+Send a first message from the terminal:
+
+```bash
+msctl agent invoke <agent-id> --message "Summarize this project"
+```
+
+### 4. Connect the mobile app
+
+Run the app locally:
 
 ```bash
 cd mobile
 pnpm install
-pnpm start        # 启动 Expo dev server（需手动在终端运行）
-pnpm ios          # iOS 模拟器
-pnpm android      # Android 模拟器
+pnpm start
 ```
 
-在 App 的 Settings 页面添加端点（URL + Token），即可看到该机器上所有已注册的 Agent。
+Then open it with Expo, go to Settings, and add the endpoint printed by `msctl daemon quickstart` or `msctl serve`.
 
----
+You can also run native simulators:
 
-## 功能
-
-### 手机 App
-
-| 模块 | 功能 |
-|------|------|
-| **Agents** | 聚合多台机器的 Agent 列表，显示端点标签和项目路径 |
-| **Chat** | 与 Agent 对话，渲染 6 种消息类型（见下） |
-| **Inbox** | 汇聚待回应的 ask_question 和复杂任务完成/失败通知 |
-| **Settings** | 管理多个 `msctl serve` 端点，支持健康检测 |
-
-**6 种消息类型：**
-- `user_text` / `agent_text` — 普通对话气泡
-- `tool_call` / `tool_result` — 可折叠的工具调用行
-- `ask_question` — 选项卡片，直接在手机上回答
-- `task_status` — 任务状态横幅（running / completed / failed）
-
-### CLI (`msctl`)
-
-```
-msctl auth login --token <token>   # 保存 token 到本地配置
-msctl auth status                  # 查看当前认证状态
-
-msctl agent register               # 注册 agent
-msctl agent list                   # 列出所有 agent
-msctl agent get <id>               # 查看 agent 详情
-msctl agent update <id>            # 更新 agent 信息
-msctl agent delete <id>            # 删除 agent
-msctl agent invoke <id>            # 发起对话
-
-msctl serve                        # 启动本地 HTTP/WS 服务
-msctl serve --funnel               # 通过 Tailscale Funnel 暴露公网
-msctl serve --port <port>          # 指定端口（默认 8765）
-msctl serve --token <token>        # 指定 Bearer token
+```bash
+pnpm ios
+pnpm android
 ```
 
----
+## Daily Usage
 
-## API 概览
+```bash
+msctl daemon status
+msctl daemon logs -f
+msctl agent list
+msctl agent invoke <agent-id> --message "Continue the task"
+```
 
-所有请求需携带 `Authorization: Bearer <token>`（或 `?token=<token>` query 参数）。
+In the mobile app:
 
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| GET | `/api/v1/healthz` | 健康检查（无需认证） |
-| GET | `/api/v1/agents` | 列出所有 agent |
-| GET | `/api/v1/agents/:id` | 获取 agent 详情 |
-| GET | `/api/v1/conversations` | 列出对话（支持 `?agent_id=` 过滤） |
-| POST | `/api/v1/conversations` | 创建新对话 |
-| GET | `/api/v1/conversations/:id/messages` | 获取消息（支持 `?since_seq=` 增量拉取） |
-| POST | `/api/v1/conversations/:id/messages` | 发送消息 |
-| POST | `/api/v1/push-tokens` | 注册 Expo Push Token |
-| DELETE | `/api/v1/push-tokens/:token` | 注销 Push Token |
-| WS | `/ws/conversations/:id` | WebSocket 实时消息流 |
+- Agents: choose a registered agent
+- Chat: send prompts and watch runtime output
+- Inbox: answer pending questions and review task results
+- Settings: manage endpoints and tokens
 
----
+## Local Data
 
-## 开发
+| Path | Purpose |
+|------|---------|
+| `~/.config/msctl/serve.db` | Agents, conversations, messages, tasks, push tokens |
+| `~/.config/msctl/config.toml` | Local `msctl` config |
+| `~/.config/msctl/uploads/` | Uploaded images |
+| Mobile local storage | Endpoints, tokens, Inbox cache |
 
-### CLI
+## Development
+
+CLI:
 
 ```bash
 cd cli
-cargo build          # 构建
-cargo test           # 运行测试
-cargo run -- serve   # 直接运行
+cargo build
+cargo test
+cargo run -- serve
 ```
 
-### CLI 发布
-
-完整步骤（版本 bump、`Cargo.lock`、tag、`NPM_TOKEN`、故障排查）见 **[`docs/runbooks/cli-release.md`](docs/runbooks/cli-release.md)**。
-
-概要：在 `main` 上对齐 `cli/Cargo.toml` / `cli/Cargo.lock` / `cli/npm/package.json` 版本，`cargo test --locked` 通过后提交，打 `v*.*.*` 并 `git push origin main` 与 `git push origin <tag>`，触发 Actions 里的 **Release CLI**（GitHub Release、GHCR、npm 等）。亦可于 Actions 中对该 workflow 使用 **Run workflow** 手动输入版本。
-
-### Mobile
+Mobile:
 
 ```bash
 cd mobile
-pnpm install         # 安装依赖
-pnpm typecheck       # TypeScript 类型检查
-pnpm test -- --watchAll=false   # 运行测试
+pnpm install
+pnpm typecheck
+pnpm test -- --watchAll=false
+pnpm start
 ```
 
-### iOS 发布
+## Documentation
 
-**本地（本机 Xcode，一条命令）**：
+- [ARCHITECTURE.md](ARCHITECTURE.md): system architecture
+- [docs/product-specs/](docs/product-specs/): product specs
+- [docs/design-docs/](docs/design-docs/): design notes
+- [docs/runbooks/cli-release.md](docs/runbooks/cli-release.md): CLI release
+- [mobile/docs/ios-publish.md](mobile/docs/ios-publish.md): iOS release
 
-```bash
-cd mobile
-./scripts/publish-ios-local.sh
-```
+## Stars
 
-**云端（EAS + TestFlight）**：
-
-```bash
-cd mobile
-./scripts/publish-ios.sh
-# 或分步：eas build / eas submit，见 mobile/docs/ios-publish.md
-```
-
-详细说明（环境变量、签名、EAS 配置）见 [mobile/docs/ios-publish.md](mobile/docs/ios-publish.md)。
-
----
-
-## 数据存储
-
-| 位置 | 内容 |
-|------|------|
-| `~/.config/msctl/serve.db` | Agent、对话、消息、任务、Push Token（SQLite） |
-| `~/.config/msctl/config.toml` | 本地 CLI 配置（serve token） |
-| 手机 AsyncStorage | 各端点的 Bearer Token |
-| 手机 SQLite | Inbox 消息（本地持久化） |
-
----
-
-## 技术栈
-
-**CLI:** Rust · axum 0.7 · rusqlite 0.31 · tokio 1 · clap 4
-
-**Mobile:** React Native · Expo SDK 55 · expo-sqlite · expo-notifications · Zustand · React Query · NativeWind
+[![GitHub stars](https://img.shields.io/github/stars/yakami129/multisoul?style=social)](https://github.com/yakami129/multisoul/stargazers)
