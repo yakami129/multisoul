@@ -18,7 +18,10 @@
   </p>
 </p>
 
-![MultiSoul 功能演示](docs/assets/demo-1.gif)
+<p align="center">
+  <img src="docs/assets/demo-1.gif" alt="MultiSoul 功能演示 1" width="260" />
+  <img src="docs/assets/demo-2.gif" alt="MultiSoul 功能演示 2" width="260" />
+</p>
 
 ---
 
