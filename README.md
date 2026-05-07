@@ -1,19 +1,39 @@
-# MultiSoul
+<p align="center">
+  <h1 align="center">MultiSoul</h1>
+  <p align="center">A mobile console for local AI agents.</p>
+  <p align="center">
+    <a href="ARCHITECTURE.md">Architecture</a>
+    ·
+    <a href="docs/product-specs/">Product Specs</a>
+    ·
+    <a href="docs/runbooks/cli-release.md">CLI Release</a>
+  </p>
+  <p align="center">
+    <a href="https://github.com/yakami129/multisoul/stargazers">
+      <img alt="GitHub stars" src="https://img.shields.io/github/stars/yakami129/multisoul?style=social">
+    </a>
+  </p>
+  <p align="center">
+    English | <a href="README.zh-CN.md">中文</a>
+  </p>
+</p>
 
-MultiSoul is a personal AI Agent console for your phone. It lets you connect to AI agents running on your own computer, watch tool calls in real time, answer approval questions, and receive task completion notifications.
+---
 
-There is no central MultiSoul backend. `msctl` runs locally, stores data locally, and the mobile app connects to endpoints you own.
+MultiSoul lets you control AI agents running on your own computer from your phone. You can watch messages and tool calls in real time, answer approval questions, and receive task completion notifications.
 
-## Features
+There is no central MultiSoul backend. `msctl` runs locally, stores data locally, and exposes an endpoint that your phone connects to through Tailscale.
 
-- Control local AI agents from a phone
-- View agent messages, tool calls, tool results, and task status
-- Answer `AskUserQuestion` decisions from the mobile app
+## What You Can Do
+
+- Control Claude Code, Codex, or Cursor Agent CLI from a phone
+- Watch agent messages, tool calls, tool results, and task status
+- Answer `AskUserQuestion` prompts in the mobile app
 - Keep an Inbox for pending questions and completed/failed tasks
-- Connect to multiple computers through Tailscale
-- Run `msctl serve` in the foreground or as a background daemon
+- Connect one phone to multiple computers through Tailscale
+- Run the service in the foreground or as a background daemon
 
-## Architecture
+## How It Works
 
 ```
 Mobile App (React Native + Expo)
@@ -25,23 +45,19 @@ msctl serve (Rust, local machine)
         └── SQLite: ~/.config/msctl/serve.db
 ```
 
-- `cli/`: Rust CLI, binary name `msctl`
-- `mobile/`: Expo SDK 55 React Native app
-- Network: Tailscale Tailnet by default; Tailscale Funnel can expose a public HTTPS endpoint
-
 ## Requirements
 
 - Node.js 18+
-- Rust toolchain, only needed when building `msctl` from source
-- Tailscale, required for using the phone and computer across devices
-- At least one supported agent runtime:
+- Tailscale on both your computer and phone
+- One agent runtime installed on your computer:
   - Claude Code: `claude`
   - Codex CLI: `codex`
   - Cursor Agent CLI: `agent`
+- Rust toolchain, only if you run `msctl` from source
 
 ## Install Tailscale
 
-Install Tailscale on both your computer and your phone, then sign in to the same Tailnet.
+Install Tailscale on your computer and phone, then sign in to the same Tailnet.
 
 Official guide: [tailscale.com/docs/install](https://tailscale.com/docs/install)
 
@@ -62,7 +78,7 @@ tailscale ip
 
 On iOS or Android, install Tailscale from the app store and sign in with the same account.
 
-For private device-to-device access, Tailnet mode is enough. For a public HTTPS URL, enable Tailscale Funnel in your Tailnet and start MultiSoul with `msctl serve --funnel`. See [Tailscale Funnel docs](https://tailscale.com/docs/features/tailscale-funnel).
+Tailnet access is the default and recommended private setup. If you need a public HTTPS URL, enable Tailscale Funnel and start the service with `msctl serve --funnel`. See [Tailscale Funnel docs](https://tailscale.com/docs/features/tailscale-funnel).
 
 ## Quick Start
 
@@ -72,23 +88,39 @@ For private device-to-device access, Tailnet mode is enough. For a public HTTPS 
 npm install -g @yakami129/msctl
 ```
 
-From source:
+Or run it from source:
 
 ```bash
 cd cli
-cargo build
 cargo run -- --help
 ```
 
 ### 2. Start the Agent service
 
-Fastest background setup:
+Fastest installed CLI flow:
 
 ```bash
 msctl daemon quickstart --token test --port 8765 --tailnet true
 ```
 
-This saves the token, installs the background service, starts `msctl serve`, binds it for Tailnet access, and prints a pairing QR code.
+From source:
+
+```bash
+cd cli
+cargo run -- daemon quickstart --token test --port 8765 --tailnet true
+```
+
+This command saves the token, installs and starts the background service, binds it for Tailnet access, and prints a QR code.
+
+In the mobile app, open:
+
+```text
+Settings -> Add Endpoint -> Scan QR
+```
+
+Scan the QR code to register this computer as a MultiSoul endpoint on your phone.
+
+For real personal use, replace `test` with your own long token.
 
 Useful daemon commands:
 
@@ -104,8 +136,6 @@ Foreground mode:
 ```bash
 msctl serve --tailnet --port 8765 --token test
 ```
-
-For real personal use, replace `test` with your own long token.
 
 ### 3. Register an Agent
 
@@ -138,21 +168,13 @@ msctl agent register \
   --mode ask
 ```
 
-Check registration:
+Check registered agents:
 
 ```bash
 msctl agent list
 ```
 
-Send a first message from the terminal:
-
-```bash
-msctl agent invoke <agent-id> --message "Summarize this project"
-```
-
-### 4. Connect the mobile app
-
-Run the app locally:
+### 4. Run the mobile app locally
 
 ```bash
 cd mobile
@@ -160,39 +182,12 @@ pnpm install
 pnpm start
 ```
 
-Then open it with Expo, go to Settings, and add the endpoint printed by `msctl daemon quickstart` or `msctl serve`.
-
-You can also run native simulators:
+Native simulators:
 
 ```bash
 pnpm ios
 pnpm android
 ```
-
-## Daily Usage
-
-```bash
-msctl daemon status
-msctl daemon logs -f
-msctl agent list
-msctl agent invoke <agent-id> --message "Continue the task"
-```
-
-In the mobile app:
-
-- Agents: choose a registered agent
-- Chat: send prompts and watch runtime output
-- Inbox: answer pending questions and review task results
-- Settings: manage endpoints and tokens
-
-## Local Data
-
-| Path | Purpose |
-|------|---------|
-| `~/.config/msctl/serve.db` | Agents, conversations, messages, tasks, push tokens |
-| `~/.config/msctl/config.toml` | Local `msctl` config |
-| `~/.config/msctl/uploads/` | Uploaded images |
-| Mobile local storage | Endpoints, tokens, Inbox cache |
 
 ## Development
 
@@ -215,6 +210,15 @@ pnpm test -- --watchAll=false
 pnpm start
 ```
 
+## Local Data
+
+| Path | Purpose |
+|------|---------|
+| `~/.config/msctl/serve.db` | Agents, conversations, messages, tasks, push tokens |
+| `~/.config/msctl/config.toml` | Local `msctl` config |
+| `~/.config/msctl/uploads/` | Uploaded images |
+| Mobile local storage | Endpoints, tokens, Inbox cache |
+
 ## Documentation
 
 - [ARCHITECTURE.md](ARCHITECTURE.md): system architecture
@@ -222,7 +226,3 @@ pnpm start
 - [docs/design-docs/](docs/design-docs/): design notes
 - [docs/runbooks/cli-release.md](docs/runbooks/cli-release.md): CLI release
 - [mobile/docs/ios-publish.md](mobile/docs/ios-publish.md): iOS release
-
-## Stars
-
-[![GitHub stars](https://img.shields.io/github/stars/yakami129/multisoul?style=social)](https://github.com/yakami129/multisoul/stargazers)
