@@ -5,6 +5,7 @@ interface ChatState {
   conversations: Conversation[];
   messages: Record<string, WsMessage[]>;
   setConversations: (convs: Conversation[]) => void;
+  addConversation: (conv: Conversation) => void;
   updateConversation: (id: string, patch: Partial<Conversation>) => void;
   removeConversation: (id: string) => void;
   restoreConversation: (conv: Conversation, index: number) => void;
@@ -22,6 +23,11 @@ export const useChatStore = create<ChatState>((set) => ({
   conversations: [],
   messages: {},
   setConversations: (conversations) => set({ conversations }),
+  addConversation: (conv) =>
+    set((s) => {
+      if (s.conversations.some((c) => c.id === conv.id)) return s;
+      return { conversations: [conv, ...s.conversations] };
+    }),
   updateConversation: (id, patch) =>
     set((s) => ({
       conversations: s.conversations.map((conv) => (conv.id === id ? { ...conv, ...patch } : conv)),

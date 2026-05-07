@@ -18,6 +18,8 @@
   </p>
 </p>
 
+![MultiSoul 功能演示](docs/assets/demo-1.gif)
+
 ---
 
 MultiSoul 是一个个人 AI Agent 手机控制台。你可以用手机连接自己电脑上运行的 AI Agent，实时查看消息和工具调用，回复审批/选择问题，并接收任务完成通知。

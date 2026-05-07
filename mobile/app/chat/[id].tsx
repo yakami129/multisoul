@@ -315,11 +315,16 @@ export default function ChatDetailScreen() {
   // Sync local isAwaitingResponse with conversation.status.
   // If the server reports the conversation is no longer running (idle/completed/failed),
   // clear the local optimistic flag so the stop button disappears correctly.
+  // Guard: only clear when the conversation actually exists in the store.
+  // If it doesn't exist yet (e.g. navigation from agent screen before the store
+  // is seeded), updateConversation('running') is a no-op and conversationStatus
+  // stays 'idle' — without the guard that would immediately cancel the optimistic
+  // waiting state and the Analyzing… bubble would never appear.
   useEffect(() => {
-    if (isAwaitingResponse && conversationStatus !== 'running') {
+    if (isAwaitingResponse && conversation && conversationStatus !== 'running') {
       setIsAwaitingResponse(false);
     }
-  }, [conversationStatus, isAwaitingResponse]);
+  }, [conversationStatus, isAwaitingResponse, conversation]);
 
   const badge = isOffline
     ? { label: 'OFFLINE', bg: '#1A0000', dot: '#FFB000' }

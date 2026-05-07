@@ -264,6 +264,34 @@ test('uploads selected image and renders the sent image message with local uri',
   await waitFor(() => expect(getByText(' file:///compressed.jpg')).toBeTruthy());
 });
 
+describe('Analyzing… bubble — new conversation not pre-seeded in store', () => {
+  // Regression: when navigating from Agents screen, the newly created conversation
+  // was never added to chatStore.conversations.  updateConversation('running') was
+  // therefore a no-op, a sync useEffect saw isAwaitingResponse=true but
+  // conversationStatus='idle' and immediately reset isAwaitingResponse to false,
+  // so the Analyzing… bubble never rendered.
+  beforeEach(() => {
+    useChatStore.setState({ conversations: [], messages: {} });
+    (fetchMessages as jest.Mock).mockResolvedValue([]);
+    (postMessage as jest.Mock).mockImplementation(() => new Promise(() => {})); // never resolves
+  });
+
+  it('shows the Analyzing… waiting bubble after sending the first message', async () => {
+    const { getByTestId, queryByText } = render(<ChatDetailScreen />);
+
+    await act(async () => {
+      fireEvent.changeText(getByTestId('message-input'), 'hello');
+    });
+    await act(async () => {
+      fireEvent.press(getByTestId('send-stop-button'));
+    });
+
+    await waitFor(() => {
+      expect(queryByText('waiting')).toBeTruthy();
+    });
+  });
+});
+
 describe('send/stop button', () => {
   beforeEach(() => {
     (fetchMessages as jest.Mock).mockResolvedValue([]);

@@ -4,6 +4,7 @@ import { AgentDetail } from '../../../src/features/agents/components/AgentDetail
 import { fetchAgent, invokeAgent } from '../../../src/features/agents/services/agentService';
 import { createConversation } from '../../../src/features/chat/services/chatService';
 import { buildChatDetailPath } from '../../../src/features/chat/utils/chatRoutes';
+import { useChatStore } from '../../../src/store/chatStore';
 import { useEndpointStore } from '../../../src/store/endpointStore';
 import { type Agent } from '../../../src/types';
 
@@ -11,6 +12,7 @@ export default function AgentDetailScreen() {
   const { id, endpoint_id } = useLocalSearchParams<{ id: string; endpoint_id: string }>();
   const router = useRouter();
   const endpoints = useEndpointStore((s) => s.endpoints);
+  const addConversation = useChatStore((s) => s.addConversation);
 
   const [agent, setAgent] = useState<Agent | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(true);
@@ -51,6 +53,10 @@ export default function AgentDetailScreen() {
     const ep = endpoints.find((e) => e.id === ep_id);
     if (!ep || !id) return;
     const conv = await createConversation(ep.base_url, ep.token, id, 'New Chat');
+    // Seed the store so chat/[id] can find the conversation immediately.
+    // Without this, updateConversation('running') in handleSend is a no-op,
+    // the sync effect clears isAwaitingResponse, and the Analyzing… bubble never shows.
+    addConversation({ ...conv, endpoint_id: ep_id, agent_name: agent?.name ?? '' });
     router.push(
       buildChatDetailPath({
         conversationId: conv.id,

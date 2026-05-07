@@ -18,6 +18,8 @@
   </p>
 </p>
 
+![MultiSoul demo](docs/assets/demo-1.gif)
+
 ---
 
 MultiSoul lets you control AI agents running on your own computer from your phone. You can watch messages and tool calls in real time, answer approval questions, and receive task completion notifications.
