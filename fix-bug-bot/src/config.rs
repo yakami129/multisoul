@@ -25,6 +25,8 @@ pub struct GitlabConfig {
     pub access_token: String,
     #[serde(default = "default_blocked_label")]
     pub blocked_label: String,
+    #[serde(default)]
+    pub gitlab_project_id: i64,
 }
 
 fn default_blocked_label() -> String {
