@@ -1,6 +1,8 @@
 # CLI（`msctl`）发布 Runbook
 
-在默认分支上打 **语义化版本 tag**（`vMAJOR.MINOR.PATCH`）会触发 GitHub Actions workflow **`Release CLI`**（见仓库根目录 `.github/workflows/release-cli.yml`），自动构建多平台二进制、创建 GitHub Release、推送容器镜像，并在配置了密钥时发布 npm 包。
+在默认分支上打 **带前缀的语义化 tag** `msctl-vMAJOR.MINOR.PATCH` 会触发 GitHub Actions workflow **`Release CLI`**（`.github/workflows/release-cli.yml`），自动构建多平台二进制、创建 GitHub Release、推送容器镜像，并在配置了密钥时发布 npm 包。
+
+> **与 iOS 解耦：** 云端 iOS 发布由 **`ios-v*.*.*`** tag 触发（`release-ios.yml`）。请勿再使用裸 `v*.*.*` tag 触发发布，否则两个 workflow **都不会**运行。
 
 ## 前置条件
 
@@ -22,7 +24,7 @@ cargo test --locked
 
 ## 需要改动的文件
 
-以下三处版本应保持一致（与即将打的 **tag** 去掉前缀 `v` 后的数字一致）：
+以下三处版本应保持一致（与即将打的 **tag** 在去掉 `msctl-` 与 `v` 前缀后的 **纯 semver** 一致，例如 tag `msctl-v0.1.2` → `0.1.2`）：
 
 | 文件 | 说明 |
 |------|------|
@@ -46,12 +48,12 @@ cargo test --locked
    ```
 5. 打 tag 并推送 **分支 + tag**（仅 `git push origin tag` 不会把版本提交推到默认分支，容易遗漏）：
    ```bash
-   git tag v0.1.2
+   git tag msctl-v0.1.2
    git push origin main
-   git push origin v0.1.2
+   git push origin msctl-v0.1.2
    ```
 
-推送符合 `v*.*.*` 的 tag 后即触发 **`Release CLI`**。
+推送符合 `msctl-v*.*.*` 的 tag 后即触发 **`Release CLI`**（不会触发 iOS Release）。
 
 ## Workflow 行为摘要
 
@@ -63,7 +65,7 @@ cargo test --locked
 
 ## 手动触发（不打 tag 推送时）
 
-在 GitHub → Actions → **Release CLI** → **Run workflow**，在 **version** 输入框填入与上述规则一致的 tag 名，例如 `v0.1.0`。此时应保证默认分支上的 `cli` 源码与 Cargo 版本已与该发版意图一致。
+在 GitHub → Actions → **Release CLI** → **Run workflow**，在 **version** 中填入**完整 tag 名**，例如 `msctl-v0.1.0`（`workflow_dispatch` 创建的 Release 也将使用该名称）。此时应保证默认分支上的 `cli` 源码与 Cargo 版本已与该发版意图一致。
 
 ## 发布后核对
 
@@ -79,13 +81,17 @@ gh run list --workflow "Release CLI" --limit 5
 
 ## 常见问题
 
+### 为何不用裸 `v1.2.3` tag？
+
+历史上 **`v*.*.*`** 会**同时**触发 CLI 与 iOS 两个 workflow。现在已拆成 **`msctl-v*`** 与 **`ios-v*`**，请按发布对象选用对应前缀；裸 `v*.*.*` **不会**触发任一云端发版。
+
 ### Release 卡在 `Waiting for a runner` + `macos-13`
 
 `macos-13` 已被 GitHub Actions 下线（约 2025-12 起），使用该 label 的作业可能**永远不分配 runner**。处理方式：
 
 1. 在 Actions 里**取消**该次运行（或等其超时）。
 2. 将 workflow 中 Intel macOS 一行改为 **`macos-15-intel`**（或改为在 Apple Silicon runner 上对 `x86_64-apple-darwin` 做交叉编译），合并进默认分支。
-3. 在 Actions 中对该 workflow 使用 **Run workflow**，版本填 **`v0.1.2`**（与失败发版相同），以当前 `main` 上的 workflow 重新跑全流程；或发新 patch 版本并打新 tag。
+3. 在 Actions 中对该 workflow 使用 **Run workflow**，版本填 **`msctl-v0.1.2`**（与失败发版相同），以当前 `main` 上的 workflow 重新跑全流程；或发新 patch 版本并打新 tag。
 
 ### `git pull` 提示未跟踪文件将被覆盖
 

@@ -1,13 +1,15 @@
 name: Release CLI
 
+# Tag push uses the `msctl-v*` prefix so this workflow does not run when only
+# releasing the iOS app (`ios-v*` → release-ios.yml).
 on:
   push:
     tags:
-      - "v*.*.*"
+      - "msctl-v*.*.*"
   workflow_dispatch:
     inputs:
       version:
-        description: "Release version, for example v0.1.0"
+        description: "Full git tag for this release, e.g. msctl-v0.1.0"
         required: true
         type: string
 
@@ -79,10 +81,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          version="${GITHUB_REF_NAME}"
+          ref_version="${GITHUB_REF_NAME}"
           if [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ]; then
-            version="${{ inputs.version }}"
+            ref_version="${{ inputs.version }}"
           fi
+          version="${ref_version#msctl-}"
           version="${version#v}"
           package="${CLI_NAME}-${version}-${{ matrix.target }}"
           mkdir -p "dist/${package}"
@@ -190,10 +193,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          version="${GITHUB_REF_NAME}"
+          ref_version="${GITHUB_REF_NAME}"
           if [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ]; then
-            version="${{ inputs.version }}"
+            ref_version="${{ inputs.version }}"
           fi
+          version="${ref_version#msctl-}"
           version="${version#v}"
           npm version "$version" --no-git-tag-version --allow-same-version
 

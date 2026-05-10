@@ -1,13 +1,16 @@
 name: Release iOS
 
+# Tag push uses the `ios-v*` prefix so TestFlight release does not run when only
+# releasing the CLI (`msctl-v*` → release-cli.yml). App marketing version in
+# `app.json` should match the semver in the tag (e.g. ios-v1.2.3 → 1.2.3).
 on:
   push:
     tags:
-      - "v*.*.*"
+      - "ios-v*.*.*"
   workflow_dispatch:
     inputs:
       version:
-        description: "Release version, for example v0.1.0"
+        description: "Record label for this run, e.g. ios-v1.0.0 (EAS reads app.json/eas.json)"
         required: true
         type: string
 

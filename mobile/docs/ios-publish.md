@@ -21,6 +21,12 @@ cd mobile
 
 以下流程在 Expo 云端构建，不依赖本机完整 Xcode 工程（与本地脚本二选一或按需混用）。
 
+### GitHub Actions 触发（与 CLI 分开）
+
+仓库 workflow **`Release iOS`**（`.github/workflows/release-ios.yml`）在推送 tag **`ios-v*.*.*`** 或手动 **Run workflow** 时运行：先复用全量 CI，再执行 EAS Build + Submit。实际 `CFBundleShortVersionString` / build number 仍以 **`mobile/app.json`** 与 **`eas.json`** 为准；建议在打 tag 前将 `expo.version` 与 tag 中的 semver 对齐（例如 tag `ios-v1.2.0` 对应 `expo.version` `1.2.0`）。
+
+> **与 CLI 解耦：** CLI 发布使用 **`msctl-v*.*.*`** tag（见 `docs/runbooks/cli-release.md`）。裸 `v*.*.*` tag **不会**再触发任一云端发版 workflow。
+
 ### 前提条件
 
 - Apple Developer 账号（$99/年）：[developer.apple.com](https://developer.apple.com)
