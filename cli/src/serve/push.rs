@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 use crate::logging;
 use serde::{Deserialize, Serialize};
 use tracing::{error, info, warn};
@@ -35,50 +33,6 @@ struct ExpoTicket {
     message: Option<String>,
 }
 
-/// Send a push notification to all registered Expo tokens.
-/// Fire-and-forget: logs warnings on failure but never returns an error.
-pub fn send_push_to_all(
-    db: &rusqlite::Connection,
-    title: &str,
-    body: &str,
-    data: serde_json::Value,
-) {
-    let tokens: Vec<String> = {
-        let mut stmt = match db.prepare("SELECT expo_push_token FROM push_tokens") {
-            Ok(s) => s,
-            Err(e) => {
-                error!(error = %e, "push_db_error");
-                return;
-            }
-        };
-        let x = match stmt.query_map([], |r| r.get(0)) {
-            Ok(rows) => rows.filter_map(|r| r.ok()).collect(),
-            Err(e) => {
-                error!(error = %e, "push_query_error");
-                vec![]
-            }
-        };
-        x
-    };
-
-    if tokens.is_empty() {
-        return;
-    }
-
-    let payloads = tokens
-        .into_iter()
-        .map(|token| PushPayload {
-            to: token.clone(),
-            title: title.to_string(),
-            body: body.to_string(),
-            data: data.clone(),
-            priority: "high".to_string(),
-            channel_id: "multisoul-default".to_string(),
-        })
-        .collect();
-    send_payloads(payloads);
-}
-
 fn build_payloads_for_tokens(db: &rusqlite::Connection, push: &TaskStatusPush) -> Vec<PushPayload> {
     let tokens: Vec<(String, Option<String>)> = {
         let mut stmt = match db.prepare("SELECT expo_push_token, endpoint_id FROM push_tokens") {
@@ -107,7 +61,8 @@ fn build_payloads_for_tokens(db: &rusqlite::Connection, push: &TaskStatusPush) -
         .map(|(token, endpoint_id)| {
             let mut data = push.data.clone();
             if let Some(endpoint_id) = endpoint_id {
-                data["endpointId"] = serde_json::Value::String(endpoint_id);
+                data["endpointId"] = serde_json::Value::String(endpoint_id.clone());
+                data["endpoint_id"] = serde_json::Value::String(endpoint_id);
             }
             PushPayload {
                 to: token,
@@ -215,6 +170,10 @@ pub fn build_task_status_push(
     status: &str,
     summary: &str,
 ) -> rusqlite::Result<Option<TaskStatusPush>> {
+    if has_ask_question_in_current_turn(db, conv_id)? {
+        return Ok(None);
+    }
+
     let (agent_id, agent_name): (String, String) = db.query_row(
         "SELECT a.id, a.name
          FROM conversations c
@@ -241,9 +200,85 @@ pub fn build_task_status_push(
         data: serde_json::json!({
             "type": kind,
             "agentId": agent_id,
+            "agent_id": agent_id,
             "convId": conv_id,
+            "conversation_id": conv_id,
         }),
     }))
+}
+
+fn has_ask_question_in_current_turn(
+    db: &rusqlite::Connection,
+    conv_id: &str,
+) -> rusqlite::Result<bool> {
+    let count: i64 = db.query_row(
+        "SELECT COUNT(*)
+         FROM messages
+         WHERE conversation_id = ?1
+           AND role = 'ask_question'
+           AND seq > COALESCE((
+             SELECT MAX(seq)
+             FROM messages
+             WHERE conversation_id = ?1
+               AND role = 'user_text'
+           ), 0)",
+        [conv_id],
+        |r| r.get(0),
+    )?;
+    Ok(count > 0)
+}
+
+pub fn build_ask_question_push(
+    db: &rusqlite::Connection,
+    conv_id: &str,
+    ask_payload: &serde_json::Value,
+) -> rusqlite::Result<TaskStatusPush> {
+    let (agent_id, agent_name): (String, String) = db.query_row(
+        "SELECT a.id, a.name
+         FROM conversations c
+         JOIN agents a ON a.id = c.agent_id
+         WHERE c.id = ?1",
+        [conv_id],
+        |r| Ok((r.get(0)?, r.get(1)?)),
+    )?;
+    let ask_id = ask_payload["ask_id"].as_str().unwrap_or(conv_id);
+    let first_question = ask_payload["questions"]
+        .as_array()
+        .and_then(|questions| questions.first())
+        .and_then(|q| q["text"].as_str())
+        .unwrap_or("点击查看问题");
+    let body = if first_question.chars().count() > 100 {
+        first_question.chars().take(100).collect::<String>() + "..."
+    } else {
+        first_question.to_string()
+    };
+
+    Ok(TaskStatusPush {
+        title: format!("{} 需要你确认", agent_name),
+        body,
+        data: serde_json::json!({
+            "type": "ask_question",
+            "kind": "pending_question",
+            "inbox_id": ask_id,
+            "endpoint_id": "",
+            "agentId": agent_id,
+            "agent_id": agent_id,
+            "convId": conv_id,
+            "conversation_id": conv_id,
+            "payload": ask_payload.to_string(),
+        }),
+    })
+}
+
+pub fn send_ask_question_push(
+    db: &rusqlite::Connection,
+    conv_id: &str,
+    ask_payload: &serde_json::Value,
+) {
+    match build_ask_question_push(db, conv_id, ask_payload) {
+        Ok(push) => send_push_to_tokens_async(db, &push),
+        Err(e) => error!(conv_id = %conv_id, error = %e, "push_build_failed"),
+    }
 }
 
 pub fn send_task_status_push(

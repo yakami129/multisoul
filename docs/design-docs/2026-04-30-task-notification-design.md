@@ -11,9 +11,9 @@ migrated_from: docs/superpowers/specs/2026-04-30-task-notification-design.md
 
 When an agent task completes, the app notifies the user:
 - **Foreground**: play a bundled `.wav` sound via `expo-av`, no banner
-- **Background/inactive**: schedule a local `UNUserNotificationCenter` notification with sound, title, and summary; tap navigates to the task's chat screen
+- **Background/inactive**: CLI sends one Expo remote push with sound, title, and summary; tap navigates to the task's chat screen
 
-APNs remote push is architecturally wired (device token registered and stored) but the backend integration is deferred to a future iteration.
+Notification ownership is centralized in the CLI to avoid duplicate local + remote notifications. Mobile WebSocket handlers update chat and inbox state only; they do not schedule a second local notification for `task_status`.
 
 ---
 
@@ -23,22 +23,27 @@ APNs remote push is architecturally wired (device token registered and stored) b
 
 | Component | File | Responsibility |
 |-----------|------|----------------|
-| `notificationService` | `src/services/notificationService.ts` | Schedule local notification or play foreground sound |
-| `useWebSocket` | `src/hooks/useWebSocket.ts` | Detect `task_status` completed messages, call service |
-| Root layout | `app/_layout.tsx` | Fix notification handler (suppress foreground banner), add tap-to-navigate listener |
+| CLI push builder | `cli/src/serve/push.rs` | Build Expo payloads for task completion/failure and pending questions |
+| Claude runtime | `cli/src/serve/runtime/claude_stream.rs` | Send pending-question push when `AskUserQuestion` is emitted |
+| `useWebSocket` | `src/hooks/useWebSocket.ts` | Update chat/inbox state from `task_status` and `ask_question`; never schedule duplicate local notifications |
+| Root layout | `app/_layout.tsx` | Register push tokens, suppress foreground banner, add tap-to-navigate listener |
 | Sound asset | `assets/sounds/task-complete.wav` | Bundled short terminal-style beep |
 
 ### Data flow
 
 ```
-WebSocket message (task_status, status=completed)
-  └─> useWebSocket.onmessage
-        └─> notificationService.notifyTaskComplete({ agentName, summary, agentId, convId, endpointId })
-              ├─ AppState === 'active'  → Audio.Sound.createAsync(asset).playAsync()
-              └─ AppState !== 'active' → Notifications.scheduleNotificationAsync(...)
-                                              title: "[agentName] 任务完成"
-                                              body: summary (truncated to 100 chars)
-                                              userInfo: { agentId, convId, endpointId, type: 'task_completed' }
+Claude emits AskUserQuestion
+  └─> claude_stream inserts/broadcasts ask_question
+        └─> push.send_ask_question_push(...)
+              └─> Expo payload kind=pending_question, inbox_id=ask_id, payload=AskQuestionPayload
+
+Runtime emits task_status completed/failed
+  └─> push.send_task_status_push(...)
+        ├─ skip if current user turn already produced ask_question
+        └─ send one Expo payload type=task_completed/task_failed
+
+Mobile receives WS task_status
+  └─> update conversation status only
 ```
 
 ### Notification tap navigation
@@ -85,13 +90,12 @@ When active, the service plays the sound directly; the notification handler supp
 
 ## Permission flow
 
-`registerPushToken()` in `app/_layout.tsx` already calls `requestPermissionsAsync()` on first launch. No changes needed. If denied, `notificationService` silently falls back to foreground-only sound (background notifications simply won't fire — iOS handles this).
+`registerPushTokenForEndpoints()` in `app/_layout.tsx` requests notification permission and registers the Expo push token with each endpoint. If denied, CLI push cannot display a system notification; WS state updates still work while the app is connected.
 
 ---
 
 ## Dependencies
 
-- `expo-av` — add to `package.json` for foreground sound playback
 - `expo-notifications` — already installed
 - Sound file: `assets/sounds/task-complete.wav` — short (~0.5s) terminal beep
 
@@ -99,17 +103,14 @@ When active, the service plays the sound directly; the notification handler supp
 
 ## Files changed
 
-1. `package.json` — add `expo-av`
-2. `assets/sounds/task-complete.wav` — new sound asset
-3. `src/services/notificationService.ts` — new service
-4. `src/hooks/useWebSocket.ts` — handle `task_status` completed
-5. `app/_layout.tsx` — fix handler, add tap listener, cold-start navigation
+1. `cli/src/serve/push.rs` — task/ask push payload construction, token fan-out, mutual exclusion
+2. `cli/src/serve/runtime/claude_stream.rs` — trigger ask-question push at card creation
+3. `src/hooks/useWebSocket.ts` — remove local completion notification scheduling
+4. `app/_layout.tsx` — token registration, handler, tap listener, cold-start navigation
 
 ---
 
 ## Out of scope (this iteration)
 
-- Backend APNs integration (`POST /api/v1/devices/token`)
 - User-facing notification settings toggle
-- Notifications for `ask_question`, `task_failed`, or other event types
 - Notification grouping / deduplication
