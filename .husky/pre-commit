@@ -52,6 +52,8 @@ staged_cli=$(git diff --cached --name-only --diff-filter=ACMR | grep -E '^cli/.*
 if [ -n "$staged_cli" ]; then
   echo "[pre-commit] running cargo check..."
   ( cd cli && cargo check --quiet )
+  echo "[pre-commit] running cargo fmt --check..."
+  ( cd cli && cargo fmt --check )
 fi
 
 exit 0
