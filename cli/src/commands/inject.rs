@@ -11,15 +11,30 @@ pub fn resolve_inject_target(runtime: &str) -> &'static str {
     }
 }
 
-/// Injects the msctl command reference block into the workspace's AGENTS.md or CLAUDE.md.
+/// MultiSoul 布局检测：`docs/references/README.md` 存在时，非 claude-code 的 inject 写入
+/// `docs/references/msctl-inject.md`，避免根目录 `AGENTS.md` 超过机械化行数上限。
+fn inject_destination(project_path: &Path, runtime: &str) -> std::path::PathBuf {
+    let sentinel = project_path.join("docs/references/README.md");
+    if sentinel.is_file() && runtime != "claude-code" {
+        project_path.join("docs/references/msctl-inject.md")
+    } else {
+        project_path.join(resolve_inject_target(runtime))
+    }
+}
+
+/// Injects the msctl command reference block into AGENTS.md, CLAUDE.md, or
+/// (in MultiSoul-layout repos) `docs/references/msctl-inject.md`.
 ///
-/// - Picks target file based on runtime
+/// - Picks target file based on runtime and repo layout
 /// - Creates the file if it doesn't exist
 /// - Skips if the inject marker is already present (idempotent)
 /// - Appends to end of file, preserving existing content
 pub fn inject_context(runtime: &str, project_path: &Path) -> Result<()> {
-    let filename = resolve_inject_target(runtime);
-    let target = project_path.join(filename);
+    let target = inject_destination(project_path, runtime);
+    let display_name = target
+        .strip_prefix(project_path)
+        .map(|p| p.display().to_string())
+        .unwrap_or_else(|_| target.display().to_string());
 
     let existing = if target.exists() {
         std::fs::read_to_string(&target)
@@ -31,7 +46,7 @@ pub fn inject_context(runtime: &str, project_path: &Path) -> Result<()> {
     if existing.contains("<!-- msctl-inject-start -->") {
         println!(
             "msctl context already injected into {}. Skipping.",
-            filename
+            display_name
         );
         return Ok(());
     }
@@ -47,7 +62,7 @@ pub fn inject_context(runtime: &str, project_path: &Path) -> Result<()> {
     std::fs::write(&target, content)
         .with_context(|| format!("Cannot write to {}", target.display()))?;
 
-    println!("Injected msctl context into {}.", filename);
+    println!("Injected msctl context into {}.", display_name);
     Ok(())
 }
 
@@ -184,6 +199,25 @@ mod tests {
             existing_pos < inject_pos,
             "existing content must appear before the injected block"
         );
+    }
+
+    #[test]
+    fn test_inject_multisoul_layout_writes_refs_inject_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let refs = dir.path().join("docs/references");
+        std::fs::create_dir_all(&refs).unwrap();
+        std::fs::write(refs.join("README.md"), "# refs\n").unwrap();
+
+        inject_context("codex", dir.path()).unwrap();
+
+        let target = refs.join("msctl-inject.md");
+        assert!(target.exists(), "msctl-inject.md should be created");
+        assert!(
+            !dir.path().join("AGENTS.md").exists(),
+            "AGENTS.md must not be used when docs/references/README.md exists"
+        );
+        let content = std::fs::read_to_string(&target).unwrap();
+        assert!(content.contains("<!-- msctl-inject-start -->"));
     }
 
     /// resolve_inject_target: unknown runtime defaults to AGENTS.md

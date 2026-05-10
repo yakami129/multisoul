@@ -23,7 +23,10 @@
 
 ## 现状
 
-本目录暂为占位。当前 API 信息仍散落在：
+- [`cli-commands.md`](cli-commands.md) — `msctl` 子命令与参数表
+- [`msctl-inject.md`](msctl-inject.md) — `msctl inject` 维护的英文速记块（Codex/Cursor 场景写入此文件，见 `cli/src/commands/inject.rs`）
+
+其余 API 结构化契约仍部分散落在：
 
 - 仓库根 [`README.md`](../../README.md) — REST API 概览表
 - [`../../ARCHITECTURE.md`](../../ARCHITECTURE.md) — 协议总览

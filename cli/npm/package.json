@@ -1,6 +1,6 @@
 {
   "name": "@yakami129/msctl",
-  "version": "0.1.11",
+  "version": "0.1.12",
   "description": "MultiSoul CLI",
   "license": "MIT",
   "bin": {
