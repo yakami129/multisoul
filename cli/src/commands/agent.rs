@@ -1,3 +1,4 @@
+use crate::commands::inject::inject_context;
 use crate::db::{now_ms, open};
 use anyhow::{Context, Result};
 use clap::Subcommand;
@@ -122,6 +123,8 @@ pub fn insert_agent(
 fn register(conn: &Connection, name: &str, project: &str, runtime: &str, mode: &str) -> Result<()> {
     let id = insert_agent(conn, name, project, runtime, mode)?;
     println!("Agent registered. ID: {}", id);
+    // 注入 msctl 命令速查到工作空间
+    inject_context(&id, runtime, std::path::Path::new(project))?;
     Ok(())
 }
 
