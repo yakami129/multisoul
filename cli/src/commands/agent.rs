@@ -5,22 +5,30 @@ use rusqlite::Connection;
 use serde::Serialize;
 use uuid::Uuid;
 
+use crate::commands::agent_plugin::{
+    install_plugin, plugin_agents_dir, register_plugin, restart_plugin, uninstall_plugin,
+};
+
 #[derive(Subcommand)]
 pub enum AgentCommands {
-    /// Register a new agent in local serve.db
+    /// Register a new agent. Use --type plugin for plugin agents.
     Register {
         #[arg(long)]
         name: String,
+        /// Required for runtime agents; omit for plugin agents
         #[arg(long)]
-        project: String,
-        /// Runtime: claude-code | codex | cursor-cli (Cursor Agent CLI, `agent` on PATH)
+        project: Option<String>,
+        /// Runtime: claude-code | codex | cursor-cli
         #[arg(long, default_value = "claude-code")]
         runtime: String,
-        /// Permission mode (codex) or agent mode hint (cursor-cli: ask | plan): suggest | auto-edit | full-auto | yolo
+        /// Permission mode: suggest | auto-edit | full-auto | yolo
         #[arg(long, default_value = "full-auto")]
         mode: String,
+        /// Agent type: runtime (default) | plugin
+        #[arg(long, default_value = "runtime")]
+        r#type: String,
     },
-    /// List all registered agents
+    /// List all registered agents (runtime + plugin)
     List,
     /// Get agent details
     Get { id: String },
@@ -34,7 +42,7 @@ pub enum AgentCommands {
         #[arg(long)]
         runtime: Option<String>,
     },
-    /// Delete an agent (with confirmation)
+    /// Delete an agent record from DB (does not delete files)
     Delete { id: String },
     /// Invoke an agent (create conversation + send message)
     Invoke {
@@ -42,6 +50,15 @@ pub enum AgentCommands {
         #[arg(long)]
         message: String,
     },
+    /// Install a plugin agent executable from URL or local path
+    Install {
+        /// URL (https://...) or local path (./fix-bug-bot)
+        source: String,
+    },
+    /// Delete plugin agent executable and toml from disk
+    Uninstall { name: String },
+    /// Restart a failed plugin agent process (resets DB status)
+    Restart { id: String },
 }
 
 #[derive(Serialize, Debug)]
@@ -61,7 +78,16 @@ pub fn handle(cmd: AgentCommands) -> Result<()> {
             project,
             runtime,
             mode,
-        } => register(&conn, &name, &project, &runtime, &mode),
+            r#type,
+        } => {
+            if r#type == "plugin" {
+                let agents_dir = plugin_agents_dir()?;
+                register_plugin(&conn, &name, &agents_dir)
+            } else {
+                let project = project.context("--project is required for runtime agents")?;
+                register(&conn, &name, &project, &runtime, &mode)
+            }
+        }
         AgentCommands::List => list(&conn),
         AgentCommands::Get { id } => get(&conn, &id),
         AgentCommands::Update {
@@ -72,6 +98,9 @@ pub fn handle(cmd: AgentCommands) -> Result<()> {
         } => update(&conn, &id, name, project, runtime),
         AgentCommands::Delete { id } => delete(&conn, &id),
         AgentCommands::Invoke { id, message } => invoke(&conn, &id, &message),
+        AgentCommands::Install { source } => install_plugin(&source),
+        AgentCommands::Uninstall { name } => uninstall_plugin(&name),
+        AgentCommands::Restart { id } => restart_plugin(&conn, &id),
     }
 }
 
@@ -100,7 +129,7 @@ fn list(conn: &Connection) -> Result<()> {
     let mut stmt = conn.prepare(
         "SELECT id, name, project_path, runtime, created_at FROM agents ORDER BY created_at DESC",
     )?;
-    let agents: Vec<AgentRow> = stmt
+    let runtime_agents: Vec<AgentRow> = stmt
         .query_map([], |r| {
             Ok(AgentRow {
                 id: r.get(0)?,
@@ -113,16 +142,37 @@ fn list(conn: &Connection) -> Result<()> {
         .filter_map(|r| r.ok())
         .collect();
 
-    if agents.is_empty() {
+    let plugin_agents: Vec<(String, String, String, String)> = conn
+        .prepare("SELECT id, name, version, status FROM plugin_agents ORDER BY installed_at ASC")
+        .and_then(|mut s| {
+            s.query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))
+                .map(|rows| rows.filter_map(|r| r.ok()).collect())
+        })
+        .unwrap_or_default();
+
+    if runtime_agents.is_empty() && plugin_agents.is_empty() {
         println!("No agents registered.");
         return Ok(());
     }
-    println!("{:<36}  {:<20}  {:<12}  PROJECT", "ID", "NAME", "RUNTIME");
-    println!("{}", "-".repeat(100));
-    for a in &agents {
+
+    println!(
+        "{:<36}  {:<20}  {:<12}  {:<10}  PROJECT",
+        "ID", "NAME", "RUNTIME", "STATUS"
+    );
+    println!("{}", "-".repeat(110));
+    for a in &runtime_agents {
         println!(
-            "{:<36}  {:<20}  {:<12}  {}",
-            a.id, a.name, a.runtime, a.project_path
+            "{:<36}  {:<20}  {:<12}  {:<10}  {}",
+            a.id, a.name, a.runtime, "—", a.project_path
+        );
+    }
+    for (id, name, version, status) in &plugin_agents {
+        println!(
+            "{:<36}  {:<20}  {:<12}  {:<10}  —",
+            id,
+            format!("{} v{}", name, version),
+            name,
+            status
         );
     }
     Ok(())
@@ -336,5 +386,63 @@ mod tests {
             )
             .unwrap();
         assert_eq!(rt, "cursor-cli");
+    }
+
+    /// register --type plugin 写入 plugin_agents 表，不写 agents 表
+    ///
+    /// 数据构造：
+    ///   在 agents/ 目录创建 fix-bug-bot 可执行文件和 fix-bug-bot.toml
+    ///
+    /// 执行：
+    ///   1. 调用 register_plugin(&conn, "fix-bug-bot", &agents_dir)
+    ///   2. 查询 plugin_agents 表
+    ///   3. 查询 agents 表
+    ///
+    /// 预期：
+    ///   - plugin_agents 中有 name="fix-bug-bot" 的记录
+    ///   - agents 表记录数不变（零改动）
+    #[test]
+    fn test_register_plugin_writes_plugin_agents_not_agents() {
+        use std::fs;
+        let dir = tempfile::tempdir().unwrap();
+        let conn = crate::db::open_at(&dir.path().join("test.db")).unwrap();
+        let agents_dir = dir.path().join("agents");
+        fs::create_dir_all(&agents_dir).unwrap();
+
+        let exe = agents_dir.join("fix-bug-bot");
+        fs::write(&exe, b"#!/bin/sh\necho ok").unwrap();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            fs::set_permissions(&exe, fs::Permissions::from_mode(0o755)).unwrap();
+        }
+
+        let toml_content = r#"
+[agent]
+name = "fix-bug-bot"
+version = "0.1.0"
+executable = "fix-bug-bot"
+description = "test"
+
+[[triggers]]
+event = "feishu.issue.updated"
+"#;
+        fs::write(agents_dir.join("fix-bug-bot.toml"), toml_content).unwrap();
+
+        register_plugin(&conn, "fix-bug-bot", &agents_dir).unwrap();
+
+        let plugin_count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM plugin_agents WHERE name='fix-bug-bot'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(plugin_count, 1, "plugin_agents should have one record");
+
+        let agents_count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM agents", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(agents_count, 0, "agents table must not be modified");
     }
 }

@@ -123,6 +123,9 @@ fn clears_stale_codex_thread_id() {
         conn,
         "token".to_string(),
         std::path::PathBuf::from("/tmp/uploads"),
+        crate::serve::plugin::PluginManager::empty(std::sync::Arc::new(std::sync::Mutex::new(
+            rusqlite::Connection::open_in_memory().unwrap(),
+        ))),
     );
 
     clear_thread_id(&state, "conv-1");

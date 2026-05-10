@@ -8,6 +8,7 @@ use rand::Rng;
 use serde::Deserialize;
 use std::net::SocketAddr;
 use std::path::PathBuf;
+use std::sync::{Arc, Mutex};
 
 #[derive(Args)]
 pub struct ServeArgs {
@@ -39,12 +40,26 @@ pub fn generate_token() -> String {
 
 pub async fn handle(args: ServeArgs) -> Result<()> {
     let token = args.token.unwrap_or_else(generate_token);
-    let conn = db::open()?;
     let uploads_dir: PathBuf = dirs::config_dir()
         .unwrap_or_else(|| PathBuf::from("."))
         .join("msctl")
         .join("uploads");
-    let state = AppState::new(conn, token.clone(), uploads_dir);
+    let agents_dir: PathBuf = dirs::config_dir()
+        .unwrap_or_else(|| PathBuf::from("."))
+        .join("msctl")
+        .join("agents");
+
+    let db_arc = Arc::new(Mutex::new(db::open()?));
+    let plugin_manager =
+        crate::serve::plugin::PluginManager::start(Arc::clone(&db_arc), agents_dir).unwrap_or_else(
+            |e| {
+                tracing::warn!(err = %e, "plugin_manager_start_failed, using empty manager");
+                crate::serve::plugin::PluginManager::empty(Arc::clone(&db_arc))
+            },
+        );
+
+    let conn = db::open()?;
+    let state = AppState::new(conn, token.clone(), uploads_dir, plugin_manager);
 
     let bind_addr: SocketAddr = if args.tailnet {
         format!("0.0.0.0:{}", args.port).parse()?

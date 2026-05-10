@@ -75,6 +75,19 @@ fn init_schema(conn: &Connection) -> Result<()> {
     let _ = conn.execute_batch("ALTER TABLE conversations ADD COLUMN codex_thread_id TEXT;");
     let _ = conn.execute_batch("ALTER TABLE push_tokens ADD COLUMN endpoint_id TEXT;");
     let _ = conn.execute_batch("ALTER TABLE conversations ADD COLUMN cursor_session_id TEXT;");
+    // plugin_agents: plugin 可执行文件注册表
+    let _ = conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS plugin_agents (
+            id            TEXT PRIMARY KEY,
+            name          TEXT NOT NULL UNIQUE,
+            version       TEXT NOT NULL,
+            executable    TEXT NOT NULL,
+            status        TEXT NOT NULL DEFAULT 'stopped',
+            restart_count INTEGER NOT NULL DEFAULT 0,
+            installed_at  INTEGER NOT NULL,
+            updated_at    INTEGER NOT NULL
+        );",
+    );
     Ok(())
 }
 
@@ -197,5 +210,106 @@ mod tests {
             ts > 1_700_000_000_000,
             "now_ms should be a recent unix ms timestamp"
         );
+    }
+
+    /// plugin_agents 表在 open_at 后存在，且包含所有必要字段
+    ///
+    /// 执行：
+    ///   1. 打开临时 DB
+    ///   2. 查询 sqlite_master 确认表存在
+    ///   3. 查询 pragma_table_info 确认各字段存在
+    ///
+    /// 预期：
+    ///   - plugin_agents 表存在
+    ///   - 字段：id, name, version, executable, status, restart_count, installed_at, updated_at
+    #[test]
+    fn test_plugin_agents_table_exists() {
+        let dir = tempdir().unwrap();
+        let conn = open_at(&dir.path().join("test.db")).unwrap();
+
+        let table_exists: bool = conn
+            .query_row(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='plugin_agents'",
+                [],
+                |r| r.get::<_, i64>(0),
+            )
+            .unwrap()
+            > 0;
+        assert!(
+            table_exists,
+            "plugin_agents table must exist after migration"
+        );
+
+        for col in &[
+            "id",
+            "name",
+            "version",
+            "executable",
+            "status",
+            "restart_count",
+            "installed_at",
+            "updated_at",
+        ] {
+            let exists: bool = conn
+                .query_row(
+                    &format!(
+                        "SELECT COUNT(*) FROM pragma_table_info('plugin_agents') WHERE name='{}'",
+                        col
+                    ),
+                    [],
+                    |r| r.get::<_, i64>(0),
+                )
+                .unwrap()
+                > 0;
+            assert!(exists, "plugin_agents.{} column must exist", col);
+        }
+    }
+
+    /// plugin_agents upsert：重复注册同名 plugin 更新版本，不报错
+    ///
+    /// 执行：
+    ///   1. 插入 name="fix-bug-bot" version="0.1.0"
+    ///   2. upsert 同名 version="0.2.0"
+    ///   3. 查询确认只有一条记录，version 为 "0.2.0"
+    ///
+    /// 预期：
+    ///   - 记录数 = 1（不重复插入）
+    ///   - version = "0.2.0"（已更新）
+    #[test]
+    fn test_plugin_agents_upsert() {
+        let dir = tempdir().unwrap();
+        let conn = open_at(&dir.path().join("test.db")).unwrap();
+        let now = now_ms();
+
+        conn.execute(
+            "INSERT INTO plugin_agents (id, name, version, executable, status, restart_count, installed_at, updated_at)
+             VALUES ('id1', 'fix-bug-bot', '0.1.0', 'fix-bug-bot', 'stopped', 0, ?1, ?1)",
+            [now],
+        ).unwrap();
+
+        conn.execute(
+            "INSERT INTO plugin_agents (id, name, version, executable, status, installed_at, updated_at)
+             VALUES ('id2', 'fix-bug-bot', '0.2.0', 'fix-bug-bot', 'stopped', ?1, ?1)
+             ON CONFLICT(name) DO UPDATE SET version=excluded.version, updated_at=excluded.updated_at",
+            [now],
+        ).unwrap();
+
+        let count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM plugin_agents WHERE name='fix-bug-bot'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(count, 1, "upsert should not create duplicate rows");
+
+        let version: String = conn
+            .query_row(
+                "SELECT version FROM plugin_agents WHERE name='fix-bug-bot'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(version, "0.2.0", "version should be updated by upsert");
     }
 }
