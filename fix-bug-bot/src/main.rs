@@ -97,7 +97,7 @@ fn handle_feishu_issue(msg: &TaskMessage) {
         }
     };
 
-    let existing = db::find_by_feishu_id(&conn, &ctx.title).ok().flatten();
+    let existing = db::find_by_feishu_id(&conn, &ctx.feishu_issue_id).ok().flatten();
     if let Some(ref task) = existing {
         match pipeline::idempotency_check(&task.status) {
             pipeline::IdempotencyAction::Skip => {
@@ -120,7 +120,7 @@ fn handle_feishu_issue(msg: &TaskMessage) {
     let task_id = if let Some(ref task) = existing {
         task.id.clone()
     } else {
-        match db::insert_bug_task(&conn, &ctx.title) {
+        match db::insert_bug_task(&conn, &ctx.feishu_issue_id) {
             Ok(id) => id,
             Err(e) => {
                 AgentEvent::Error {

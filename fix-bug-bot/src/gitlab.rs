@@ -54,7 +54,9 @@ impl GitlabClient {
             .header("PRIVATE-TOKEN", &self.token)
             .json(&body)
             .send()
-            .context("GitLab create_issue request failed")?;
+            .context("GitLab create_issue request failed")?
+            .error_for_status()
+            .context("GitLab create_issue HTTP error")?;
         let issue: GitlabIssue = resp.json().context("GitLab create_issue parse failed")?;
         Ok(issue)
     }
@@ -67,7 +69,9 @@ impl GitlabClient {
             .header("PRIVATE-TOKEN", &self.token)
             .json(&Body { add_labels: label })
             .send()
-            .context("GitLab add_label failed")?;
+            .context("GitLab add_label failed")?
+            .error_for_status()
+            .context("GitLab add_label HTTP error")?;
         Ok(())
     }
 
@@ -97,7 +101,9 @@ impl GitlabClient {
             .header("PRIVATE-TOKEN", &self.token)
             .json(&body)
             .send()
-            .context("GitLab create_draft_mr failed")?;
+            .context("GitLab create_draft_mr failed")?
+            .error_for_status()
+            .context("GitLab create_draft_mr HTTP error")?;
         let mr: GitlabMr = resp.json().context("GitLab create_draft_mr parse failed")?;
         Ok(mr)
     }

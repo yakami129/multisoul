@@ -25,7 +25,7 @@ pub fn create(repo_path: &str, feishu_issue_id: &str) -> Result<PathBuf> {
     }
 
     let output = Command::new("git")
-        .args(["worktree", "add", "-b", &branch, wt_path.to_str().unwrap()])
+        .args(["worktree", "add", "-b", &branch, wt_path.to_str().ok_or_else(|| anyhow::anyhow!("non-UTF-8 worktree path"))?])
         .current_dir(repo_path)
         .output()
         .context("git worktree add failed")?;

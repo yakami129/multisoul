@@ -30,6 +30,8 @@ impl FeishuClient {
             .json(&Body { app_id: &self.app_id, app_secret: &self.app_secret })
             .send()
             .context("feishu get_token failed")?
+            .error_for_status()
+            .context("feishu get_token HTTP error")?
             .json()
             .context("feishu get_token parse failed")?;
         Ok(resp.tenant_access_token)
@@ -49,7 +51,9 @@ impl FeishuClient {
             .bearer_auth(&token)
             .json(&Body { receive_id: user_open_id, msg_type: "text", content })
             .send()
-            .context("feishu send_message failed")?;
+            .context("feishu send_message failed")?
+            .error_for_status()
+            .context("feishu send_message HTTP error")?;
         Ok(())
     }
 
@@ -65,7 +69,9 @@ impl FeishuClient {
             .bearer_auth(&token)
             .json(&Body { content: text })
             .send()
-            .context("feishu add_issue_comment failed")?;
+            .context("feishu add_issue_comment failed")?
+            .error_for_status()
+            .context("feishu add_issue_comment HTTP error")?;
         Ok(())
     }
 }

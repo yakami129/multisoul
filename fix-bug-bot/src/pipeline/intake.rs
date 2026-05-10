@@ -2,6 +2,7 @@ use anyhow::Result;
 
 #[derive(Debug, Clone)]
 pub struct IssueContext {
+    pub feishu_issue_id: String,
     pub title: String,
     pub description: String,
     pub reproduce_steps: String,
@@ -35,7 +36,15 @@ pub fn extract_issue_context(payload: &serde_json::Value) -> Result<IssueContext
         .unwrap_or("")
         .to_string();
 
+    let feishu_issue_id = issue
+        .get("id")
+        .or_else(|| issue.get("key"))
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+
     Ok(IssueContext {
+        feishu_issue_id,
         title: get_str("summary"),
         description: get_str("description"),
         reproduce_steps: get_str("reproduce_steps"),
@@ -100,6 +109,7 @@ mod tests {
         let payload = serde_json::json!({
             "event": {
                 "issue": {
+                    "id": "ISSUE-001",
                     "summary": "登录失败",
                     "description": "点击登录按钮后报错",
                     "reproduce_steps": "1. 打开 App\n2. 点击登录",
@@ -110,6 +120,7 @@ mod tests {
             }
         });
         let ctx = extract_issue_context(&payload).unwrap();
+        assert_eq!(ctx.feishu_issue_id, "ISSUE-001", "feishu_issue_id must match");
         assert_eq!(ctx.title, "登录失败", "title must match");
         assert_eq!(ctx.assignee, "张三", "assignee must match");
         assert_eq!(ctx.module, "用户中心", "module must match");
@@ -118,6 +129,7 @@ mod tests {
     #[test]
     fn test_build_sufficiency_prompt() {
         let ctx = IssueContext {
+            feishu_issue_id: "ISSUE-001".to_string(),
             title: "登录失败".to_string(),
             description: "报错".to_string(),
             reproduce_steps: "1. 打开 App".to_string(),
