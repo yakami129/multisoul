@@ -1,0 +1,14 @@
+[agent]
+name        = "echo-agent"
+version     = "0.1.0"
+executable  = "echo-agent"
+description = "Protocol smoke-test agent: echoes every TaskMessage back as a result event."
+
+[[triggers]]
+event = "feishu.issue.updated"
+
+[[triggers]]
+event = "gitlab.push_hook"
+
+[[triggers]]
+event = "test.ping"
