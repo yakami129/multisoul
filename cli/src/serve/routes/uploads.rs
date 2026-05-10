@@ -74,7 +74,9 @@ mod tests {
     fn make_app(uploads_dir: PathBuf) -> axum::Router {
         let dir = tempdir().unwrap();
         let conn = db::open_at(&dir.path().join("t.db")).unwrap();
-        let state = AppState::new(conn, "tok".to_string(), uploads_dir);
+        let state = AppState::new(conn, "tok".to_string(), uploads_dir,
+            crate::serve::plugin::PluginManager::empty(std::sync::Arc::new(std::sync::Mutex::new(crate::db::open_at(&dir.path().join("pm.db")).unwrap())))
+        );
         axum::Router::new()
             .route("/api/v1/uploads", axum::routing::post(upload_image))
             .layer(DefaultBodyLimit::max(6 * 1024 * 1024))

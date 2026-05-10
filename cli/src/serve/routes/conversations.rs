@@ -202,6 +202,8 @@ mod tests {
             conn,
             token.to_string(),
             std::path::PathBuf::from("/tmp/uploads"),
+
+            crate::serve::plugin::PluginManager::empty(std::sync::Arc::new(std::sync::Mutex::new(crate::db::open_at(&dir.path().join("pm.db")).unwrap())))
         );
         let app = axum::Router::new()
             .route(
@@ -263,6 +265,8 @@ mod tests {
             conn,
             token.to_string(),
             std::path::PathBuf::from("/tmp/uploads"),
+
+            crate::serve::plugin::PluginManager::empty(std::sync::Arc::new(std::sync::Mutex::new(crate::db::open_at(&dir.path().join("pm.db")).unwrap())))
         );
         let app = axum::Router::new()
             .route(
@@ -385,6 +389,8 @@ mod tests {
             conn,
             token.to_string(),
             std::path::PathBuf::from("/tmp/uploads"),
+
+            crate::serve::plugin::PluginManager::empty(std::sync::Arc::new(std::sync::Mutex::new(crate::db::open_at(&dir.path().join("pm.db")).unwrap())))
         );
         let app = axum::Router::new()
             .route(

@@ -1,6 +1,7 @@
 pub mod auth;
 pub mod daemon;
 pub mod interactive;
+pub mod plugin;
 pub mod push;
 #[cfg(test)]
 mod push_tests;
@@ -118,7 +119,12 @@ mod router_tests {
         let dir = tempdir().unwrap();
         let conn = db::open_at(&dir.path().join("t.db")).unwrap();
         let uploads = dir.path().join("uploads");
-        AppState::new(conn, "ms_v2_tok".to_string(), uploads)
+        let pm = crate::serve::plugin::PluginManager::empty(
+            std::sync::Arc::new(std::sync::Mutex::new(
+                db::open_at(&dir.path().join("p.db")).unwrap()
+            ))
+        );
+        AppState::new(conn, "ms_v2_tok".to_string(), uploads, pm)
     }
 
     /// healthz 无需 Bearer token 应返回 200

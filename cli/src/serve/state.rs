@@ -1,4 +1,5 @@
 use crate::serve::interactive::AnswerPayload;
+use crate::serve::plugin::PluginManager;
 use rusqlite::Connection;
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -25,10 +26,16 @@ pub struct AppState {
     pub bus: ConvBus,
     pub sessions: SessionMap,
     pub answer_txs: AnswerMap,
+    pub plugin_manager: Arc<PluginManager>,
 }
 
 impl AppState {
-    pub fn new(conn: Connection, token: String, uploads_dir: PathBuf) -> Self {
+    pub fn new(
+        conn: Connection,
+        token: String,
+        uploads_dir: PathBuf,
+        plugin_manager: Arc<PluginManager>,
+    ) -> Self {
         AppState {
             db: Arc::new(Mutex::new(conn)),
             token,
@@ -36,6 +43,7 @@ impl AppState {
             bus: Arc::new(Mutex::new(HashMap::new())),
             sessions: Arc::new(Mutex::new(HashMap::new())),
             answer_txs: Arc::new(Mutex::new(HashMap::new())),
+            plugin_manager,
         }
     }
 
@@ -104,7 +112,14 @@ mod tests {
         let dir = tempdir().unwrap();
         let uploads_dir = dir.path().join("uploads");
         let conn = db::open_at(&dir.path().join("t.db")).unwrap();
-        let state = AppState::new(conn, "ms_v2_tok".to_string(), uploads_dir.clone());
+        let state = AppState::new(
+            conn,
+            "ms_v2_tok".to_string(),
+            uploads_dir.clone(),
+            crate::serve::plugin::PluginManager::empty(std::sync::Arc::new(std::sync::Mutex::new(
+                db::open_at(&dir.path().join("pm.db")).unwrap()
+            ))),
+        );
         assert_eq!(
             state.uploads_dir, uploads_dir,
             "uploads_dir should be stored in AppState"
