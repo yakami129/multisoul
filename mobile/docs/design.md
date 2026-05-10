@@ -399,3 +399,4 @@ Hero 中心区四角放置 `[+]` 文字标记（Inter 12px，`#147A16`），绝�
 - [ ] 文字面板 gap 是否为 20px，padding 是否为 60px？
 - [ ] 扫描线 overlay 是否在 Hero Section 顶层？
 - [ ] Dark 模式（本设计即暗色模式）是否正常？
+# Randomly added by Kilo

@@ -19,6 +19,10 @@
       "title": "Chat 图片上传 SPEC"
     },
     {
+      "file": "SPEC-fix-bug-bot.md",
+      "title": "Fix-Bug-Bot SPEC"
+    },
+    {
       "file": "SPEC-github-actions-cicd.md",
       "title": "GitHub Actions CI/CD SPEC"
     },

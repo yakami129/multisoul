@@ -109,6 +109,7 @@ pub(super) fn process_turn(
                             let db = state.db.lock().unwrap();
                             if let Ok(seq) = insert_message(&db, conv_id, "ask_question", &payload)
                             {
+                                push::send_ask_question_push(&db, conv_id, &payload);
                                 drop(db);
                                 broadcast(state, conv_id, seq, "ask_question", payload);
                             }

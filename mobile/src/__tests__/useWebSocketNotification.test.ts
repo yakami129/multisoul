@@ -1,16 +1,14 @@
-/// Tests that useWebSocket calls notifyTaskComplete when a task_status
-/// message with status=completed arrives over the WebSocket.
+/// Tests that useWebSocket does not create duplicate local notifications for
+/// task_status messages. Completion push is owned by the CLI.
 
 import { renderHook, act } from '@testing-library/react-native';
 import { useWebSocket } from '@/hooks/useWebSocket';
 import { notifyTaskComplete } from '@/services/notificationService';
 
-// Mock notificationService — factory must not reference outer variables due to hoisting
 jest.mock('@/services/notificationService', () => ({
   notifyTaskComplete: jest.fn().mockResolvedValue(undefined),
 }));
 
-// Typed reference to the mocked function for assertions
 const mockNotifyTaskComplete = notifyTaskComplete as jest.MockedFunction<typeof notifyTaskComplete>;
 
 // Mock dependencies
@@ -55,12 +53,12 @@ global.WebSocket = jest.fn().mockImplementation(() => {
   return mockWs;
 }) as unknown as typeof WebSocket;
 
-describe('useWebSocket task_status notification', () => {
+describe('useWebSocket task_status notification dedupe', () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
-  it('calls notifyTaskComplete when task_status completed message arrives', async () => {
+  it('does NOT call notifyTaskComplete when task_status completed message arrives', async () => {
     const { unmount } = renderHook(() =>
       useWebSocket({
         base_url: 'http://localhost:8080',
@@ -93,14 +91,7 @@ describe('useWebSocket task_status notification', () => {
       });
     });
 
-    expect(mockNotifyTaskComplete).toHaveBeenCalledTimes(1);
-    expect(mockNotifyTaskComplete).toHaveBeenCalledWith({
-      agentName: 'Deploy Bot',
-      summary: 'Build succeeded',
-      agentId: 'agent-1',
-      convId: 'conv-1',
-      endpointId: 'ep-1',
-    });
+    expect(mockNotifyTaskComplete).not.toHaveBeenCalled();
 
     unmount();
   });

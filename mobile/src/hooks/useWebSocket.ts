@@ -3,7 +3,6 @@ import { fetchMessages } from '@/features/chat/services/chatService';
 import { markAskAnswered, loadAnsweredAsks } from '@/features/inbox/services/inboxService';
 import { buildAskQuestionInboxItem } from '@/features/inbox/utils/buildAskQuestionInboxItem';
 import { mirrorAskQuestionsToInbox } from '@/features/inbox/utils/mirrorAskQuestionsToInbox';
-import { notifyTaskComplete } from '@/services/notificationService';
 import { useChatStore } from '@/store/chatStore';
 import { useInboxStore } from '@/store/inboxStore';
 import {
@@ -165,22 +164,12 @@ export function useWebSocket({
             void addInboxItemRef.current(item);
           }
 
-          // Notify user when a task completes
           if (msg.role === 'task_status' && msg.payload) {
             const p = msg.payload as TaskStatusPayload;
             updateConversationRef.current(conv_id, {
               status: p.status as Conversation['status'],
               last_message_at: msg.created_at,
             });
-            if (p.status === 'completed') {
-              void notifyTaskComplete({
-                agentName: agent_name ?? agent_id,
-                summary: p.summary,
-                agentId: agent_id,
-                convId: conv_id,
-                endpointId: endpoint_id,
-              });
-            }
           }
         }
       } catch {

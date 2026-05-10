@@ -325,7 +325,7 @@ Codex 使用 `codex exec` / `codex exec resume <thread_id>` 命令：
 
 - **线程 ID**：第一轮执行后会拿到 `codex_thread_id`，后续 resume 时传入。
 - **预热（pre-warm）**：每轮成功后立即在后台 spawn 下一个 `codex exec resume` 进程，抵消 Node.js 启动延迟。
-- **模式标志**：`mode` 字段映射到 `--full-auto` / `--dangerously-bypass-approvals-and-sandbox` 等 CLI 标志（见 `codex::mode_flags()`）。
+- **模式标志**：`mode` 字段映射到 Codex CLI 配置覆盖；`full-auto` / `auto-edit` 通过 `-c approval_policy="never"` 与 `-c sandbox_mode="workspace-write"` 非交互执行，`yolo` 映射到 `--dangerously-bypass-approvals-and-sandbox`（见 `codex::mode_flags()`）。
 - **重试**：失败时最多重试 3 次；若遇到 `"thread ... not found"` 错误，清空 `codex_thread_id` 重新开始。
 
 ---

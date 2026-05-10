@@ -28,7 +28,7 @@
         },
         {
           "path": "cli/src/serve/runtime/codex.rs",
-          "sha256": "ec6dbae4fd0c7401dcf23adb94747c61ae06dfd729d0e198c80dc886099f2f96",
+          "sha256": "9a958e0bb547fa16ff66de86f1657234fb32005e2048c15f106594ebdaf1876f",
           "reason": "Codex runtime 是现有 adapter 示例；文档 runtime 列表与接入说明引用它。"
         },
         {
@@ -66,7 +66,24 @@
     },
     {
       "file": "2026-04-30-task-notification-design.md",
-      "title": "任务完成通知技术设计"
+      "title": "任务完成通知技术设计",
+      "trackedFiles": [
+        {
+          "path": "cli/src/serve/push.rs",
+          "sha256": "0e98cbfa151f73b15e252c7fe675fec08a8d926d07a947de82a328a6c4e1f2fb",
+          "reason": "通知发送权、payload 结构、问答/完成互斥逻辑由本文档定义。"
+        },
+        {
+          "path": "cli/src/serve/runtime/claude_stream.rs",
+          "sha256": "d63e3c380da05cff61b10ea244cf167ce4e92e490f8f9fb3d5eb6af1288c5799",
+          "reason": "Claude AskUserQuestion 触发问答推送的时机由本文档定义。"
+        },
+        {
+          "path": "mobile/src/hooks/useWebSocket.ts",
+          "sha256": "e9d3b787d3386ee741c68fa50952280ab956bf4d38526b68be0e82c3279a701f",
+          "reason": "Mobile WebSocket 端不再调度本地完成通知，以避免重复推送。"
+        }
+      ]
     },
     {
       "file": "2026-04-29-codex-runtime-integration-design.md",
