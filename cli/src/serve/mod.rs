@@ -18,7 +18,9 @@ pub async fn build_router(state: AppState) -> Router {
     use routes::*;
 
     let public_router = Router::new()
-        .route("/api/v1/healthz", axum::routing::get(healthz::healthz));
+        .route("/api/v1/healthz", axum::routing::get(healthz::healthz))
+        .route("/webhook/feishu", axum::routing::post(webhook::feishu_webhook))
+        .route("/webhook/gitlab", axum::routing::post(webhook::gitlab_webhook));
 
     let authed_router = Router::new()
         .route("/api/v1/agents", axum::routing::get(agents::list_agents))
