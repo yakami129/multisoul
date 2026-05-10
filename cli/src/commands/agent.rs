@@ -124,7 +124,7 @@ fn register(conn: &Connection, name: &str, project: &str, runtime: &str, mode: &
     let id = insert_agent(conn, name, project, runtime, mode)?;
     println!("Agent registered. ID: {}", id);
     // 注入 msctl 命令速查到工作空间
-    inject_context(&id, runtime, std::path::Path::new(project))?;
+    inject_context(runtime, std::path::Path::new(project))?;
     Ok(())
 }
 

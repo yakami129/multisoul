@@ -1,59 +1,31 @@
 <!-- msctl-inject-start -->
-## msctl — Agent 控制台命令参考
+## msctl Quick Reference
 
-> **Agent ID:** {{agent_id}}
-> **Endpoint:** {{endpoint}}
-> **Auth:** `Authorization: Bearer {{token}}`
-
-### 启动 / 停止服务
+### Service
 
 ```bash
-# 启动本地 serve（默认端口 8765）
-msctl serve
-
-# 查看运行日志
-msctl logs
+msctl serve                  # Start local server (default port 8765)
+msctl logs                   # Tail server logs
+msctl daemon quickstart      # Install and start as background service
+msctl daemon status          # Check service status
+msctl daemon restart         # Restart background service
 ```
 
-### Agent 管理
+### Agent
 
 ```bash
-# 列出所有已注册 agent
-msctl agent list
-
-# 查看当前 agent 详情
-msctl agent get {{agent_id}}
-
-# 注册新 agent（claude-code runtime）
+msctl agent list             # List all registered agents
+msctl agent get <id>         # Show agent details
 msctl agent register --name <name> --project <path> --runtime claude-code
-
-# 注册新 agent（codex runtime）
 msctl agent register --name <name> --project <path> --runtime codex
-
-# 删除 agent
+msctl agent invoke <id> --message "<task>"
 msctl agent delete <id>
 ```
 
-### 对话 / 消息
+### Auth
 
 ```bash
-# 向当前 agent 发起对话
-msctl agent invoke {{agent_id}} --message "帮我修复这个 bug"
-
-# 查看 agent 的对话列表（需要 serve 运行）
-curl -H "Authorization: Bearer {{token}}" \
-  {{endpoint}}/api/v1/agents/{{agent_id}}/conversations
-
-# 查看对话消息
-curl -H "Authorization: Bearer {{token}}" \
-  {{endpoint}}/api/v1/conversations/<conv_id>/messages
-```
-
-### 健康检查
-
-```bash
-# 无需 token
-curl {{endpoint}}/api/v1/healthz
+msctl auth --help            # Configure authentication token
 ```
 
 <!-- msctl-inject-end -->
