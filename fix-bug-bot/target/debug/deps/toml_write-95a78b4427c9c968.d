@@ -1,0 +1,11 @@
+/Users/alan/Documents/codes/yakami0129/multisoul/.claude/worktrees/fix-bug-bot/fix-bug-bot/target/debug/deps/toml_write-95a78b4427c9c968.d: /Users/alan/.cargo/registry/src/rsproxy.cn-e3de039b2554c837/toml_write-0.1.2/src/lib.rs /Users/alan/.cargo/registry/src/rsproxy.cn-e3de039b2554c837/toml_write-0.1.2/src/key.rs /Users/alan/.cargo/registry/src/rsproxy.cn-e3de039b2554c837/toml_write-0.1.2/src/string.rs /Users/alan/.cargo/registry/src/rsproxy.cn-e3de039b2554c837/toml_write-0.1.2/src/value.rs /Users/alan/.cargo/registry/src/rsproxy.cn-e3de039b2554c837/toml_write-0.1.2/src/write.rs
+
+/Users/alan/Documents/codes/yakami0129/multisoul/.claude/worktrees/fix-bug-bot/fix-bug-bot/target/debug/deps/libtoml_write-95a78b4427c9c968.rlib: /Users/alan/.cargo/registry/src/rsproxy.cn-e3de039b2554c837/toml_write-0.1.2/src/lib.rs /Users/alan/.cargo/registry/src/rsproxy.cn-e3de039b2554c837/toml_write-0.1.2/src/key.rs /Users/alan/.cargo/registry/src/rsproxy.cn-e3de039b2554c837/toml_write-0.1.2/src/string.rs /Users/alan/.cargo/registry/src/rsproxy.cn-e3de039b2554c837/toml_write-0.1.2/src/value.rs /Users/alan/.cargo/registry/src/rsproxy.cn-e3de039b2554c837/toml_write-0.1.2/src/write.rs
+
+/Users/alan/Documents/codes/yakami0129/multisoul/.claude/worktrees/fix-bug-bot/fix-bug-bot/target/debug/deps/libtoml_write-95a78b4427c9c968.rmeta: /Users/alan/.cargo/registry/src/rsproxy.cn-e3de039b2554c837/toml_write-0.1.2/src/lib.rs /Users/alan/.cargo/registry/src/rsproxy.cn-e3de039b2554c837/toml_write-0.1.2/src/key.rs /Users/alan/.cargo/registry/src/rsproxy.cn-e3de039b2554c837/toml_write-0.1.2/src/string.rs /Users/alan/.cargo/registry/src/rsproxy.cn-e3de039b2554c837/toml_write-0.1.2/src/value.rs /Users/alan/.cargo/registry/src/rsproxy.cn-e3de039b2554c837/toml_write-0.1.2/src/write.rs
+
+/Users/alan/.cargo/registry/src/rsproxy.cn-e3de039b2554c837/toml_write-0.1.2/src/lib.rs:
+/Users/alan/.cargo/registry/src/rsproxy.cn-e3de039b2554c837/toml_write-0.1.2/src/key.rs:
+/Users/alan/.cargo/registry/src/rsproxy.cn-e3de039b2554c837/toml_write-0.1.2/src/string.rs:
+/Users/alan/.cargo/registry/src/rsproxy.cn-e3de039b2554c837/toml_write-0.1.2/src/value.rs:
+/Users/alan/.cargo/registry/src/rsproxy.cn-e3de039b2554c837/toml_write-0.1.2/src/write.rs:

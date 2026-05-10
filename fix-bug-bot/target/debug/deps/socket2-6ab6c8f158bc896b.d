@@ -1,0 +1,11 @@
+/Users/alan/Documents/codes/yakami0129/multisoul/.claude/worktrees/fix-bug-bot/fix-bug-bot/target/debug/deps/socket2-6ab6c8f158bc896b.d: /Users/alan/.cargo/registry/src/rsproxy.cn-e3de039b2554c837/socket2-0.5.10/src/lib.rs /Users/alan/.cargo/registry/src/rsproxy.cn-e3de039b2554c837/socket2-0.5.10/src/sockaddr.rs /Users/alan/.cargo/registry/src/rsproxy.cn-e3de039b2554c837/socket2-0.5.10/src/socket.rs /Users/alan/.cargo/registry/src/rsproxy.cn-e3de039b2554c837/socket2-0.5.10/src/sockref.rs /Users/alan/.cargo/registry/src/rsproxy.cn-e3de039b2554c837/socket2-0.5.10/src/sys/unix.rs
+
+/Users/alan/Documents/codes/yakami0129/multisoul/.claude/worktrees/fix-bug-bot/fix-bug-bot/target/debug/deps/libsocket2-6ab6c8f158bc896b.rlib: /Users/alan/.cargo/registry/src/rsproxy.cn-e3de039b2554c837/socket2-0.5.10/src/lib.rs /Users/alan/.cargo/registry/src/rsproxy.cn-e3de039b2554c837/socket2-0.5.10/src/sockaddr.rs /Users/alan/.cargo/registry/src/rsproxy.cn-e3de039b2554c837/socket2-0.5.10/src/socket.rs /Users/alan/.cargo/registry/src/rsproxy.cn-e3de039b2554c837/socket2-0.5.10/src/sockref.rs /Users/alan/.cargo/registry/src/rsproxy.cn-e3de039b2554c837/socket2-0.5.10/src/sys/unix.rs
+
+/Users/alan/Documents/codes/yakami0129/multisoul/.claude/worktrees/fix-bug-bot/fix-bug-bot/target/debug/deps/libsocket2-6ab6c8f158bc896b.rmeta: /Users/alan/.cargo/registry/src/rsproxy.cn-e3de039b2554c837/socket2-0.5.10/src/lib.rs /Users/alan/.cargo/registry/src/rsproxy.cn-e3de039b2554c837/socket2-0.5.10/src/sockaddr.rs /Users/alan/.cargo/registry/src/rsproxy.cn-e3de039b2554c837/socket2-0.5.10/src/socket.rs /Users/alan/.cargo/registry/src/rsproxy.cn-e3de039b2554c837/socket2-0.5.10/src/sockref.rs /Users/alan/.cargo/registry/src/rsproxy.cn-e3de039b2554c837/socket2-0.5.10/src/sys/unix.rs
+
+/Users/alan/.cargo/registry/src/rsproxy.cn-e3de039b2554c837/socket2-0.5.10/src/lib.rs:
+/Users/alan/.cargo/registry/src/rsproxy.cn-e3de039b2554c837/socket2-0.5.10/src/sockaddr.rs:
+/Users/alan/.cargo/registry/src/rsproxy.cn-e3de039b2554c837/socket2-0.5.10/src/socket.rs:
+/Users/alan/.cargo/registry/src/rsproxy.cn-e3de039b2554c837/socket2-0.5.10/src/sockref.rs:
+/Users/alan/.cargo/registry/src/rsproxy.cn-e3de039b2554c837/socket2-0.5.10/src/sys/unix.rs:
