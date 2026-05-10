@@ -15,8 +15,11 @@ use tower_http::cors::CorsLayer;
 
 pub async fn build_router(state: AppState) -> Router {
     use routes::*;
-    Router::new()
-        .route("/api/v1/healthz", axum::routing::get(healthz::healthz))
+
+    let public_router = Router::new()
+        .route("/api/v1/healthz", axum::routing::get(healthz::healthz));
+
+    let authed_router = Router::new()
         .route("/api/v1/agents", axum::routing::get(agents::list_agents))
         .route("/api/v1/agents/:id", axum::routing::get(agents::get_agent))
         .route(
@@ -45,15 +48,16 @@ pub async fn build_router(state: AppState) -> Router {
             axum::routing::delete(push_tokens::delete_token),
         )
         .route("/ws/conversations/:id", axum::routing::get(ws::ws_handler))
-        .route(
-            "/api/v1/uploads",
-            axum::routing::post(uploads::upload_image),
-        )
-        .layer(middleware::from_fn(http_trace::trace_request))
+        .route("/api/v1/uploads", axum::routing::post(uploads::upload_image))
         .layer(middleware::from_fn_with_state(
             state.clone(),
             auth::bearer_auth,
-        ))
+        ));
+
+    Router::new()
+        .merge(public_router)
+        .merge(authed_router)
+        .layer(middleware::from_fn(http_trace::trace_request))
         .layer(CorsLayer::permissive())
         .with_state(state)
 }
@@ -73,7 +77,6 @@ mod http_trace {
     use tracing::{info, warn, Instrument};
     use uuid::Uuid;
 
-    /// Per-request span with request_id + structured http_request event at exit.
     pub async fn trace_request(req: Request, next: Next) -> Response {
         let request_id = Uuid::new_v4().to_string();
         let method = req.method().clone();
@@ -99,5 +102,52 @@ mod http_trace {
         }
         .instrument(span)
         .await
+    }
+}
+
+#[cfg(test)]
+mod router_tests {
+    use super::*;
+    use axum::body::Body;
+    use axum::http::{Request, StatusCode};
+    use tower::ServiceExt;
+    use crate::db;
+    use tempfile::tempdir;
+
+    async fn test_state() -> AppState {
+        let dir = tempdir().unwrap();
+        let conn = db::open_at(&dir.path().join("t.db")).unwrap();
+        let uploads = dir.path().join("uploads");
+        AppState::new(conn, "ms_v2_tok".to_string(), uploads)
+    }
+
+    /// healthz 无需 Bearer token 应返回 200
+    ///
+    /// 执行：不带 Authorization header 请求 /api/v1/healthz
+    /// 预期：200 OK（healthz 在 public_router，不经过 bearer_auth）
+    #[tokio::test]
+    async fn test_healthz_no_auth_returns_200() {
+        let state = test_state().await;
+        let app = build_router(state).await;
+        let resp = app
+            .oneshot(Request::builder().uri("/api/v1/healthz").body(Body::empty()).unwrap())
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::OK, "healthz should not require auth");
+    }
+
+    /// 受保护路由无 token 应返回 401
+    ///
+    /// 执行：不带 Authorization header 请求 /api/v1/agents
+    /// 预期：401 UNAUTHORIZED
+    #[tokio::test]
+    async fn test_agents_no_auth_returns_401() {
+        let state = test_state().await;
+        let app = build_router(state).await;
+        let resp = app
+            .oneshot(Request::builder().uri("/api/v1/agents").body(Body::empty()).unwrap())
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::UNAUTHORIZED, "agents should require auth");
     }
 }
