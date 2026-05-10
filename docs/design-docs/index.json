@@ -13,7 +13,7 @@
         },
         {
           "path": "cli/src/serve/state.rs",
-          "sha256": "67581467840a8269362edd33870b3dfd62f05bc1731442edec9b0beaf3e8d1b2",
+          "sha256": "5a3aae5a3113568ac3781416079d57a538f065d1a0c0b051139fb4ddd602fc93",
           "reason": "AppState、SessionMessage 与 runtime worker 通信结构由文档核心数据结构章节引用。"
         },
         {
@@ -38,7 +38,7 @@
         },
         {
           "path": "cli/src/db.rs",
-          "sha256": "32c861d7040b37f6af379d6dd291142c1263fb5e29c9054d3c1b0bc6630ba878",
+          "sha256": "da33c610b062b21bdf39c0fadaee2102392c54293fc64f8b47c580e97677c664",
           "reason": "文档说明 runtime 持久化字段和 migration 纪律；DB schema 演进会影响该章节。"
         },
         {

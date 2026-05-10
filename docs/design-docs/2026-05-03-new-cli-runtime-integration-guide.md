@@ -52,12 +52,14 @@ pub struct AppState {
     pub bus: ConvBus,                    // conv_id → broadcast::Sender<String>（WS 推送）
     pub sessions: SessionMap,            // conv_id → mpsc::Sender<SessionMessage>（runtime 写入）
     pub answer_txs: AnswerMap,           // conv_id → mpsc::SyncSender<AnswerPayload>（交互回答）
+    pub plugin_manager: Arc<PluginManager>, // plugin agent 进程管理器
 }
 ```
 
 **关键约定：**
 - `sessions` map 里若已有该 conv 的 sender，说明 worker 正在运行，直接 `tx.send()` 即可。
 - sender 断裂（worker crash）时重建，这是唯一允许重建 worker 的时机。
+- `plugin_manager` 在 `msctl serve` 启动时初始化，加载 `plugin_agents` 表中所有已注册的 plugin agent 进程；serve 退出时调用 `shutdown()` 将状态写回 DB。
 
 ### 3.2 SessionMessage
 
@@ -349,6 +351,8 @@ Codex 使用 `codex exec` / `codex exec resume <thread_id>` 命令：
 > **2026-05-03 更新**：`cursor.rs` 中 `match "system"` arm 改为 guard pattern（`"system" if … =>`），消除 Clippy `collapsible_match` 警告，逻辑不变。
 >
 > **2026-05-04**：`cursor.rs` 与 `cli/src/db.rs` 后续变更已与本文档及 `docs/design-docs/index.json` 中的 doc-code-hash 跟踪项同步。
+>
+> **2026-05-10**：`AppState` 新增 `plugin_manager: Arc<PluginManager>` 字段，用于管理 plugin agent 进程生命周期。`cli/src/db.rs` 新增 `plugin_agents` 表 migration（id/name/version/executable/status/restart_count/installed_at/updated_at），`agents` 表零改动。
 
 完成实现后，按 `CLAUDE.md §5` 跑：
 

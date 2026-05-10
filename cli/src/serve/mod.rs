@@ -66,11 +66,13 @@ pub async fn build_router(state: AppState) -> Router {
 }
 
 pub async fn run_server(state: AppState, addr: std::net::SocketAddr) -> Result<()> {
-    let router = build_router(state).await;
+    let router = build_router(state.clone()).await;
     let listener = tokio::net::TcpListener::bind(addr).await?;
     println!("Listening on http://{}", addr);
     tracing::info!(addr = %addr, "serve_listening");
     axum::serve(listener, router).await?;
+    // serve が終了したら全 plugin agent の status を stopped に更新
+    state.plugin_manager.shutdown();
     Ok(())
 }
 

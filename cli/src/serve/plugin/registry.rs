@@ -55,24 +55,27 @@ pub fn load_plugins(db: &Arc<Mutex<Connection>>, agents_dir: &std::path::Path) -
     let mut configs = Vec::new();
     for (id, name, version, executable) in rows {
         let toml_path = agents_dir.join(format!("{}.toml", name));
-        let triggers = if toml_path.exists() {
+        let (resolved_exe, triggers) = if toml_path.exists() {
             let s = std::fs::read_to_string(&toml_path).unwrap_or_default();
             let cfg: PluginToml = toml::from_str(&s).unwrap_or(PluginToml {
                 agent: PluginAgentSection { executable: executable.clone() },
                 triggers: vec![],
             });
-            cfg.triggers
+            // toml の executable が DB と異なる場合は toml を優先
+            let exe = cfg.agent.executable;
+            let trigs = cfg.triggers
                 .into_iter()
                 .map(|t| TriggerConfig { event: t.event, filter: t.filter })
-                .collect()
+                .collect();
+            (exe, trigs)
         } else {
-            vec![]
+            (executable, vec![])
         };
         configs.push(PluginConfig {
             id,
             name,
             version,
-            executable: agents_dir.join(&executable),
+            executable: agents_dir.join(&resolved_exe),
             triggers,
         });
     }
@@ -83,7 +86,11 @@ pub fn load_plugins(db: &Arc<Mutex<Connection>>, agents_dir: &std::path::Path) -
 pub fn build_routes(configs: &[PluginConfig]) -> HashMap<String, Vec<String>> {
     let mut routes: HashMap<String, Vec<String>> = HashMap::new();
     for cfg in configs {
+        tracing::debug!(id = %cfg.id, name = %cfg.name, version = %cfg.version, "loading plugin routes");
         for trigger in &cfg.triggers {
+            if let Some(filter) = &trigger.filter {
+                tracing::debug!(event = %trigger.event, filter = %filter, "trigger with filter");
+            }
             routes.entry(trigger.event.clone()).or_default().push(cfg.name.clone());
         }
     }
