@@ -25,7 +25,15 @@ msctl agent delete <id>
 ### Auth
 
 ```bash
-msctl auth --help            # Configure authentication token
+msctl auth login             # Save serve token to local config
+msctl auth status            # Show current auth status
+```
+
+### Update
+
+```bash
+cargo install msctl --force  # Update to latest version
+msctl --version              # Check current version
 ```
 
 <!-- msctl-inject-end -->
