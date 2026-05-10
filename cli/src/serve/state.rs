@@ -117,7 +117,7 @@ mod tests {
             "ms_v2_tok".to_string(),
             uploads_dir.clone(),
             crate::serve::plugin::PluginManager::empty(std::sync::Arc::new(std::sync::Mutex::new(
-                db::open_at(&dir.path().join("pm.db")).unwrap()
+                db::open_at(&dir.path().join("pm.db")).unwrap(),
             ))),
         );
         assert_eq!(

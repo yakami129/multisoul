@@ -1,10 +1,10 @@
+use crate::serve::state::AppState;
 use axum::{
     extract::State,
     http::{HeaderMap, StatusCode},
     response::IntoResponse,
     Json,
 };
-use crate::serve::state::AppState;
 use serde_json::Value;
 use uuid::Uuid;
 
@@ -55,7 +55,9 @@ pub async fn feishu_webhook(
         .to_string();
 
     let conversation_id = Uuid::new_v4().to_string();
-    state.plugin_manager.dispatch(&event_type, &conversation_id, payload);
+    state
+        .plugin_manager
+        .dispatch(&event_type, &conversation_id, payload);
 
     StatusCode::OK.into_response()
 }
@@ -92,7 +94,9 @@ pub async fn gitlab_webhook(
         .unwrap_or_else(|| "gitlab.unknown".to_string());
 
     let conversation_id = Uuid::new_v4().to_string();
-    state.plugin_manager.dispatch(&event_type, &conversation_id, payload);
+    state
+        .plugin_manager
+        .dispatch(&event_type, &conversation_id, payload);
 
     StatusCode::OK.into_response()
 }
@@ -101,7 +105,13 @@ pub async fn gitlab_webhook(
 ///
 /// 飞书签名算法：HMAC-SHA256(token + timestamp + nonce + body_string)
 /// 当前实现：若 FEISHU_WEBHOOK_TOKEN 未设置则跳过验签，设置后需补充实现。
-fn verify_feishu_signature(_token: &str, _timestamp: &str, _nonce: &str, _body: &[u8], _signature: &str) -> bool {
+fn verify_feishu_signature(
+    _token: &str,
+    _timestamp: &str,
+    _nonce: &str,
+    _body: &[u8],
+    _signature: &str,
+) -> bool {
     // TODO: 添加 hmac = "0.12" 和 sha2 = "0.10" 依赖后实现真正的 HMAC-SHA256 验签
     // 当前返回 true 以允许集成测试通过，生产环境需在此处实现验签逻辑
     true
@@ -110,21 +120,21 @@ fn verify_feishu_signature(_token: &str, _timestamp: &str, _nonce: &str, _body: 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::db;
+    use crate::serve::build_router;
+    use crate::serve::plugin::PluginManager;
     use axum::body::Body;
     use axum::http::{Request, StatusCode};
-    use tower::ServiceExt;
-    use crate::serve::build_router;
-    use crate::db;
-    use crate::serve::plugin::PluginManager;
-    use tempfile::tempdir;
     use std::sync::{Arc, Mutex};
+    use tempfile::tempdir;
+    use tower::ServiceExt;
 
     async fn test_app() -> axum::Router {
         let dir = tempdir().unwrap();
         let conn = db::open_at(&dir.path().join("t.db")).unwrap();
         let uploads = dir.path().join("uploads");
         let pm = PluginManager::empty(Arc::new(Mutex::new(
-            db::open_at(&dir.path().join("p.db")).unwrap()
+            db::open_at(&dir.path().join("p.db")).unwrap(),
         )));
         let state = crate::serve::state::AppState::new(conn, "ms_v2_tok".to_string(), uploads, pm);
         build_router(state).await
@@ -148,7 +158,11 @@ mod tests {
             )
             .await
             .unwrap();
-        assert_eq!(resp.status(), StatusCode::OK, "feishu webhook should not require bearer auth");
+        assert_eq!(
+            resp.status(),
+            StatusCode::OK,
+            "feishu webhook should not require bearer auth"
+        );
     }
 
     /// /webhook/feishu の challenge 握手が正しく応答する
@@ -170,9 +184,14 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(resp.status(), StatusCode::OK);
-        let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX).await.unwrap();
+        let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
         let json: Value = serde_json::from_slice(&bytes).unwrap();
-        assert_eq!(json["challenge"], "test_challenge_value", "challenge response must match");
+        assert_eq!(
+            json["challenge"], "test_challenge_value",
+            "challenge response must match"
+        );
     }
 
     /// /webhook/gitlab は Bearer token なしで 200 を返す
@@ -192,6 +211,10 @@ mod tests {
             )
             .await
             .unwrap();
-        assert_eq!(resp.status(), StatusCode::OK, "gitlab webhook should not require bearer auth");
+        assert_eq!(
+            resp.status(),
+            StatusCode::OK,
+            "gitlab webhook should not require bearer auth"
+        );
     }
 }

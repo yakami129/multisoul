@@ -31,7 +31,11 @@ pub fn register_plugin(conn: &Connection, name: &str, agents_dir: &std::path::Pa
         .with_context(|| format!("Invalid toml: {}", toml_path.display()))?;
 
     let exe_path = agents_dir.join(&cfg.agent.executable);
-    anyhow::ensure!(exe_path.exists(), "Executable not found: {}", exe_path.display());
+    anyhow::ensure!(
+        exe_path.exists(),
+        "Executable not found: {}",
+        exe_path.display()
+    );
 
     let now = now_ms();
     let id = Uuid::new_v4().to_string();
@@ -77,7 +81,10 @@ pub fn uninstall_plugin(name: &str) -> Result<()> {
     if toml.exists() {
         std::fs::remove_file(&toml)?;
     }
-    println!("Uninstalled '{}'. Run: msctl agent delete <id> to remove DB record.", name);
+    println!(
+        "Uninstalled '{}'. Run: msctl agent delete <id> to remove DB record.",
+        name
+    );
     Ok(())
 }
 
@@ -89,7 +96,10 @@ pub fn restart_plugin(conn: &Connection, id: &str) -> Result<()> {
     if n == 0 {
         println!("No failed plugin agent found with id {}.", id);
     } else {
-        println!("Plugin agent {} reset to stopped. Restart msctl serve to reload.", id);
+        println!(
+            "Plugin agent {} reset to stopped. Restart msctl serve to reload.",
+            id
+        );
     }
     Ok(())
 }

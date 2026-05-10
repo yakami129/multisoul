@@ -39,7 +39,10 @@ struct TriggerToml {
 }
 
 /// DB から plugin_agents を読み込み、toml から triggers を補完して返す
-pub fn load_plugins(db: &Arc<Mutex<Connection>>, agents_dir: &std::path::Path) -> Result<Vec<PluginConfig>> {
+pub fn load_plugins(
+    db: &Arc<Mutex<Connection>>,
+    agents_dir: &std::path::Path,
+) -> Result<Vec<PluginConfig>> {
     let rows: Vec<(String, String, String, String)> = {
         let conn = db.lock().unwrap();
         let mut stmt = conn.prepare(
@@ -58,14 +61,20 @@ pub fn load_plugins(db: &Arc<Mutex<Connection>>, agents_dir: &std::path::Path) -
         let (resolved_exe, triggers) = if toml_path.exists() {
             let s = std::fs::read_to_string(&toml_path).unwrap_or_default();
             let cfg: PluginToml = toml::from_str(&s).unwrap_or(PluginToml {
-                agent: PluginAgentSection { executable: executable.clone() },
+                agent: PluginAgentSection {
+                    executable: executable.clone(),
+                },
                 triggers: vec![],
             });
             // toml の executable が DB と異なる場合は toml を優先
             let exe = cfg.agent.executable;
-            let trigs = cfg.triggers
+            let trigs = cfg
+                .triggers
                 .into_iter()
-                .map(|t| TriggerConfig { event: t.event, filter: t.filter })
+                .map(|t| TriggerConfig {
+                    event: t.event,
+                    filter: t.filter,
+                })
                 .collect();
             (exe, trigs)
         } else {
@@ -91,7 +100,10 @@ pub fn build_routes(configs: &[PluginConfig]) -> HashMap<String, Vec<String>> {
             if let Some(filter) = &trigger.filter {
                 tracing::debug!(event = %trigger.event, filter = %filter, "trigger with filter");
             }
-            routes.entry(trigger.event.clone()).or_default().push(cfg.name.clone());
+            routes
+                .entry(trigger.event.clone())
+                .or_default()
+                .push(cfg.name.clone());
         }
     }
     routes
@@ -117,7 +129,10 @@ mod tests {
             }],
         }];
         let routes = build_routes(&configs);
-        assert!(routes.contains_key("feishu.issue.updated"), "route must exist");
+        assert!(
+            routes.contains_key("feishu.issue.updated"),
+            "route must exist"
+        );
         assert_eq!(routes["feishu.issue.updated"], vec!["fix-bug-bot"]);
     }
 }

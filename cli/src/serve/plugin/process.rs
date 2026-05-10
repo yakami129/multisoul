@@ -50,13 +50,28 @@ impl AgentProcess {
                     match line {
                         Ok(l) if l.trim().is_empty() => continue,
                         Ok(l) => match serde_json::from_str::<AgentEvent>(&l) {
-                            Ok(AgentEvent::Progress { task_id, conversation_id, message }) => {
+                            Ok(AgentEvent::Progress {
+                                task_id,
+                                conversation_id,
+                                message,
+                            }) => {
                                 tracing::info!(agent = %agent_name, task = %task_id, conv = %conversation_id, "progress: {}", message);
                             }
-                            Ok(AgentEvent::Result { task_id, conversation_id, status, data, error }) => {
+                            Ok(AgentEvent::Result {
+                                task_id,
+                                conversation_id,
+                                status,
+                                data,
+                                error,
+                            }) => {
                                 tracing::info!(agent = %agent_name, task = %task_id, conv = %conversation_id, has_data = data.is_some(), err = ?error, "result: status={}", status);
                             }
-                            Ok(AgentEvent::Error { task_id, conversation_id, code, message }) => {
+                            Ok(AgentEvent::Error {
+                                task_id,
+                                conversation_id,
+                                code,
+                                message,
+                            }) => {
                                 tracing::warn!(agent = %agent_name, task = %task_id, conv = %conversation_id, "error: code={} msg={}", code, message);
                             }
                             Err(_) => {
@@ -96,4 +111,3 @@ impl AgentProcess {
         }
     }
 }
-

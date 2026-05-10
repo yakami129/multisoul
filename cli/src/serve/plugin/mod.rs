@@ -62,7 +62,9 @@ impl PluginManager {
         tokio::spawn(async move {
             loop {
                 tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
-                let Some(mgr) = manager_weak.upgrade() else { break };
+                let Some(mgr) = manager_weak.upgrade() else {
+                    break;
+                };
                 mgr.check_and_restart_crashed();
             }
         });
@@ -122,9 +124,11 @@ impl PluginManager {
 
     /// serve 終了時に全 plugin_agents の status を stopped に更新
     pub fn shutdown(&self) {
-        let _ = self.db.lock().unwrap().execute_batch(
-            "UPDATE plugin_agents SET status='stopped'",
-        );
+        let _ = self
+            .db
+            .lock()
+            .unwrap()
+            .execute_batch("UPDATE plugin_agents SET status='stopped'");
     }
 }
 
@@ -159,6 +163,9 @@ mod tests {
         let db = make_db();
         let dir = tempdir().unwrap();
         let result = PluginManager::start(Arc::clone(&db), dir.path().to_path_buf());
-        assert!(result.is_ok(), "start should succeed with empty plugin_agents");
+        assert!(
+            result.is_ok(),
+            "start should succeed with empty plugin_agents"
+        );
     }
 }

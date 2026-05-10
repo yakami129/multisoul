@@ -5,7 +5,9 @@ use rusqlite::Connection;
 use serde::Serialize;
 use uuid::Uuid;
 
-use crate::commands::agent_plugin::{install_plugin, plugin_agents_dir, register_plugin, restart_plugin, uninstall_plugin};
+use crate::commands::agent_plugin::{
+    install_plugin, plugin_agents_dir, register_plugin, restart_plugin, uninstall_plugin,
+};
 
 #[derive(Subcommand)]
 pub enum AgentCommands {
@@ -71,7 +73,13 @@ pub struct AgentRow {
 pub fn handle(cmd: AgentCommands) -> Result<()> {
     let conn = open()?;
     match cmd {
-        AgentCommands::Register { name, project, runtime, mode, r#type } => {
+        AgentCommands::Register {
+            name,
+            project,
+            runtime,
+            mode,
+            r#type,
+        } => {
             if r#type == "plugin" {
                 let agents_dir = plugin_agents_dir()?;
                 register_plugin(&conn, &name, &agents_dir)
@@ -82,9 +90,12 @@ pub fn handle(cmd: AgentCommands) -> Result<()> {
         }
         AgentCommands::List => list(&conn),
         AgentCommands::Get { id } => get(&conn, &id),
-        AgentCommands::Update { id, name, project, runtime } => {
-            update(&conn, &id, name, project, runtime)
-        }
+        AgentCommands::Update {
+            id,
+            name,
+            project,
+            runtime,
+        } => update(&conn, &id, name, project, runtime),
         AgentCommands::Delete { id } => delete(&conn, &id),
         AgentCommands::Invoke { id, message } => invoke(&conn, &id, &message),
         AgentCommands::Install { source } => install_plugin(&source),
@@ -92,7 +103,6 @@ pub fn handle(cmd: AgentCommands) -> Result<()> {
         AgentCommands::Restart { id } => restart_plugin(&conn, &id),
     }
 }
-
 
 pub fn insert_agent(
     conn: &Connection,
@@ -145,13 +155,25 @@ fn list(conn: &Connection) -> Result<()> {
         return Ok(());
     }
 
-    println!("{:<36}  {:<20}  {:<12}  {:<10}  PROJECT", "ID", "NAME", "RUNTIME", "STATUS");
+    println!(
+        "{:<36}  {:<20}  {:<12}  {:<10}  PROJECT",
+        "ID", "NAME", "RUNTIME", "STATUS"
+    );
     println!("{}", "-".repeat(110));
     for a in &runtime_agents {
-        println!("{:<36}  {:<20}  {:<12}  {:<10}  {}", a.id, a.name, a.runtime, "—", a.project_path);
+        println!(
+            "{:<36}  {:<20}  {:<12}  {:<10}  {}",
+            a.id, a.name, a.runtime, "—", a.project_path
+        );
     }
     for (id, name, version, status) in &plugin_agents {
-        println!("{:<36}  {:<20}  {:<12}  {:<10}  —", id, format!("{} v{}", name, version), name, status);
+        println!(
+            "{:<36}  {:<20}  {:<12}  {:<10}  —",
+            id,
+            format!("{} v{}", name, version),
+            name,
+            status
+        );
     }
     Ok(())
 }
@@ -410,7 +432,11 @@ event = "feishu.issue.updated"
         register_plugin(&conn, "fix-bug-bot", &agents_dir).unwrap();
 
         let plugin_count: i64 = conn
-            .query_row("SELECT COUNT(*) FROM plugin_agents WHERE name='fix-bug-bot'", [], |r| r.get(0))
+            .query_row(
+                "SELECT COUNT(*) FROM plugin_agents WHERE name='fix-bug-bot'",
+                [],
+                |r| r.get(0),
+            )
             .unwrap();
         assert_eq!(plugin_count, 1, "plugin_agents should have one record");
 

@@ -124,7 +124,7 @@ fn clears_stale_codex_thread_id() {
         "token".to_string(),
         std::path::PathBuf::from("/tmp/uploads"),
         crate::serve::plugin::PluginManager::empty(std::sync::Arc::new(std::sync::Mutex::new(
-            rusqlite::Connection::open_in_memory().unwrap()
+            rusqlite::Connection::open_in_memory().unwrap(),
         ))),
     );
 

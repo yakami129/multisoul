@@ -50,13 +50,13 @@ pub async fn handle(args: ServeArgs) -> Result<()> {
         .join("agents");
 
     let db_arc = Arc::new(Mutex::new(db::open()?));
-    let plugin_manager = crate::serve::plugin::PluginManager::start(
-        Arc::clone(&db_arc),
-        agents_dir,
-    ).unwrap_or_else(|e| {
-        tracing::warn!(err = %e, "plugin_manager_start_failed, using empty manager");
-        crate::serve::plugin::PluginManager::empty(Arc::clone(&db_arc))
-    });
+    let plugin_manager =
+        crate::serve::plugin::PluginManager::start(Arc::clone(&db_arc), agents_dir).unwrap_or_else(
+            |e| {
+                tracing::warn!(err = %e, "plugin_manager_start_failed, using empty manager");
+                crate::serve::plugin::PluginManager::empty(Arc::clone(&db_arc))
+            },
+        );
 
     let conn = db::open()?;
     let state = AppState::new(conn, token.clone(), uploads_dir, plugin_manager);

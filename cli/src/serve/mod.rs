@@ -19,8 +19,14 @@ pub async fn build_router(state: AppState) -> Router {
 
     let public_router = Router::new()
         .route("/api/v1/healthz", axum::routing::get(healthz::healthz))
-        .route("/webhook/feishu", axum::routing::post(webhook::feishu_webhook))
-        .route("/webhook/gitlab", axum::routing::post(webhook::gitlab_webhook));
+        .route(
+            "/webhook/feishu",
+            axum::routing::post(webhook::feishu_webhook),
+        )
+        .route(
+            "/webhook/gitlab",
+            axum::routing::post(webhook::gitlab_webhook),
+        );
 
     let authed_router = Router::new()
         .route("/api/v1/agents", axum::routing::get(agents::list_agents))
@@ -51,7 +57,10 @@ pub async fn build_router(state: AppState) -> Router {
             axum::routing::delete(push_tokens::delete_token),
         )
         .route("/ws/conversations/:id", axum::routing::get(ws::ws_handler))
-        .route("/api/v1/uploads", axum::routing::post(uploads::upload_image))
+        .route(
+            "/api/v1/uploads",
+            axum::routing::post(uploads::upload_image),
+        )
         .layer(middleware::from_fn_with_state(
             state.clone(),
             auth::bearer_auth,
@@ -113,21 +122,19 @@ mod http_trace {
 #[cfg(test)]
 mod router_tests {
     use super::*;
+    use crate::db;
     use axum::body::Body;
     use axum::http::{Request, StatusCode};
-    use tower::ServiceExt;
-    use crate::db;
     use tempfile::tempdir;
+    use tower::ServiceExt;
 
     async fn test_state() -> AppState {
         let dir = tempdir().unwrap();
         let conn = db::open_at(&dir.path().join("t.db")).unwrap();
         let uploads = dir.path().join("uploads");
-        let pm = crate::serve::plugin::PluginManager::empty(
-            std::sync::Arc::new(std::sync::Mutex::new(
-                db::open_at(&dir.path().join("p.db")).unwrap()
-            ))
-        );
+        let pm = crate::serve::plugin::PluginManager::empty(std::sync::Arc::new(
+            std::sync::Mutex::new(db::open_at(&dir.path().join("p.db")).unwrap()),
+        ));
         AppState::new(conn, "ms_v2_tok".to_string(), uploads, pm)
     }
 
@@ -140,10 +147,19 @@ mod router_tests {
         let state = test_state().await;
         let app = build_router(state).await;
         let resp = app
-            .oneshot(Request::builder().uri("/api/v1/healthz").body(Body::empty()).unwrap())
+            .oneshot(
+                Request::builder()
+                    .uri("/api/v1/healthz")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
             .await
             .unwrap();
-        assert_eq!(resp.status(), StatusCode::OK, "healthz should not require auth");
+        assert_eq!(
+            resp.status(),
+            StatusCode::OK,
+            "healthz should not require auth"
+        );
     }
 
     /// 受保护路由无 token 应返回 401
@@ -155,9 +171,18 @@ mod router_tests {
         let state = test_state().await;
         let app = build_router(state).await;
         let resp = app
-            .oneshot(Request::builder().uri("/api/v1/agents").body(Body::empty()).unwrap())
+            .oneshot(
+                Request::builder()
+                    .uri("/api/v1/agents")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
             .await
             .unwrap();
-        assert_eq!(resp.status(), StatusCode::UNAUTHORIZED, "agents should require auth");
+        assert_eq!(
+            resp.status(),
+            StatusCode::UNAUTHORIZED,
+            "agents should require auth"
+        );
     }
 }

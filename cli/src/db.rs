@@ -235,12 +235,27 @@ mod tests {
             )
             .unwrap()
             > 0;
-        assert!(table_exists, "plugin_agents table must exist after migration");
+        assert!(
+            table_exists,
+            "plugin_agents table must exist after migration"
+        );
 
-        for col in &["id", "name", "version", "executable", "status", "restart_count", "installed_at", "updated_at"] {
+        for col in &[
+            "id",
+            "name",
+            "version",
+            "executable",
+            "status",
+            "restart_count",
+            "installed_at",
+            "updated_at",
+        ] {
             let exists: bool = conn
                 .query_row(
-                    &format!("SELECT COUNT(*) FROM pragma_table_info('plugin_agents') WHERE name='{}'", col),
+                    &format!(
+                        "SELECT COUNT(*) FROM pragma_table_info('plugin_agents') WHERE name='{}'",
+                        col
+                    ),
                     [],
                     |r| r.get::<_, i64>(0),
                 )
@@ -280,12 +295,20 @@ mod tests {
         ).unwrap();
 
         let count: i64 = conn
-            .query_row("SELECT COUNT(*) FROM plugin_agents WHERE name='fix-bug-bot'", [], |r| r.get(0))
+            .query_row(
+                "SELECT COUNT(*) FROM plugin_agents WHERE name='fix-bug-bot'",
+                [],
+                |r| r.get(0),
+            )
             .unwrap();
         assert_eq!(count, 1, "upsert should not create duplicate rows");
 
         let version: String = conn
-            .query_row("SELECT version FROM plugin_agents WHERE name='fix-bug-bot'", [], |r| r.get(0))
+            .query_row(
+                "SELECT version FROM plugin_agents WHERE name='fix-bug-bot'",
+                [],
+                |r| r.get(0),
+            )
             .unwrap();
         assert_eq!(version, "0.2.0", "version should be updated by upsert");
     }
