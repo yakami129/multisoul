@@ -74,10 +74,12 @@ Monorepo 两大件：
 | **代码规范、release checklist** | [`docs/quality/`](docs/quality/)（占位）+ 本文 |
 | **iOS 发布、CLI 发布等 SOP** | [`mobile/docs/ios-publish.md`](mobile/docs/ios-publish.md)（本地 `scripts/publish-ios-local.sh` / 云端 `publish-ios.sh`）· [`docs/runbooks/cli-release.md`](docs/runbooks/cli-release.md) · [`docs/runbooks/README.md`](docs/runbooks/README.md) |
 | **`msctl serve` 跑挂了怎么查** | [`docs/runbooks/debugging.md`](docs/runbooks/debugging.md) — `msctl logs` 4 个故事 |
+| **PR 合并与 CI 强闸** | [`docs/runbooks/github-pr-merge-policy.md`](docs/runbooks/github-pr-merge-policy.md) |
 | **UI 设计系统**（颜色、字号、间距） | [`mobile/docs/design.md`](mobile/docs/design.md) |
 | **RN UI 常见坑** | [`mobile/docs/rules/ui-pitfalls.md`](mobile/docs/rules/ui-pitfalls.md) |
 | **Agent 短导航地图** | [`AGENTS.md`](AGENTS.md) |
 | **面向人类的快速上手** | [`README.md`](README.md) |
+| **msctl 命令速记（`msctl inject`）** | [`docs/references/msctl-inject.md`](docs/references/msctl-inject.md)；完整参考 [`docs/references/cli-commands.md`](docs/references/cli-commands.md) |
 | **`docs/specs/`、`docs/superpowers/`** | **勿再新增权威文档** · [`docs/superpowers/README.md`](docs/superpowers/README.md) |
 
 ---
