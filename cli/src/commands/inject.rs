@@ -29,7 +29,10 @@ pub fn inject_context(runtime: &str, project_path: &Path) -> Result<()> {
     };
 
     if existing.contains("<!-- msctl-inject-start -->") {
-        println!("msctl context already injected into {}. Skipping.", filename);
+        println!(
+            "msctl context already injected into {}. Skipping.",
+            filename
+        );
         return Ok(());
     }
 
