@@ -1,7 +1,7 @@
-// fix-bug-bot/src/protocol.rs
+// bugfix-bot/src/protocol.rs
 use serde::{Deserialize, Serialize};
 
-/// msctl → fix-bug-bot（stdin 每行一个 JSON）
+/// msctl → bugfix-bot（stdin 每行一个 JSON）
 #[derive(Debug, Deserialize)]
 pub struct TaskMessage {
     pub protocol_version: String,
@@ -11,7 +11,7 @@ pub struct TaskMessage {
     pub payload: serde_json::Value,
 }
 
-/// fix-bug-bot → msctl（stdout 每行一个 JSON）
+/// bugfix-bot → msctl（stdout 每行一个 JSON）
 #[derive(Debug, Serialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum AgentEvent {

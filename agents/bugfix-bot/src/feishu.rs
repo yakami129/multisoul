@@ -1,4 +1,4 @@
-// fix-bug-bot/src/feishu.rs
+// bugfix-bot/src/feishu.rs
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 
@@ -83,7 +83,7 @@ pub fn build_missing_info_comment(missing_fields: &[&str], assignee: &str) -> St
         .collect::<Vec<_>>()
         .join("\n");
     format!(
-        "🤖 fix-bug-bot 无法自动处理此缺陷，缺少以下信息：\n\n{}\n\n@{} 请补充后重新触发。",
+        "🤖 bugfix-bot 无法自动处理此缺陷，缺少以下信息：\n\n{}\n\n@{} 请补充后重新触发。",
         fields, assignee
     )
 }

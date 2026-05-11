@@ -1,4 +1,4 @@
-// fix-bug-bot/src/config.rs
+// bugfix-bot/src/config.rs
 use anyhow::{Context, Result};
 use serde::Deserialize;
 use std::collections::HashMap;
@@ -47,18 +47,18 @@ impl Config {
     pub fn load_from(path: &Path) -> Result<Self> {
         let s = std::fs::read_to_string(path)
             .with_context(|| format!("Cannot read config: {}", path.display()))?;
-        toml::from_str(&s).context("Invalid fix-bug-bot.toml")
+        toml::from_str(&s).context("Invalid bugfix-bot.toml")
     }
 }
 
 pub fn config_path() -> Result<PathBuf> {
     let base = dirs::config_dir().context("Cannot determine config dir")?;
-    Ok(base.join("msctl").join("fix-bug-bot.toml"))
+    Ok(base.join("msctl").join("bugfix-bot.toml"))
 }
 
 pub fn db_path() -> Result<PathBuf> {
     let base = dirs::config_dir().context("Cannot determine config dir")?;
-    Ok(base.join("msctl").join("fix-bug-bot.db"))
+    Ok(base.join("msctl").join("bugfix-bot.db"))
 }
 
 #[cfg(test)]

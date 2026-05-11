@@ -1,4 +1,4 @@
-// fix-bug-bot/src/gitlab.rs
+// bugfix-bot/src/gitlab.rs
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 

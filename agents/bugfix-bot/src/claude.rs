@@ -1,4 +1,4 @@
-// fix-bug-bot/src/claude.rs
+// bugfix-bot/src/claude.rs
 use anyhow::{Context, Result};
 use std::process::Command;
 

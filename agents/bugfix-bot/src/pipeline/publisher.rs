@@ -1,4 +1,4 @@
-// fix-bug-bot/src/pipeline/publisher.rs
+// bugfix-bot/src/pipeline/publisher.rs
 use anyhow::Result;
 use std::process::Command;
 
@@ -34,7 +34,7 @@ pub fn build_mr_description(
 - GitLab Issue：#{}
 
 ---
-> 此 MR 由 fix-bug-bot 自动生成，请 Review 后去掉 Draft 标记。"#,
+> 此 MR 由 bugfix-bot 自动生成，请 Review 后去掉 Draft 标记。"#,
         feishu_issue_id, bug_title,
         root_cause,
         fix_summary,

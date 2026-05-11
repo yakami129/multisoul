@@ -11,7 +11,7 @@ use protocol::{AgentEvent, TaskMessage};
 use std::io::BufRead;
 
 fn main() {
-    eprintln!("[fix-bug-bot] starting, reading from stdin");
+    eprintln!("[bugfix-bot] starting, reading from stdin");
     let stdin = std::io::stdin();
     for line in stdin.lock().lines() {
         match line {
@@ -19,23 +19,23 @@ fn main() {
             Ok(l) => {
                 match serde_json::from_str::<TaskMessage>(&l) {
                     Ok(msg) => dispatch_event(&msg),
-                    Err(e) => eprintln!("[fix-bug-bot] parse error: {} — line: {}", e, l),
+                    Err(e) => eprintln!("[bugfix-bot] parse error: {} — line: {}", e, l),
                 }
             }
             Err(e) => {
-                eprintln!("[fix-bug-bot] stdin read error: {}", e);
+                eprintln!("[bugfix-bot] stdin read error: {}", e);
                 break;
             }
         }
     }
-    eprintln!("[fix-bug-bot] stdin closed, exiting");
+    eprintln!("[bugfix-bot] stdin closed, exiting");
 }
 
 pub fn dispatch_event(msg: &TaskMessage) {
     match msg.event.as_str() {
         "feishu.issue.updated" => handle_feishu_issue(msg),
         "gitlab.merge_request_hook" => handle_gitlab_mr(msg),
-        other => eprintln!("[fix-bug-bot] unknown event: {}", other),
+        other => eprintln!("[bugfix-bot] unknown event: {}", other),
     }
 }
 
@@ -111,7 +111,7 @@ fn handle_feishu_issue(msg: &TaskMessage) {
                 return;
             }
             pipeline::IdempotencyAction::Reprocess => {
-                eprintln!("[fix-bug-bot] reprocessing blocked task: {}", task.id);
+                eprintln!("[bugfix-bot] reprocessing blocked task: {}", task.id);
             }
             pipeline::IdempotencyAction::Process => {}
         }
@@ -197,14 +197,14 @@ fn run_pipeline(
         let issue_desc = format!("飞书缺陷 {} 信息不足，无法自动处理。\n\n缺失字段：{}", ctx.feishu_issue_id, sufficiency.missing_fields.join(", "));
         let labels = [cfg.gitlab.blocked_label.as_str()];
         if let Err(e) = gitlab.create_issue(project_id, &issue_title, &issue_desc, &labels) {
-            eprintln!("[fix-bug-bot] create_issue (blocked) failed: {}", e);
+            eprintln!("[bugfix-bot] create_issue (blocked) failed: {}", e);
         }
 
         // Post Feishu comment with missing fields
         let missing_refs: Vec<&str> = sufficiency.missing_fields.iter().map(|s| s.as_str()).collect();
         let comment = feishu::build_missing_info_comment(&missing_refs, &ctx.assignee);
         if let Err(e) = feishu.add_issue_comment(&ctx.feishu_issue_id, &comment) {
-            eprintln!("[fix-bug-bot] add_issue_comment failed: {}", e);
+            eprintln!("[bugfix-bot] add_issue_comment failed: {}", e);
         }
 
         let _ = db::update_status(conn, bug_task_id, "blocked_info");
@@ -288,11 +288,11 @@ fn run_pipeline(
     if !reproducer.reproduced {
         let _ = db::update_status(conn, bug_task_id, "blocked_no_reproduce");
         let notify_msg = format!(
-            "fix-bug-bot 无法复现缺陷 {}（{}），请人工介入。原因：{}",
+            "bugfix-bot 无法复现缺陷 {}（{}），请人工介入。原因：{}",
             ctx.feishu_issue_id, ctx.title, reproducer.reason
         );
         if let Err(e) = feishu.send_message(&ctx.assignee, &notify_msg) {
-            eprintln!("[fix-bug-bot] send_message (no_reproduce) failed: {}", e);
+            eprintln!("[bugfix-bot] send_message (no_reproduce) failed: {}", e);
         }
         AgentEvent::Result {
             task_id: msg.task_id.clone(),
@@ -360,7 +360,7 @@ fn run_pipeline(
         ) {
             Ok(o) => o,
             Err(e) => {
-                eprintln!("[fix-bug-bot] patch claude::run failed (retry {}): {}", retry_count, e);
+                eprintln!("[bugfix-bot] patch claude::run failed (retry {}): {}", retry_count, e);
                 let _ = db::increment_retry(conn, bug_task_id);
                 retry_count += 1;
                 continue;
@@ -370,7 +370,7 @@ fn run_pipeline(
         let patch = match pipeline::patch::parse_patch_result(&patch_output.result_text) {
             Ok(p) => p,
             Err(e) => {
-                eprintln!("[fix-bug-bot] parse_patch_result failed: {}", e);
+                eprintln!("[bugfix-bot] parse_patch_result failed: {}", e);
                 let _ = db::increment_retry(conn, bug_task_id);
                 retry_count += 1;
                 continue;
@@ -389,7 +389,7 @@ fn run_pipeline(
                 break;
             } else {
                 eprintln!(
-                    "[fix-bug-bot] verification failed at step {:?} (retry {})",
+                    "[bugfix-bot] verification failed at step {:?} (retry {})",
                     vresult.failed_step, retry_count
                 );
             }
@@ -402,14 +402,14 @@ fn run_pipeline(
     if !verification_passed {
         let _ = db::update_status(conn, bug_task_id, "blocked_fix_failed");
         if let Err(e) = gitlab.add_label(project_id, gitlab_issue.iid, &cfg.gitlab.blocked_label) {
-            eprintln!("[fix-bug-bot] add_label (fix_failed) failed: {}", e);
+            eprintln!("[bugfix-bot] add_label (fix_failed) failed: {}", e);
         }
         let notify_msg = format!(
-            "fix-bug-bot 无法自动修复缺陷 {}（{}），已达最大重试次数，请人工介入。",
+            "bugfix-bot 无法自动修复缺陷 {}（{}），已达最大重试次数，请人工介入。",
             ctx.feishu_issue_id, ctx.title
         );
         if let Err(e) = feishu.send_message(&ctx.assignee, &notify_msg) {
-            eprintln!("[fix-bug-bot] send_message (fix_failed) failed: {}", e);
+            eprintln!("[bugfix-bot] send_message (fix_failed) failed: {}", e);
         }
         AgentEvent::Result {
             task_id: msg.task_id.clone(),
@@ -487,11 +487,11 @@ fn run_pipeline(
     });
 
     let review_msg = format!(
-        "fix-bug-bot 已为缺陷 {}（{}）创建 Draft MR，请 Review：{}",
+        "bugfix-bot 已为缺陷 {}（{}）创建 Draft MR，请 Review：{}",
         ctx.feishu_issue_id, ctx.title, mr.web_url
     );
     if let Err(e) = feishu.send_message(&ctx.assignee, &review_msg) {
-        eprintln!("[fix-bug-bot] send_message (review) failed: {}", e);
+        eprintln!("[bugfix-bot] send_message (review) failed: {}", e);
     }
 
     AgentEvent::Result {
@@ -520,7 +520,7 @@ fn handle_gitlab_mr(msg: &TaskMessage) {
             .pointer("/object_attributes/source_branch")
             .and_then(|v| v.as_str())
             .unwrap_or("");
-        eprintln!("[fix-bug-bot] MR {} on branch {}, cleanup pending", action, source_branch);
+        eprintln!("[bugfix-bot] MR {} on branch {}, cleanup pending", action, source_branch);
     }
 }
 

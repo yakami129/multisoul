@@ -1,4 +1,4 @@
-// fix-bug-bot/src/worktree.rs
+// bugfix-bot/src/worktree.rs
 use anyhow::{Context, Result};
 use std::path::{Path, PathBuf};
 use std::process::Command;

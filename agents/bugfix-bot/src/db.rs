@@ -1,4 +1,4 @@
-// fix-bug-bot/src/db.rs
+// bugfix-bot/src/db.rs
 use anyhow::{Context, Result};
 use rusqlite::Connection;
 use std::path::Path;

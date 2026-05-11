@@ -1,10 +1,10 @@
 [package]
-name = "fix-bug-bot"
+name = "bugfix-bot"
 version = "0.1.0"
 edition = "2021"
 
 [[bin]]
-name = "fix-bug-bot"
+name = "bugfix-bot"
 path = "src/main.rs"
 
 [dependencies]

@@ -1,6 +1,6 @@
 [agent]
 version = "0.1.0"
-executable = "fix-bug-bot"
+executable = "bugfix-bot"
 
 [[triggers]]
 event = "feishu.issue.updated"

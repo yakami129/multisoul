@@ -1,4 +1,4 @@
-// fix-bug-bot/src/pipeline/mod.rs
+// bugfix-bot/src/pipeline/mod.rs
 pub mod intake;
 pub mod reproducer;
 pub mod patch;
