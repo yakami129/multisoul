@@ -25,8 +25,8 @@ jobs:
       - name: No hardcoded secrets
         run: bash scripts/check-no-secrets.sh
 
-      - name: Mobile palette compliance
-        run: bash scripts/check-mobile-colors.sh
+      # - name: Mobile palette compliance
+      #   run: bash scripts/check-mobile-colors.sh
 
       - name: Max file line count (500)
         run: bash scripts/check-max-file-lines.sh

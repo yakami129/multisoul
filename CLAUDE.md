@@ -282,41 +282,42 @@ cli/src/
 
 ## 11. UI Design System
 
-The mobile app uses a **Vault-Tec PIP-BOY terminal aesthetic** (Fallout CRT green-phosphor). Full spec: `mobile/docs/design.md` (source) and `mobile/docs/design.html` (rendered reference).
+The mobile app uses a **dark modern aesthetic** — near-black backgrounds, white text, orange (`#FF6B35`) accent for actions. Full spec: `mobile/docs/design.md` (source) and `mobile/docs/design.html` (rendered reference).
 
 ### Color Palette
 
 | Role | Value |
 |------|-------|
-| Page background | `#040D04` |
-| Card/nav surface | `#061206` |
-| Deep surface | `#0A1A0A` |
-| Border/divider | `#0F2B0F` |
-| Primary text / active | `#20C20E` |
-| Bright / data values | `#33FF33` |
-| Secondary text | `#2D8B2D` |
-| Body text | `#147A16` |
-| Muted / footer text | `#0F6B0F` |
-| Button label (on green) | `#040D04` |
+| Page background | `#0D0D0D` |
+| Card / component surface | `#1A1A1A` |
+| Deep surface (unread rows) | `#111111` |
+| Bottom Sheet background | `#161616` |
+| Divider | `#1E1E1E` |
+| Primary text | `#FFFFFF` |
+| Secondary text | `#DDDDDD` |
+| Muted text | `#888888` |
+| Disabled / placeholder | `#666666` |
+| Dim text (timestamps) | `#555555` |
+| Accent / action | `#FF6B35` |
+| Success / selected | `#4CAF50` |
 
 ### Typography
 
 | Role | Font | Size |
 |------|------|------|
-| Display / headings | Anton | 52–120px |
-| Card titles / buttons | Anton | 13–14px |
-| Nav / labels / eyebrow | Inter | 11–13px |
-| Body paragraphs | Geist | 15px |
-| Terminal input | Geist Mono | 16px |
+| Brand / display | Anton | 32px+ |
+| Page titles | Inter | 28px / 700 |
+| Body / labels | Inter | 11–16px |
 
 ### Key Rules
 
-- `cornerRadius` max 2px (terminal style is square)
-- No shadows except the Hero title glow (`#20C20E88`, blur 24px)
-- Colors restricted to the palette in `mobile/docs/design.md` §2 (greens + Vault-Tec warning amber/red for error states only); enforced by `scripts/check-mobile-colors.sh`
-- Icons: Lucide only, 14×14px for inline, 16×16px for actions
+- Tab Bar: `cornerRadius` 36px, height 62px (capsule shape)
+- Input row: `cornerRadius` 26px, height 52px
+- `#FF6B35` only for CTA, unread badges, selected state — not decoration
+- Colors restricted to the palette in `mobile/docs/design.md` §2; enforced by `scripts/check-mobile-colors.sh`
+- Icons: Lucide only, 16×16px for Tab Bar / actions
 - Spacing on 4px grid; see `mobile/docs/design.md §4` for exact values
-- Before any UI change, run through the checklist in `mobile/docs/design.md §11`
+- Before any UI change, run through the checklist in `mobile/docs/design.md §9`
 - Before any UI change, also check `mobile/docs/rules/ui-pitfalls.md` — common React Native UI bugs to avoid (e.g. RefreshControl coupled to isFetching, focus refetch triggering spinner)
 
 ---

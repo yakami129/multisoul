@@ -3,6 +3,10 @@
   "version": 1,
   "documents": [
     {
+      "file": "2026-05-11-ui-redesign-pencil.md",
+      "title": "UI 重构：迁移到 Pencil 设计系统（深色+橙色）"
+    },
+    {
       "file": "2026-05-11-bugfix-bot.md",
       "title": "bugfix-bot Plugin Agent 实施计划"
     },

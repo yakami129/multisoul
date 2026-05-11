@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# Mechanized constraint: mobile/ may only use the green-phosphor palette.
+# Mechanized constraint: mobile/ may only use the dark-modern palette.
 #
 # Trigger: any hex color in mobile/{src,app}/**/*.{ts,tsx} must appear in the
 # allowlist below. Comments (single-line // ...) are stripped before scanning
 # to allow historical TODOs to coexist.
 #
-# Allowlist sourced from mobile/docs/design.md plus extended greens used in
+# Allowlist sourced from mobile/docs/design.md plus extended colors used in
 # existing components (verified visually). Update both the docs and this list
 # together when introducing a new tone.
 #
@@ -18,31 +18,28 @@ set -euo pipefail
 # Allowed hex colors (case-insensitive). Source: mobile/docs/design.md §2.
 # Update both the design doc AND this list together (same commit).
 allowlist=$(cat <<'EOF' | tr '\n' '|' | sed 's/|$//'
-040D04
-061206
-0A1A0A
-0F2B0F
-20C20E
-33FF33
-2D8B2D
-147A16
-0F6B0F
-5FA65F
-D7FFD2
-20C20E88
-20C20E99
-0F4D0F
-AFFFAF
-33FF33AA
-33FF33CC
-33FF3399
-FFB000
-FF3333
-FF4444
-1A0000
-3D0000
-5C0000
-8B0000
+0D0D0D
+1A1A1A
+111111
+161616
+141414
+1F2A1F
+252525
+1E1E1E
+2A2A2A
+000000
+FFFFFF
+DDDDDD
+888888
+666666
+555555
+333333
+FF6B35
+FF8C42
+4CAF50
+7C3AED
+2563EB
+059669
 EOF
 )
 
@@ -87,7 +84,7 @@ if [ -n "$violations" ]; then
   echo "" >&2
   printf '%s' "$violations" >&2
   echo "" >&2
-  echo "Allowed greens:" >&2
+  echo "Allowed colors:" >&2
   echo "  $(echo $allowlist | tr '|' ' ')" >&2
   echo "" >&2
   echo "Fix options:" >&2

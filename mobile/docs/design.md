@@ -1,6 +1,6 @@
-# MultiSoul — Vault-Tec Terminal UI Design System
+# MultiSoul — Mobile UI Design System
 
-本文档定义 MultiSoul PIP-BOY 终端界面的视觉语言与交互规范。所有 UI 开发以此为准。
+本文档定义 MultiSoul iOS App 的视觉语言与交互规范。所有 UI 开发以此为准。
 
 ---
 
@@ -8,68 +8,57 @@
 
 三条核心原则：
 
-1. **终端即美学。** 界面模拟 Fallout 系列 PIP-BOY 3000 MKIV 的 CRT 绿色磷光屏风格。每个元素都应强化"你在操作一台真实终端"的沉浸感。
-2. **层次靠亮度，颜色是信号。** 界面主体是深绿色调。亮绿（`#20C20E`）用于主要内容和强调，中绿（`#2D8B2D`）用于次要信息，暗绿（`#147A16`、`#0F6B0F`）用于辅助文字。
-3. **克制的复古感。** 不过度堆砌特效。CRT 扫描线、角落标记符、等宽字体——每个细节都有意义，不做无谓装饰。
+1. **深色优先。** 界面以近黑色（`#0D0D0D`）为基底，减少视觉疲劳，突出内容层次。
+2. **橙色是行动信号。** `#FF6B35` 仅用于主要行动点（CTA、未读徽章、强调状态），不做装饰。
+3. **克制的现代感。** 圆角适度，间距宽松，字重分明——每个元素服务于信息传达，不堆砌特效。
 
 ---
 
 ## 2. 颜色体系
 
-所有颜色基于磷光绿 CRT 显示器的色彩模拟。
-
 ### 2.1 背景色阶
 
 | 角色 | 色值 | 用途 |
 |------|------|------|
-| 主背景 | `#040D04` | 页面底色、文字面板背景 |
-| 卡片表面 | `#061206` | 卡片、导航栏、状态栏背景 |
-| 深层表面 | `#0A1A0A` | 卡片头部、交替行背景 |
-| 边框/分割线 | `#0F2B0F` | 所有边框、分割线、分隔矩形 |
+| 主背景 | `#0D0D0D` | 页面底色、屏幕背景 |
+| 卡片/组件表面 | `#1A1A1A` | 卡片、输入框、Tab Bar、底部 Sheet |
+| 深层表面 | `#111111` | 列表行高亮背景（未读状态） |
+| 次级表面 | `#161616` | 底部 Sheet 背景 |
+| 深色卡片 | `#141414` | 锁定选项背景 |
+| 选项选中背景 | `#1F2A1F` | AskQuestion 已选中选项背景 |
+| 未选中选项背景 | `#252525` | AskQuestion 未选中选项背景 |
+| 分割线 | `#1E1E1E` | 列表分割线、卡片内分割线 |
+| Sheet 分割线 | `#2A2A2A` | 底部 Sheet 内分割线 |
+| 遮罩 | `#000000` 55% | 底部 Sheet 背景遮罩 |
 
 ### 2.2 文字色阶
 
 | 角色 | 色值 | 用途 |
 |------|------|------|
-| 主要文字 | `#20C20E` | 标题、主要内容、激活状态 |
-| 高亮文字 | `#33FF33` | 数值、徽章文字、强调数据 |
-| 次要文字 | `#2D8B2D` | 图标、次要标签、eyebrow 文字 |
-| 正文文字 | `#147A16` | 段落正文、导航项、描述文字 |
-| 辅助文字 | `#0F6B0F` | 页脚文字、键盘提示、版本号 |
+| 主要文字 | `#FFFFFF` | 标题、主要内容、激活状态 |
+| 次要文字 | `#DDDDDD` | 问题正文、列表内容 |
+| 辅助文字 | `#888888` | 时间戳、副标题、空状态说明 |
+| 禁用/占位文字 | `#666666` | 搜索框占位符、搜索图标、过滤图标 |
+| 极暗文字 | `#555555` | 时间戳（非高亮行） |
 
-### 2.3 语义色（绿色家族）
-
-| 色值 | 含义 | 使用场景 |
-|------|------|----------|
-| `#20C20E` | 激活/主要 | 主按钮背景、主标题、激活状态 |
-| `#33FF33` | 数据/在线 | 实时数值、ONLINE 徽章、进度数据 |
-| `#040D04` | 按钮文字 | 主按钮上的反色文字 |
-
-### 2.4 状态色（错误 / 警告）
-
-为了在不打破 PIP-BOY 整体绿调的前提下传达"故障"语义，错误与警告使用 Vault-Tec 警示灯配色：琥珀色（amber）表示警告/离线，赤红（emergency red）表示破坏性操作和严重错误。**仅在状态语义需要时使用**，绝不用作装饰。
+### 2.3 强调色
 
 | 色值 | 含义 | 使用场景 |
 |------|------|----------|
-| `#FFB000` | 警告 / 离线 | Agent 不可达、错误标题、警示图标 |
-| `#FF3333` | 严重错误 | 删除按钮文字、Inbox 失败标记 |
-| `#FF4444` | 表单错误 | 输入框校验失败提示 |
-| `#1A0000` | 警示底色 1 | 删除按钮背景、错误卡片背景 |
-| `#3D0000` | 警示底色 2 | Inbox 失败条目背景 |
-| `#5C0000` | 警示边框 1 | Inbox 失败条目边框 |
-| `#8B0000` | 警示边框 2 | 删除按钮边框 |
+| `#FF6B35` | 主强调 / 行动 | CTA 按钮、未读徽章、Pending 数量提示、选中边框、进度条 |
+| `#FF8C42` | 渐变终点 | Avatar 渐变（与 `#FF6B35` 组合） |
+| `#4CAF50` | 成功 / 已选中 | AskQuestion 选中选项边框、空状态 check 图标 |
 
-### 2.5 扩展绿色（仅 Splash / 特效）
+### 2.4 Avatar 色板
 
-CRT 启动动画需要更宽的绿色亮度梯度才能模拟磷光余晖。**仅 SplashScreen 等特效组件使用**，业务界面禁用。
+列表中每个 Agent 使用固定颜色 Avatar（圆形）：
 
 | 色值 | 用途 |
 |------|------|
-| `#0F4D0F` | 启动动画暗绿背景 |
-| `#AFFFAF` | 磷光高亮文字 |
-| `#33FF33AA` / `#33FF33CC` / `#33FF3399` | 文字阴影发光（不同强度） |
-| `#20C20E99` | 主绿发光（带透明） |
-| `#20C20E88` | Hero 标题外发光 |
+| `#FF6B35` → `#FF8C42`（135° 渐变） | Agent 1（默认第一位） |
+| `#7C3AED` | Agent 2 |
+| `#2563EB` | Agent 3 |
+| `#059669` | Agent 4 |
 
 ---
 
@@ -79,43 +68,30 @@ CRT 启动动画需要更宽的绿色亮度梯度才能模拟磷光余晖。**�
 
 | 角色 | 字体 | 用途 |
 |------|------|------|
-| 展示标题 | Anton | 大标题、卡片标题、按钮文字 |
-| 界面文字 | Inter | 导航、标签、eyebrow、辅助文字 |
-| 正文内容 | Geist | 段落描述、设置项、正文 |
-| 终端输入 | Geist Mono | 命令行输入框、等宽数据 |
+| 展示标题 | Anton | 大标题、品牌名 |
+| 界面文字 | Inter | 导航、标签、正文、按钮、时间戳 |
 
 ### 3.2 字号规范
 
 | 场景 | 字号 | 字体 | 字重 | 用途 |
 |------|------|------|------|------|
-| 超大标题 | 120px | Anton | normal | Hero 主标题（VAULT-TEC） |
-| 大标题 | 52px | Anton | normal | 内容区块标题 |
-| 卡片标题 | 13–14px | Anton | normal | 卡片头部、按钮文字 |
-| 品牌标识 | 18px | Anton | 700 | 导航栏 Logo |
-| 副标题 | 16px | Inter | normal | Hero 副标题 |
-| 正文 | 15px | Geist | normal | 内容区段落 |
-| 界面默认 | 13px | Inter/Geist | normal | 导航项、设置项、列表 |
-| 终端文字 | 16px | Geist Mono | normal | 命令行输入框 |
-| 状态栏 | 12px | Inter | normal | 状态栏统计数据 |
-| 辅助标签 | 11px | Inter | 500 | Eyebrow 标签 |
-| 最小文字 | 10px | Inter | normal/600 | 徽章、页脚提示、键盘快捷键 |
+| 品牌大标题 | 32px | Inter | 700 | Home 页顶部品牌名（"Grok"） |
+| 页面标题 | 28px | Inter | 700 | Inbox 页标题 |
+| 空状态标题 | 22px | Inter | 700 | 空状态主文字 |
+| 问题正文 | 15–16px | Inter | 600/normal | AskQuestion 问题文字、列表问题 |
+| 搜索框 | 16px | Inter | normal | 搜索框占位符 |
+| 对话名称 | 15px | Inter | 600 | 列表行主标题 |
+| 对话摘要 | 14px | Inter | normal | 列表行副标题、Pending 数量提示 |
+| 标签/提示 | 13px | Inter | normal/600 | Section 标签（"RECENT"）、选项提示 |
+| 时间戳 | 12px | Inter | normal | 列表行时间 |
+| 徽章文字 | 11px | Inter | 700 | 未读数量徽章 |
+| 空状态提示 | 12px | Inter | normal | 空状态 hint 文字 |
 
-### 3.3 字间距（Letter Spacing）
-
-| 场景 | 值 | 用途 |
-|------|-----|------|
-| 超大标题 | 8px | Hero 主标题 |
-| 品牌/标题 | 2px | Logo、卡片标题 |
-| 导航/标签 | 1–1.5px | 导航项、eyebrow、状态栏 |
-| 徽章 | 1.5px | ONLINE 徽章文字 |
-
-### 3.4 行高
+### 3.3 行高
 
 | 场景 | lineHeight | 用途 |
 |------|-----------|------|
-| 大标题 | 1.1 | 52px 内容标题 |
-| 正文 | 1.6 | 15px 段落描述 |
-| 提示文字 | 1.5 | 13px tips 列表 |
+| 问题正文 | 1.4 | Inbox 列表问题文字 |
 
 ---
 
@@ -123,186 +99,234 @@ CRT 启动动画需要更宽的绿色亮度梯度才能模拟磷光余晖。**�
 
 基于 4px 网格。
 
-### 4.1 组件内间距
+### 4.1 组件内间距（gap）
 
 | 间距 | 用途 |
 |------|------|
-| 4px | 品牌名与副标题间距（footerLeft gap） |
-| 6px | 链接图标与文字间距 |
-| 8px | Eyebrow 图标与文字间距 |
-| 12px | Tips 列表项间距、卡片内行间距 |
-| 14px | 卡片 Body 内行间距 |
-| 16px | 按钮组间距、卡片间距 |
-| 20px | 内容区块 gap（eyebrow/heading/body/action） |
-| 24px | 导航项间距、Hero 中心区 gap、键盘提示间距 |
-| 32px | 状态栏项间距、页脚左右 padding |
+| 2px | 对话名称与摘要行间距 |
+| 3px | Tab 图标与标签间距 |
+| 4px | 页面标题与副标题间距 |
+| 6px | 打字指示器点间距 |
+| 8px | 搜索框图标与文字间距、输入框内元素间距、选项列表间距 |
+| 10px | Inbox 卡片内行间距 |
+| 12px | 列表行 Avatar 与内容间距 |
+| 14px | AskQuestion 卡片内行间距 |
+| 16px | 操作按钮组间距、卡片头部元素间距 |
+| 20px | 聊天消息间距 |
+| 24px | 聊天区域消息间距 |
 
 ### 4.2 容器 Padding
 
 | 容器 | Padding | 说明 |
 |------|---------|------|
-| 导航栏 | `[0, 32]` | 上下0，左右32 |
-| Hero 中心区 | `[40, 80]` | 上下40，左右80 |
-| 内容行面板 | `60px` | 四边均60 |
-| 卡片 Body | `20px` | 四边均20 |
-| 卡片头部/页脚 | `[0, 16]` | 上下0，左右16 |
-| 主按钮 | `[12, 24]` | 上下12，左右24 |
-| 徽章 | `[4, 10]` | 上下4，左右10 |
-| 终端输入框 | `[16, 20]` | 上下16，左右20 |
-| 页脚 | `[0, 80]` | 上下0，左右80 |
+| 列表行 | `[0, 16]` | 上下0，左右16 |
+| 搜索框包装 | `[0, 16, 8, 16]` | 上0，右16，下8，左16 |
+| Section 标签行 | `[4, 16, 8, 16]` | 上4，右16，下8，左16 |
+| 导航栏 | `[0, 16]` | 上下0，左右16 |
+| 聊天区域 | `[12, 16]` 或 `16` | 聊天消息区 |
+| 输入框区域 | `[8, 16, 34, 16]` | 上8，右16，下34（Home Indicator），左16 |
+| Tab 包装 | `[0, 20, 34, 20]` | 上0，右20，下34，左20 |
+| AskQuestion 卡片 | `24px` | 四边均24 |
+| AskQuestion 选项 | `[12, 16]` | 上下12，左右16 |
+| Inbox 卡片 | `16px` | 四边均16 |
+| Inbox 卡片 chip | `[4, 8]` | 上下4，左右8 |
+| 底部 Sheet | `[16, 20, 20, 20]` | 上16，右20，下20，左20 |
+| 底部 Sheet handle 行 | `[12, 0, 8, 0]` | 上12，下8 |
+| 底部 Sheet 头部 | `[0, 20, 12, 20]` | 上0，右20，下12，左20 |
+| 空状态 hint | `[10, 16]` | 上下10，左右16 |
+| 未读徽章 | `[2, 6]` | 上下2，左右6 |
 
 ---
 
 ## 5. 布局结构
 
-### 5.1 Hero Section（`dTC73`）— 1440×900px
+### 5.1 iOS App 屏幕尺寸
+
+所有屏幕：390×844px（iPhone 14 标准尺寸）
+
+### 5.2 Home 页（对话列表）
 
 ```
-┌─────────────────────────────────────────────────────┐
-│ NavBar (48px)                                        │
-│  Logo ←————————————————————→ Nav Items + CTA Button │
-├─────────────────────────────────────────────────────┤
-│ Center Area (fill)                                   │
-│  [+]                                           [+]  │
-│                                                      │
-│              VAULT-TEC  (120px Anton)                │
-│       PIP-BOY 3000 MKIV TERMINAL v2.1.0             │
-│         ┌──────────────────────────┐                 │
-│         │ > ENTER COMMAND_         │                 │
-│         └──────────────────────────┘                 │
-│  [+]                                           [+]  │
-├─────────────────────────────────────────────────────┤
-│ Status Bar (36px)                                    │
-│  CTX: ████░░ 78% | OUT: ██░░ 61% | CSH: ░░ 42% | $ │
-└─────────────────────────────────────────────────────┘
+┌─────────────────────────────┐
+│ Status Bar (44px)            │
+├─────────────────────────────┤
+│ Header                       │
+│  "Grok" (32px/700)  [pencil] │
+├─────────────────────────────┤
+│ Search Bar (44px, r=12)      │
+│  🔍 Search                   │
+├─────────────────────────────┤
+│ Section: RECENT  [badge?]    │
+├─────────────────────────────┤
+│ Conv Row (72px)              │
+│  [Avatar] Name    2m         │
+│           Preview            │
+│ Conv Row (72px)              │
+│  ...                         │
+├─────────────────────────────┤
+│ (spacer)                     │
+├─────────────────────────────┤
+│ Tab Bar (62px, r=36)         │
+│  [Chat] [Inbox] [Profile]    │
+│ (34px Home Indicator)        │
+└─────────────────────────────┘
 ```
 
-**Scanlines overlay：** 渐变矩形（透明→黑色33%→透明），opacity 0.4，绝对定位覆盖全区。
-
-### 5.2 Content Section（`6yDen`）— 1440×1800px
-
-每行高 480px，左右各 720px，交替排列图片面板与文字面板。
+### 5.3 Chat 页
 
 ```
-┌──────────────────────────────────────────────────────┐
-│ Row1 - PIP-BOY Monitor (480px)                        │
-│  [Image Panel: PIP-BOY Card] | [Text Panel]           │
-├──────────────────────────────────────────────────────┤
-│ Divider (1px, #0F2B0F)                                │
-├──────────────────────────────────────────────────────┤
-│ Row2 - Settings (480px)                               │
-│  [Text Panel] | [Image Panel: Settings Dialog]        │
-├──────────────────────────────────────────────────────┤
-│ Divider (1px, #0F2B0F)                                │
-├──────────────────────────────────────────────────────┤
-│ Row3 - Tips (480px)                                   │
-│  [Image Panel: Tips Card] | [Text Panel]              │
-├──────────────────────────────────────────────────────┤
-│ Divider (1px, #0F2B0F)                                │
-├──────────────────────────────────────────────────────┤
-│ Footer (80px)                                         │
-│  Logo + Tagline ←——————————→ Nav Links               │
-└──────────────────────────────────────────────────────┘
+┌─────────────────────────────┐
+│ Status Bar (44px)            │
+├─────────────────────────────┤
+│ Nav Bar (56px)               │
+│  ← Back  Model Name  ⋯ ⊕   │
+├─────────────────────────────┤
+│ Chat Area (fill)             │
+│  AI message bubble           │
+│  User message bubble (right) │
+│  AI message + typing...      │
+├─────────────────────────────┤
+│ Input Area                   │
+│  [input row (52px, r=26)]    │
+│  [suggestion chips]          │
+│ (34px Home Indicator)        │
+└─────────────────────────────┘
 ```
 
-### 5.3 文字面板结构（通用）
+### 5.4 Inbox 页
 
-每个文字面板包含四层，垂直排列，gap 20px：
-
-1. **Eyebrow** — 图标 + 全大写标签（Inter 11px/500，#2D8B2D，letterSpacing 2）
-2. **Heading** — 两行大标题（Anton 52px，#20C20E，lineHeight 1.1，width 540px）
-3. **Body** — 描述段落（Geist 15px，#147A16，lineHeight 1.6，width 540px）
-4. **Action** — 主按钮 + 文字链接（gap 16px）
+```
+┌─────────────────────────────┐
+│ Status Bar (44px)            │
+├─────────────────────────────┤
+│ Header                       │
+│  "Inbox"  [filter icon]      │
+│  "3 pending responses"       │
+├─────────────────────────────┤
+│ Divider (1px, #1E1E1E)       │
+├─────────────────────────────┤
+│ Question Card                │
+│  Agent · Time  [chip]        │
+│  Question text               │
+│  [Dismiss] [Answer]          │
+│ Divider                      │
+│ Question Card                │
+│  ...                         │
+├─────────────────────────────┤
+│ Tab Bar (62px, r=36)         │
+└─────────────────────────────┘
+```
 
 ---
 
 ## 6. 组件规范
 
-### 6.1 导航栏（NavBar）
+### 6.1 Tab Bar
 
-- 高度：48px，宽度：fill_container
-- 背景：`#061206`，底部边框：`#0F2B0F` 1px inside
-- 布局：horizontal，space_between，padding `[0, 32]`
-- Logo：Anton 18px/700，`#20C20E`，letterSpacing 2
-- 导航项：Inter 13px，`#147A16`，letterSpacing 1，gap 24px
-- 分隔符：`|`，Inter 13px，`#0F2B0F`
-- CTA 按钮：Inter 12px/700，`#040D04` on `#20C20E`，cornerRadius 2，padding `[8, 16]`
+- 高度：62px，cornerRadius 36px
+- 背景：`#1A1A1A`
+- 布局：horizontal，space_between，padding `[0, 28]`
+- 每个 Tab：vertical，alignItems center，gap 3px
+  - 图标：Lucide，16×16px
+  - 标签：Inter 11px
+  - 激活色：`#FFFFFF`；非激活色：`#555555`
 
-### 6.2 主按钮（Primary Button）
+### 6.2 搜索框
 
-- 背景：`#20C20E`，cornerRadius 2
-- 文字：Anton 13px，`#040D04`，letterSpacing 1
-- Padding：`[12, 24]`
-- 无边框，无阴影
+- 高度：44px，cornerRadius 12px
+- 背景：`#1A1A1A`
+- 布局：horizontal，alignItems center，gap 8px，padding `[0, 12]`
+- 图标：lucide `search`，16×16px，`#666666`
+- 文字：Inter 16px，`#666666`
 
-### 6.3 文字链接（Text Link）
+### 6.3 对话列表行
 
-- 布局：horizontal，alignItems center，gap 6px
-- 文字：Inter 13px，`#2D8B2D`，letterSpacing 0.5
-- 图标：lucide `arrow-right`，14×14px，`#2D8B2D`
+- 高度：72px，padding `[0, 16]`
+- 布局：horizontal，alignItems center，gap 12px
+- Avatar：40×40px 圆形（ellipse），使用 §2.4 色板
+- 内容区：vertical，gap 2–3px，width fill_container
+  - 名称：Inter 15px/600，`#FFFFFF`
+  - 摘要：Inter 14px，`#888888`
+- 时间戳：Inter 12px，`#555555`
+- 未读状态：行背景 `#111111`，时间戳旁显示橙色徽章
 
-### 6.4 Eyebrow 标签
+### 6.4 未读徽章
 
-- 布局：horizontal，alignItems center，gap 8px
-- 图标：lucide 图标，14×14px，`#2D8B2D`
-- 文字：Inter 11px/500，`#2D8B2D`，letterSpacing 2，全大写
+- 背景：`#FF6B35`，cornerRadius 10px，padding `[2, 6]`
+- 文字：Inter 11px/700，`#FFFFFF`
 
-### 6.5 卡片（Terminal Card）
+### 6.5 导航栏（Chat 页）
 
-- 背景：`#061206`，边框：`#0F2B0F` 1px inside
-- 布局：vertical，width 480px
-- **头部**：高度 44px，背景 `#0A1A0A`，padding `[0, 16]`，底部边框 `#0F2B0F`
-  - 标题：Anton 13px，`#20C20E`，letterSpacing 1
-  - 徽章：Inter 10px/600，`#33FF33`，背景 `#0F2B0F`，cornerRadius 2，padding `[4, 10]`
-- **Body**：padding 20px，gap 14px，layout vertical
-- **页脚**：高度 36px，背景 `#040D04`，顶部边框 `#0F2B0F`，padding `[0, 16]`
-  - 文字：Inter 10px，`#0F6B0F`，letterSpacing 1
+- 高度：56px，padding `[0, 16]`，space_between
+- 返回按钮：horizontal，alignItems center，gap 4px，`#FFFFFF`
+- 模型标签：vertical，alignItems center，gap 2px（名称 + 状态）
+- 操作区：horizontal，gap 16px，图标 `#FFFFFF`
 
-### 6.6 进度条行（Metric Row）
+### 6.6 输入框行
 
-- 布局：vertical，gap 6px，width fill_container
-- 标签行：horizontal，space_between
-- 进度条：高度 8px，背景 `#0A1A0A`，cornerRadius 1
+- 高度：52px，cornerRadius 26px
+- 背景：`#1A1A1A`
+- 布局：horizontal，alignItems center，gap 8px，padding `[0, 4, 0, 16]`
+- 发送按钮：右侧，圆形，`#FF6B35` 背景
 
-### 6.7 设置对话框（Settings Dialog）
+### 6.7 AskQuestion 卡片（单问题）
 
-- 与卡片相同的外框样式
-- 设置行：高度 44px，padding `[0, 16]`，space_between
-  - 标签：Geist 13px，`#20C20E`
-  - 值/徽章：Geist 13px，`#33FF33` 或徽章组件
-  - 交替行背景：`#040D04`（偶数行）
-- 键盘提示页脚：Inter 10px，`#0F6B0F`，letterSpacing 1，gap 24px
+- 背景：`#1A1A1A`，cornerRadius 16px，padding 24px，gap 16px
+- 头部：horizontal，space_between
+  - 左：Agent 图标 + 名称（Inter 13px，`#888888`）
+  - 右：info 图标（`#555555`）
+- 问题文字：Inter 16px/600，`#FFFFFF`，width fill_container
+- 提示：Inter 13px，`#666666`（"Select one option to continue"）
+- 选项列表：vertical，gap 8px
+  - 选项行：horizontal，alignItems center，gap 12px，cornerRadius 10px，padding `[12, 16]`
+  - 已选中：背景 `#1F2A1F`，边框 `#4CAF50` 1.5px
+  - 未选中：背景 `#252525`，无边框
+- 操作行：horizontal，justifyContent end，gap 12px
+  - 取消按钮：cornerRadius 8px，背景 `#252525`，padding `[10, 20]`
+  - 确认按钮：cornerRadius 8px，背景 `#FF6B35`，padding `[10, 20]`
 
-### 6.8 Tips 卡片
+### 6.8 Multi AskQuestion 卡片
 
-- 与卡片相同外框，头部显示 "VAULT TIP" + 圆点指示器
-- Tips 列表：vertical，gap 12px，padding 20px
-- 每条 tip：horizontal，gap 12px
-  - 圆点：`●`，Inter 10px，`#20C20E`
-  - 文字：Geist 13px，`#147A16`，lineHeight 1.5，width 400px，fixed-width
+- 与单问题卡片结构相同，增加：
+  - 进度行：horizontal，space_between（"1 / 3 answered" + 进度条）
+  - 进度条：`#FF6B35` 填充，背景 `#2A2A2A`
+  - 锁定问题：opacity 0.45，背景 `#141414`，边框 `#2A2A2A`
 
-### 6.9 终端输入框（Terminal Box）
+### 6.9 Inbox 问题卡片
 
-- 背景：`#061206`，边框：`#0F2B0F` 1px inside，cornerRadius 2
-- 文字：`> ENTER COMMAND_`，Geist Mono 16px，`#20C20E`，letterSpacing 1
-- Padding：`[16, 20]`，width 600px
+- 背景：`#0D0D0D`，padding 16px，gap 10px，layout vertical
+- 顶部行：horizontal，space_between
+  - 左：Agent 名称（Inter 13px/600，`#FFFFFF`）+ 时间（Inter 12px，`#555555`）
+  - 右：Agent 图标（16×16px，`#888888`）
+- 问题文字：Inter 15px，`#DDDDDD`，lineHeight 1.4
+- Chip（来源标签）：cornerRadius 6px，背景 `#1A1A1A`，padding `[4, 8]`
+  - 图标 + 文字：Inter 12px，`#888888`
+- 操作行：horizontal，justifyContent end，gap 8px
+  - Dismiss：Inter 13px，`#666666`
+  - Answer：Inter 13px/600，`#FF6B35`
 
-### 6.10 状态栏（Status Bar）
+### 6.10 底部 Sheet（Answer Modal）
 
-- 高度 36px，背景 `#061206`，顶部边框 `#0F2B0F`
-- 布局：horizontal，center，gap 32px
-- 统计项：Inter 12px，`#20C20E`，letterSpacing 1
-- 分隔符：`|`，Inter 12px，`#0F2B0F`
+- 背景：`#161616`，cornerRadius `[20, 20, 0, 0]`（仅上方圆角）
+- 高度：584px，绝对定位于屏幕底部
+- 背后遮罩：`#000000` 55% opacity
+- Handle：4×36px 圆角矩形，`#333333`，居中
+- 头部：horizontal，space_between，padding `[0, 20, 12, 20]`
+  - 标题组：vertical，gap 2px
+  - 关闭按钮：32×32px 圆形，背景 `#252525`
+- 分割线：1px，`#2A2A2A`
+- 内容区：padding `[16, 20, 20, 20]`，gap 14px
 
-### 6.11 页脚（Footer）
+### 6.11 空状态（Inbox Empty）
 
-- 高度 80px，背景 `#061206`，padding `[0, 80]`
-- 布局：horizontal，space_between，alignItems center
-- 左侧：vertical，gap 4px
-  - 品牌名：Anton 14px，`#20C20E`，letterSpacing 2
-  - 副标语：Inter 10px，`#0F6B0F`，letterSpacing 1.5
-- 右侧：horizontal，gap 32px
-  - 链接：Inter 11px，`#2D8B2D`，letterSpacing 1
+- 布局：vertical，alignItems center，justifyContent center，gap 16px
+- 图标容器：80×80px 圆形，背景 `#1A1A1A`
+  - check 图标：36×36px，`#4CAF50`
+- 标题：Inter 22px/700，`#FFFFFF`
+- 副标题：Inter 15px，`#888888`，textAlign center，width 260px
+- Hint 行：horizontal，gap 8px，cornerRadius 12px，背景 `#1A1A1A`，padding `[10, 16]`
+  - bell 图标：14×14px，`#555555`
+  - 文字：Inter 12px，`#555555`
 
 ---
 
@@ -312,91 +336,44 @@ CRT 启动动画需要更宽的绿色亮度梯度才能模拟磷光余晖。**�
 
 | 场景 | 尺寸 | 颜色 |
 |------|------|------|
-| Eyebrow 图标 | 14×14px | `#2D8B2D` |
-| 文字链接箭头 | 14×14px | `#2D8B2D` |
-| 设置关闭按钮 | 16×16px | `#2D8B2D` |
-
-图标颜色始终与同行文字颜色一致。
-
----
-
-## 8. 特效规范
-
-### 8.1 扫描线（Scanlines）
-
-Hero Section 顶层覆盖一个渐变矩形模拟 CRT 扫描线：
-- 类型：linear gradient，rotation 90°
-- 颜色：`#00000000` → `#00000033`（50%）→ `#00000000`
-- 尺寸：1440×900px，绝对定位 (0, 0)
-- Opacity：0.4
-
-### 8.2 文字发光（Glow）
-
-Hero 主标题使用外发光阴影：
-- type: shadow，shadowType: outer
-- color: `#20C20E88`（50% 透明度绿色）
-- blur: 24px
-- offset: (0, 0)，spread: 0
-
-### 8.3 角落标记符
-
-Hero 中心区四角放置 `[+]` 文字标记（Inter 12px，`#147A16`），绝对定位：
-- 左上：(0, 0)
-- 右上：(1280, 0)
-- 左下：(0, 720)
-- 右下：(1280, 720)
+| Tab Bar 图标 | 16×16px | `#FFFFFF`（激活）/ `#555555`（非激活） |
+| 搜索图标 | 16×16px | `#666666` |
+| 导航栏操作图标 | 22–26px | `#FFFFFF` |
+| 列表过滤图标 | 22×22px | `#888888` |
+| Inbox 卡片图标 | 16×16px | `#888888` |
+| AskQuestion info 图标 | 14×14px | `#555555` |
+| 空状态 check 图标 | 36×36px | `#4CAF50` |
+| 空状态 bell 图标 | 14×14px | `#555555` |
 
 ---
 
-## 9. 内容区块规范
-
-### 9.1 交替布局规则
-
-内容区三行采用左右交替排列：
-- Row1（PIP-BOY Monitor）：图片面板左，文字面板右
-- Row2（Settings）：文字面板左，图片面板右
-- Row3（Tips）：图片面板左，文字面板右
-
-### 9.2 图片面板
-
-- 宽度：720px，高度：fill_container
-- 背景：`#061206`
-- 布局：vertical，justifyContent center，alignItems center，padding 60px，gap 16px
-
-### 9.3 文字面板
-
-- 宽度：720px，高度：fill_container
-- 背景：`#040D04`
-- 布局：vertical，justifyContent center，padding 60px，gap 20px
-
----
-
-## 10. 反模式清单
+## 8. 反模式清单
 
 | 禁止 | 原因 | 替代 |
 |------|------|------|
-| 使用非绿色系颜色 | 破坏终端沉浸感 | 坚持绿色色阶 |
-| 使用圆角 > 2px（卡片除外） | 终端风格偏方正 | cornerRadius 2 |
-| 使用阴影（发光除外） | 拟物风格 | 用边框分隔层级 |
-| 使用 font-bold 在 Anton 字体上 | Anton 本身已有视觉重量 | fontWeight: normal |
-| 使用白色或浅色背景 | 破坏 CRT 风格 | 深绿色背景 |
-| 混用非指定字体 | 破坏终端一致性 | Anton / Inter / Geist / Geist Mono |
+| 使用白色或浅色背景 | 破坏深色沉浸感 | 使用 `#0D0D0D` / `#1A1A1A` |
+| 滥用橙色 `#FF6B35` | 橙色是行动信号，过多会失去意义 | 仅用于 CTA、未读徽章、选中状态 |
+| 使用绿色系颜色（旧设计遗留） | 新设计已切换为深色+橙色体系 | 使用新色板 |
+| Tab Bar cornerRadius < 36px | 破坏胶囊形态 | cornerRadius 36px |
+| 输入框 cornerRadius < 26px | 破坏圆润输入框风格 | cornerRadius 26px |
+| 混用非指定字体 | 破坏界面一致性 | Anton / Inter |
 | 使用 px 以外的间距单位 | 设计系统基于 4px 网格 | 使用规定的间距值 |
+| 在非行动场景使用 `#FF6B35` | 稀释强调色语义 | 使用 `#888888` 或 `#DDDDDD` |
 
 ---
 
-## 11. 检查清单
+## 9. 检查清单
 
 在提交任何 UI 变更前，过一遍：
 
-- [ ] 所有颜色是否在色阶范围内？有没有硬编码非绿色系色值？
-- [ ] 字体是否只使用 Anton / Inter / Geist / Geist Mono？
+- [ ] 所有颜色是否在色阶范围内？有没有硬编码非规范色值？
+- [ ] 字体是否只使用 Anton / Inter？
 - [ ] 字号是否符合规范（无随意像素值）？
-- [ ] 卡片边框是否使用 `#0F2B0F` 1px inside？
-- [ ] 主按钮是否 cornerRadius 2，无阴影？
+- [ ] Tab Bar 是否 cornerRadius 36px，高度 62px？
+- [ ] 输入框是否 cornerRadius 26px，高度 52px？
+- [ ] 橙色 `#FF6B35` 是否仅用于行动/强调场景？
 - [ ] 图标是否使用 Lucide，尺寸是否与文字匹配？
-- [ ] 内容行是否 480px 高，左右各 720px？
-- [ ] 文字面板 gap 是否为 20px，padding 是否为 60px？
-- [ ] 扫描线 overlay 是否在 Hero Section 顶层？
-- [ ] Dark 模式（本设计即暗色模式）是否正常？
-# Randomly added by Kilo
+- [ ] 列表行高度是否为 72px？
+- [ ] 底部 Sheet 是否有 `[20, 20, 0, 0]` 圆角和 Handle？
+- [ ] 空状态是否有 check 图标 + 标题 + 副标题 + hint 行？
+- [ ] 深色模式（本设计即暗色模式）是否正常？
