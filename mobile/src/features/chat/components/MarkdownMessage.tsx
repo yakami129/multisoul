@@ -2,6 +2,7 @@ import * as Clipboard from 'expo-clipboard';
 import React, { memo, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import Markdown from 'react-native-markdown-display';
+import { MarkdownImage } from './MarkdownImage';
 
 interface Props {
   content: string;
@@ -164,7 +165,13 @@ function renderTable(node: { key: string }, children: React.ReactNode) {
   );
 }
 
-const mdRules = { fence: renderFence, table: renderTable };
+function renderImage(node: { key: string; attributes: { src?: string; alt?: string } }) {
+  const src = node.attributes.src ?? '';
+  const alt = node.attributes.alt ?? '';
+  return <MarkdownImage key={node.key} src={src} alt={alt} />;
+}
+
+export const mdRules = { fence: renderFence, table: renderTable, image: renderImage };
 
 export const MarkdownMessage = memo(function MarkdownMessage({ content }: Props) {
   return (
