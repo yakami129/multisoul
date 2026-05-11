@@ -4,7 +4,8 @@
   "documents": [
     {
       "file": "2026-05-11-ui-redesign-pencil.md",
-      "title": "UI 重构：迁移到 Pencil 设计系统（深色+橙色）"
+      "title": "UI 重构：迁移到 Pencil 设计系统（深色+橙色）",
+      "lastCompletedCommit": "d41abce6c09f82d4b5daf74ba48cb928ca4b835c"
     },
     {
       "file": "2026-05-11-bugfix-bot.md",
