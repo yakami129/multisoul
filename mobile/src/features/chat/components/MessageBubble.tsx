@@ -169,7 +169,9 @@ export const MessageBubble = memo(function MessageBubble({
               )
             ) : null}
             {payload.text ? (
-              <Text style={[s.userText, hasImage ? s.imageCaption : null]}>{payload.text}</Text>
+              <Text selectable style={[s.userText, hasImage ? s.imageCaption : null]}>
+                {payload.text}
+              </Text>
             ) : null}
             {hasImage && imageUri ? <Text style={s.enlargeHint}>Tap to enlarge →</Text> : null}
           </View>
@@ -187,15 +189,17 @@ export const MessageBubble = memo(function MessageBubble({
       if (isStreaming) {
         return (
           <View style={s.aiWrap}>
-            <View style={s.aiBubble}>
-              <Text style={[s.aiText, s.typingText]}>{displayedText}</Text>
+            <View testID="agent-text-bubble" style={s.aiBubble}>
+              <Text selectable style={[s.aiText, s.typingText]}>
+                {displayedText}
+              </Text>
             </View>
           </View>
         );
       }
       return (
         <View style={s.aiWrap}>
-          <View style={s.aiBubble}>
+          <View testID="agent-text-bubble" style={s.aiBubble}>
             <MarkdownMessage content={agentText} />
           </View>
         </View>
@@ -293,7 +297,7 @@ const s = StyleSheet.create({
     padding: 14,
   },
   aiBubble: {
-    maxWidth: 280,
+    width: '100%',
     backgroundColor: '#1A1A1A',
     borderTopLeftRadius: 4,
     borderTopRightRadius: 16,

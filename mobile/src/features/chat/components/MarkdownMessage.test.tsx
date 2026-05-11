@@ -42,6 +42,37 @@ jest.mock('@/store/settingsStore', () => ({
   ),
 }));
 
+jest.mock('react-native-markdown-display', () => {
+  const { Text, View } = require('react-native');
+
+  return {
+    __esModule: true,
+    default: ({
+      children,
+      rules,
+    }: {
+      children: string;
+      rules?: { text?: (...args: unknown[]) => unknown };
+    }) => {
+      const content = String(children);
+      const node = {
+        type: 'text',
+        sourceType: 'text',
+        key: 'markdown-text-node',
+        content,
+        markup: '',
+        tokenIndex: 0,
+        index: 0,
+        attributes: {},
+        children: [],
+      };
+      const renderedText = rules?.text?.(node, [], [], { text: {} }) ?? <Text>{content}</Text>;
+
+      return <View testID="markdown-root">{renderedText}</View>;
+    },
+  };
+});
+
 describe('MarkdownMessage', () => {
   it('renders markdown root for normal content', () => {
     const { getByTestId } = render(<MarkdownMessage content="# Hello\n\nsome text" />);
@@ -58,6 +89,33 @@ describe('MarkdownMessage', () => {
   it('renders without crash for empty content', () => {
     // 断言失败 = 空字符串 content 导致 MarkdownMessage 抛出异常
     expect(() => render(<MarkdownMessage content="" />)).not.toThrow();
+  });
+
+  /// Markdown AI 回复：普通文本节点应支持系统长按选择/复制
+  ///
+  /// 数据构造：
+  ///   content = "copyable AI reply"
+  ///   Markdown mock 会调用 rules.text 渲染普通 text AST 节点
+  ///
+  /// 执行过程：
+  ///   1. render MarkdownMessage → rules.text 生成 Text
+  ///   2. 找到内容 Text 节点
+  ///   3. 读取 Text.props.selectable
+  ///
+  /// 预期结果：
+  ///   - 正断言：Markdown 普通文本 Text selectable=true，历史 AI 回复可复制
+  ///   - 负断言：普通 Markdown 文本不应出现 code copy-btn，只保留原生文本复制
+  it('makes markdown text selectable for native copy', () => {
+    const { getByText, queryByTestId } = render(<MarkdownMessage content="copyable AI reply" />);
+
+    expect(getByText('copyable AI reply').props.selectable).toBe(
+      true,
+      'markdown text should set selectable=true so historical AI replies can be copied',
+    );
+    expect(queryByTestId('copy-btn') === null).toBe(
+      true,
+      'plain markdown text should not render the code-block copy button',
+    );
   });
 });
 

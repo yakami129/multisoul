@@ -1,7 +1,7 @@
 import * as Clipboard from 'expo-clipboard';
 import React, { memo, useState } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
-import Markdown from 'react-native-markdown-display';
+import { Pressable, ScrollView, Text, View, type StyleProp, type TextStyle } from 'react-native';
+import Markdown, { type ASTNode, type RenderRules } from 'react-native-markdown-display';
 import { MarkdownImage } from './MarkdownImage';
 
 interface Props {
@@ -142,11 +142,23 @@ const mdStyles = {
   tr: {},
 };
 
+type MarkdownStyles = Record<string, StyleProp<TextStyle>>;
+
+function selectableTextStyle(
+  styles: MarkdownStyles,
+  key: string,
+  inheritedStyles?: StyleProp<TextStyle>,
+) {
+  return inheritedStyles ? [inheritedStyles, styles[key]] : styles[key];
+}
+
 // Rule renderers defined at module scope — stable references, no unstable-nested-components.
 function renderFence(node: { key: string; content: string }) {
   return (
     <View key={node.key} style={mdStyles.fence}>
-      <Text style={mdStyles.code_block}>{node.content}</Text>
+      <Text selectable style={mdStyles.code_block}>
+        {node.content}
+      </Text>
       <CopyButton code={node.content} />
     </View>
   );
@@ -165,13 +177,103 @@ function renderTable(node: { key: string }, children: React.ReactNode) {
   );
 }
 
-function renderImage(node: { key: string; attributes: { src?: string; alt?: string } }) {
-  const src = node.attributes.src ?? '';
-  const alt = node.attributes.alt ?? '';
+function renderImage(
+  node: ASTNode,
+  _children: React.ReactNode[],
+  _parent: ASTNode[],
+  _styles: MarkdownStyles,
+  _allowedImageHandlers?: string[],
+  _defaultImageHandler?: string,
+) {
+  const src = String(node.attributes.src ?? '');
+  const alt = String(node.attributes.alt ?? '');
   return <MarkdownImage key={node.key} src={src} alt={alt} />;
 }
 
-export const mdRules = { fence: renderFence, table: renderTable, image: renderImage };
+function renderSelectableText(
+  node: ASTNode,
+  _children: React.ReactNode[],
+  _parent: ASTNode[],
+  styles: MarkdownStyles,
+  inheritedStyles?: StyleProp<TextStyle>,
+) {
+  return (
+    <Text key={node.key} selectable style={selectableTextStyle(styles, 'text', inheritedStyles)}>
+      {node.content}
+    </Text>
+  );
+}
+
+function renderSelectableTextGroup(
+  node: ASTNode,
+  children: React.ReactNode[],
+  _parent: ASTNode[],
+  styles: MarkdownStyles,
+) {
+  return (
+    <Text key={node.key} selectable style={styles.textgroup}>
+      {children}
+    </Text>
+  );
+}
+
+function renderSelectableStyledChildren(styleKey: string) {
+  return (
+    node: ASTNode,
+    children: React.ReactNode[],
+    _parent: ASTNode[],
+    styles: MarkdownStyles,
+    inheritedStyles?: StyleProp<TextStyle>,
+  ) => (
+    <Text key={node.key} selectable style={selectableTextStyle(styles, styleKey, inheritedStyles)}>
+      {children}
+    </Text>
+  );
+}
+
+function renderSelectableContent(styleKey: string) {
+  return (
+    node: ASTNode,
+    _children: React.ReactNode[],
+    _parent: ASTNode[],
+    styles: MarkdownStyles,
+    inheritedStyles?: StyleProp<TextStyle>,
+  ) => (
+    <Text key={node.key} selectable style={selectableTextStyle(styles, styleKey, inheritedStyles)}>
+      {node.content}
+    </Text>
+  );
+}
+
+function renderSelectableBreak(styleKey: 'hardbreak' | 'softbreak') {
+  return (
+    node: ASTNode,
+    _children: React.ReactNode[],
+    _parent: ASTNode[],
+    styles: MarkdownStyles,
+  ) => (
+    <Text key={node.key} selectable style={styles[styleKey]}>
+      {'\n'}
+    </Text>
+  );
+}
+
+export const mdRules: RenderRules = {
+  text: renderSelectableText,
+  textgroup: renderSelectableTextGroup,
+  strong: renderSelectableStyledChildren('strong'),
+  em: renderSelectableStyledChildren('em'),
+  s: renderSelectableStyledChildren('s'),
+  inline: renderSelectableStyledChildren('inline'),
+  span: renderSelectableStyledChildren('span'),
+  code_inline: renderSelectableContent('code_inline'),
+  code_block: renderSelectableContent('code_block'),
+  hardbreak: renderSelectableBreak('hardbreak'),
+  softbreak: renderSelectableBreak('softbreak'),
+  fence: renderFence,
+  table: renderTable,
+  image: renderImage,
+};
 
 export const MarkdownMessage = memo(function MarkdownMessage({ content }: Props) {
   return (

@@ -89,6 +89,35 @@ describe('MessageBubble image rendering', () => {
     expect(getByText('hello')).toBeTruthy();
   });
 
+  /// 用户文本消息：普通文字应支持系统长按选择/复制
+  ///
+  /// 数据构造：
+  ///   WsMessage role='user_text'
+  ///   payload.text = "copy this user message"
+  ///   payload.file_id 不存在（纯文本消息）
+  ///
+  /// 执行过程：
+  ///   1. render MessageBubble → user_text 分支
+  ///   2. 找到内容 Text 节点
+  ///   3. 读取 Text.props.selectable
+  ///
+  /// 预期结果：
+  ///   - 正断言：用户消息 Text selectable=true，长按可触发原生复制菜单
+  ///   - 负断言：纯文本消息不应渲染代码块 copy-btn，避免把普通消息误当代码块
+  it('makes user text selectable for native copy', () => {
+    const msg = makeUserMsg({ text: 'copy this user message' });
+    const { getByText, queryByTestId } = render(<MessageBubble msg={msg} />);
+
+    expect(getByText('copy this user message').props.selectable).toBe(
+      true,
+      'user text should set selectable=true so native copy is available',
+    );
+    expect(queryByTestId('copy-btn') === null).toBe(
+      true,
+      'plain user text should not render the code-block copy button',
+    );
+  });
+
   /// 全屏预览：点击缩略图 → Modal 出现；点击关闭按钮 → Modal 消失
   ///
   /// 数据构造：
@@ -165,6 +194,71 @@ describe('MessageBubble agent_text markdown rendering', () => {
     role: 'agent_text',
     payload: { text },
     created_at: 0,
+  });
+
+  /// 流式 AI 回复：打字机阶段的纯 Text 也必须可复制
+  ///
+  /// 数据构造：
+  ///   agent_text msg with text = "copy streaming answer"
+  ///   typewriter = true
+  ///   TYPEWRITER_INTERVAL_MS = 18ms
+  ///
+  /// 执行过程：
+  ///   1. render MessageBubble(typewriter=true) → isStreaming=true
+  ///   2. advanceTimersByTime(18ms) → 显示首字符和光标 "c▌"
+  ///   3. 读取流式 Text.props.selectable
+  ///
+  /// 预期结果：
+  ///   - 正断言：流式 AI Text selectable=true，回复生成中也能复制已显示内容
+  ///   - 负断言：流式阶段不应渲染 markdown-root，避免打字机路径被绕过
+  it('makes streaming agent text selectable for native copy', () => {
+    jest.useFakeTimers();
+    const msg = makeAgentMsg('copy streaming answer');
+    const { getByText, queryByTestId } = render(<MessageBubble msg={msg} typewriter />);
+
+    act(() => {
+      jest.advanceTimersByTime(18);
+    });
+
+    expect(getByText('c▌').props.selectable).toBe(
+      true,
+      'streaming agent text should set selectable=true while the typewriter is active',
+    );
+    expect(queryByTestId('markdown-root') === null).toBe(
+      true,
+      'streaming agent text should stay on the Text path until typewriter finishes',
+    );
+    jest.useRealTimers();
+  });
+
+  /// AI 回复气泡宽度：agent_text 应尽量占满 chat 列表可用宽度
+  ///
+  /// 数据构造：
+  ///   agent_text msg with text = "wide answer"
+  ///   typewriter = false（历史/已完成回复，走 MarkdownMessage 分支）
+  ///
+  /// 执行过程：
+  ///   1. render MessageBubble → agent_text 分支 → aiWrap(width='100%')
+  ///   2. agent_text 内容进入 testID="agent-text-bubble" 的 aiBubble
+  ///   3. 读取 agent-text-bubble style
+  ///
+  /// 预期结果：
+  ///   - 正断言：aiBubble.width 应为 '100%'，让 AI 回复尽量接近全屏可用宽度
+  ///   - 负断言：aiBubble.maxWidth 不应为 280，避免长回复被固定窄卡片限制
+  it('lets agent text bubbles use the full available row width', () => {
+    const msg = makeAgentMsg('wide answer');
+    const { getByTestId } = render(<MessageBubble msg={msg} />);
+
+    const bubbleStyle = StyleSheet.flatten(getByTestId('agent-text-bubble').props.style);
+
+    expect(bubbleStyle?.width).toBe(
+      '100%',
+      'agent text bubble should fill the available chat row width',
+    );
+    expect(bubbleStyle?.maxWidth).not.toBe(
+      280,
+      'agent text bubble must not keep the old fixed 280px max width',
+    );
   });
 
   /// 历史消息（typewriter=false）：直接渲染 MarkdownMessage，不走 Text 分支
