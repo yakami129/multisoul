@@ -33,10 +33,13 @@ export default function TabLayout() {
         },
         tabBarActiveTintColor: '#FF6B35',
         tabBarInactiveTintColor: '#555555',
-        tabBarShowLabel: false,
+        tabBarLabelStyle: {
+          fontFamily: 'Inter',
+          fontSize: 11,
+          marginTop: 2,
+        },
         tabBarItemStyle: {
-          justifyContent: 'center',
-          alignItems: 'center',
+          paddingVertical: 8,
         },
       }}
     >
