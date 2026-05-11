@@ -184,7 +184,7 @@ fn spawn_codex(
             "resume".to_string(),
             "--skip-git-repo-check".to_string(),
         ];
-        for flag in mode_flags(mode) {
+        for flag in resume_mode_flags(mode) {
             a.push(flag.to_string());
         }
         a.push(tid.to_string());
@@ -225,6 +225,22 @@ fn spawn_codex(
 
 /// Returns the `codex exec` mode flags for the given mode string.
 pub fn mode_flags(mode: &str) -> Vec<&'static str> {
+    match mode.to_lowercase().as_str() {
+        "auto-edit" | "full-auto" => vec![
+            "--sandbox",
+            "workspace-write",
+            "-c",
+            "approval_policy=\"never\"",
+        ],
+        "yolo" => vec!["--dangerously-bypass-approvals-and-sandbox"],
+        _ => vec![],
+    }
+}
+
+/// Returns mode flags for `codex exec resume`.
+///
+/// `resume` supports `-c/--config`, but not the fresh-exec `--sandbox` flag.
+pub fn resume_mode_flags(mode: &str) -> Vec<&'static str> {
     match mode.to_lowercase().as_str() {
         "auto-edit" | "full-auto" => vec![
             "-c",
