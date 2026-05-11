@@ -45,6 +45,7 @@ export const useInboxStore = create<InboxState>((set) => ({
     }));
   },
 
+  // Remove an item from the inbox by ID
   removeItem: async (id) => {
     await deleteInboxItem(id);
     set((s) => ({ items: s.items.filter((i) => i.id !== id) }));

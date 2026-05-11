@@ -27,6 +27,10 @@
       "title": "GitHub Actions CI/CD SPEC"
     },
     {
+      "file": "SPEC-image-render.md",
+      "title": "图片渲染与全屏查看 SPEC"
+    },
+    {
       "file": "SPEC-list-refresh.md",
       "title": "Chat & Inbox 列表刷新 SPEC"
     },
