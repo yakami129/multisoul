@@ -1,0 +1,9 @@
+[agent]
+version = "0.1.0"
+executable = "fix-bug-bot"
+
+[[triggers]]
+event = "feishu.issue.updated"
+
+[[triggers]]
+event = "gitlab.merge_request_hook"
