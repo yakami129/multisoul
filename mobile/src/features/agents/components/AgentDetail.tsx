@@ -53,13 +53,13 @@ export function AgentDetail({ agent, isLoading, isError, onBack, onInvoke, onCha
       <View style={[s.root, { paddingTop: insets.top }]}>
         <View style={s.nav}>
           <TouchableOpacity onPress={onBack}>
-            <ArrowLeft size={20} color="#20C20E" />
+            <ArrowLeft size={20} color="#FFFFFF" />
           </TouchableOpacity>
           <Text style={s.navTitle}>AGENT</Text>
           <View style={{ width: 20 }} />
         </View>
         <View style={s.centered}>
-          <ActivityIndicator size="large" color="#20C20E" />
+          <ActivityIndicator size="large" color="#FFFFFF" />
           <Text style={s.loadingText}>LOADING…</Text>
         </View>
       </View>
@@ -71,7 +71,7 @@ export function AgentDetail({ agent, isLoading, isError, onBack, onInvoke, onCha
       <View style={[s.root, { paddingTop: insets.top }]}>
         <View style={s.nav}>
           <TouchableOpacity onPress={onBack}>
-            <ArrowLeft size={20} color="#20C20E" />
+            <ArrowLeft size={20} color="#FFFFFF" />
           </TouchableOpacity>
           <Text style={s.navTitle}>AGENT</Text>
           <View style={{ width: 20 }} />
@@ -91,7 +91,7 @@ export function AgentDetail({ agent, isLoading, isError, onBack, onInvoke, onCha
       {/* Nav */}
       <View style={s.nav}>
         <TouchableOpacity onPress={onBack}>
-          <ArrowLeft size={20} color="#20C20E" />
+          <ArrowLeft size={20} color="#FFFFFF" />
         </TouchableOpacity>
         <Text style={s.navTitle}>AGENT</Text>
         <View style={{ width: 20 }} />
@@ -121,7 +121,7 @@ export function AgentDetail({ agent, isLoading, isError, onBack, onInvoke, onCha
           <View style={s.row}>
             <Text style={s.rowLabel}>PROJECT</Text>
             <View style={s.projectRow}>
-              <Zap size={12} color="#0F6B0F" />
+              <Zap size={12} color="#555555" />
               <Text style={s.rowValueMono} numberOfLines={2}>
                 {agent.project_path}
               </Text>
@@ -142,7 +142,7 @@ export function AgentDetail({ agent, isLoading, isError, onBack, onInvoke, onCha
           <TextInput
             style={s.messageInput}
             placeholder="Enter a task for the agent…"
-            placeholderTextColor="#2D8B2D"
+            placeholderTextColor="#555555"
             value={message}
             onChangeText={setMessage}
             multiline
@@ -156,7 +156,7 @@ export function AgentDetail({ agent, isLoading, isError, onBack, onInvoke, onCha
             disabled={!message.trim() || invoking}
           >
             {invoking ? (
-              <ActivityIndicator size="small" color="#040D04" />
+              <ActivityIndicator size="small" color="#FFFFFF" />
             ) : (
               <Text style={s.invokeBtnText}>INVOKE</Text>
             )}
@@ -180,35 +180,33 @@ export function AgentDetail({ agent, isLoading, isError, onBack, onInvoke, onCha
 }
 
 const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#040D04' },
+  root: { flex: 1, backgroundColor: '#0D0D0D' },
   nav: {
     height: 52,
-    backgroundColor: '#061206',
+    backgroundColor: '#0D0D0D',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#0F2B0F',
+    borderBottomColor: '#1E1E1E',
   },
-  navTitle: { fontFamily: 'Anton', fontSize: 16, color: '#20C20E' },
+  navTitle: { fontFamily: 'Inter', fontSize: 16, fontWeight: '700', color: '#FFFFFF' },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 16 },
-  loadingText: { fontFamily: 'Inter', fontSize: 11, color: '#2D8B2D', letterSpacing: 2 },
-  errorTitle: { fontFamily: 'Anton', fontSize: 20, color: '#FFB000' },
+  loadingText: { fontFamily: 'Inter', fontSize: 11, color: '#888888', letterSpacing: 2 },
+  errorTitle: { fontFamily: 'Inter', fontSize: 20, fontWeight: '700', color: '#FF4444' },
   backBtn: {
     borderWidth: 1,
-    borderColor: '#20C20E',
+    borderColor: '#FF6B35',
     paddingHorizontal: 24,
     paddingVertical: 8,
-    borderRadius: 2,
+    borderRadius: 8,
   },
-  backBtnText: { fontFamily: 'Inter', fontSize: 12, color: '#20C20E', letterSpacing: 1.5 },
+  backBtnText: { fontFamily: 'Inter', fontSize: 12, color: '#FF6B35', letterSpacing: 1.5 },
   scroll: { padding: 16, gap: 12 },
   headerCard: {
-    backgroundColor: '#061206',
-    borderRadius: 2,
-    borderWidth: 1,
-    borderColor: '#0F2B0F',
+    backgroundColor: '#1A1A1A',
+    borderRadius: 12,
     padding: 16,
     flexDirection: 'row',
     alignItems: 'center',
@@ -217,46 +215,48 @@ const s = StyleSheet.create({
   avatar: {
     width: 48,
     height: 48,
-    borderRadius: 2,
-    backgroundColor: '#0F2B0F',
+    borderRadius: 24,
+    backgroundColor: '#FF6B35',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  avatarText: { fontFamily: 'Anton', fontSize: 18, color: '#20C20E' },
+  avatarText: { fontFamily: 'Inter', fontSize: 18, fontWeight: '700', color: '#FFFFFF' },
   headerInfo: { flex: 1, gap: 6 },
-  agentName: { fontFamily: 'Anton', fontSize: 18, color: '#20C20E' },
+  agentName: { fontFamily: 'Inter', fontSize: 18, fontWeight: '700', color: '#FFFFFF' },
   runtimeBadge: {
     alignSelf: 'flex-start',
     paddingHorizontal: 8,
     paddingVertical: 2,
-    borderRadius: 2,
-    borderWidth: 1,
-    borderColor: '#0F2B0F',
-    backgroundColor: '#0A1A0A',
+    borderRadius: 6,
+    backgroundColor: '#0D0D0D',
   },
-  runtimeText: { fontFamily: 'Inter', fontSize: 10, color: '#2D8B2D', letterSpacing: 0.8 },
+  runtimeText: { fontFamily: 'Inter', fontSize: 10, color: '#888888', letterSpacing: 0.8 },
   section: {
-    backgroundColor: '#061206',
-    borderRadius: 2,
-    borderWidth: 1,
-    borderColor: '#0F2B0F',
+    backgroundColor: '#1A1A1A',
+    borderRadius: 12,
     padding: 16,
     gap: 12,
   },
-  sectionTitle: { fontFamily: 'Anton', fontSize: 13, color: '#20C20E', letterSpacing: 1 },
+  sectionTitle: {
+    fontFamily: 'Inter',
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#888888',
+    letterSpacing: 1,
+  },
   row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 },
   rowLabel: {
     fontFamily: 'Inter',
     fontSize: 11,
-    color: '#2D8B2D',
+    color: '#666666',
     letterSpacing: 1.5,
     paddingTop: 2,
   },
-  rowValue: { fontFamily: 'Geist', fontSize: 13, color: '#20C20E', flex: 1, textAlign: 'right' },
+  rowValue: { fontFamily: 'Inter', fontSize: 13, color: '#DDDDDD', flex: 1, textAlign: 'right' },
   rowValueMono: {
-    fontFamily: 'Geist Mono',
+    fontFamily: 'Inter',
     fontSize: 11,
-    color: '#147A16',
+    color: '#888888',
     flex: 1,
     textAlign: 'right',
   },
@@ -267,35 +267,35 @@ const s = StyleSheet.create({
     gap: 4,
     justifyContent: 'flex-end',
   },
-  divider: { height: 1, backgroundColor: '#0F2B0F' },
+  divider: { height: 1, backgroundColor: '#1E1E1E' },
   messageInput: {
-    backgroundColor: '#0A1A0A',
-    borderRadius: 2,
+    backgroundColor: '#1A1A1A',
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#0F2B0F',
+    borderColor: '#1E1E1E',
     padding: 12,
-    fontFamily: 'Geist',
+    fontFamily: 'Inter',
     fontSize: 14,
-    color: '#20C20E',
+    color: '#FFFFFF',
     minHeight: 80,
     textAlignVertical: 'top',
   },
   invokeBtn: {
     height: 44,
-    backgroundColor: '#20C20E',
-    borderRadius: 2,
+    backgroundColor: '#FF6B35',
+    borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
   },
   invokeBtnDisabled: { opacity: 0.4 },
-  invokeBtnText: { fontFamily: 'Anton', fontSize: 14, color: '#040D04', letterSpacing: 1 },
+  invokeBtnText: { fontFamily: 'Inter', fontSize: 14, fontWeight: '600', color: '#FFFFFF' },
   chatBtn: {
     height: 44,
-    borderRadius: 2,
+    borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#20C20E',
+    borderColor: '#FF6B35',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  chatBtnText: { fontFamily: 'Anton', fontSize: 14, color: '#20C20E', letterSpacing: 1 },
+  chatBtnText: { fontFamily: 'Inter', fontSize: 14, fontWeight: '600', color: '#FF6B35' },
 });

@@ -53,7 +53,7 @@ test('reveals agent text with scanner cursor while preserving original color', (
   });
 
   const scanningText = getByText('s▌');
-  expect(StyleSheet.flatten(scanningText.props.style).color).toBe('#20C20E');
+  expect(StyleSheet.flatten(scanningText.props.style).color).toBe('#FFFFFF');
 
   act(() => {
     jest.advanceTimersByTime(500);

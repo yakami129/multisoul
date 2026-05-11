@@ -27,7 +27,7 @@ export function EndpointList({ endpoints, onRemove }: Props) {
         const online = item.last_seen_at !== null && Date.now() - item.last_seen_at < 60_000;
         return (
           <View style={s.row}>
-            <View style={[s.dot, { backgroundColor: online ? '#33FF33' : '#2D8B2D' }]} />
+            <View style={[s.dot, { backgroundColor: online ? '#4CAF50' : '#555555' }]} />
             <View style={s.info}>
               <Text style={s.label}>{item.label}</Text>
               <Text style={s.url} numberOfLines={1}>
@@ -35,7 +35,7 @@ export function EndpointList({ endpoints, onRemove }: Props) {
               </Text>
             </View>
             <TouchableOpacity onPress={() => onRemove(item.id)} hitSlop={8}>
-              <Trash2 size={16} color="#2D8B2D" />
+              <Trash2 size={16} color="#888888" />
             </TouchableOpacity>
           </View>
         );
@@ -46,20 +46,18 @@ export function EndpointList({ endpoints, onRemove }: Props) {
 
 const s = StyleSheet.create({
   empty: { paddingVertical: 24, alignItems: 'center' },
-  emptyText: { fontFamily: 'Inter', fontSize: 11, color: '#2D8B2D', letterSpacing: 2 },
+  emptyText: { fontFamily: 'Inter', fontSize: 13, color: '#888888', letterSpacing: 1 },
   list: { gap: 8 },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    backgroundColor: '#061206',
-    borderWidth: 1,
-    borderColor: '#0F2B0F',
-    borderRadius: 2,
-    padding: 12,
+    backgroundColor: '#1A1A1A',
+    borderRadius: 12,
+    padding: 14,
   },
   dot: { width: 8, height: 8, borderRadius: 4, flexShrink: 0 },
-  info: { flex: 1, gap: 2 },
-  label: { fontFamily: 'Anton', fontSize: 13, color: '#20C20E', letterSpacing: 1 },
-  url: { fontFamily: 'Geist', fontSize: 12, color: '#2D8B2D' },
+  info: { flex: 1, gap: 3 },
+  label: { fontFamily: 'Inter', fontSize: 14, fontWeight: '600', color: '#FFFFFF' },
+  url: { fontFamily: 'Inter', fontSize: 12, color: '#888888' },
 });

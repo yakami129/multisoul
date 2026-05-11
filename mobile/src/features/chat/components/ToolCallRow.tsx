@@ -10,15 +10,15 @@ interface Props {
 
 export function ToolCallRow({ call, result }: Props) {
   const [expanded, setExpanded] = useState(false);
-  const statusColor = result ? (result.ok ? '#33FF33' : '#FFB000') : '#2D8B2D';
+  const statusColor = result ? (result.ok ? '#4CAF50' : '#FF4444') : '#555555';
   const summary = result ? `-> ${result.ok ? 'ok' : 'err'}: ${result.summary}` : '-> pending';
 
   return (
     <TouchableOpacity onPress={() => setExpanded((v) => !v)} style={s.row}>
       {expanded ? (
-        <ChevronDown size={12} color="#2D8B2D" />
+        <ChevronDown size={12} color="#555555" />
       ) : (
-        <ChevronRight size={12} color="#2D8B2D" />
+        <ChevronRight size={12} color="#555555" />
       )}
       <Text style={s.tool}>[{call.tool}]</Text>
       <Text style={s.args} numberOfLines={expanded ? undefined : 1}>
@@ -36,12 +36,12 @@ const s = StyleSheet.create({
     gap: 6,
     paddingVertical: 4,
     paddingHorizontal: 12,
-    backgroundColor: '#0A1A0A',
-    borderRadius: 2,
+    backgroundColor: '#1A1A1A',
+    borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#0F2B0F',
+    borderColor: '#1E1E1E',
   },
-  tool: { fontFamily: 'Geist Mono', fontSize: 11, color: '#2D8B2D' },
-  args: { fontFamily: 'Geist Mono', fontSize: 11, color: '#147A16', flex: 1 },
-  status: { fontFamily: 'Geist Mono', fontSize: 11 },
+  tool: { fontFamily: 'Inter', fontSize: 11, color: '#888888' },
+  args: { fontFamily: 'Inter', fontSize: 11, color: '#666666', flex: 1 },
+  status: { fontFamily: 'Inter', fontSize: 11 },
 });

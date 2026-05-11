@@ -52,17 +52,17 @@ export default function ChatHomeScreen({
       <View style={s.header}>
         <Text style={s.headerTitle}>MULTISOUL</Text>
         <TouchableOpacity onPress={onPressNewChat}>
-          <Pencil size={20} color="#20C20E" />
+          <Pencil size={20} color="#FFFFFF" />
         </TouchableOpacity>
       </View>
 
       <View style={s.searchWrap}>
         <View style={s.searchBar}>
-          <Search size={16} color="#2D8B2D" />
+          <Search size={16} color="#666666" />
           <TextInput
             style={s.searchInput}
             placeholder="Search..."
-            placeholderTextColor="#2D8B2D"
+            placeholderTextColor="#666666"
             value={search}
             onChangeText={setSearch}
           />
@@ -77,8 +77,9 @@ export default function ChatHomeScreen({
         data={filtered}
         keyExtractor={(item) => item.id}
         style={s.list}
+        contentContainerStyle={s.listContent}
         refreshControl={
-          <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor="#20C20E" />
+          <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor="#FF6B35" />
         }
         renderItem={({ item }) => {
           const initials = item.agent_name.slice(0, 2).toUpperCase();
@@ -130,74 +131,79 @@ export default function ChatHomeScreen({
 }
 
 const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#040D04' },
+  root: { flex: 1, backgroundColor: '#0D0D0D' },
   header: {
     height: 52,
-    backgroundColor: '#061206',
+    backgroundColor: '#0D0D0D',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#0F2B0F',
+    borderBottomColor: '#1E1E1E',
   },
-  headerTitle: { fontFamily: 'Anton', fontSize: 22, color: '#20C20E' },
-  searchWrap: { height: 68, backgroundColor: '#040D04', padding: 12 },
+  headerTitle: { fontFamily: 'Anton', fontSize: 32, color: '#FFFFFF' },
+  searchWrap: { height: 68, backgroundColor: '#0D0D0D', padding: 12 },
   searchBar: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#0A1A0A',
-    borderRadius: 2,
-    borderWidth: 1,
-    borderColor: '#0F2B0F',
+    backgroundColor: '#1A1A1A',
+    borderRadius: 12,
     paddingHorizontal: 12,
     gap: 8,
   },
-  searchInput: { flex: 1, fontFamily: 'Geist', fontSize: 14, color: '#20C20E', height: 44 },
+  searchInput: { flex: 1, fontFamily: 'Inter', fontSize: 16, color: '#FFFFFF', height: 44 },
   sectionWrap: { height: 36, justifyContent: 'center', paddingHorizontal: 16 },
-  sectionLabel: { fontFamily: 'Inter', fontSize: 11, color: '#2D8B2D', letterSpacing: 2 },
+  sectionLabel: {
+    fontFamily: 'Inter',
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#666666',
+    letterSpacing: 1,
+  },
   list: { flex: 1 },
+  listContent: { paddingBottom: 110 },
   row: {
-    height: 80,
+    height: 72,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
     gap: 12,
-    backgroundColor: '#040D04',
+    backgroundColor: '#0D0D0D',
   },
   avatarWrap: { position: 'relative' },
   avatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#0F2B0F',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#FF6B35',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  avatarText: { fontFamily: 'Anton', fontSize: 11, color: '#20C20E' },
+  avatarText: { fontFamily: 'Anton', fontSize: 14, color: '#FFFFFF' },
   unreadDot: {
     position: 'absolute',
     top: -2,
     right: -2,
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#FFB000',
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#FF6B35',
   },
   rowContent: { flex: 1, gap: 3 },
   rowTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  agentName: { fontFamily: 'Anton', fontSize: 14, color: '#20C20E' },
-  timestamp: { fontFamily: 'Inter', fontSize: 11, color: '#0F6B0F' },
-  lastMessage: { fontFamily: 'Geist', fontSize: 13, color: '#2D8B2D' },
-  description: { fontFamily: 'Geist', fontSize: 12, color: '#147A16' },
+  agentName: { fontFamily: 'Inter', fontSize: 15, fontWeight: '600', color: '#FFFFFF' },
+  timestamp: { fontFamily: 'Inter', fontSize: 12, color: '#555555' },
+  lastMessage: { fontFamily: 'Inter', fontSize: 14, color: '#888888' },
+  description: { fontFamily: 'Inter', fontSize: 13, color: '#666666' },
   deleteAction: {
     width: 80,
-    backgroundColor: '#1A0000',
+    backgroundColor: '#1A1A1A',
     borderLeftWidth: 1,
-    borderLeftColor: '#8B0000',
+    borderLeftColor: '#FF4444',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  deleteText: { fontFamily: 'Anton', fontSize: 13, color: '#FF3333' },
+  deleteText: { fontFamily: 'Inter', fontSize: 13, fontWeight: '600', color: '#FF4444' },
 });

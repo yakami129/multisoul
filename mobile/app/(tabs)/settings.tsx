@@ -16,7 +16,7 @@ export default function SettingsScreen() {
       <View style={s.nav}>
         <Text style={s.navTitle}>SETTINGS</Text>
         <TouchableOpacity onPress={() => setModalVisible(true)}>
-          <Plus size={20} color="#20C20E" />
+          <Plus size={20} color="#FFFFFF" />
         </TouchableOpacity>
       </View>
 
@@ -42,19 +42,25 @@ export default function SettingsScreen() {
 }
 
 const s = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#040D04' },
+  safe: { flex: 1, backgroundColor: '#0D0D0D' },
   nav: {
     height: 52,
-    backgroundColor: '#061206',
+    backgroundColor: '#0D0D0D',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#0F2B0F',
+    borderBottomColor: '#1E1E1E',
   },
-  navTitle: { fontFamily: 'Anton', fontSize: 16, color: '#20C20E', letterSpacing: 2 },
+  navTitle: { fontFamily: 'Inter', fontSize: 17, fontWeight: '700', color: '#FFFFFF' },
   scroll: { flex: 1 },
   content: { padding: 16, gap: 12 },
-  sectionLabel: { fontFamily: 'Inter', fontSize: 11, color: '#2D8B2D', letterSpacing: 2 },
+  sectionLabel: {
+    fontFamily: 'Inter',
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#666666',
+    letterSpacing: 1.5,
+  },
 });

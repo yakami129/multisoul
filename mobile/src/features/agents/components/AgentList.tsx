@@ -45,7 +45,7 @@ export function AgentList({ agents, isLoading, isError, error, onRefetch, onAgen
           </View>
         </View>
         <View style={s.centered}>
-          <ActivityIndicator size="large" color="#20C20E" />
+          <ActivityIndicator size="large" color="#FF6B35" />
           <Text style={s.loadingText}>LOADING AGENTS...</Text>
         </View>
       </View>
@@ -63,7 +63,7 @@ export function AgentList({ agents, isLoading, isError, error, onRefetch, onAgen
         </View>
         <View style={s.centered}>
           <View style={s.errorIconWrap}>
-            <AlertCircle size={36} color="#FFB000" />
+            <AlertCircle size={36} color="#FF6B35" />
           </View>
           <Text style={s.errorTitle}>FAILED TO LOAD</Text>
           <Text style={s.errorDesc}>{String(error)}</Text>
@@ -83,7 +83,7 @@ export function AgentList({ agents, isLoading, isError, error, onRefetch, onAgen
           <Text style={s.headerTitle}>AGENTS</Text>
           <Text style={s.headerSub}>{agents.length} REGISTERED</Text>
         </View>
-        <SlidersHorizontal size={20} color="#2D8B2D" />
+        <SlidersHorizontal size={20} color="#888888" />
       </View>
 
       <FlatList
@@ -101,8 +101,8 @@ export function AgentList({ agents, isLoading, isError, error, onRefetch, onAgen
             onRefresh={() => {
               void handleRefresh();
             }}
-            tintColor="#20C20E"
-            colors={['#20C20E']}
+            tintColor="#FF6B35"
+            colors={['#FF6B35']}
           />
         }
         ListEmptyComponent={
@@ -118,113 +118,56 @@ export function AgentList({ agents, isLoading, isError, error, onRefetch, onAgen
 }
 
 const s = StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: '#040D04',
-  },
+  root: { flex: 1, backgroundColor: '#0D0D0D' },
   header: {
     height: 52,
-    backgroundColor: '#061206',
+    backgroundColor: '#0D0D0D',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#0F2B0F',
+    borderBottomColor: '#1E1E1E',
   },
-  headerLeft: {
-    gap: 2,
-  },
-  headerTitle: {
-    fontFamily: 'Anton',
-    fontSize: 20,
-    color: '#20C20E',
-  },
-  headerSub: {
-    fontFamily: 'Inter',
-    fontSize: 11,
-    color: '#2D8B2D',
-    letterSpacing: 1.5,
-  },
-  headerSubError: {
-    fontFamily: 'Inter',
-    fontSize: 11,
-    color: '#FFB000',
-    letterSpacing: 1.5,
-  },
-  centered: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 16,
-    padding: 24,
-  },
-  loadingText: {
-    fontFamily: 'Inter',
-    fontSize: 11,
-    color: '#2D8B2D',
-    letterSpacing: 2,
-  },
+  headerLeft: { gap: 2 },
+  headerTitle: { fontFamily: 'Anton', fontSize: 20, color: '#FFFFFF' },
+  headerSub: { fontFamily: 'Inter', fontSize: 11, color: '#888888', letterSpacing: 1.5 },
+  headerSubError: { fontFamily: 'Inter', fontSize: 11, color: '#FF6B35', letterSpacing: 1.5 },
+  centered: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 16, padding: 24 },
+  loadingText: { fontFamily: 'Inter', fontSize: 11, color: '#888888', letterSpacing: 2 },
   errorIconWrap: {
     width: 80,
     height: 80,
-    borderRadius: 2,
-    backgroundColor: '#061206',
-    borderWidth: 1,
-    borderColor: '#0F2B0F',
+    borderRadius: 40,
+    backgroundColor: '#1A1A1A',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  errorTitle: {
-    fontFamily: 'Anton',
-    fontSize: 20,
-    color: '#FFB000',
-  },
+  errorTitle: { fontFamily: 'Anton', fontSize: 20, color: '#FF6B35' },
   errorDesc: {
-    fontFamily: 'Geist',
+    fontFamily: 'Inter',
     fontSize: 13,
-    color: '#147A16',
+    color: '#888888',
     textAlign: 'center',
     maxWidth: 260,
   },
   retryBtn: {
-    height: 36,
+    height: 44,
     paddingHorizontal: 24,
-    borderRadius: 2,
-    borderWidth: 1,
-    borderColor: '#20C20E',
+    borderRadius: 8,
+    backgroundColor: '#FF6B35',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  retryText: {
-    fontFamily: 'Inter',
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#20C20E',
-    letterSpacing: 1.5,
-  },
-  listContent: {
-    paddingVertical: 8,
-  },
-  emptyContainer: {
-    flex: 1,
-  },
-  emptyWrap: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    padding: 24,
-  },
-  emptyTitle: {
-    fontFamily: 'Anton',
-    fontSize: 18,
-    color: '#2D8B2D',
-  },
+  retryText: { fontFamily: 'Inter', fontSize: 14, fontWeight: '600', color: '#FFFFFF' },
+  listContent: { paddingVertical: 8, paddingBottom: 110 },
+  emptyContainer: { flex: 1 },
+  emptyWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8, padding: 24 },
+  emptyTitle: { fontFamily: 'Anton', fontSize: 18, color: '#FFFFFF' },
   emptyDesc: {
-    fontFamily: 'Geist',
+    fontFamily: 'Inter',
     fontSize: 13,
-    color: '#147A16',
+    color: '#888888',
     textAlign: 'center',
     maxWidth: 260,
   },

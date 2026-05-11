@@ -33,7 +33,7 @@ export default function AnswerModal({ visible, item, onClose, onConfirm }: Props
               <View style={s.sheetHeader}>
                 <Text style={s.sheetTitle}>RESPOND TO AGENT</Text>
                 <TouchableOpacity onPress={onClose}>
-                  <X size={20} color="#2D8B2D" />
+                  <X size={20} color="#888888" />
                 </TouchableOpacity>
               </View>
 
@@ -67,15 +67,11 @@ export default function AnswerModal({ visible, item, onClose, onConfirm }: Props
 }
 
 const s = StyleSheet.create({
-  overlay: { flex: 1, backgroundColor: 'rgba(4,13,4,0.85)', justifyContent: 'flex-end' },
+  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'flex-end' },
   sheet: {
-    backgroundColor: '#061206',
-    borderTopLeftRadius: 2,
-    borderTopRightRadius: 2,
-    borderTopWidth: 1,
-    borderLeftWidth: 1,
-    borderRightWidth: 1,
-    borderColor: '#0F2B0F',
+    backgroundColor: '#161616',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
     paddingBottom: 40,
   },
   sheetHeader: {
@@ -85,27 +81,27 @@ const s = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#0F2B0F',
+    borderBottomColor: '#2A2A2A',
   },
-  sheetTitle: { fontFamily: 'Anton', fontSize: 16, color: '#20C20E', letterSpacing: 1 },
+  sheetTitle: { fontFamily: 'Inter', fontSize: 16, fontWeight: '700', color: '#FFFFFF' },
   agentRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#0F2B0F',
+    borderBottomColor: '#2A2A2A',
   },
   avatar: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#0F2B0F',
+    backgroundColor: '#FF6B35',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  avatarText: { fontFamily: 'Anton', fontSize: 12, color: '#20C20E' },
-  agentName: { fontFamily: 'Anton', fontSize: 14, color: '#20C20E' },
-  agentTimestamp: { fontFamily: 'Inter', fontSize: 11, color: '#0F6B0F' },
+  avatarText: { fontFamily: 'Inter', fontSize: 12, fontWeight: '600', color: '#FFFFFF' },
+  agentName: { fontFamily: 'Inter', fontSize: 14, fontWeight: '600', color: '#FFFFFF' },
+  agentTimestamp: { fontFamily: 'Inter', fontSize: 11, color: '#555555' },
   cardWrap: { padding: 16, alignItems: 'center' },
 });
