@@ -31,11 +31,12 @@ export default function TabLayout() {
           left: 0,
           right: 0,
         },
-        tabBarActiveTintColor: '#FFFFFF',
+        tabBarActiveTintColor: '#FF6B35',
         tabBarInactiveTintColor: '#555555',
-        tabBarLabelStyle: {
-          fontFamily: 'Inter',
-          fontSize: 11,
+        tabBarShowLabel: false,
+        tabBarItemStyle: {
+          justifyContent: 'center',
+          alignItems: 'center',
         },
       }}
     >
