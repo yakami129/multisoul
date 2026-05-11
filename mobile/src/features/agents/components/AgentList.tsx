@@ -160,7 +160,7 @@ const s = StyleSheet.create({
     justifyContent: 'center',
   },
   retryText: { fontFamily: 'Inter', fontSize: 14, fontWeight: '600', color: '#FFFFFF' },
-  listContent: { paddingVertical: 8 },
+  listContent: { paddingVertical: 8, paddingBottom: 110 },
   emptyContainer: { flex: 1 },
   emptyWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8, padding: 24 },
   emptyTitle: { fontFamily: 'Anton', fontSize: 18, color: '#FFFFFF' },

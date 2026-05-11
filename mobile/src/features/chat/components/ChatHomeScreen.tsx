@@ -77,6 +77,7 @@ export default function ChatHomeScreen({
         data={filtered}
         keyExtractor={(item) => item.id}
         style={s.list}
+        contentContainerStyle={s.listContent}
         refreshControl={
           <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor="#FF6B35" />
         }
@@ -162,6 +163,7 @@ const s = StyleSheet.create({
     letterSpacing: 1,
   },
   list: { flex: 1 },
+  listContent: { paddingBottom: 110 },
   row: {
     height: 72,
     flexDirection: 'row',

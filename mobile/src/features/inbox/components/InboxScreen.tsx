@@ -200,7 +200,7 @@ const s = StyleSheet.create({
   },
   headerTitle: { fontFamily: 'Inter', fontSize: 28, fontWeight: '700', color: '#FFFFFF' },
   headerSub: { fontFamily: 'Inter', fontSize: 14 },
-  list: { padding: 0, gap: 0 },
+  list: { padding: 0, gap: 0, paddingBottom: 110 },
   rowWrap: { gap: 0 },
   row: {
     flexDirection: 'column',
