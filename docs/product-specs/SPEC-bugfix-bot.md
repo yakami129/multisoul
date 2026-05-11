@@ -45,7 +45,7 @@
 
 | 角色 | 描述 |
 |------|------|
-| 测试工程师 | 在飞书项目提交缺陷，需要规范填写字段 |
+| 测试工程师 | 在飞书项目提交缺陷，需规范填写以下字段供 AI 评估：**标题**（必填）、**描述**（必填）、**复现步骤**（必填）、**日志/错误信息**（必填）、截图（可选）、负责人（必填） |
 | 开发工程师 | 收到 bot 通知，Review Draft MR，决定是否合并 |
 | 研发效能/平台 | 维护 bot 配置、监控运行状态 |
 
@@ -70,39 +70,35 @@ bot 尝试修复 5 次均失败 → GitLab Issue 置阻塞 → 飞书通知工�
 飞书项目缺陷（新建/状态变更为"待修复"）
     │ Webhook → msctl serve /webhook/feishu
     ▼
-[阶段 1：信息评估]
+[阶段 1：信息评估 + GitLab Issue 同步]
   AI 判断缺陷信息是否足够定位和修复 bug
-  ├─ 充足 → 继续
-  └─ 不足 → GitLab Issue 设为「阻塞」
+  创建 GitLab Issue，关联飞书缺陷 ID（无论评估结果）
+  ├─ 充足 → GitLab Issue 状态 open，继续
+  └─ 不足 → GitLab Issue 加 bot:blocked 标签
             飞书缺陷评论：列出缺失信息 + @负责人
-            等待解除（飞书评论更新 or 手动解除 GitLab 阻塞）→ 重新评估
+            等待工程师手动移除 GitLab bot:blocked 标签后重新触发
     │
     ▼
-[阶段 2：GitLab Issue 同步]
-  创建 GitLab Issue，关联飞书缺陷 ID
-    │
-    ▼
-[阶段 3：Claude Code Agent 分析]
-  每 bug 创建独立 MultiSoul conversation
+[阶段 2：Claude Code Agent 分析]
   git worktree 创建隔离工作空间（fix/bug-<缺陷ID>）
-  分析缺陷内容 + 搜索代码仓库 → 定位根因
+  subprocess 调用 claude CLI 分析缺陷内容 + 搜索代码仓库 → 定位根因
     │
     ▼
-[阶段 4：强制 TDD 修复循环]
+[阶段 3：强制 TDD 修复循环]
   ① 先写复现 bug 的失败测试（提交到 worktree）
   ② 修改代码让测试通过
-  ③ 本地跑全量测试验证无回归
-    ├─ 通过 → 进入阶段 5
+  ③ 分层验证：目标失败测试 → 相关模块测试 → typecheck/build/lint
+    ├─ 通过 → 进入阶段 4
     └─ 失败 → 重试（最多 5 次）
               超 5 次 → GitLab Issue 标记「阻塞」+ 飞书通知工程师
     │
     ▼
-[阶段 5：Draft MR 创建]
+[阶段 4：Draft MR 创建]
   开 Draft MR（固定模板，见 §7）
   飞书 bot 通知工程师：「MR 已就绪，请 Review」+ MR 链接
     │
     ▼
-[阶段 6：人工 Review]
+[阶段 5：人工 Review]
   工程师在 GitLab MR 评论确认
   去掉 Draft 标记 → CI 运行 → 人工合并
 ```
@@ -406,10 +402,12 @@ Webhook 验签
 | feishu_issue_id | TEXT | 飞书缺陷 ID |
 | gitlab_issue_id | INTEGER | 同步后的 GitLab Issue ID |
 | gitlab_mr_id | INTEGER | Draft MR ID（可空） |
-| conversation_id | TEXT | 对应 multisoul conversation ID |
 | worktree_path | TEXT | git worktree 路径 |
+| branch_name | TEXT | fix/bug-\<feishu_issue_id\>（可空） |
 | status | TEXT | 见状态流转表 |
+| pipeline_stage | TEXT | 当前所在阶段（intake/reproducer/patch/verifier/publisher） |
 | retry_count | INTEGER | 当前重试次数，默认 0 |
+| claude_session_id | TEXT | 当前 claude session ID，用于 --resume 复用（可空） |
 | created_at | DATETIME | 创建时间 |
 | updated_at | DATETIME | 最后更新时间 |
 
@@ -422,7 +420,7 @@ Webhook 验签
 | 飞书项目 | 出站 | 在缺陷评论中回复 |
 | GitLab API | 出站 | 创建 Issue、开 MR、设置阻塞状态 |
 | GitLab Repo | 本地 | git worktree 操作 |
-| Claude Code | 本地 | 通过 msctl 调度 Agent |
+| Claude Code | 本地 | subprocess 调用 claude CLI，直接调度 Agent |
 
 ---
 
@@ -501,14 +499,15 @@ Bug Intake
 - 飞书项目需配置 Webhook，指向 msctl serve 的公网地址（Tailscale Funnel）
 - GitLab 需提供具有 Issue 写权限、Label 管理权限和 MR 创建权限的 Access Token
 - GitLab 版本为 CE（不依赖 EE 功能）
+- **GitLab 需在项目设置中启用以下 Webhook 事件**：Pipeline events（CI 失败回流）、Merge request events（MR 合并/关闭后清理 worktree）
 - 代码仓库需在本机 clone，bot 通过本地路径操作
 - 飞书 bot 需有对应缺陷的评论权限
-- 模块→Repo 映射通过配置文件维护（`~/.config/msctl/fix-bug-bot.toml`）
+- 模块→Repo 映射通过配置文件维护（`~/.config/msctl/bugfix-bot.toml`）
 
 ### 6.4 模块→Repo 映射配置示例
 
 ```toml
-# ~/.config/msctl/fix-bug-bot.toml
+# ~/.config/msctl/bugfix-bot.toml
 
 [module_repo_map]
 "用户中心" = { repo_url = "git@gitlab.example.com/user-service.git", local_path = "~/repos/user-service" }
@@ -516,7 +515,9 @@ Bug Intake
 "前端" = { repo_url = "git@gitlab.example.com/frontend.git", local_path = "~/repos/frontend" }
 
 [feishu]
-webhook_token = ""  # 飞书 Webhook 验签 Token，从飞书项目配置获取
+webhook_token = ""   # 飞书 Webhook 验签 Token，从飞书项目配置获取
+bot_app_id = ""      # 飞书自建应用 App ID，用于发送消息和评论
+bot_app_secret = ""  # 飞书自建应用 App Secret
 
 [gitlab]
 base_url = "https://gitlab.example.com"
@@ -545,7 +546,7 @@ blocked_label = "bot:blocked"
 - GitLab Issue：#<issue_id>
 
 ---
-> 此 MR 由 fix-bug-bot 自动生成，请 Review 后去掉 Draft 标记。
+> 此 MR 由 bugfix-bot 自动生成，请 Review 后去掉 Draft 标记。
 ```
 
 ---
@@ -555,10 +556,8 @@ blocked_label = "bot:blocked"
 ### 8.1 信息不足处理
 
 - **判断方式**：AI 阅读缺陷内容，判断是否能定位到代码层面的根因
-- **触发阻塞**：GitLab Issue 设为阻塞状态 + 飞书缺陷评论列出缺失信息 + @负责人
-- **解除阻塞**：
-  - 开发在飞书缺陷评论补充信息 → Webhook 再次触发 → 重新评估
-  - 开发手动解除 GitLab Issue 阻塞状态 → 触发重新处理
+- **触发阻塞**：GitLab Issue 加 `bot:blocked` 标签 + 飞书缺陷评论列出缺失信息 + @负责人
+- **解除阻塞**：工程师在 GitLab Issue 手动移除 `bot:blocked` 标签，然后在飞书缺陷上重新变更状态为"待修复"以触发 Webhook 重新处理
 
 ### 8.2 修复失败处理
 
@@ -623,12 +622,14 @@ blocked_label = "bot:blocked"
 - [ ] TDD 流程：先有失败测试，再有修复代码，Draft MR 包含测试文件
 - [ ] Draft MR 安全生成，不影响主分支
 - [ ] 重试超 5 次正确降级为阻塞 + 飞书通知
+- [ ] 无法复现的缺陷被正确阻塞，飞书通知工程师人工介入
 - [ ] 同一缺陷重复触发不创建重复 Issue/MR（幂等）
 - [ ] 飞书 bot 在 MR 就绪时通知工程师
 
 ### 代表性验收场景
 
 1. **正常路径**：提交含完整字段的 P1 bug → 5 分钟内收到飞书通知「MR 已就绪」
-2. **信息不足**：提交缺少复现步骤的 bug → 飞书评论提示补充 → 补充后自动重新处理
-3. **修复失败**：提交一个 bot 无法修复的复杂 bug → 5 次重试后收到「请人工介入」通知
-4. **并行处理**：同时提交 3 个 bug → 3 个独立 worktree 并行运行，互不干扰
+2. **信息不足**：提交缺少复现步骤的 bug → 飞书评论提示补充 → 工程师移除 GitLab blocked 标签并重新触发后自动处理
+3. **无法复现**：提交一个 bot 无法在本地复现的 bug → 飞书通知工程师人工介入
+4. **修复失败**：提交一个 bot 无法修复的复杂 bug → 5 次重试后收到「请人工介入」通知
+5. **并行处理**：同时提交 3 个 bug → 3 个独立 worktree 并行运行，互不干扰

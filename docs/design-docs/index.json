@@ -3,6 +3,10 @@
   "version": 1,
   "documents": [
     {
+      "file": "2026-05-11-bugfix-bot-design.md",
+      "title": "bugfix-bot Plugin Agent 技术设计"
+    },
+    {
       "file": "2026-05-03-new-cli-runtime-integration-guide.md",
       "title": "接入新 CLI Runtime 开发指南",
       "trackedFiles": [
