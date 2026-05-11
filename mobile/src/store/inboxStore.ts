@@ -19,13 +19,23 @@ export const useInboxStore = create<InboxState>((set) => ({
   items: [],
 
   load: async () => {
-    const items = await loadInboxItems();
+    const rows = await loadInboxItems();
+    // Deduplicate by id in case of DB anomalies or concurrent writes
+    const seen = new Set<string>();
+    const items = rows.filter((i) => {
+      if (seen.has(i.id)) return false;
+      seen.add(i.id);
+      return true;
+    });
     set({ items });
   },
 
   addItem: async (item) => {
     await writeInboxItem(item);
-    set((s) => ({ items: [item, ...s.items] }));
+    set((s) => {
+      if (s.items.some((i) => i.id === item.id)) return s;
+      return { items: [item, ...s.items] };
+    });
   },
 
   markRead: async (id) => {
