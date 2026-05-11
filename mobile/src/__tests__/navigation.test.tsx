@@ -39,7 +39,11 @@ jest.mock('@react-native-async-storage/async-storage', () =>
   require('@react-native-async-storage/async-storage/jest/async-storage-mock'),
 );
 
-import TabLayout from '../../app/(tabs)/_layout';
+import TabLayout, {
+  TAB_BAR_HEIGHT,
+  TAB_BAR_SAFE_AREA_BOTTOM,
+  tabScreenOptions,
+} from '../../app/(tabs)/_layout';
 
 function wrapper({ children }: { children: React.ReactNode }) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -68,5 +72,44 @@ describe('Tab navigation', () => {
     render(<TabLayout />, { wrapper });
     fireEvent.press(screen.getByTestId('tab-settings'));
     expect(screen.getByTestId('active-tab').props.children).toBe('settings');
+  });
+
+  /// iOS tab bar labels: safe-area padding must not consume the 62px content rail
+  ///
+  /// Data construction:
+  ///   visible rail = 62px, matching mobile/docs/design.md §6.1
+  ///   iOS home indicator inset = 34px, matching the previous hard-coded marginBottom
+  ///   total height must be 62 + 34 = 96px so labels keep their own vertical space
+  ///
+  /// Execution:
+  ///   1. Read the exported tab screen options used by expo-router Tabs
+  ///   2. Flatten the tabBarStyle configuration
+  ///   3. Compare height and label-position choices against the iOS-safe layout contract
+  ///
+  /// Expected:
+  ///   - tab bar height includes bottom safe-area space, so label text is not clipped
+  ///   - no hard-coded marginBottom remains, so safe-area is not double-counted
+  ///   - labels stay below icons, matching the product design
+  it('keeps iOS tab labels visible above the home indicator inset', () => {
+    const style = tabScreenOptions.tabBarStyle;
+
+    expect(TAB_BAR_HEIGHT).toBe(62, 'visible tab rail should remain the documented 62px');
+    expect(TAB_BAR_SAFE_AREA_BOTTOM).toBe(
+      34,
+      'bottom inset should preserve the iOS home indicator area',
+    );
+    expect(style.height).toBe(
+      96,
+      'tabBarStyle.height should be 62 + 34 so iOS safe-area padding does not clip labels',
+    );
+    expect(style.marginBottom).toBe(
+      undefined,
+      'tabBarStyle.marginBottom should not hard-code the same iOS inset outside the tab bar',
+    );
+    expect(tabScreenOptions.tabBarLabelPosition).toBe(
+      'below-icon',
+      'tab labels should render below icons instead of being auto-positioned away',
+    );
+    expect(tabScreenOptions.tabBarShowLabel).toBe(true, 'tab labels should be explicitly enabled');
   });
 });
