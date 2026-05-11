@@ -116,14 +116,14 @@ export default function MultiAskQuestionCard({
       {/* Header */}
       <View style={s.header}>
         <View style={s.headerLeft}>
-          <Bot size={16} color="#20C20E" />
+          <Bot size={16} color="#FF6B35" />
           <Text style={s.headerLabel}>{answered ? 'ANSWERED' : 'AGENT IS ASKING'}</Text>
         </View>
         <View style={s.headerRight}>
           <Text style={s.progress}>
             {answeredCount} / {total}
           </Text>
-          <Info size={16} color="#2D8B2D" />
+          <Info size={16} color="#555555" />
         </View>
       </View>
 
@@ -150,7 +150,7 @@ export default function MultiAskQuestionCard({
               style={[s.section, idx < questions.length - 1 && s.sectionBorder, { opacity }]}
             >
               <View style={s.qHeader}>
-                <Bot size={14} color="#20C20E" />
+                <Bot size={14} color="#FF6B35" />
                 <Text style={s.qText}>
                   Q{idx + 1}: {q.text}
                 </Text>
@@ -176,7 +176,7 @@ export default function MultiAskQuestionCard({
                             <TextInput
                               style={s.customInput}
                               placeholder="Type your answer..."
-                              placeholderTextColor="#0F6B0F"
+                              placeholderTextColor="#555555"
                               value={customTexts[q.id] ?? ''}
                               onChangeText={(text) => handleCustomText(q.id, text)}
                               maxLength={200}
@@ -271,204 +271,110 @@ export default function MultiAskQuestionCard({
 
 const s = StyleSheet.create({
   card: {
-    backgroundColor: '#061206',
-    borderRadius: 8,
+    backgroundColor: '#1A1A1A',
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#0F2B0F',
+    borderColor: '#FF6B35',
     width: 320,
     overflow: 'hidden',
   },
   header: {
     height: 44,
-    backgroundColor: '#0A1A0A',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 14,
+    paddingHorizontal: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#0F2B0F',
+    borderBottomColor: '#1E1E1E',
   },
-  headerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  headerRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  headerLabel: {
-    fontFamily: 'Inter',
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#2D8B2D',
-    letterSpacing: 1.5,
-  },
-  progress: {
-    fontFamily: 'Inter',
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#2D8B2D',
-  },
-  progressBarBg: {
-    height: 2,
-    backgroundColor: '#0A1A0A',
-  },
-  progressBarFill: {
-    height: 2,
-    backgroundColor: '#20C20E',
-  },
-  body: {
-    // sections handle their own padding
-  },
-  section: {
-    paddingVertical: 4,
-  },
-  sectionBorder: {
-    borderBottomWidth: 1,
-    borderBottomColor: '#0F2B0F',
-  },
+  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  headerRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  headerLabel: { fontFamily: 'Inter', fontSize: 12, fontWeight: '600', color: '#FF6B35' },
+  progress: { fontFamily: 'Inter', fontSize: 12, color: '#666666' },
+  progressBarBg: { height: 3, backgroundColor: '#252525' },
+  progressBarFill: { height: 3, backgroundColor: '#FF6B35' },
+  body: {},
+  section: { paddingVertical: 4 },
+  sectionBorder: { borderBottomWidth: 1, borderBottomColor: '#1E1E1E' },
   qHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     height: 40,
     paddingHorizontal: 14,
     gap: 8,
-    backgroundColor: '#040D04',
   },
-  qText: {
-    fontFamily: 'Geist',
-    fontSize: 13,
-    color: '#20C20E',
-    flex: 1,
-  },
-  opts: {
-    paddingHorizontal: 14,
-    paddingBottom: 12,
-    paddingTop: 8,
-    gap: 6,
-  },
+  qText: { fontFamily: 'Inter', fontSize: 14, fontWeight: '600', color: '#FFFFFF', flex: 1 },
+  opts: { paddingHorizontal: 14, paddingBottom: 12, paddingTop: 8, gap: 6 },
   opt: {
     flexDirection: 'row',
     alignItems: 'center',
     height: 40,
-    borderRadius: 6,
-    backgroundColor: '#040D04',
-    borderWidth: 1,
-    borderColor: '#0F2B0F',
+    borderRadius: 8,
+    backgroundColor: '#252525',
     paddingHorizontal: 12,
     gap: 10,
   },
-  optSelected: {
-    borderColor: '#33FF33',
-    backgroundColor: '#0F2B0F',
-  },
+  optSelected: { borderWidth: 1, borderColor: '#4CAF50', backgroundColor: '#1F2A1F' },
   radio: {
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    borderWidth: 2,
-    borderColor: '#2D8B2D',
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    borderWidth: 1.5,
+    borderColor: '#555555',
+    backgroundColor: '#252525',
   },
-  radioSelected: {
-    borderColor: '#33FF33',
-    backgroundColor: '#33FF33',
-  },
-  optLabel: {
-    fontFamily: 'Geist',
-    fontSize: 13,
-    color: '#20C20E',
-  },
-  customEditor: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  customInput: {
-    flex: 1,
-    fontFamily: 'Geist',
-    fontSize: 13,
-    color: '#20C20E',
-    paddingVertical: 0,
-  },
+  radioSelected: { borderColor: '#4CAF50', backgroundColor: '#4CAF50' },
+  optLabel: { fontFamily: 'Inter', fontSize: 14, color: '#DDDDDD' },
+  customEditor: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  customInput: { flex: 1, fontFamily: 'Inter', fontSize: 13, color: '#FFFFFF', paddingVertical: 0 },
   useAnswerBtn: {
     height: 26,
-    borderRadius: 4,
-    backgroundColor: '#20C20E',
+    borderRadius: 6,
+    backgroundColor: '#FF6B35',
     paddingHorizontal: 9,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  useAnswerBtnOff: {
-    opacity: 0.4,
-  },
-  useAnswerText: {
-    fontFamily: 'Inter',
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#040D04',
-    letterSpacing: 0.5,
-  },
+  useAnswerBtnOff: { opacity: 0.4 },
+  useAnswerText: { fontFamily: 'Inter', fontSize: 11, fontWeight: '600', color: '#FFFFFF' },
   editBtn: {
     marginLeft: 'auto',
     height: 26,
-    borderRadius: 4,
+    borderRadius: 6,
     borderWidth: 1,
-    borderColor: '#2D8B2D',
+    borderColor: '#555555',
     paddingHorizontal: 9,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  editText: {
-    fontFamily: 'Inter',
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#2D8B2D',
-    letterSpacing: 0.5,
-  },
+  editText: { fontFamily: 'Inter', fontSize: 11, fontWeight: '600', color: '#888888' },
   actions: {
     flexDirection: 'row',
     gap: 10,
     paddingHorizontal: 14,
     paddingVertical: 12,
     borderTopWidth: 1,
-    borderTopColor: '#0F2B0F',
+    borderTopColor: '#1E1E1E',
   },
   cancelBtn: {
     flex: 1,
-    height: 36,
-    borderRadius: 4,
-    backgroundColor: '#040D04',
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: '#252525',
     borderWidth: 1,
-    borderColor: '#0F2B0F',
+    borderColor: '#333333',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  cancelText: {
-    fontFamily: 'Inter',
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#2D8B2D',
-    letterSpacing: 1,
-  },
+  cancelText: { fontFamily: 'Inter', fontSize: 15, fontWeight: '500', color: '#888888' },
   confirmBtn: {
     flex: 1,
-    height: 36,
-    borderRadius: 4,
-    backgroundColor: '#20C20E',
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: '#FF6B35',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  confirmBtnDisabled: {
-    opacity: 0.4,
-  },
-  confirmText: {
-    fontFamily: 'Inter',
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#040D04',
-    letterSpacing: 1,
-  },
+  confirmBtnDisabled: { opacity: 0.4 },
+  confirmText: { fontFamily: 'Inter', fontSize: 15, fontWeight: '600', color: '#FFFFFF' },
 });

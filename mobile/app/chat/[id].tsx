@@ -48,11 +48,11 @@ const WAITING_MESSAGE: WsMessage = {
 };
 
 const STATUS_BADGE: Record<string, { label: string; bg: string; dot: string }> = {
-  running: { label: 'RUNNING', bg: '#0A1A0A', dot: '#33FF33' },
-  awaiting_question: { label: 'AWAITING', bg: '#1A0000', dot: '#FFB000' },
-  completed: { label: 'COMPLETED', bg: '#061206', dot: '#20C20E' },
-  failed: { label: 'FAILED', bg: '#1A0000', dot: '#FF4444' },
-  idle: { label: 'IDLE', bg: '#0A1A0A', dot: '#2D8B2D' },
+  running: { label: 'RUNNING', bg: '#1A1A1A', dot: '#FF6B35' },
+  awaiting_question: { label: 'AWAITING', bg: '#1A1A1A', dot: '#FF6B35' },
+  completed: { label: 'COMPLETED', bg: '#1A1A1A', dot: '#4CAF50' },
+  failed: { label: 'FAILED', bg: '#1A1A1A', dot: '#FF4444' },
+  idle: { label: 'IDLE', bg: '#1A1A1A', dot: '#555555' },
 };
 
 interface PendingImage {
@@ -327,7 +327,7 @@ export default function ChatDetailScreen() {
   }, [conversationStatus, isAwaitingResponse, conversation]);
 
   const badge = isOffline
-    ? { label: 'OFFLINE', bg: '#1A0000', dot: '#FFB000' }
+    ? { label: 'OFFLINE', bg: '#1A1A1A', dot: '#FF4444' }
     : (STATUS_BADGE[conversation?.status ?? 'idle'] ?? STATUS_BADGE.idle);
 
   return (
@@ -338,7 +338,7 @@ export default function ChatDetailScreen() {
       >
         <View style={s.nav}>
           <TouchableOpacity onPress={() => router.back()}>
-            <ChevronLeft size={24} color="#20C20E" />
+            <ChevronLeft size={24} color="#FFFFFF" />
           </TouchableOpacity>
           <Text style={s.navTitle}>{navTitle}</Text>
           <View style={[s.statusBadge, { backgroundColor: badge.bg }]}>
@@ -407,7 +407,7 @@ export default function ChatDetailScreen() {
                   style={s.removeBadge}
                   onPress={() => setPendingImages((prev) => prev.filter((_, i) => i !== idx))}
                 >
-                  <X size={8} color="#20C20E" />
+                  <X size={8} color="#FFFFFF" />
                 </Pressable>
               </View>
             ))}
@@ -425,14 +425,14 @@ export default function ChatDetailScreen() {
             disabled={composerDisabled}
             style={[s.imageBtn, composerDisabled && s.imageBtnDisabled]}
           >
-            <ImageIcon size={16} color={composerDisabled ? '#2D8B2D' : '#20C20E'} />
+            <ImageIcon size={16} color={composerDisabled ? '#555555' : '#FFFFFF'} />
           </TouchableOpacity>
           <View style={[s.inputField, composerDisabled && s.inputDisabled]}>
             <TextInput
               style={s.input}
               testID="message-input"
               placeholder={isOffline ? 'Agent offline...' : 'Message...'}
-              placeholderTextColor="#2D8B2D"
+              placeholderTextColor="#555555"
               value={input}
               onChangeText={setInput}
               editable={!composerDisabled}
@@ -470,7 +470,7 @@ export default function ChatDetailScreen() {
                 <Square size={14} color="#FF4444" />
               </View>
             ) : (
-              <Send size={16} color="#040D04" />
+              <Send size={16} color="#0D0D0D" />
             )}
           </TouchableOpacity>
         </View>

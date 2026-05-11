@@ -20,17 +20,22 @@ export default function TabLayout() {
       screenOptions={{
         headerShown: false,
         tabBarStyle: {
-          backgroundColor: '#061206',
-          borderTopColor: '#0F2B0F',
-          borderTopWidth: 1,
-          height: 83,
-          paddingTop: 8,
+          backgroundColor: '#1A1A1A',
+          borderTopWidth: 0,
+          height: 62,
+          marginHorizontal: 20,
+          marginBottom: 34,
+          borderRadius: 36,
+          position: 'absolute',
+          bottom: 0,
+          left: 0,
+          right: 0,
         },
-        tabBarActiveTintColor: '#33FF33',
-        tabBarInactiveTintColor: '#2D8B2D',
+        tabBarActiveTintColor: '#FFFFFF',
+        tabBarInactiveTintColor: '#555555',
         tabBarLabelStyle: {
           fontFamily: 'Inter',
-          fontSize: 10,
+          fontSize: 11,
         },
       }}
     >

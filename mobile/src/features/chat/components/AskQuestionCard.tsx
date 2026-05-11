@@ -102,10 +102,10 @@ export default function AskQuestionCard({
       {/* Header */}
       <View style={s.header}>
         <View style={s.headerLeft}>
-          <Bot size={16} color="#20C20E" />
+          <Bot size={16} color="#FF6B35" />
           <Text style={s.headerLabel}>{answered ? 'ANSWERED' : 'AGENT IS ASKING'}</Text>
         </View>
-        <Info size={16} color="#2D8B2D" />
+        <Info size={16} color="#555555" />
       </View>
 
       {/* Body */}
@@ -139,7 +139,7 @@ export default function AskQuestionCard({
                     <TextInput
                       style={s.customInput}
                       placeholder="Type your answer..."
-                      placeholderTextColor="#0F6B0F"
+                      placeholderTextColor="#555555"
                       value={customText}
                       onChangeText={handleCustomTextChange}
                       maxLength={200}
@@ -192,188 +192,100 @@ export default function AskQuestionCard({
 }
 
 const s = StyleSheet.create({
-  card: {
-    backgroundColor: '#061206',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#0F2B0F',
-    width: 320,
-    overflow: 'hidden',
-  },
+  card: { backgroundColor: '#1A1A1A', borderRadius: 16, width: 320, overflow: 'hidden' },
   header: {
     height: 44,
-    backgroundColor: '#0A1A0A',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 14,
+    paddingHorizontal: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#0F2B0F',
+    borderBottomColor: '#1E1E1E',
   },
-  headerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  headerLabel: {
-    fontFamily: 'Inter',
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#2D8B2D',
-    letterSpacing: 1.5,
-  },
-  body: {
-    padding: 16,
-    gap: 12,
-  },
+  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  headerLabel: { fontFamily: 'Inter', fontSize: 12, fontWeight: '600', color: '#FF6B35' },
+  body: { padding: 16, gap: 12 },
   question: {
-    fontFamily: 'Geist',
-    fontSize: 15,
+    fontFamily: 'Inter',
+    fontSize: 16,
     fontWeight: '600',
-    color: '#20C20E',
-    lineHeight: 21,
+    color: '#FFFFFF',
+    lineHeight: 22,
   },
-  subtitle: {
-    fontFamily: 'Inter',
-    fontSize: 12,
-    color: '#147A16',
-  },
-  hint: {
-    fontFamily: 'Inter',
-    fontSize: 11,
-    color: '#0F6B0F',
-    letterSpacing: 0.5,
-  },
-  optsList: {
-    gap: 8,
-  },
+  subtitle: { fontFamily: 'Inter', fontSize: 13, color: '#888888' },
+  hint: { fontFamily: 'Inter', fontSize: 13, color: '#666666' },
+  optsList: { gap: 8 },
   option: {
     flexDirection: 'row',
     alignItems: 'center',
-    height: 48,
-    borderRadius: 6,
-    backgroundColor: '#040D04',
-    borderWidth: 1,
-    borderColor: '#0F2B0F',
-    paddingHorizontal: 14,
+    borderRadius: 10,
+    backgroundColor: '#252525',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     gap: 12,
   },
-  optionSelected: {
-    backgroundColor: '#0F2B0F',
-    borderColor: '#33FF33',
-  },
-  optionReadonly: {
-    opacity: 0.6,
-  },
-  optionLabelMuted: {
-    color: '#2D8B2D',
-  },
+  optionSelected: { backgroundColor: '#1F2A1F', borderWidth: 1.5, borderColor: '#4CAF50' },
+  optionReadonly: { opacity: 0.6 },
+  optionLabelMuted: { color: '#666666' },
   radio: {
     width: 16,
     height: 16,
     borderRadius: 8,
-    borderWidth: 2,
-    borderColor: '#2D8B2D',
+    borderWidth: 1.5,
+    borderColor: '#444444',
+    backgroundColor: '#252525',
   },
-  radioSelected: {
-    borderColor: '#33FF33',
-    backgroundColor: '#33FF33',
-  },
+  radioSelected: { borderColor: '#4CAF50', backgroundColor: '#4CAF50' },
   checkbox: {
     width: 16,
     height: 16,
-    borderRadius: 2,
-    borderWidth: 2,
-    borderColor: '#2D8B2D',
+    borderRadius: 4,
+    borderWidth: 1.5,
+    borderColor: '#444444',
+    backgroundColor: '#252525',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  checkboxSelected: {
-    borderColor: '#33FF33',
-    backgroundColor: '#33FF33',
-  },
-  checkboxTick: {
-    width: 8,
-    height: 8,
-    backgroundColor: '#040D04',
-    borderRadius: 1,
-  },
-  optionLabel: {
-    fontFamily: 'Geist',
-    fontSize: 14,
-    color: '#20C20E',
-  },
-  customEditor: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  customInput: {
-    flex: 1,
-    fontFamily: 'Geist',
-    fontSize: 14,
-    color: '#20C20E',
-    paddingVertical: 0,
-  },
+  checkboxSelected: { borderColor: '#4CAF50', backgroundColor: '#4CAF50' },
+  checkboxTick: { width: 8, height: 8, backgroundColor: '#FFFFFF', borderRadius: 1 },
+  optionLabel: { fontFamily: 'Inter', fontSize: 15, color: '#FFFFFF' },
+  customEditor: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  customInput: { flex: 1, fontFamily: 'Inter', fontSize: 14, color: '#FFFFFF', paddingVertical: 0 },
   useAnswerBtn: {
     height: 28,
-    borderRadius: 4,
-    backgroundColor: '#20C20E',
+    borderRadius: 6,
+    backgroundColor: '#FF6B35',
     paddingHorizontal: 10,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  useAnswerBtnOff: {
-    opacity: 0.4,
-  },
-  useAnswerText: {
-    fontFamily: 'Inter',
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#040D04',
-    letterSpacing: 0.5,
-  },
+  useAnswerBtnOff: { opacity: 0.4 },
+  useAnswerText: { fontFamily: 'Inter', fontSize: 12, fontWeight: '600', color: '#FFFFFF' },
   actions: {
     flexDirection: 'row',
-    gap: 10,
+    gap: 12,
+    justifyContent: 'flex-end',
     paddingTop: 8,
     borderTopWidth: 1,
-    borderTopColor: '#0F2B0F',
+    borderTopColor: '#1E1E1E',
   },
   cancelBtn: {
-    flex: 1,
-    height: 36,
-    borderRadius: 4,
-    backgroundColor: '#040D04',
-    borderWidth: 1,
-    borderColor: '#0F2B0F',
+    borderRadius: 8,
+    backgroundColor: '#252525',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  cancelText: {
-    fontFamily: 'Inter',
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#2D8B2D',
-    letterSpacing: 1,
-  },
+  cancelText: { fontFamily: 'Inter', fontSize: 14, color: '#888888' },
   confirmBtn: {
-    flex: 1,
-    height: 36,
-    borderRadius: 4,
-    backgroundColor: '#20C20E',
+    borderRadius: 8,
+    backgroundColor: '#FF6B35',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  confirmBtnDisabled: {
-    opacity: 0.4,
-  },
-  confirmText: {
-    fontFamily: 'Inter',
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#040D04',
-    letterSpacing: 1,
-  },
+  confirmBtnDisabled: { opacity: 0.4 },
+  confirmText: { fontFamily: 'Inter', fontSize: 14, fontWeight: '600', color: '#FFFFFF' },
 });

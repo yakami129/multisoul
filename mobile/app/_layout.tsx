@@ -98,7 +98,7 @@ export default function RootLayout() {
       <SafeAreaProvider>
         <ErrorBoundary>
           <QueryClientProvider client={queryClient}>
-            <StatusBar style="light" backgroundColor="#040D04" />
+            <StatusBar style="light" backgroundColor="#0D0D0D" />
             {!splashDone ? (
               <SplashScreen onComplete={() => setSplashDone(true)} />
             ) : (

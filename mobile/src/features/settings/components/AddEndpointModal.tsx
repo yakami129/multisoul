@@ -149,7 +149,7 @@ export function AddEndpointModal({ visible, onClose, onAdd }: Props) {
                 value={label}
                 onChangeText={setLabel}
                 placeholder="Home Server"
-                placeholderTextColor="#2D8B2D"
+                placeholderTextColor="#555555"
                 autoCapitalize="none"
               />
               <Text style={s.fieldLabel}>URL</Text>
@@ -161,7 +161,7 @@ export function AddEndpointModal({ visible, onClose, onAdd }: Props) {
                   setStatus('idle');
                 }}
                 placeholder="http://192.168.1.x:8765"
-                placeholderTextColor="#2D8B2D"
+                placeholderTextColor="#555555"
                 autoCapitalize="none"
                 keyboardType="url"
               />
@@ -174,7 +174,7 @@ export function AddEndpointModal({ visible, onClose, onAdd }: Props) {
                   setStatus('idle');
                 }}
                 placeholder="ms_v2_..."
-                placeholderTextColor="#2D8B2D"
+                placeholderTextColor="#555555"
                 autoCapitalize="none"
                 secureTextEntry
               />
@@ -199,7 +199,7 @@ export function AddEndpointModal({ visible, onClose, onAdd }: Props) {
                   disabled={status === 'checking'}
                 >
                   {status === 'checking' ? (
-                    <ActivityIndicator size="small" color="#040D04" />
+                    <ActivityIndicator size="small" color="#FFFFFF" />
                   ) : (
                     <Text style={s.btnPrimaryText}>CONNECT</Text>
                   )}
@@ -245,83 +245,81 @@ export function AddEndpointModal({ visible, onClose, onAdd }: Props) {
 const s = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(4,13,4,0.92)',
+    backgroundColor: 'rgba(0,0,0,0.8)',
     alignItems: 'center',
     justifyContent: 'center',
     padding: 24,
   },
   card: {
     width: '100%',
-    backgroundColor: '#061206',
-    borderWidth: 1,
-    borderColor: '#0F2B0F',
-    borderRadius: 2,
+    backgroundColor: '#1A1A1A',
+    borderRadius: 16,
     padding: 20,
-    gap: 8,
+    gap: 12,
   },
   heading: {
-    fontFamily: 'Anton',
-    fontSize: 16,
-    color: '#20C20E',
-    letterSpacing: 2,
+    fontFamily: 'Inter',
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#FFFFFF',
     marginBottom: 4,
   },
-  tabs: { flexDirection: 'row', gap: 4, marginBottom: 4 },
+  tabs: { flexDirection: 'row', gap: 8, marginBottom: 4 },
   tab: {
     flex: 1,
-    height: 32,
+    height: 36,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#0F2B0F',
-    borderRadius: 2,
+    borderRadius: 8,
+    backgroundColor: '#252525',
   },
-  tabActive: { borderColor: '#20C20E', backgroundColor: '#0A1A0A' },
-  tabText: { fontFamily: 'Inter', fontSize: 11, color: '#2D8B2D', letterSpacing: 1 },
-  tabTextActive: { color: '#20C20E' },
-  fieldLabel: { fontFamily: 'Inter', fontSize: 11, color: '#2D8B2D', letterSpacing: 1 },
+  tabActive: { backgroundColor: '#FF6B35' },
+  tabText: { fontFamily: 'Inter', fontSize: 13, color: '#888888' },
+  tabTextActive: { color: '#FFFFFF', fontWeight: '600' },
+  fieldLabel: {
+    fontFamily: 'Inter',
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#888888',
+    letterSpacing: 0.5,
+  },
   input: {
-    height: 40,
-    backgroundColor: '#0A1A0A',
-    borderWidth: 1,
-    borderColor: '#0F2B0F',
-    borderRadius: 2,
-    paddingHorizontal: 12,
-    fontFamily: 'Geist',
-    fontSize: 14,
-    color: '#20C20E',
+    height: 44,
+    backgroundColor: '#252525',
+    borderRadius: 8,
+    paddingHorizontal: 14,
+    fontFamily: 'Inter',
+    fontSize: 15,
+    color: '#FFFFFF',
   },
-  errText: { fontFamily: 'Inter', fontSize: 11, color: '#FF4444', letterSpacing: 0.5 },
-  actions: { flexDirection: 'row', gap: 8, marginTop: 4 },
+  errText: { fontFamily: 'Inter', fontSize: 12, color: '#FF4444' },
+  actions: { flexDirection: 'row', gap: 10, marginTop: 4 },
   btnPrimary: {
     flex: 1,
-    height: 40,
-    backgroundColor: '#20C20E',
+    height: 44,
+    backgroundColor: '#FF6B35',
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 2,
+    borderRadius: 10,
   },
-  btnPrimaryText: { fontFamily: 'Anton', fontSize: 13, color: '#040D04', letterSpacing: 1 },
+  btnPrimaryText: { fontFamily: 'Inter', fontSize: 15, fontWeight: '600', color: '#FFFFFF' },
   btnSecondary: {
     flex: 1,
-    height: 40,
-    borderWidth: 1,
-    borderColor: '#0F2B0F',
+    height: 44,
+    backgroundColor: '#252525',
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 2,
+    borderRadius: 10,
   },
-  btnSecondaryText: { fontFamily: 'Anton', fontSize: 13, color: '#2D8B2D', letterSpacing: 1 },
-  cameraWrap: { gap: 8 },
-  camera: { width: '100%', height: 220, borderRadius: 2 },
+  btnSecondaryText: { fontFamily: 'Inter', fontSize: 15, color: '#888888' },
+  cameraWrap: { gap: 10 },
+  camera: { width: '100%', height: 220, borderRadius: 10 },
   permBtn: {
     height: 220,
-    backgroundColor: '#0A1A0A',
-    borderWidth: 1,
-    borderColor: '#0F2B0F',
-    borderRadius: 2,
+    backgroundColor: '#252525',
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  permText: { fontFamily: 'Inter', fontSize: 12, color: '#2D8B2D', letterSpacing: 1 },
+  permText: { fontFamily: 'Inter', fontSize: 13, color: '#888888' },
 });

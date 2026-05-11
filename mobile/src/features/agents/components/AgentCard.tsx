@@ -40,7 +40,7 @@ export function AgentCard({ agent, onPress }: Props) {
 
         {/* Project path */}
         <View style={s.endpointRow}>
-          <Zap size={12} color="#0F6B0F" />
+          <Zap size={12} color="#555555" />
           <Text style={s.endpointText} numberOfLines={1}>
             {agent.project_path}
           </Text>
@@ -58,13 +58,7 @@ export function AgentCard({ agent, onPress }: Props) {
 const s = StyleSheet.create({
   wrap: { paddingHorizontal: 12, paddingVertical: 6 },
   wrapPressed: { opacity: 0.7 },
-  card: {
-    backgroundColor: '#061206',
-    borderRadius: 2,
-    borderWidth: 1,
-    borderColor: '#0F2B0F',
-    overflow: 'hidden',
-  },
+  card: { backgroundColor: '#1A1A1A', borderRadius: 12, overflow: 'hidden' },
   cardHeader: {
     height: 52,
     flexDirection: 'row',
@@ -72,40 +66,32 @@ const s = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#0F2B0F',
+    borderBottomColor: '#1E1E1E',
   },
-  cardHeaderLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    flex: 1,
-    marginRight: 8,
-  },
+  cardHeaderLeft: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1, marginRight: 8 },
   avatar: {
-    width: 30,
-    height: 30,
-    borderRadius: 2,
-    backgroundColor: '#0F2B0F',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#FF6B35',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  avatarText: { fontFamily: 'Anton', fontSize: 11, color: '#20C20E' },
+  avatarText: { fontFamily: 'Anton', fontSize: 14, color: '#FFFFFF' },
   nameLine: { flex: 1 },
-  agentName: { fontFamily: 'Anton', fontSize: 14, color: '#20C20E' },
+  agentName: { fontFamily: 'Inter', fontSize: 15, fontWeight: '600', color: '#FFFFFF' },
   runtimeBadge: {
     paddingHorizontal: 8,
     paddingVertical: 3,
-    borderRadius: 2,
-    borderWidth: 1,
-    borderColor: '#0F2B0F',
-    backgroundColor: '#0A1A0A',
+    borderRadius: 6,
+    backgroundColor: '#0D0D0D',
   },
   runtimeText: {
     fontFamily: 'Inter',
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#2D8B2D',
-    letterSpacing: 0.8,
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#888888',
+    letterSpacing: 0.5,
   },
   endpointRow: {
     flexDirection: 'row',
@@ -115,7 +101,7 @@ const s = StyleSheet.create({
     paddingTop: 10,
     paddingBottom: 4,
   },
-  endpointText: { fontFamily: 'Geist Mono', fontSize: 11, color: '#0F6B0F', flex: 1 },
+  endpointText: { fontFamily: 'Inter', fontSize: 12, color: '#888888', flex: 1 },
   machineRow: { paddingHorizontal: 16, paddingBottom: 10 },
-  machineText: { fontFamily: 'Inter', fontSize: 10, color: '#2D8B2D', letterSpacing: 1.5 },
+  machineText: { fontFamily: 'Inter', fontSize: 11, color: '#555555', letterSpacing: 1 },
 });

@@ -107,5 +107,5 @@ export default function InboxTab() {
 }
 
 const s = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#040D04' },
+  safe: { flex: 1, backgroundColor: '#0D0D0D' },
 });

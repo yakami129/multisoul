@@ -91,7 +91,7 @@ export default function InboxScreen({
       <View style={s.header}>
         <View>
           <Text style={s.headerTitle}>INBOX</Text>
-          <Text style={[s.headerSub, { color: unreadCount > 0 ? '#FFB000' : '#2D8B2D' }]}>
+          <Text style={[s.headerSub, { color: unreadCount > 0 ? '#FF6B35' : '#888888' }]}>
             {unreadCount > 0 ? `${unreadCount} UNREAD` : 'ALL CAUGHT UP'}
           </Text>
         </View>
@@ -100,13 +100,13 @@ export default function InboxScreen({
       {items.length === 0 ? (
         <View style={s.emptyBody}>
           <View style={s.emptyIconWrap}>
-            <CircleCheck size={36} color="#33FF33" />
+            <CircleCheck size={36} color="#4CAF50" />
           </View>
           <Text style={s.emptyTitle}>ALL CAUGHT UP!</Text>
           <Text style={s.emptyDesc}>No messages from your agents.</Text>
           <View style={s.infoBox}>
             <View style={s.infoRow}>
-              <Info size={14} color="#2D8B2D" />
+              <Info size={14} color="#555555" />
               <Text style={s.infoText}>You will be notified when an agent needs your input.</Text>
             </View>
           </View>
@@ -117,7 +117,7 @@ export default function InboxScreen({
           keyExtractor={(item) => item.id}
           contentContainerStyle={s.list}
           refreshControl={
-            <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor="#20C20E" />
+            <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor="#FF6B35" />
           }
           renderItem={({ item }) => {
             const unread = item.read_at === null;
@@ -153,7 +153,7 @@ export default function InboxScreen({
                     }}
                   >
                     <View
-                      style={[s.unreadBar, { backgroundColor: unread ? '#20C20E' : 'transparent' }]}
+                      style={[s.unreadBar, { backgroundColor: unread ? '#FF6B35' : 'transparent' }]}
                     />
                     <View style={s.content}>
                       <Text style={s.title}>{item.title}</Text>
@@ -190,84 +190,93 @@ export default function InboxScreen({
 }
 
 const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#040D04' },
+  root: { flex: 1, backgroundColor: '#0D0D0D' },
   header: {
-    height: 52,
-    backgroundColor: '#061206',
-    flexDirection: 'row',
-    alignItems: 'center',
+    backgroundColor: '#0D0D0D',
     paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#0F2B0F',
+    paddingTop: 16,
+    paddingBottom: 8,
+    gap: 4,
   },
-  headerTitle: { fontFamily: 'Anton', fontSize: 20, color: '#20C20E' },
-  headerSub: { fontFamily: 'Inter', fontSize: 11, letterSpacing: 1.5 },
-  list: { padding: 16, gap: 8 },
+  headerTitle: { fontFamily: 'Inter', fontSize: 28, fontWeight: '700', color: '#FFFFFF' },
+  headerSub: { fontFamily: 'Inter', fontSize: 14 },
+  list: { padding: 0, gap: 0 },
   rowWrap: { gap: 0 },
   row: {
-    flexDirection: 'row',
-    backgroundColor: '#061206',
-    borderWidth: 1,
-    borderColor: '#0F2B0F',
-    borderRadius: 2,
+    flexDirection: 'column',
+    backgroundColor: '#0D0D0D',
+    borderBottomWidth: 1,
+    borderBottomColor: '#1E1E1E',
   },
+  rowInner: { padding: 16, gap: 10 },
+  rowTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  rowTopLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  agentName: { fontFamily: 'Inter', fontSize: 13, fontWeight: '600', color: '#FFFFFF' },
+  timeText: { fontFamily: 'Inter', fontSize: 12, color: '#555555' },
+  agentIcon: {},
+  questionText: { fontFamily: 'Inter', fontSize: 15, color: '#DDDDDD', lineHeight: 21 },
+  chip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    alignSelf: 'flex-start',
+    borderRadius: 6,
+    backgroundColor: '#1A1A1A',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  chipText: { fontFamily: 'Inter', fontSize: 12, color: '#888888' },
+  actionRow: { flexDirection: 'row', justifyContent: 'flex-end', gap: 8 },
+  dismissBtn: { paddingHorizontal: 8, paddingVertical: 4 },
+  dismissText: { fontFamily: 'Inter', fontSize: 13, color: '#666666' },
+  answerBtn: { paddingHorizontal: 8, paddingVertical: 4 },
+  answerText: { fontFamily: 'Inter', fontSize: 13, fontWeight: '600', color: '#FF6B35' },
   unreadBar: { width: 2 },
   content: { flex: 1, padding: 12, gap: 4 },
-  title: { fontFamily: 'Anton', fontSize: 13, color: '#20C20E', letterSpacing: 1 },
-  body: { fontFamily: 'Geist', fontSize: 13, color: '#147A16', lineHeight: 18 },
-  time: { fontFamily: 'Inter', fontSize: 11, color: '#0F6B0F' },
-  tapHint: { fontFamily: 'Inter', fontSize: 10, color: '#2D8B2D', letterSpacing: 1 },
-  askWrap: {
-    borderWidth: 1,
-    borderTopWidth: 0,
-    borderColor: '#0F2B0F',
-    borderBottomLeftRadius: 2,
-    borderBottomRightRadius: 2,
-    padding: 12,
-    backgroundColor: '#061206',
-  },
+  title: { fontFamily: 'Anton', fontSize: 13, color: '#FFFFFF', letterSpacing: 1 },
+  body: { fontFamily: 'Geist', fontSize: 13, color: '#DDDDDD', lineHeight: 18 },
+  time: { fontFamily: 'Inter', fontSize: 11, color: '#555555' },
+  tapHint: { fontFamily: 'Inter', fontSize: 11, color: '#555555', letterSpacing: 0.5 },
+  askWrap: { paddingHorizontal: 16, paddingBottom: 16 },
   emptyBody: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 16, padding: 24 },
   emptyIconWrap: {
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: '#061206',
-    borderWidth: 1,
-    borderColor: '#0F2B0F',
+    backgroundColor: '#1A1A1A',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  emptyTitle: { fontFamily: 'Anton', fontSize: 24, color: '#20C20E' },
+  emptyTitle: { fontFamily: 'Inter', fontSize: 22, fontWeight: '700', color: '#FFFFFF' },
   emptyDesc: {
-    fontFamily: 'Geist',
-    fontSize: 14,
-    color: '#147A16',
+    fontFamily: 'Inter',
+    fontSize: 15,
+    color: '#888888',
     textAlign: 'center',
     maxWidth: 260,
   },
-  infoBox: {
-    backgroundColor: '#061206',
-    borderRadius: 2,
-    borderWidth: 1,
-    borderColor: '#0F2B0F',
-    padding: 16,
-    width: '100%',
+  infoBox: {},
+  infoRow: {
+    flexDirection: 'row',
+    gap: 8,
+    alignItems: 'center',
+    borderRadius: 12,
+    backgroundColor: '#1A1A1A',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
   },
-  infoRow: { flexDirection: 'row', gap: 8, alignItems: 'flex-start' },
-  infoText: { fontFamily: 'Inter', fontSize: 12, color: '#2D8B2D', flex: 1, lineHeight: 18 },
+  infoText: { fontFamily: 'Inter', fontSize: 12, color: '#555555', flex: 1 },
   deleteBtn: {
     width: 72,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#3D0000',
-    borderWidth: 1,
-    borderColor: '#5C0000',
-    borderRadius: 0,
+    backgroundColor: '#1A1A1A',
   },
   deleteBtnText: {
-    fontFamily: 'Anton',
-    fontSize: 11,
-    color: '#FF3333',
-    letterSpacing: 1,
+    fontFamily: 'Inter',
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#FF4444',
+    letterSpacing: 0.5,
   },
 });

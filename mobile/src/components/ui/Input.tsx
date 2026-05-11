@@ -22,7 +22,7 @@ export function Input({ label, className = '', ...props }: InputProps) {
             ? 'border-primary dark:border-primary-dark'
             : 'border-slate-200 dark:border-slate-700'
         } ${className}`}
-        placeholderTextColor="#2D8B2D"
+        placeholderTextColor="#666666"
         onFocus={() => setFocused(true)}
         onBlur={() => setFocused(false)}
         {...props}
