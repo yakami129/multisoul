@@ -66,42 +66,109 @@ fn test_extract_text_fallback_to_text_field() {
     );
 }
 
-/// mode_flags: maps mode strings to codex CLI flags.
+/// mode_flags: maps fresh exec mode strings to Codex CLI flags.
+///
+/// Data construction:
+///   full-auto / auto-edit = workspace-write sandbox + non-interactive approval
+///   yolo                  = bypass approvals and sandbox
+///   suggest / ""          = no runtime overrides
+///
+/// Execution:
+///   1. Call mode_flags for each mode
+///   2. Compare each exact argv fragment
+///   3. Check unsupported modes return no flags
 ///
 /// Expected:
-///   - "full-auto" → config overrides for non-interactive workspace writes
-///   - "auto-edit" → config overrides for non-interactive workspace writes
-///   - "yolo"      → ["--dangerously-bypass-approvals-and-sandbox"]
-///   - "suggest"   → []
+///   - full-auto uses public `codex exec --sandbox workspace-write`
+///   - full-auto does not use `-c sandbox_mode=...` for fresh exec
+///   - auto-edit matches full-auto
+///   - yolo uses bypass flag
+///   - suggest and empty mode add no flags
 #[test]
 fn test_mode_flags() {
     assert_eq!(
         mode_flags("full-auto"),
         vec![
+            "--sandbox",
+            "workspace-write",
             "-c",
-            "approval_policy=\"never\"",
-            "-c",
-            "sandbox_mode=\"workspace-write\""
-        ]
+            "approval_policy=\"never\""
+        ],
+        "fresh full-auto should use the public --sandbox flag plus non-interactive approval"
+    );
+    assert!(
+        !mode_flags("full-auto").contains(&"sandbox_mode=\"workspace-write\""),
+        "fresh full-auto should not rely on sandbox_mode config when --sandbox is available"
     );
     assert_eq!(
         mode_flags("auto-edit"),
         vec![
+            "--sandbox",
+            "workspace-write",
             "-c",
-            "approval_policy=\"never\"",
-            "-c",
-            "sandbox_mode=\"workspace-write\""
-        ]
+            "approval_policy=\"never\""
+        ],
+        "fresh auto-edit should match full-auto non-interactive workspace-write behavior"
     );
     assert_eq!(
         mode_flags("yolo"),
-        vec!["--dangerously-bypass-approvals-and-sandbox"]
+        vec!["--dangerously-bypass-approvals-and-sandbox"],
+        "yolo must bypass approvals and sandbox explicitly"
     );
     assert!(
         mode_flags("suggest").is_empty(),
         "suggest should add no flags"
     );
     assert!(mode_flags("").is_empty(), "empty mode should add no flags");
+}
+
+/// resume_mode_flags: maps resume mode strings to flags supported by `codex exec resume`.
+///
+/// Data construction:
+///   `codex exec resume --help` exposes `-c/--config` but not `--sandbox`.
+///   Therefore resume must configure sandbox via config overrides.
+///
+/// Execution:
+///   1. Call resume_mode_flags("full-auto")
+///   2. Call resume_mode_flags("auto-edit")
+///   3. Call resume_mode_flags("suggest")
+///
+/// Expected:
+///   - full-auto includes approval_policy="never"
+///   - full-auto includes sandbox_mode="workspace-write"
+///   - full-auto does not include --sandbox
+///   - auto-edit matches full-auto
+///   - suggest returns no flags
+#[test]
+fn test_resume_mode_flags() {
+    assert_eq!(
+        resume_mode_flags("full-auto"),
+        vec![
+            "-c",
+            "approval_policy=\"never\"",
+            "-c",
+            "sandbox_mode=\"workspace-write\""
+        ],
+        "resume full-auto must use config overrides because resume has no --sandbox option"
+    );
+    assert!(
+        !resume_mode_flags("full-auto").contains(&"--sandbox"),
+        "resume full-auto must not pass unsupported --sandbox"
+    );
+    assert_eq!(
+        resume_mode_flags("auto-edit"),
+        vec![
+            "-c",
+            "approval_policy=\"never\"",
+            "-c",
+            "sandbox_mode=\"workspace-write\""
+        ],
+        "resume auto-edit should match resume full-auto"
+    );
+    assert!(
+        resume_mode_flags("suggest").is_empty(),
+        "resume suggest should add no flags"
+    );
 }
 
 #[test]
