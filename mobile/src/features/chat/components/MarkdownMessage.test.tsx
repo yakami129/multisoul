@@ -18,11 +18,29 @@
 ///   数据：code = "const x = 1"
 ///   执行：press testID="copy-btn"
 ///   预期：按钮文字变为 "✓ COPIED"；1.5s 后恢复 "COPY"
+///
+/// 测试5：image rule 直接调用测试
+///   数据：node = { key: 'img-1', attributes: { src: 'https://example.com/img.png', alt: 'test' } }
+///   执行：直接调用 mdRules.image(node, [], [], {})
+///   预期：渲染结果包含 testID="markdown-image-thumb-press"
 
 import { act, fireEvent, render } from '@testing-library/react-native';
 import * as Clipboard from 'expo-clipboard';
 import React from 'react';
-import { MarkdownMessage, CopyButton } from './MarkdownMessage';
+import { MarkdownMessage, CopyButton, mdRules } from './MarkdownMessage';
+
+jest.mock('./MarkdownImage', () => ({
+  MarkdownImage: ({ src: _src, alt }: { src: string; alt: string }) => {
+    const { View } = require('react-native');
+    return <View testID="markdown-image-thumb-press" accessibilityLabel={alt} />;
+  },
+}));
+
+jest.mock('@/store/settingsStore', () => ({
+  useSettingsStore: jest.fn((selector: any) =>
+    selector({ settings: { serverUrl: 'http://localhost:8765', apiKey: 'test-token' } }),
+  ),
+}));
 
 describe('MarkdownMessage', () => {
   it('renders markdown root for normal content', () => {
@@ -85,5 +103,49 @@ describe('CopyButton', () => {
     expect(queryByText('✓ COPIED')).toBeNull();
 
     jest.useRealTimers();
+  });
+});
+
+describe('mdRules.image', () => {
+  /// image rule 直接调用：给定 src 和 alt，渲染出 MarkdownImage
+  ///
+  /// 数据构造：
+  ///   node = { key: 'img-1', attributes: { src: 'https://example.com/img.png', alt: 'test' } }
+  ///
+  /// 执行过程：
+  ///   1. 直接调用 mdRules.image(node, [], [], {}) → 返回 React element
+  ///   2. render 该 element
+  ///
+  /// 预期结果：
+  ///   - testID="markdown-image-thumb-press" 存在（MarkdownImage 被渲染）
+  ///   - accessibilityLabel="test"（alt 正确传入）
+  it('renders MarkdownImage with correct src and alt', () => {
+    const node = { key: 'img-1', attributes: { src: 'https://example.com/img.png', alt: 'test' } };
+    const element = mdRules.image(node as any, [], [], {} as any);
+    const { getByTestId } = render(element as React.ReactElement);
+
+    // 断言失败 = MarkdownImage 未被 image rule 渲染
+    expect(getByTestId('markdown-image-thumb-press')).toBeTruthy();
+    // 断言失败 = alt 未正确传入 MarkdownImage
+    expect(getByTestId('markdown-image-thumb-press').props.accessibilityLabel).toBe('test');
+  });
+
+  /// image rule 缺省值：attributes 中无 alt 时，alt 默认为空字符串
+  ///
+  /// 数据构造：
+  ///   node = { key: 'img-2', attributes: { src: 'https://example.com/img.png' } }
+  ///
+  /// 预期结果：
+  ///   - testID="markdown-image-thumb-press" 存在
+  ///   - accessibilityLabel="" （alt 缺省为空字符串，不崩溃）
+  it('defaults alt to empty string when undefined', () => {
+    const node = { key: 'img-2', attributes: { src: 'https://example.com/img.png' } };
+    const element = mdRules.image(node as any, [], [], {} as any);
+    const { getByTestId } = render(element as React.ReactElement);
+
+    // 断言失败 = 缺少 alt 时 image rule 崩溃或未渲染 MarkdownImage
+    expect(getByTestId('markdown-image-thumb-press')).toBeTruthy();
+    // 断言失败 = alt 缺省值应为空字符串
+    expect(getByTestId('markdown-image-thumb-press').props.accessibilityLabel).toBe('');
   });
 });

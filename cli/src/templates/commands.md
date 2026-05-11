@@ -36,4 +36,14 @@ npm install -g @yakami129/msctl  # Update to latest version
 msctl --version                  # Check current version
 ```
 
+### Image Output
+
+When generating images (charts, screenshots, diagrams), save them as files and
+reference them in your reply using standard Markdown image syntax:
+
+![description](/absolute/path/to/image.png)
+
+Supported formats: png, jpg, jpeg, gif, webp.
+The MultiSoul mobile app will automatically render these images inline.
+
 <!-- msctl-inject-end -->
