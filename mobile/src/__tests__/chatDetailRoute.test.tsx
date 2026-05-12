@@ -149,10 +149,14 @@ test('updates the status badge when conversation metadata changes', async () => 
 
 test('animates the next agent text after sending a message', async () => {
   (fetchMessages as jest.Mock).mockResolvedValue([]);
-  const { getByPlaceholderText, getByText } = render(<ChatDetailScreen />);
+  const { getByTestId, getByText } = render(<ChatDetailScreen />);
 
-  fireEvent.changeText(getByPlaceholderText('Message...'), 'scan');
-  fireEvent(getByPlaceholderText('Message...'), 'submitEditing');
+  await act(async () => {
+    fireEvent.changeText(getByTestId('message-input'), 'scan');
+  });
+  await act(async () => {
+    fireEvent.press(getByTestId('send-btn'));
+  });
 
   act(() => {
     useChatStore.getState().setMessages('conv-1', [
@@ -226,16 +230,21 @@ test('renders image picker button in chat list detail composer', () => {
   const { getByLabelText, getByTestId } = render(<ChatDetailScreen />);
 
   expect(getByLabelText('Attach image')).toBeTruthy();
-  expect(getByTestId('attach-image-button')).toBeTruthy();
+  expect(getByTestId('attach-btn')).toBeTruthy();
 });
 
 test('uploads selected image and renders the sent image message with local uri', async () => {
-  const { getByLabelText, getByText, queryByTestId } = render(<ChatDetailScreen />);
+  const { getByLabelText, getByTestId, getByText, queryByTestId } = render(<ChatDetailScreen />);
 
   await act(async () => {
     fireEvent.press(getByLabelText('Attach image'));
   });
   await waitFor(() => expect(queryByTestId('img-preview-row')).not.toBeNull());
+
+  // Type text so the send button becomes visible
+  await act(async () => {
+    fireEvent.changeText(getByTestId('message-input'), 'send');
+  });
 
   fireEvent.press(getByLabelText('Send message'));
 
@@ -244,7 +253,7 @@ test('uploads selected image and renders the sent image message with local uri',
       'http://localhost:8080',
       'token',
       'conv-1',
-      '',
+      'send',
       'file-1',
     ),
   );
@@ -283,7 +292,7 @@ describe('Analyzing… bubble — new conversation not pre-seeded in store', () 
       fireEvent.changeText(getByTestId('message-input'), 'hello');
     });
     await act(async () => {
-      fireEvent.press(getByTestId('send-stop-button'));
+      fireEvent.press(getByTestId('send-btn'));
     });
 
     await waitFor(() => {
@@ -307,18 +316,18 @@ describe('send/stop button', () => {
     // explicitly returns to non-running (idle / completed / failed).
     //
     // Scenario:
-    //   1. User sends message → stop-icon appears
-    //   2. Agent sends first agent_text (still running) → stop-icon MUST stay
+    //   1. User sends message → stop-btn appears
+    //   2. Agent sends first agent_text (still running) → stop-btn MUST stay
     const { getByTestId } = render(<ChatDetailScreen />);
 
     await act(async () => {
       fireEvent.changeText(getByTestId('message-input'), 'hello');
     });
     await act(async () => {
-      fireEvent.press(getByTestId('send-stop-button'));
+      fireEvent.press(getByTestId('send-btn'));
     });
 
-    await waitFor(() => expect(getByTestId('stop-icon')).toBeTruthy());
+    await waitFor(() => expect(getByTestId('stop-btn')).toBeTruthy());
 
     // Simulate agent sending its first message while still running
     act(() => {
@@ -340,24 +349,24 @@ describe('send/stop button', () => {
       }));
     });
 
-    // Stop icon must still be visible — agent is still running
+    // Stop button must still be visible — agent is still running
     await waitFor(() => {
-      expect(getByTestId('stop-icon')).toBeTruthy();
+      expect(getByTestId('stop-btn')).toBeTruthy();
     });
   });
 
   it('hides stop icon after conversation.status returns to idle (agent finished)', async () => {
-    // After the agent finishes (status → idle / completed), the stop icon should disappear.
+    // After the agent finishes (status → idle / completed), the stop button should disappear.
     const { getByTestId, queryByTestId } = render(<ChatDetailScreen />);
 
     await act(async () => {
       fireEvent.changeText(getByTestId('message-input'), 'hello');
     });
     await act(async () => {
-      fireEvent.press(getByTestId('send-stop-button'));
+      fireEvent.press(getByTestId('send-btn'));
     });
 
-    await waitFor(() => expect(getByTestId('stop-icon')).toBeTruthy());
+    await waitFor(() => expect(getByTestId('stop-btn')).toBeTruthy());
 
     // Agent finishes — status returns to idle
     act(() => {
@@ -369,25 +378,25 @@ describe('send/stop button', () => {
     });
 
     await waitFor(() => {
-      expect(queryByTestId('stop-icon')).toBeNull();
+      expect(queryByTestId('stop-btn')).toBeNull();
     });
   });
 
   it('shows stop icon when isAwaitingResponse', async () => {
     const { getByTestId, queryByTestId } = render(<ChatDetailScreen />);
 
-    // Initially no stop icon
-    expect(queryByTestId('stop-icon')).toBeNull();
+    // Initially no stop button
+    expect(queryByTestId('stop-btn')).toBeNull();
 
     await act(async () => {
       fireEvent.changeText(getByTestId('message-input'), 'hello');
     });
     await act(async () => {
-      fireEvent.press(getByTestId('send-stop-button'));
+      fireEvent.press(getByTestId('send-btn'));
     });
 
     await waitFor(() => {
-      expect(getByTestId('stop-icon')).toBeTruthy();
+      expect(getByTestId('stop-btn')).toBeTruthy();
     });
   });
 
@@ -399,13 +408,13 @@ describe('send/stop button', () => {
       fireEvent.changeText(getByTestId('message-input'), 'hello');
     });
     await act(async () => {
-      fireEvent.press(getByTestId('send-stop-button'));
+      fireEvent.press(getByTestId('send-btn'));
     });
 
-    await waitFor(() => expect(getByTestId('stop-icon')).toBeTruthy());
+    await waitFor(() => expect(getByTestId('stop-btn')).toBeTruthy());
 
     await act(async () => {
-      fireEvent.press(getByTestId('send-stop-button'));
+      fireEvent.press(getByTestId('stop-btn'));
     });
 
     await waitFor(() => {
@@ -507,7 +516,7 @@ describe('multi-image upload', () => {
     await waitFor(() => expect(queryByTestId('img-preview-row')).toBeNull());
 
     await act(async () => {
-      fireEvent.press(getByTestId('attach-image-button'));
+      fireEvent.press(getByTestId('attach-btn'));
     });
 
     await waitFor(() => {
@@ -518,7 +527,7 @@ describe('multi-image upload', () => {
   it('removes image when × badge tapped', async () => {
     const { getByTestId, queryByTestId } = render(<ChatDetailScreen />);
     await act(async () => {
-      fireEvent.press(getByTestId('attach-image-button'));
+      fireEvent.press(getByTestId('attach-btn'));
     });
     await waitFor(() => expect(queryByTestId('img-preview-row')).not.toBeNull());
 
@@ -544,14 +553,14 @@ describe('multi-image upload', () => {
 
     for (let i = 0; i < 5; i++) {
       await act(async () => {
-        fireEvent.press(getByTestId('attach-image-button'));
+        fireEvent.press(getByTestId('attach-btn'));
       });
     }
     await waitFor(() => expect(queryByTestId('remove-img-4')).toBeTruthy());
 
     const alertSpy = jest.spyOn(Alert, 'alert');
     await act(async () => {
-      fireEvent.press(getByTestId('attach-image-button'));
+      fireEvent.press(getByTestId('attach-btn'));
     });
 
     expect(alertSpy).toHaveBeenCalledWith('最多选择 5 张图片');
@@ -590,13 +599,13 @@ describe('multi-image upload', () => {
     const { getByTestId, getByLabelText } = render(<ChatDetailScreen />);
 
     await act(async () => {
-      fireEvent.press(getByTestId('attach-image-button'));
+      fireEvent.press(getByTestId('attach-btn'));
     });
 
     // 第 2 次 attach 前切换 mock
     (uploadImage as jest.Mock).mockResolvedValueOnce({ file_id: 'file-2' });
     await act(async () => {
-      fireEvent.press(getByTestId('attach-image-button'));
+      fireEvent.press(getByTestId('attach-btn'));
     });
 
     await waitFor(() => expect(getByTestId('remove-img-1')).toBeTruthy());
