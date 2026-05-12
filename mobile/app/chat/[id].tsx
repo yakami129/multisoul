@@ -1,7 +1,7 @@
 import * as ImageManipulator from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { ChevronLeft, ImageIcon, Send, Square, X } from 'lucide-react-native';
+import { ChevronLeft, X } from 'lucide-react-native';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   Alert,
@@ -11,12 +11,13 @@ import {
   ScrollView,
   View,
   Text,
-  TextInput,
   TouchableOpacity,
   KeyboardAvoidingView,
   Platform,
   Pressable,
 } from 'react-native';
+import ChatInputBar from '@/features/chat/components/ChatInputBar';
+import CommandPopup from '@/features/chat/components/CommandPopup';
 import { MessageBubble } from '@/features/chat/components/MessageBubble';
 import {
   postMessage,
@@ -78,6 +79,7 @@ export default function ChatDetailScreen() {
   const [isAwaitingResponse, setIsAwaitingResponse] = useState(false);
   const [typewriterSeq, setTypewriterSeq] = useState<number | null>(null);
   const [pendingImages, setPendingImages] = useState<PendingImage[]>([]);
+  const [commandPopupVisible, setCommandPopupVisible] = useState(false);
   const imageMapRef = useRef<Map<string, string>>(new Map());
   const scrollRef = useRef<ScrollView>(null);
   const prevMessageCountRef = useRef(0);
@@ -242,6 +244,20 @@ export default function ChatDetailScreen() {
     );
   }
 
+  const handleInputChange = (text: string) => {
+    setInput(text);
+    if (text.startsWith('/')) {
+      setCommandPopupVisible(true);
+    } else if (commandPopupVisible) {
+      setCommandPopupVisible(false);
+    }
+  };
+
+  const handleCommandSelect = (command: string) => {
+    setInput(command + ' ');
+    setCommandPopupVisible(false);
+  };
+
   const handleSend = async () => {
     const text = input.trim();
     const uploadedImages = pendingImages.filter((img) => img.status === 'uploaded' && img.fileId);
@@ -383,98 +399,72 @@ export default function ChatDetailScreen() {
           )}
         </ScrollView>
 
-        {pendingImages.length > 0 && (
-          <ScrollView
-            testID="img-preview-row"
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={s.previewRow}
-            contentContainerStyle={s.previewRowContent}
-          >
-            {pendingImages.map((img, idx) => (
-              <View key={img.localUri} style={s.thumbWrapper}>
-                <Image source={{ uri: img.localUri }} style={s.thumb} />
-                {img.status === 'uploading' && (
-                  <View style={s.thumbOverlay}>
-                    <Text style={s.thumbOverlayText}>...</Text>
-                  </View>
-                )}
-                {img.status === 'failed' && (
-                  <View style={[s.thumbOverlay, s.thumbFailed]}>
-                    <Text style={s.thumbOverlayText}>!</Text>
-                  </View>
-                )}
-                <Pressable
-                  testID={`remove-img-${idx}`}
-                  style={s.removeBadge}
-                  onPress={() => setPendingImages((prev) => prev.filter((_, i) => i !== idx))}
-                >
-                  <X size={8} color="#FFFFFF" />
-                </Pressable>
-              </View>
-            ))}
-          </ScrollView>
-        )}
-
-        <View style={s.inputBar}>
-          <TouchableOpacity
-            accessibilityLabel="Attach image"
-            accessibilityRole="button"
-            testID="attach-image-button"
-            onPress={() => {
+        <CommandPopup
+          visible={commandPopupVisible}
+          onSelect={handleCommandSelect}
+          onDismiss={() => setCommandPopupVisible(false)}
+        />
+        <View style={s.inputArea}>
+          {pendingImages.length > 0 && (
+            <ScrollView
+              testID="img-preview-row"
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={s.previewRow}
+              contentContainerStyle={s.previewRowContent}
+            >
+              {pendingImages.map((img, idx) => (
+                <View key={img.localUri} style={s.thumbWrapper}>
+                  <Image source={{ uri: img.localUri }} style={s.thumb} />
+                  {img.status === 'uploading' && (
+                    <View style={s.thumbOverlay}>
+                      <Text style={s.thumbOverlayText}>...</Text>
+                    </View>
+                  )}
+                  {img.status === 'failed' && (
+                    <View style={[s.thumbOverlay, s.thumbFailed]}>
+                      <Text style={s.thumbOverlayText}>!</Text>
+                    </View>
+                  )}
+                  <Pressable
+                    testID={`remove-img-${idx}`}
+                    style={s.removeBadge}
+                    onPress={() => setPendingImages((prev) => prev.filter((_, i) => i !== idx))}
+                  >
+                    <X size={8} color="#FFFFFF" />
+                  </Pressable>
+                </View>
+              ))}
+            </ScrollView>
+          )}
+          <ChatInputBar
+            value={input}
+            onChangeText={handleInputChange}
+            onSend={() => {
+              void handleSend();
+            }}
+            onPickImage={() => {
               void pickImage();
             }}
+            onOpenCommands={() => setCommandPopupVisible(true)}
             disabled={composerDisabled}
-            style={[s.imageBtn, composerDisabled && s.imageBtnDisabled]}
-          >
-            <ImageIcon size={16} color={composerDisabled ? '#555555' : '#FFFFFF'} />
-          </TouchableOpacity>
-          <View style={[s.inputField, composerDisabled && s.inputDisabled]}>
-            <TextInput
-              style={s.input}
-              testID="message-input"
-              placeholder={isOffline ? 'Agent offline...' : 'Message...'}
-              placeholderTextColor="#555555"
-              value={input}
-              onChangeText={setInput}
-              editable={!composerDisabled}
-              returnKeyType="send"
-              onSubmitEditing={() => {
-                void handleSend();
-              }}
-            />
-          </View>
-          <TouchableOpacity
-            accessibilityLabel={isAgentRunning ? 'Stop conversation' : 'Send message'}
-            accessibilityRole="button"
-            testID="send-stop-button"
-            onPress={() => {
-              if (isAgentRunning) {
-                if (endpoint) {
-                  void abortConversation(endpoint.base_url, endpoint.token, conv_id)
-                    .then(() => {
-                      setIsAwaitingResponse(false);
-                    })
-                    .catch((e: unknown) => {
-                      console.warn('abort failed', e);
-                    });
-                } else {
-                  console.warn('abort: no endpoint available');
-                }
+            isAgentRunning={isAgentRunning}
+            onStop={() => {
+              if (endpoint) {
+                void abortConversation(endpoint.base_url, endpoint.token, conv_id)
+                  .then(() => {
+                    setIsAwaitingResponse(false);
+                  })
+                  .catch((e: unknown) => {
+                    console.warn('abort failed', e);
+                  });
               } else {
-                void handleSend();
+                console.warn('abort: no endpoint available');
               }
             }}
-            style={[s.sendStopBtn, isAgentRunning ? s.stopBtn : s.sendBtn]}
-          >
-            {isAgentRunning ? (
-              <View testID="stop-icon">
-                <Square size={14} color="#FF4444" />
-              </View>
-            ) : (
-              <Send size={16} color="#0D0D0D" />
-            )}
-          </TouchableOpacity>
+            placeholder={isOffline ? 'Agent offline...' : 'Message...'}
+          />
+          <View style={s.safeArea} />
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
