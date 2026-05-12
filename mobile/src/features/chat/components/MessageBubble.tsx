@@ -24,6 +24,8 @@ interface Props {
   forceComplete?: boolean;
   waiting?: boolean;
   imageUri?: string;
+  serverUrl?: string;
+  token?: string;
 }
 
 export const MessageBubble = memo(function MessageBubble({
@@ -34,6 +36,8 @@ export const MessageBubble = memo(function MessageBubble({
   forceComplete = false,
   waiting = false,
   imageUri,
+  serverUrl = '',
+  token = '',
 }: Props) {
   const agentText = msg.role === 'agent_text' ? ((msg.payload as AgentTextPayload).text ?? '') : '';
   const [visibleChars, setVisibleChars] = useState(typewriter ? 0 : agentText.length);
@@ -200,7 +204,7 @@ export const MessageBubble = memo(function MessageBubble({
       return (
         <View style={s.aiWrap}>
           <View testID="agent-text-bubble" style={s.aiBubble}>
-            <MarkdownMessage content={agentText} />
+            <MarkdownMessage content={agentText} serverUrl={serverUrl} token={token} />
           </View>
         </View>
       );

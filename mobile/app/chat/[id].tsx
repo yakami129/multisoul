@@ -374,6 +374,8 @@ export default function ChatDetailScreen() {
               onAnswerMulti={sendAnswerMulti}
               imageUri={imageUriForMessage(msg)}
               waiting={false}
+              serverUrl={endpoint?.base_url ?? ''}
+              token={endpoint?.token ?? ''}
             />
           ))}
           {isAgentRunning && incomingAgentActivitySeq === null && (

@@ -2,12 +2,8 @@ import { act, fireEvent, render } from '@testing-library/react-native';
 import React from 'react';
 import { MarkdownImage } from './MarkdownImage';
 
-jest.mock('@/store/settingsStore', () => ({
-  useSettingsStore: jest.fn(
-    (selector: (s: { settings: { serverUrl: string; apiKey: string } }) => unknown) =>
-      selector({ settings: { serverUrl: 'http://localhost:8765', apiKey: 'test-token' } }),
-  ),
-}));
+const SERVER_URL = 'http://localhost:8765';
+const TOKEN = 'test-token';
 
 /// test_markdown_image_renders_thumbnail: renders <Image> with correct source URI for a remote HTTPS URL
 ///
@@ -24,7 +20,12 @@ jest.mock('@/store/settingsStore', () => ({
 ///   - source.uri equals the original HTTPS URL: no transformation applied
 test('test_markdown_image_renders_thumbnail', () => {
   const { getByTestId } = render(
-    <MarkdownImage src="https://example.com/photo.png" alt="a photo" />,
+    <MarkdownImage
+      src="https://example.com/photo.png"
+      alt="a photo"
+      serverUrl={SERVER_URL}
+      token={TOKEN}
+    />,
   );
 
   const img = getByTestId('markdown-image-thumb');
@@ -34,7 +35,7 @@ test('test_markdown_image_renders_thumbnail', () => {
   expect(img.props.source.uri).toBe('https://example.com/photo.png');
 });
 
-/// test_markdown_image_local_path_converts_to_files_url: local path → /api/v1/files?path= with Authorization header
+/// test_markdown_image_local_path_converts_to_files_url: local path → /api/v1/files?path= with token query param
 ///
 /// Data construction:
 ///   src = '/tmp/img.png' (absolute local path starting with '/')
@@ -42,23 +43,24 @@ test('test_markdown_image_renders_thumbnail', () => {
 ///
 /// Execution:
 ///   1. render MarkdownImage with local path src
-///   2. resolveSource detects leading '/' → builds files API URL with encoded path
-///   3. Authorization header set to 'Bearer test-token'
+///   2. resolveSource detects leading '/' → builds files API URL with encoded path and token
 ///
 /// Expected:
 ///   - source.uri contains '/api/v1/files?path=': correct endpoint used
 ///   - source.uri contains encoded path '%2Ftmp%2Fimg.png': path is URL-encoded
-///   - source.headers.Authorization equals 'Bearer test-token': auth header present
+///   - source.uri contains 'token=test-token': auth token in query string (RN Image doesn't support custom headers)
 test('test_markdown_image_local_path_converts_to_files_url', () => {
-  const { getByTestId } = render(<MarkdownImage src="/tmp/img.png" alt="local" />);
+  const { getByTestId } = render(
+    <MarkdownImage src="/tmp/img.png" alt="local" serverUrl={SERVER_URL} token={TOKEN} />,
+  );
 
   const img = getByTestId('markdown-image-thumb');
   // assertion failure = local path not converted to files API URL
   expect(img.props.source.uri).toContain('/api/v1/files?path=');
   // assertion failure = path not URL-encoded in the query string
   expect(img.props.source.uri).toContain(encodeURIComponent('/tmp/img.png'));
-  // assertion failure = Authorization header missing for local path
-  expect(img.props.source.headers?.Authorization).toBe('Bearer test-token');
+  // assertion failure = token not present as query param (RN Image doesn't support custom headers)
+  expect(img.props.source.uri).toContain('token=test-token');
 });
 
 /// test_markdown_image_opens_fullscreen_on_press: pressing thumbnail sets modal visible
@@ -77,7 +79,12 @@ test('test_markdown_image_local_path_converts_to_files_url', () => {
 ///   - after press: getByTestId('markdown-image-modal') is truthy (modal visible)
 test('test_markdown_image_opens_fullscreen_on_press', async () => {
   const { getByTestId, queryByTestId } = render(
-    <MarkdownImage src="https://example.com/photo.png" alt="photo" />,
+    <MarkdownImage
+      src="https://example.com/photo.png"
+      alt="photo"
+      serverUrl={SERVER_URL}
+      token={TOKEN}
+    />,
   );
 
   // assertion failure = modal should be hidden initially
@@ -108,7 +115,12 @@ test('test_markdown_image_opens_fullscreen_on_press', async () => {
 ///   - placeholder contains text "Image unavailable"
 test('test_markdown_image_shows_error_placeholder_on_load_error', async () => {
   const { getByTestId, queryByTestId, getByText } = render(
-    <MarkdownImage src="https://example.com/broken.png" alt="broken" />,
+    <MarkdownImage
+      src="https://example.com/broken.png"
+      alt="broken"
+      serverUrl={SERVER_URL}
+      token={TOKEN}
+    />,
   );
 
   await act(async () => {
@@ -139,7 +151,12 @@ test('test_markdown_image_shows_error_placeholder_on_load_error', async () => {
 ///   - after pressing X: queryByTestId('markdown-image-modal') is null (modal closed)
 test('test_markdown_image_closes_modal_on_x_press', async () => {
   const { getByTestId, queryByTestId } = render(
-    <MarkdownImage src="https://example.com/photo.png" alt="photo" />,
+    <MarkdownImage
+      src="https://example.com/photo.png"
+      alt="photo"
+      serverUrl={SERVER_URL}
+      token={TOKEN}
+    />,
   );
 
   // open modal first
