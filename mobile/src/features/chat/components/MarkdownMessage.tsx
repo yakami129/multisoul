@@ -6,6 +6,8 @@ import { MarkdownImage } from './MarkdownImage';
 
 interface Props {
   content: string;
+  serverUrl?: string;
+  token?: string;
 }
 
 // CopyButton — standalone component so useState is scoped per code block.
@@ -177,17 +179,19 @@ function renderTable(node: { key: string }, children: React.ReactNode) {
   );
 }
 
-function renderImage(
-  node: ASTNode,
-  _children: React.ReactNode[],
-  _parent: ASTNode[],
-  _styles: MarkdownStyles,
-  _allowedImageHandlers?: string[],
-  _defaultImageHandler?: string,
-) {
-  const src = String(node.attributes.src ?? '');
-  const alt = String(node.attributes.alt ?? '');
-  return <MarkdownImage key={node.key} src={src} alt={alt} />;
+export function makeImageRule(serverUrl: string, token: string) {
+  return function renderImage(
+    node: ASTNode,
+    _children: React.ReactNode[],
+    _parent: ASTNode[],
+    _styles: MarkdownStyles,
+    _allowedImageHandlers?: string[],
+    _defaultImageHandler?: string,
+  ) {
+    const src = String(node.attributes.src ?? '');
+    const alt = String(node.attributes.alt ?? '');
+    return <MarkdownImage key={node.key} src={src} alt={alt} serverUrl={serverUrl} token={token} />;
+  };
 }
 
 function renderSelectableText(
@@ -272,12 +276,16 @@ export const mdRules: RenderRules = {
   softbreak: renderSelectableBreak('softbreak'),
   fence: renderFence,
   table: renderTable,
-  image: renderImage,
 };
 
-export const MarkdownMessage = memo(function MarkdownMessage({ content }: Props) {
+export const MarkdownMessage = memo(function MarkdownMessage({
+  content,
+  serverUrl = '',
+  token = '',
+}: Props) {
+  const rules: RenderRules = { ...mdRules, image: makeImageRule(serverUrl, token) };
   return (
-    <Markdown style={mdStyles} rules={mdRules}>
+    <Markdown style={mdStyles} rules={rules}>
       {content}
     </Markdown>
   );

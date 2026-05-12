@@ -27,19 +27,13 @@
 import { act, fireEvent, render } from '@testing-library/react-native';
 import * as Clipboard from 'expo-clipboard';
 import React from 'react';
-import { MarkdownMessage, CopyButton, mdRules } from './MarkdownMessage';
+import { MarkdownMessage, CopyButton, makeImageRule } from './MarkdownMessage';
 
 jest.mock('./MarkdownImage', () => ({
   MarkdownImage: ({ src: _src, alt }: { src: string; alt: string }) => {
     const { View } = require('react-native');
     return <View testID="markdown-image-thumb-press" accessibilityLabel={alt} />;
   },
-}));
-
-jest.mock('@/store/settingsStore', () => ({
-  useSettingsStore: jest.fn((selector: any) =>
-    selector({ settings: { serverUrl: 'http://localhost:8765', apiKey: 'test-token' } }),
-  ),
 }));
 
 jest.mock('react-native-markdown-display', () => {
@@ -164,22 +158,25 @@ describe('CopyButton', () => {
   });
 });
 
-describe('mdRules.image', () => {
+describe('makeImageRule', () => {
   /// image rule 直接调用：给定 src 和 alt，渲染出 MarkdownImage
   ///
   /// 数据构造：
   ///   node = { key: 'img-1', attributes: { src: 'https://example.com/img.png', alt: 'test' } }
+  ///   serverUrl = 'http://localhost:8765', token = 'tok'
   ///
   /// 执行过程：
-  ///   1. 直接调用 mdRules.image(node, [], [], {}) → 返回 React element
-  ///   2. render 该 element
+  ///   1. makeImageRule('http://localhost:8765', 'tok') → renderImage 函数
+  ///   2. 调用 renderImage(node, [], [], {}) → 返回 React element
+  ///   3. render 该 element
   ///
   /// 预期结果：
   ///   - testID="markdown-image-thumb-press" 存在（MarkdownImage 被渲染）
   ///   - accessibilityLabel="test"（alt 正确传入）
   it('renders MarkdownImage with correct src and alt', () => {
     const node = { key: 'img-1', attributes: { src: 'https://example.com/img.png', alt: 'test' } };
-    const element = mdRules.image(node as any, [], [], {} as any);
+    const renderImage = makeImageRule('http://localhost:8765', 'tok');
+    const element = renderImage(node as any, [], [], {} as any);
     const { getByTestId } = render(element as React.ReactElement);
 
     // 断言失败 = MarkdownImage 未被 image rule 渲染
@@ -198,7 +195,8 @@ describe('mdRules.image', () => {
   ///   - accessibilityLabel="" （alt 缺省为空字符串，不崩溃）
   it('defaults alt to empty string when undefined', () => {
     const node = { key: 'img-2', attributes: { src: 'https://example.com/img.png' } };
-    const element = mdRules.image(node as any, [], [], {} as any);
+    const renderImage = makeImageRule('http://localhost:8765', 'tok');
+    const element = renderImage(node as any, [], [], {} as any);
     const { getByTestId } = render(element as React.ReactElement);
 
     // 断言失败 = 缺少 alt 时 image rule 崩溃或未渲染 MarkdownImage
