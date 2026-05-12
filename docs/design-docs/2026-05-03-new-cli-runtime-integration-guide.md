@@ -262,22 +262,25 @@ mod claude;
 pub mod codex;
 pub mod your_runtime;   // 新增
 
-pub fn send_to_session(
-    state: &AppState,
-    conv_id: &str,
-    user_text: &str,
-    file_id: Option<&str>,
-    project_path: &str,
-    runtime: &str,
-    mode: &str,
-) {
+pub fn send_to_session(...) {
     match runtime {
-        "codex"        => codex::send_to_session(state, conv_id, user_text, project_path, mode),
-        "your-runtime" => your_runtime::send_to_session(state, conv_id, user_text, project_path),
-        _              => claude::send_to_session(state, conv_id, user_text, file_id, project_path),
+        "codex" | "cursor-cli" | "your-runtime" => {
+            // file_id 在 dispatch 层转换为路径前缀注入到 prompt（inject_image_prefix）
+            let effective_text = match file_id {
+                Some(fid) => inject_image_prefix(user_text, fid, &state.uploads_dir),
+                None => user_text.to_string(),
+            };
+            // 按 runtime 分发
+            if runtime == "your-runtime" {
+                your_runtime::send_to_session(state, conv_id, &effective_text, project_path);
+            } else { /* codex / cursor-cli */ }
+        }
+        _ => claude::send_to_session(state, conv_id, user_text, file_id, project_path),
     }
 }
 ```
+
+> **注意：** 不原生支持图片 content block 的 runtime（codex、cursor-cli 及新接入的 runtime）应加入上方的 `"codex" | "cursor-cli" | "your-runtime"` arm，由 dispatch 层统一注入图片路径前缀；`claude` runtime 保持独立，直接传递 `file_id` 以发送 base64 image block。
 
 ---
 

@@ -26,6 +26,15 @@ bash scripts/check-no-allow.sh --staged
 # 3e. iOS Info.plist permission alignment (staged paths only)
 bash scripts/check-ios-permissions.sh --staged
 
+# 3c2. Design-doc code hash freshness (when tracked source files are staged)
+staged_tracked=$(
+  git diff --cached --name-only --diff-filter=ACMR |
+    grep -E '\.(rs|ts|tsx)$' || true
+)
+if [ -n "$staged_tracked" ]; then
+  python3 scripts/check-doc-code-hashes.py --check
+fi
+
 # 3d. Canonical docs manifests (product-specs / design-docs / exec-plans)
 staged_docs_indices=$(
   git diff --cached --name-only --diff-filter=ACMR |
