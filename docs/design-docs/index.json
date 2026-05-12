@@ -12,7 +12,7 @@
       "trackedFiles": [
         {
           "path": "cli/src/serve/runtime/mod.rs",
-          "sha256": "26548a6cce76f9fcbba4228088340d2443f7ad9e77d8bcf08f6508d47e8a1519",
+          "sha256": "8e9239337dfdbb3e2ecaca9cd2d453e9fa511687d3f13cb6623c4973d8522512",
           "reason": "dispatch 层新增 inject_image_prefix 逻辑，是本设计的唯一变更文件。"
         }
       ]
@@ -23,7 +23,7 @@
       "trackedFiles": [
         {
           "path": "cli/src/serve/runtime/mod.rs",
-          "sha256": "26548a6cce76f9fcbba4228088340d2443f7ad9e77d8bcf08f6508d47e8a1519",
+          "sha256": "8e9239337dfdbb3e2ecaca9cd2d453e9fa511687d3f13cb6623c4973d8522512",
           "reason": "Runtime 分发入口；文档说明新增 runtime module 与 match arm。"
         },
         {

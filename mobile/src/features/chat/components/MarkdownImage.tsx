@@ -1,36 +1,31 @@
 import { X } from 'lucide-react-native';
 import React, { useState } from 'react';
 import { Image, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
-import { useSettingsStore } from '@/store/settingsStore';
 
 interface Props {
   src: string;
   alt: string;
+  serverUrl: string;
+  token: string;
 }
 
-function resolveSource(
-  src: string,
-  serverUrl: string,
-  apiKey: string,
-): { uri: string; headers?: Record<string, string> } | null {
+function resolveSource(src: string, serverUrl: string, apiKey: string): { uri: string } | null {
   if (src.startsWith('https://') || src.startsWith('http://')) {
     return { uri: src };
   }
   if (src.startsWith('/')) {
     return {
-      uri: `${serverUrl}/api/v1/files?path=${encodeURIComponent(src)}`,
-      headers: { Authorization: `Bearer ${apiKey}` },
+      uri: `${serverUrl}/api/v1/files?path=${encodeURIComponent(src)}&token=${encodeURIComponent(apiKey)}`,
     };
   }
   return null;
 }
 
-export function MarkdownImage({ src, alt }: Props) {
-  const { serverUrl, apiKey } = useSettingsStore((s) => s.settings);
+export function MarkdownImage({ src, alt, serverUrl, token }: Props) {
   const [previewVisible, setPreviewVisible] = useState(false);
   const [hasError, setHasError] = useState(false);
 
-  const source = resolveSource(src, serverUrl, apiKey);
+  const source = resolveSource(src, serverUrl, token);
 
   if (!source) {
     return (

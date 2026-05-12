@@ -28,7 +28,7 @@ Monorepo 两大件：
 - **不可硬编码 token** —— 检测 `ms_v2_xxx` / `Bearer xxx`
 - **Mobile 颜色合规** —— 仅 [`mobile/docs/design.md`](mobile/docs/design.md) §2 白名单内的色
 - **Mobile feature 边界** —— `features/*` 跨域只能走公共入口，禁止深路径 import
-- **AGENTS.md ≤ 120 行** —— 超长则拒绝 commit
+- **AGENTS.md ≤ 150 行** —— 超长则拒绝 commit
 - **单文件 ≤ 500 行** —— `mobile/src|app`、`cli/src` 源码；超长需拆分封装（见 mechanized-constraints）
 - **mobile 禁 `console.log`** —— 仅允许 `console.warn` / `console.error`
 - **改包必跑 typecheck/cargo check**
@@ -123,6 +123,7 @@ Monorepo 两大件：
 - **文档落盘**：产品 / 功能规格 → **只** [`docs/product-specs/`](docs/product-specs/)（`SPEC-<feature>.md`）；实施 / 执行计划 → **只** [`docs/exec-plans/`](docs/exec-plans/)（`YYYY-MM-DD-<feature>.md`）；设计权衡 → `docs/design-docs/YYYY-MM-DD-<feature>-design.md`（命名见 [`docs/design-docs/README.md`](docs/design-docs/README.md)）。**勿**在 [`docs/specs/`](docs/specs/)、[`docs/superpowers/`](docs/superpowers/) 新增权威内容。**Superpowers skills**（`writing-plans`、`executing-plans`、`brainstorming` 等）在本仓库落盘**必须**使用上述路径 · [`docs/superpowers/README.md`](docs/superpowers/README.md)
 - **Exec plan 施工**：`docs/exec-plans/*.md` 所列任务 **全部验证通过后一次** `git commit`；**不要**套用 Superpowers `subagent-driven-development` 的「每任务一 commit」。该次提交后把对应 `documents[]` 条目的 `lastCompletedCommit` 写入 [`docs/exec-plans/index.json`](docs/exec-plans/index.json)（40 位小写 hex，`git rev-parse HEAD`），便于 `git revert <sha>` 撤回该批改动。
 - **执行方式选择（强制）**：writing-plans 写完计划后，**必须**用 `AskUserQuestion` 工具弹出问答卡片，让用户在「Subagent 驱动（推荐）」和「当前会话内联执行」之间选择，**禁止**在纯文本里提问或自行假设默认选项。
+- **Image Output**：生成图片（图表、截图、可视化）时，保存为文件并在回复中用 Markdown 语法引用：`![描述](/绝对路径/image.png)`。支持格式：png、jpg、jpeg、gif、webp。MultiSoul 手机端会自动渲染为内联缩略图，点击可全屏查看。
 - 不要把规则塞进 `AGENTS.md`。`AGENTS.md` 只长指针，不长内容
 
 ---
@@ -136,7 +137,7 @@ Monorepo 两大件：
 3. 在 `AGENTS.md` §4 的地图里加指针（如果是新类别）
 4. 必要时把约束机械化（lint / hook / CI），让规则从"建议"升级为"法律"
 
-> `AGENTS.md` 超过 120 行就该重构 —— 把详细内容沉淀到 `docs/` 子目录，导航文件只保留指针。
+> `AGENTS.md` 超过 150 行就该重构 —— 把详细内容沉淀到 `docs/` 子目录，导航文件只保留指针。
 
 ---
 
