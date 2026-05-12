@@ -17,19 +17,16 @@ pub fn send_to_session(
     mode: &str,
 ) {
     match runtime {
-        "codex" => {
+        "codex" | "cursor-cli" => {
             let effective_text = match file_id {
                 Some(fid) => inject_image_prefix(user_text, fid, &state.uploads_dir),
                 None => user_text.to_string(),
             };
-            codex::send_to_session(state, conv_id, &effective_text, project_path, mode);
-        }
-        "cursor-cli" => {
-            let effective_text = match file_id {
-                Some(fid) => inject_image_prefix(user_text, fid, &state.uploads_dir),
-                None => user_text.to_string(),
-            };
-            cursor::send_to_session(state, conv_id, &effective_text, project_path, mode);
+            if runtime == "codex" {
+                codex::send_to_session(state, conv_id, &effective_text, project_path, mode);
+            } else {
+                cursor::send_to_session(state, conv_id, &effective_text, project_path, mode);
+            }
         }
         _ => claude::send_to_session(state, conv_id, user_text, file_id, project_path),
     }
