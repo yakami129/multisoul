@@ -7,6 +7,17 @@
       "title": "bugfix-bot Plugin Agent 技术设计"
     },
     {
+      "file": "2026-05-09-codex-cursor-image-injection-design.md",
+      "title": "Codex / Cursor-CLI 图片路径注入设计",
+      "trackedFiles": [
+        {
+          "path": "cli/src/serve/runtime/mod.rs",
+          "sha256": "26548a6cce76f9fcbba4228088340d2443f7ad9e77d8bcf08f6508d47e8a1519",
+          "reason": "dispatch 层新增 inject_image_prefix 逻辑，是本设计的唯一变更文件。"
+        }
+      ]
+    },
+    {
       "file": "2026-05-03-new-cli-runtime-integration-guide.md",
       "title": "接入新 CLI Runtime 开发指南",
       "trackedFiles": [
