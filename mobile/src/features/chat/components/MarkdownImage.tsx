@@ -8,18 +8,13 @@ interface Props {
   alt: string;
 }
 
-function resolveSource(
-  src: string,
-  serverUrl: string,
-  apiKey: string,
-): { uri: string; headers?: Record<string, string> } | null {
+function resolveSource(src: string, serverUrl: string, apiKey: string): { uri: string } | null {
   if (src.startsWith('https://') || src.startsWith('http://')) {
     return { uri: src };
   }
   if (src.startsWith('/')) {
     return {
-      uri: `${serverUrl}/api/v1/files?path=${encodeURIComponent(src)}`,
-      headers: { Authorization: `Bearer ${apiKey}` },
+      uri: `${serverUrl}/api/v1/files?path=${encodeURIComponent(src)}&token=${encodeURIComponent(apiKey)}`,
     };
   }
   return null;

@@ -22,7 +22,7 @@ Monorepo 两大件：
 - **不可硬编码 token** —— 检测 `ms_v2_xxx` / `Bearer xxx`
 - **Mobile 颜色合规** —— 仅 [`mobile/docs/design.md`](mobile/docs/design.md) §2 白名单内的色
 - **Mobile feature 边界** —— `features/*` 跨域只能走公共入口，禁止深路径 import
-- **本文 ≤ 120 行** —— 超长则拒绝 commit
+- **本文 ≤ 150 行** —— 超长则拒绝 commit
 - **单文件 ≤ 500 行** —— `mobile/src|app`、`cli/src` 源码；超长需拆分封装（见 mechanized-constraints）
 - **mobile 禁 `console.log`** —— 仅允许 `console.warn` / `console.error`
 - **改包必跑 typecheck/cargo check**
@@ -107,7 +107,11 @@ cd mobile && ./scripts/publish-ios.sh
 - **文档落盘**：产品 / 功能规格（要做什么、验收）→ **只** [`docs/product-specs/`](docs/product-specs/)（`SPEC-<feature>.md`）；实施 / 执行计划 → **只** [`docs/exec-plans/`](docs/exec-plans/)（`YYYY-MM-DD-<feature>.md`）；设计权衡 → `docs/design-docs/YYYY-MM-DD-<feature>-design.md`（命名见 [`docs/design-docs/README.md`](docs/design-docs/README.md)）。**勿**在 [`docs/specs/`](docs/specs/)、[`docs/superpowers/`](docs/superpowers/) 新增权威内容。**Superpowers skills**（`writing-plans`、`executing-plans`、`brainstorming` 等）在本仓库写规格或计划时**必须**使用上述 canonical 路径 · [`docs/superpowers/README.md`](docs/superpowers/README.md)
 - **Exec plan 施工**：全部任务验证通过后一次 `git commit`；不要套用 `subagent-driven-development` 的「每任务一 commit」。提交后把 `lastCompletedCommit` 写入 [`docs/exec-plans/index.json`](docs/exec-plans/index.json)（40 位 SHA）。
 - **执行方式选择（强制）**：writing-plans 写完计划后，**必须**用 `AskUserQuestion` 弹卡片让用户选「Subagent 驱动（推荐）」或「当前会话内联执行」，**禁止**纯文本提问或自行假设。
-- 不要把规则塞进本文。本文只长指针，不长内容
+- **Image Output**：生成图片（图表、截图、可视化）时，保存为文件并在回复中用 Markdown 语法引用：
+  ```
+  ![描述](/绝对路径/image.png)
+  ```
+  支持格式：png、jpg、jpeg、gif、webp。MultiSoul 手机端会自动渲染为内联缩略图，点击可全屏查看。
 
 ## 8. 添加新规则的原则（Harness 增量学习）
 

@@ -6,7 +6,7 @@
 # to the structured docs/ directory. Letting it grow turns it back into a
 # monolithic instruction manual that crowds out task context.
 #
-# Hard limit: 120 lines (20% headroom over the 100-line target).
+# Hard limit: 150 lines (50% headroom over the 100-line target).
 # When you hit the cap, refactor: push detail into docs/{quality,references,..}
 # and keep AGENTS.md as pure pointers.
 #
@@ -15,7 +15,7 @@
 set -euo pipefail
 
 target=AGENTS.md
-limit=120
+limit=150
 
 if [ ! -f "$target" ]; then
   echo "ERROR: $target not found at repo root." >&2

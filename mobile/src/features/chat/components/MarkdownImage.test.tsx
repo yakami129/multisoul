@@ -34,7 +34,7 @@ test('test_markdown_image_renders_thumbnail', () => {
   expect(img.props.source.uri).toBe('https://example.com/photo.png');
 });
 
-/// test_markdown_image_local_path_converts_to_files_url: local path → /api/v1/files?path= with Authorization header
+/// test_markdown_image_local_path_converts_to_files_url: local path → /api/v1/files?path= with token query param
 ///
 /// Data construction:
 ///   src = '/tmp/img.png' (absolute local path starting with '/')
@@ -42,13 +42,12 @@ test('test_markdown_image_renders_thumbnail', () => {
 ///
 /// Execution:
 ///   1. render MarkdownImage with local path src
-///   2. resolveSource detects leading '/' → builds files API URL with encoded path
-///   3. Authorization header set to 'Bearer test-token'
+///   2. resolveSource detects leading '/' → builds files API URL with encoded path and token
 ///
 /// Expected:
 ///   - source.uri contains '/api/v1/files?path=': correct endpoint used
 ///   - source.uri contains encoded path '%2Ftmp%2Fimg.png': path is URL-encoded
-///   - source.headers.Authorization equals 'Bearer test-token': auth header present
+///   - source.uri contains 'token=test-token': auth token in query string (RN Image doesn't support custom headers)
 test('test_markdown_image_local_path_converts_to_files_url', () => {
   const { getByTestId } = render(<MarkdownImage src="/tmp/img.png" alt="local" />);
 
@@ -57,8 +56,8 @@ test('test_markdown_image_local_path_converts_to_files_url', () => {
   expect(img.props.source.uri).toContain('/api/v1/files?path=');
   // assertion failure = path not URL-encoded in the query string
   expect(img.props.source.uri).toContain(encodeURIComponent('/tmp/img.png'));
-  // assertion failure = Authorization header missing for local path
-  expect(img.props.source.headers?.Authorization).toBe('Bearer test-token');
+  // assertion failure = token not present as query param (RN Image doesn't support custom headers)
+  expect(img.props.source.uri).toContain('token=test-token');
 });
 
 /// test_markdown_image_opens_fullscreen_on_press: pressing thumbnail sets modal visible
