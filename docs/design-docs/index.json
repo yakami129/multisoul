@@ -12,7 +12,7 @@
       "trackedFiles": [
         {
           "path": "cli/src/serve/runtime/mod.rs",
-          "sha256": "2167d00a776a699c933e0b7ccf6fb34312321ba6f7f36db212a653a79cda98eb",
+          "sha256": "8e9239337dfdbb3e2ecaca9cd2d453e9fa511687d3f13cb6623c4973d8522512",
           "reason": "dispatch 层新增 inject_image_prefix 逻辑，是本设计的唯一变更文件。"
         }
       ]
