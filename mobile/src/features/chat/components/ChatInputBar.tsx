@@ -1,6 +1,6 @@
-import { ImageIcon, Mic, Send, Slash, Square } from 'lucide-react-native';
+import { ArrowUp, ImagePlus, Mic, Square, Terminal } from 'lucide-react-native';
 import React from 'react';
-import { Alert, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 interface Props {
   value: string;
@@ -23,102 +23,110 @@ export default function ChatInputBar({
   disabled,
   isAgentRunning,
   onStop,
-  placeholder = 'Message...',
+  placeholder = 'Message Grok...',
 }: Props) {
   const hasText = value.trim().length > 0;
   const handleVoicePress = () => Alert.alert('语音功能即将上线，敬请期待');
+  const charCount = `${value.length} / 4096`;
+  const actionDisabled = disabled && !isAgentRunning;
 
   return (
     <View style={s.container}>
-      {/* Input row */}
-      <View style={[s.inputRow, disabled && s.inputRowDisabled]}>
-        <TextInput
-          testID="message-input"
-          style={s.input}
-          placeholder={placeholder}
-          placeholderTextColor="#555555"
-          value={value}
-          onChangeText={onChangeText}
-          editable={!disabled}
-          multiline
-          returnKeyType="default"
-          scrollEnabled
-        />
+      <View testID="input-surface" style={[s.inputSurface, disabled && s.inputRowDisabled]}>
+        <View style={s.inputRow}>
+          <View style={s.slashBadge}>
+            <Text style={s.slashText}>/</Text>
+          </View>
+          <TextInput
+            testID="message-input"
+            style={s.input}
+            placeholder={placeholder}
+            placeholderTextColor="#555555"
+            value={value}
+            onChangeText={onChangeText}
+            editable={!disabled}
+            multiline
+            maxLength={4096}
+            returnKeyType="default"
+            scrollEnabled
+          />
+          {isAgentRunning ? (
+            <TouchableOpacity
+              testID="stop-btn"
+              accessibilityLabel="Stop conversation"
+              accessibilityRole="button"
+              onPress={onStop}
+              style={[s.actionBtn, s.stopBtn]}
+            >
+              <Square size={14} color="#FF4444" />
+            </TouchableOpacity>
+          ) : hasText ? (
+            <TouchableOpacity
+              testID="send-btn"
+              accessibilityLabel="Send message"
+              accessibilityRole="button"
+              accessibilityState={{ disabled: actionDisabled }}
+              onPress={onSend}
+              disabled={actionDisabled}
+              style={[s.actionBtn, s.sendBtn, actionDisabled && s.toolBtnDisabled]}
+            >
+              <ArrowUp size={18} color="#FFFFFF" />
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              testID="mic-btn"
+              accessibilityLabel="Voice input (coming soon)"
+              accessibilityRole="button"
+              onPress={handleVoicePress}
+              style={s.actionBtn}
+            >
+              <Mic size={17} color="#666666" />
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
 
-      {/* Toolbar row */}
+      <View testID="toolbar-divider" style={s.divider} />
+
       <View style={s.toolbar}>
-        {/* Attach image */}
-        <TouchableOpacity
-          testID="attach-btn"
-          accessibilityLabel="Attach image"
-          accessibilityRole="button"
-          accessibilityState={{ disabled }}
-          onPress={onPickImage}
-          disabled={disabled}
-          style={[s.toolBtn, disabled && s.toolBtnDisabled]}
-        >
-          <ImageIcon size={22} color={disabled ? '#555555' : '#888888'} />
-        </TouchableOpacity>
-
-        {/* Command */}
-        <TouchableOpacity
-          testID="command-btn"
-          accessibilityLabel="Open commands"
-          accessibilityRole="button"
-          accessibilityState={{ disabled }}
-          onPress={onOpenCommands}
-          disabled={disabled}
-          style={[s.toolBtn, disabled && s.toolBtnDisabled]}
-        >
-          <Slash size={22} color={disabled ? '#555555' : '#888888'} />
-        </TouchableOpacity>
-
-        {/* Voice (placeholder) */}
-        <TouchableOpacity
-          testID="voice-btn"
-          accessibilityLabel="Voice input (coming soon)"
-          accessibilityRole="button"
-          onPress={handleVoicePress}
-          style={s.toolBtn}
-        >
-          <Mic size={22} color="#555555" />
-        </TouchableOpacity>
-
-        <View style={s.spacer} />
-
-        {/* Send / Stop / Mic */}
-        {isAgentRunning ? (
+        <View style={s.toolbarLeft}>
           <TouchableOpacity
-            testID="stop-btn"
-            accessibilityLabel="Stop conversation"
+            testID="attach-btn"
+            accessibilityLabel="Attach image"
             accessibilityRole="button"
-            onPress={onStop}
-            style={[s.actionBtn, s.stopBtn]}
+            accessibilityState={{ disabled }}
+            onPress={onPickImage}
+            disabled={disabled}
+            style={[s.toolBtn, disabled && s.toolBtnDisabled]}
           >
-            <Square size={14} color="#FF4444" />
+            <ImagePlus size={22} color={disabled ? '#555555' : '#888888'} />
           </TouchableOpacity>
-        ) : hasText ? (
+
           <TouchableOpacity
-            testID="send-btn"
-            accessibilityLabel="Send message"
-            accessibilityRole="button"
-            onPress={onSend}
-            style={[s.actionBtn, s.sendBtn]}
-          >
-            <Send size={16} color="#0D0D0D" />
-          </TouchableOpacity>
-        ) : (
-          <TouchableOpacity
-            testID="mic-btn"
+            testID="voice-btn"
             accessibilityLabel="Voice input (coming soon)"
             accessibilityRole="button"
             onPress={handleVoicePress}
-            style={[s.actionBtn, s.micBtn]}
+            style={s.toolBtn}
           >
-            <Mic size={16} color="#555555" />
+            <Mic size={22} color="#555555" />
           </TouchableOpacity>
-        )}
+
+          <TouchableOpacity
+            testID="command-btn"
+            accessibilityLabel="Open commands"
+            accessibilityRole="button"
+            accessibilityState={{ disabled }}
+            onPress={onOpenCommands}
+            disabled={disabled}
+            style={[s.commandPill, disabled && s.toolBtnDisabled]}
+          >
+            <Terminal size={14} color={disabled ? '#555555' : '#FF6B35'} />
+            <Text style={[s.commandPillText, disabled && s.disabledText]}>Commands</Text>
+          </TouchableOpacity>
+        </View>
+
+        <Text style={s.charCount}>{charCount}</Text>
       </View>
     </View>
   );
@@ -131,43 +139,102 @@ const s = StyleSheet.create({
     borderTopRightRadius: 20,
     paddingHorizontal: 16,
     paddingTop: 12,
-    paddingBottom: 8,
+    paddingBottom: 4,
     gap: 8,
   },
+  inputSurface: {
+    backgroundColor: '#252525',
+    borderRadius: 14,
+  },
   inputRow: {
-    minHeight: 44,
+    minHeight: 54,
     maxHeight: 120,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingLeft: 14,
+    paddingRight: 10,
+    paddingVertical: 10,
   },
   inputRowDisabled: { opacity: 0.4 },
+  slashBadge: {
+    paddingRight: 4,
+    alignSelf: 'flex-start',
+    minHeight: 34,
+    justifyContent: 'center',
+  },
+  slashText: {
+    fontFamily: 'Inter',
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FF6B35',
+  },
   input: {
+    flex: 1,
+    minHeight: 34,
+    maxHeight: 98,
+    padding: 0,
+    margin: 0,
     fontFamily: 'Inter',
     fontSize: 15,
     color: '#FFFFFF',
     lineHeight: 22,
   },
+  divider: {
+    height: 1,
+    backgroundColor: '#252525',
+  },
   toolbar: {
     flexDirection: 'row',
     alignItems: 'center',
-    height: 40,
-    gap: 4,
+    justifyContent: 'space-between',
+    minHeight: 40,
+    paddingHorizontal: 4,
+    paddingBottom: 4,
+  },
+  toolbarLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   toolBtn: {
     width: 36,
     height: 36,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 18,
+    borderRadius: 8,
   },
   toolBtnDisabled: { opacity: 0.4 },
-  spacer: { flex: 1 },
+  commandPill: {
+    minHeight: 30,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#FF6B3588',
+    backgroundColor: '#1A1A1A',
+  },
+  commandPillText: {
+    fontFamily: 'Inter',
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#FF6B35',
+  },
+  disabledText: { color: '#555555' },
+  charCount: {
+    fontFamily: 'Inter',
+    fontSize: 11,
+    color: '#333333',
+  },
   actionBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     alignItems: 'center',
     justifyContent: 'center',
   },
   sendBtn: { backgroundColor: '#FF6B35' },
-  stopBtn: { backgroundColor: '#1A1A1A', borderWidth: 1, borderColor: '#FF4444' },
-  micBtn: { backgroundColor: '#1A1A1A' },
+  stopBtn: { backgroundColor: '#252525', borderWidth: 1, borderColor: '#FF4444' },
 });

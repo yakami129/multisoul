@@ -36,7 +36,7 @@ serve/runtime/mod.rs              ← send_to_session()，按 agent.runtime 字�
         └── _             ──▶  claude.rs  :: send_to_session()
 ```
 
-每个 runtime 运行在 **独立的 blocking 线程**（`tokio::task::spawn_blocking`）中，通过 `std::sync::mpsc` 接收来自 HTTP handler 的消息，通过 `tokio::sync::broadcast` 向 WebSocket 客户端推送事件。
+每个 runtime 运行在 **独立的 blocking 线程**（`tokio::task::spawn_blocking`）中，通过 `std::sync::mpsc` 接收来自 HTTP handler 的消息，通过 `tokio::sync::broadcast` 向 WebSocket 客户端推送事件。运行中的子进程必须通过 `SessionHandle` 登记当前 pid；`POST /api/v1/conversations/:id/abort` 会移除该 handle 并终止对应进程组，避免 UI 停止按钮只断开队列却无法中断正在执行的 CLI runtime。
 
 ---
 
@@ -50,15 +50,16 @@ pub struct AppState {
     pub token: String,                   // Bearer token
     pub uploads_dir: PathBuf,            // 文件上传目录
     pub bus: ConvBus,                    // conv_id → broadcast::Sender<String>（WS 推送）
-    pub sessions: SessionMap,            // conv_id → mpsc::Sender<SessionMessage>（runtime 写入）
+    pub sessions: SessionMap,            // conv_id → SessionHandle（消息队列 + 当前 runtime pid）
     pub answer_txs: AnswerMap,           // conv_id → mpsc::SyncSender<AnswerPayload>（交互回答）
     pub plugin_manager: Arc<PluginManager>, // plugin agent 进程管理器
 }
 ```
 
 **关键约定：**
-- `sessions` map 里若已有该 conv 的 sender，说明 worker 正在运行，直接 `tx.send()` 即可。
+- `sessions` map 里若已有该 conv 的 `SessionHandle`，说明 worker 正在运行，直接 `handle.tx.send()` 即可。
 - sender 断裂（worker crash）时重建，这是唯一允许重建 worker 的时机。
+- runtime 启动 CLI 子进程时应调用 `start_new_process_group(&mut command)`，并在 turn 开始时 `handle.set_current_pid(child.id())`；abort 才能杀掉父进程及其派生子进程。
 - `plugin_manager` 在 `msctl serve` 启动时初始化，加载 `plugin_agents` 表中所有已注册的 plugin agent 进程；serve 退出时调用 `shutdown()` 将状态写回 DB。
 
 ### 3.2 SessionMessage
@@ -69,6 +70,8 @@ pub struct SessionMessage {
     pub file_id: Option<String>,   // 上传文件 ID（可选）
 }
 ```
+
+`SessionHandle` 包含 `tx`、`current_pid` 和 abort 标记。handler 侧不要直接保存裸 `Sender`；否则只能阻止后续消息入队，无法停止已经阻塞在 `process_turn` 的 CLI 子进程。
 
 ---
 
@@ -82,7 +85,7 @@ pub struct SessionMessage {
 //! <YourRuntime> runtime adapter.
 //! 驱动 `<your-cli> ...` 子进程。
 
-use crate::serve::state::AppState;
+use crate::serve::state::{AppState, SessionHandle};
 use tracing::{debug, error, info, info_span, warn};
 
 pub fn send_to_session(
@@ -95,8 +98,8 @@ pub fn send_to_session(
     let mut sessions = state.sessions.lock().unwrap();
 
     // 若 worker 已在运行，直接入队
-    if let Some(tx) = sessions.get(conv_id) {
-        if tx.send(crate::serve::state::SessionMessage {
+    if let Some(handle) = sessions.get(conv_id) {
+        if handle.tx.send(crate::serve::state::SessionMessage {
             user_text: user_text.to_string(),
             file_id: None,
         }).is_ok() {
@@ -108,7 +111,8 @@ pub fn send_to_session(
 
     // 首次或重建：创建新 channel + worker
     let (tx, rx) = std::sync::mpsc::channel::<crate::serve::state::SessionMessage>();
-    sessions.insert(conv_id.to_string(), tx.clone());
+    let session_handle = SessionHandle::new(tx.clone());
+    sessions.insert(conv_id.to_string(), session_handle.clone());
     drop(sessions); // 释放锁再 spawn
 
     let _ = tx.send(crate::serve::state::SessionMessage {
@@ -121,7 +125,7 @@ pub fn send_to_session(
     let project_path2 = project_path.to_string();
 
     tokio::task::spawn_blocking(move || {
-        session_worker(state2, conv_id2, project_path2, rx);
+        session_worker(state2, conv_id2, project_path2, rx, session_handle);
     });
 }
 ```
@@ -148,6 +152,7 @@ fn session_worker(
     conv_id: String,
     project_path: String,
     rx: std::sync::mpsc::Receiver<crate::serve::state::SessionMessage>,
+    session_handle: SessionHandle,
 ) {
     let span = info_span!("session_worker", conv_id = %conv_id, runtime = "<your_runtime>");
     let _enter = span.enter();
@@ -172,6 +177,10 @@ fn session_worker(
                 continue;
             }
         };
+        session_handle.set_current_pid(child.id());
+        if session_handle.is_aborted() {
+            return;
+        }
 
         // 3. 写入 stdin
         use std::io::Write;
@@ -188,6 +197,7 @@ fn session_worker(
         }
 
         let _ = child.wait();
+        session_handle.clear_current_pid(child.id());
     }
 }
 ```
@@ -343,6 +353,7 @@ Codex 使用 `codex exec` / `codex exec resume <thread_id>` 命令：
 | 有工具执行但 mobile 不显示 | runtime 只处理最终文本/结果，忽略了 CLI 的工具事件 | 先用真实 CLI 跑 `--output-format stream-json` 观察 stdout schema，再把工具 started/completed 映射成 `tool_call` / `tool_result` |
 | 死锁：先锁 `db` 再锁 `sessions` | 两把锁顺序不一致 | 统一按 `sessions → db` 顺序；或 `drop()` 后再取下一把锁 |
 | Worker crash 但 sessions map 未清理 | sender 变悬空 | 检测到 `tx.send()` 失败时重建 worker（参考两个 runtime 的模板） |
+| 停止按钮只让 UI 变 idle，但 CLI 仍在跑 | abort 只删除 sender，未 kill 当前子进程 | `sessions` 保存 `SessionHandle`，runtime 登记 pid，spawn 时创建独立 process group，abort 时 kill 进程组 |
 | `spawn_blocking` 里调用 `.await` | blocking 线程不能 await | 所有 DB 和 I/O 操作使用同步 API |
 | stdin 未关闭导致子进程挂起 | 很多 CLI 等 EOF 才开始处理 | 写完后 `drop(stdin)` 或显式 close |
 | broadcast channel 已无接收者 | WS 断开后 send 返回 0 | 正常情况，用 `unwrap_or(0)` 忽略 |
@@ -356,6 +367,8 @@ Codex 使用 `codex exec` / `codex exec resume <thread_id>` 命令：
 > **2026-05-04**：`cursor.rs` 与 `cli/src/db.rs` 后续变更已与本文档及 `docs/design-docs/index.json` 中的 doc-code-hash 跟踪项同步。
 >
 > **2026-05-10**：`AppState` 新增 `plugin_manager: Arc<PluginManager>` 字段，用于管理 plugin agent 进程生命周期。`cli/src/db.rs` 新增 `plugin_agents` 表 migration（id/name/version/executable/status/restart_count/installed_at/updated_at），`agents` 表零改动。
+>
+> **2026-05-13**：`sessions` 从裸 `mpsc::Sender<SessionMessage>` 升级为 `SessionHandle`，用于同时保存消息队列、当前 runtime 子进程 pid 和 abort 标记。Claude / Codex / Cursor runtime 启动子进程时创建独立 process group，abort endpoint 会通过 `SessionHandle` 终止正在执行的进程组。相关回归测试拆分到相邻 `*_tests.rs` 文件，避免 runtime 主文件超过单文件行数上限。
 
 完成实现后，按 `CLAUDE.md §5` 跑：
 

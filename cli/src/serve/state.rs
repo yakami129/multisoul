@@ -3,7 +3,10 @@ use crate::serve::plugin::PluginManager;
 use rusqlite::Connection;
 use std::collections::HashMap;
 use std::path::PathBuf;
-use std::sync::{Arc, Mutex};
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc, Mutex,
+};
 use tokio::sync::broadcast;
 use tracing::warn;
 
@@ -14,8 +17,109 @@ pub struct SessionMessage {
     pub file_id: Option<String>,
 }
 
+#[derive(Clone)]
+pub struct SessionHandle {
+    pub tx: std::sync::mpsc::Sender<SessionMessage>,
+    pub current_pid: Arc<Mutex<Option<u32>>>,
+    aborted: Arc<AtomicBool>,
+    kill_process: Arc<dyn Fn(u32) -> bool + Send + Sync>,
+}
+
+impl SessionHandle {
+    pub fn new(tx: std::sync::mpsc::Sender<SessionMessage>) -> Self {
+        Self {
+            tx,
+            current_pid: Arc::new(Mutex::new(None)),
+            aborted: Arc::new(AtomicBool::new(false)),
+            kill_process: Arc::new(kill_pid),
+        }
+    }
+
+    #[cfg(test)]
+    pub fn new_with_killer(
+        tx: std::sync::mpsc::Sender<SessionMessage>,
+        kill_process: Arc<dyn Fn(u32) -> bool + Send + Sync>,
+    ) -> Self {
+        Self {
+            tx,
+            current_pid: Arc::new(Mutex::new(None)),
+            aborted: Arc::new(AtomicBool::new(false)),
+            kill_process,
+        }
+    }
+
+    pub fn set_current_pid(&self, pid: u32) {
+        *self.current_pid.lock().unwrap() = Some(pid);
+    }
+
+    pub fn clear_current_pid(&self, pid: u32) {
+        let mut current = self.current_pid.lock().unwrap();
+        if *current == Some(pid) {
+            *current = None;
+        }
+    }
+
+    pub fn abort_current_process(&self) -> bool {
+        self.aborted.store(true, Ordering::SeqCst);
+        let Some(pid) = *self.current_pid.lock().unwrap() else {
+            return false;
+        };
+        let killed = (self.kill_process)(pid);
+        if killed {
+            self.clear_current_pid(pid);
+        }
+        killed
+    }
+
+    pub fn is_aborted(&self) -> bool {
+        self.aborted.load(Ordering::SeqCst)
+    }
+}
+
+fn kill_pid(pid: u32) -> bool {
+    kill_process_group(pid) || kill_single_process(pid)
+}
+
+#[cfg(unix)]
+pub fn start_new_process_group(command: &mut std::process::Command) {
+    use std::os::unix::process::CommandExt;
+
+    // SAFETY: pre_exec runs in the child after fork and before exec. setpgid is async-signal-safe
+    // and makes the runtime process a process-group leader so abort can kill descendants too.
+    unsafe {
+        command.pre_exec(|| {
+            if libc::setpgid(0, 0) == 0 {
+                Ok(())
+            } else {
+                Err(std::io::Error::last_os_error())
+            }
+        });
+    }
+}
+
+#[cfg(not(unix))]
+pub fn start_new_process_group(_command: &mut std::process::Command) {}
+
+fn kill_process_group(pid: u32) -> bool {
+    #[cfg(unix)]
+    {
+        // SAFETY: negative pid targets the process group whose id equals the child pid.
+        unsafe { libc::kill(-(pid as libc::pid_t), libc::SIGKILL) == 0 }
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = pid;
+        false
+    }
+}
+
+fn kill_single_process(pid: u32) -> bool {
+    // SAFETY: kill is called with a concrete child pid captured from std::process::Child.
+    unsafe { libc::kill(pid as libc::pid_t, libc::SIGKILL) == 0 }
+}
+
 pub type ConvBus = Arc<Mutex<HashMap<String, broadcast::Sender<String>>>>;
-pub type SessionMap = Arc<Mutex<HashMap<String, std::sync::mpsc::Sender<SessionMessage>>>>;
+pub type SessionMap = Arc<Mutex<HashMap<String, SessionHandle>>>;
 pub type AnswerMap = Arc<Mutex<HashMap<String, std::sync::mpsc::SyncSender<AnswerPayload>>>>;
 
 #[derive(Clone)]

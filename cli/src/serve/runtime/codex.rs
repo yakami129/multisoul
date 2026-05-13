@@ -16,7 +16,7 @@ use uuid::Uuid;
 
 use crate::db::now_ms;
 use crate::logging;
-use crate::serve::state::AppState;
+use crate::serve::state::{start_new_process_group, AppState, SessionHandle};
 
 #[path = "codex_turn.rs"]
 mod codex_turn;
@@ -34,8 +34,9 @@ pub fn send_to_session(
     mode: &str,
 ) {
     let mut sessions = state.sessions.lock().unwrap();
-    if let Some(tx) = sessions.get(conv_id) {
-        if tx
+    if let Some(session) = sessions.get(conv_id) {
+        if session
+            .tx
             .send(crate::serve::state::SessionMessage {
                 user_text: user_text.to_string(),
                 file_id: None,
@@ -49,7 +50,8 @@ pub fn send_to_session(
     }
 
     let (tx, rx) = std::sync::mpsc::channel::<crate::serve::state::SessionMessage>();
-    sessions.insert(conv_id.to_string(), tx.clone());
+    let session_handle = SessionHandle::new(tx.clone());
+    sessions.insert(conv_id.to_string(), session_handle.clone());
     drop(sessions);
 
     let _ = tx.send(crate::serve::state::SessionMessage {
@@ -63,7 +65,7 @@ pub fn send_to_session(
     let mode2 = mode.to_string();
 
     tokio::task::spawn_blocking(move || {
-        session_worker(state2, conv_id2, project_path2, mode2, rx);
+        session_worker(state2, conv_id2, project_path2, mode2, rx, session_handle);
     });
 }
 
@@ -75,6 +77,7 @@ fn session_worker(
     project_path: String,
     mode: String,
     rx: std::sync::mpsc::Receiver<crate::serve::state::SessionMessage>,
+    session_handle: SessionHandle,
 ) {
     let span = info_span!("session_worker", conv_id = %conv_id, runtime = "codex", mode = %mode);
     let _enter = span.enter();
@@ -94,6 +97,7 @@ fn session_worker(
                 // Kill the pre-warmed process if nobody sent a follow-up message.
                 if let Some((mut c, _s)) = pre_spawned.take() {
                     let _ = c.kill();
+                    session_handle.clear_current_pid(c.id());
                     let _ = c.wait();
                 }
                 return;
@@ -110,6 +114,11 @@ fn session_worker(
         for attempt in 1..=3 {
             // First attempt uses the pre-warmed process (already started).
             // Retries always spawn fresh.
+            if pre_spawned.is_none() {
+                if let Ok(mut current) = session_handle.current_pid.lock() {
+                    *current = None;
+                }
+            }
             let process = if attempt == 1 {
                 pre_spawned.take().or_else(|| {
                     debug!("codex_no_pre_warm_spawning_fresh");
@@ -127,14 +136,26 @@ fn session_worker(
                     continue;
                 }
             };
+            let child_pid = child.id();
+            session_handle.set_current_pid(child_pid);
 
             match process_turn(&state, &conv_id, &user_text, child, stdin, &mut thread_id) {
                 Ok(()) => {
+                    session_handle.clear_current_pid(child_pid);
+                    if session_handle.is_aborted() {
+                        info!("turn_aborted");
+                        return;
+                    }
                     ok = true;
                     info!(attempt, "turn_end");
                     break;
                 }
                 Err(e) => {
+                    session_handle.clear_current_pid(child_pid);
+                    if session_handle.is_aborted() {
+                        info!(error = %e, "turn_aborted");
+                        return;
+                    }
                     if is_stale_thread_error(&e) {
                         warn!(attempt, thread_id = ?thread_id, "codex_stale_thread_detected");
                         clear_thread_id(&state, &conv_id);
@@ -150,8 +171,13 @@ fn session_worker(
             // If thread_id is not yet known (first turn), skip — the next turn
             // will fall back to a fresh spawn.
             if let Some(tid) = thread_id.as_deref().filter(|s| !s.is_empty()) {
+                if session_handle.is_aborted() {
+                    info!("session_aborted_skip_pre_warm");
+                    return;
+                }
                 match spawn_codex(&project_path, Some(tid), &mode) {
                     Some(p) => {
+                        session_handle.set_current_pid(p.0.id());
                         pre_spawned = Some(p);
                         debug!(thread_id = %tid, "codex_pre_warm_ok");
                     }
@@ -206,13 +232,16 @@ fn spawn_codex(
 
     debug!(args = ?args, "codex_spawn_args");
 
-    let mut child = Command::new("codex")
+    let mut command = Command::new("codex");
+    command
         .args(&args)
         .current_dir(project_path)
         .env("HUSKY", "0")
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
+        .stderr(Stdio::piped());
+    start_new_process_group(&mut command);
+    let mut child = command
         .spawn()
         .map_err(|e| error!(error = %e, "agent_spawn_failed"))
         .ok()?;
