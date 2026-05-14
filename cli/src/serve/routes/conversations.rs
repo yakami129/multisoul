@@ -136,13 +136,15 @@ pub async fn abort_conversation(
         return Err(StatusCode::NOT_FOUND);
     }
 
-    // 从 sessions map 中移除，使 worker 的接收端失效
-    {
+    let removed_session = {
         let mut sessions = state
             .sessions
             .lock()
             .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-        sessions.remove(&conv_id);
+        sessions.remove(&conv_id)
+    };
+    if let Some(session) = removed_session {
+        session.abort_current_process();
     }
 
     // 将 conversation status 更新为 idle
@@ -484,3 +486,7 @@ mod tests {
         );
     }
 }
+
+#[cfg(test)]
+#[path = "conversations_abort_tests.rs"]
+mod abort_tests;

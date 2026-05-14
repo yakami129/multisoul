@@ -3,7 +3,7 @@
 //! Messages are sent via std::sync::mpsc channel from the HTTP handler.
 
 use crate::logging;
-use crate::serve::state::AppState;
+use crate::serve::state::{start_new_process_group, AppState, SessionHandle};
 use serde_json::Value;
 use std::io::{BufRead, BufReader};
 use std::process::{Child, ChildStdin, Command, Stdio};
@@ -32,9 +32,10 @@ pub fn send_to_session(
     project_path: &str,
 ) {
     let mut sessions = state.sessions.lock().unwrap();
-    if let Some(tx) = sessions.get(conv_id) {
+    if let Some(session) = sessions.get(conv_id) {
         // Session already running — enqueue the message
-        if tx
+        if session
+            .tx
             .send(crate::serve::state::SessionMessage {
                 user_text: user_text.to_string(),
                 file_id: file_id.map(str::to_string),
@@ -50,7 +51,8 @@ pub fn send_to_session(
 
     // Create a new session
     let (tx, rx) = std::sync::mpsc::channel::<crate::serve::state::SessionMessage>();
-    sessions.insert(conv_id.to_string(), tx.clone());
+    let session_handle = SessionHandle::new(tx.clone());
+    sessions.insert(conv_id.to_string(), session_handle.clone());
     drop(sessions); // release lock before spawn_blocking
 
     // Enqueue the first message
@@ -64,7 +66,7 @@ pub fn send_to_session(
     let conv_id2 = conv_id.to_string();
     let project_path = project_path.to_string();
     tokio::task::spawn_blocking(move || {
-        session_worker(state2, conv_id2, project_path, rx);
+        session_worker(state2, conv_id2, project_path, rx, session_handle);
     });
 }
 
@@ -75,6 +77,7 @@ fn session_worker(
     conv_id: String,
     project_path: String,
     rx: std::sync::mpsc::Receiver<crate::serve::state::SessionMessage>,
+    session_handle: SessionHandle,
 ) {
     let span = info_span!("session_worker", conv_id = %conv_id, runtime = "claude");
     let _enter = span.enter();
@@ -125,11 +128,13 @@ fn session_worker(
                 // Channel closed — serve is shutting down
                 info!("session_channel_closed_shutting_down");
                 let _ = child.kill();
+                session_handle.clear_current_pid(child.id());
                 return;
             }
         };
         let user_text = msg.user_text;
         let file_id = msg.file_id;
+        session_handle.set_current_pid(child.id());
         let text_preview = logging::truncate(&user_text, 200);
         info!(
             user_text_len = user_text.chars().count(),
@@ -154,19 +159,29 @@ fn session_worker(
                 &answer_rx,
             ) {
                 Ok(()) => {
+                    if session_handle.is_aborted() {
+                        info!("turn_aborted");
+                        return;
+                    }
                     ok = true;
                     info!(attempt, "turn_end");
                     break;
                 }
                 Err(e) => {
+                    if session_handle.is_aborted() {
+                        info!(error = %e, "turn_aborted");
+                        return;
+                    }
                     warn!(attempt, error = %e, "turn_error");
                     // Kill the dead process and respawn
                     let _ = child.kill();
+                    session_handle.clear_current_pid(child.id());
                     let _ = child.wait();
                     match spawn_claude(&project_path, session_id.as_deref()) {
                         Some((c, s)) => {
                             warn!(attempt, reason = "turn_error", "agent_respawn");
                             child = c;
+                            session_handle.set_current_pid(child.id());
                             stdin = s;
                             reader = BufReader::new(child.stdout.take().expect("no stdout"));
                             if read_system_event(&mut reader, &state, &conv_id, &mut session_id) {
@@ -174,11 +189,13 @@ fn session_worker(
                                 clear_session_id(&state, &conv_id);
                                 session_id = None;
                                 let _ = child.kill();
+                                session_handle.clear_current_pid(child.id());
                                 let _ = child.wait();
                                 if let Some((fresh_child, fresh_stdin)) =
                                     spawn_claude(&project_path, None)
                                 {
                                     child = fresh_child;
+                                    session_handle.set_current_pid(child.id());
                                     stdin = fresh_stdin;
                                     reader =
                                         BufReader::new(child.stdout.take().expect("no stdout"));
@@ -228,12 +245,15 @@ fn spawn_claude(project_path: &str, session_id: Option<&str>) -> Option<(Child, 
         args.push(&resume_owned);
     }
 
-    let mut child = Command::new("claude")
+    let mut command = Command::new("claude");
+    command
         .args(&args)
         .current_dir(project_path)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
-        .stderr(Stdio::inherit())
+        .stderr(Stdio::inherit());
+    start_new_process_group(&mut command);
+    let mut child = command
         .spawn()
         .map_err(|e| error!(error = %e, "agent_spawn_failed"))
         .ok()?;
@@ -303,168 +323,5 @@ fn is_stale_session_error(raw: &Value) -> bool {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use std::io::Cursor;
-    use tempfile::tempdir;
-
-    /// 检测 stale session 错误（保留已有测试）
-    #[test]
-    fn detects_claude_stale_resume_session_error() {
-        let raw = serde_json::json!({
-            "type": "result",
-            "subtype": "error_during_execution",
-            "is_error": true,
-            "errors": ["No conversation found with session ID: 382eb2d5-0809-4899-83ec-bcde02c4b62b"]
-        });
-        assert!(is_stale_session_error(&raw));
-    }
-
-    /// write_user_message 写入正确的 stream-json 格式（纯文本）。
-    ///
-    /// 数据构造：
-    ///   user_text = "hello"
-    ///
-    /// 执行过程：
-    ///   1. 用 Cursor<Vec<u8>> 替代 ChildStdin 作为 sink
-    ///   2. 调用 write_user_message
-    ///   3. 解析写入的 JSON，验证结构
-    ///
-    /// 预期结果：
-    ///   - type == "user"
-    ///   - message.role == "user"
-    ///   - content[0].type == "text"
-    ///   - content[0].text == "hello"
-    #[test]
-    fn test_write_user_message_text_format() {
-        let mut buf = Cursor::new(Vec::<u8>::new());
-        write_user_message(&mut buf, "hello").unwrap();
-        let written = String::from_utf8(buf.into_inner()).unwrap();
-        let json: serde_json::Value = serde_json::from_str(written.trim()).unwrap();
-        assert_eq!(json["type"].as_str(), Some("user"), "type should be 'user'");
-        assert_eq!(
-            json["message"]["role"].as_str(),
-            Some("user"),
-            "role should be 'user'"
-        );
-        let content = &json["message"]["content"][0];
-        assert_eq!(
-            content["type"].as_str(),
-            Some("text"),
-            "content type should be 'text'"
-        );
-        assert_eq!(
-            content["text"].as_str(),
-            Some("hello"),
-            "text should be 'hello'"
-        );
-    }
-
-    /// write_user_message_with_image 写入图片 + 文本 content blocks。
-    ///
-    /// 数据构造：
-    ///   file_path = 临时 JPEG 文件（内容 b"fake_jpeg"）
-    ///   user_text = "look at this"
-    ///
-    /// 执行过程：
-    ///   1. 创建临时文件，写入 fake_jpeg 字节
-    ///   2. 调用 write_user_message_with_image
-    ///   3. 解析 JSON，验证 content array
-    ///
-    /// 预期结果：
-    ///   - content[0].type == "image"
-    ///   - content[0].source.type == "base64"
-    ///   - content[0].source.media_type == "image/jpeg"
-    ///   - content[0].source.data == base64("fake_jpeg")
-    ///   - content[1].type == "text"
-    ///   - content[1].text == "look at this"
-    #[test]
-    fn test_write_user_message_with_image_format() {
-        use base64::{engine::general_purpose::STANDARD, Engine};
-        let dir = tempdir().unwrap();
-        let file_path = dir.path().join("test.jpg");
-        std::fs::write(&file_path, b"fake_jpeg").unwrap();
-
-        let mut buf = Cursor::new(Vec::<u8>::new());
-        write_user_message_with_image(&mut buf, "look at this", &file_path).unwrap();
-
-        let written = String::from_utf8(buf.into_inner()).unwrap();
-        let json: serde_json::Value = serde_json::from_str(written.trim()).unwrap();
-
-        let content = &json["message"]["content"];
-        assert_eq!(
-            content.as_array().map(|a| a.len()),
-            Some(2),
-            "should have 2 content blocks"
-        );
-
-        let img = &content[0];
-        assert_eq!(
-            img["type"].as_str(),
-            Some("image"),
-            "first block should be image"
-        );
-        assert_eq!(
-            img["source"]["type"].as_str(),
-            Some("base64"),
-            "source type should be base64"
-        );
-        assert_eq!(
-            img["source"]["media_type"].as_str(),
-            Some("image/jpeg"),
-            "media_type should be image/jpeg"
-        );
-        let expected_b64 = STANDARD.encode(b"fake_jpeg");
-        assert_eq!(
-            img["source"]["data"].as_str(),
-            Some(expected_b64.as_str()),
-            "base64 data should match"
-        );
-
-        let txt = &content[1];
-        assert_eq!(
-            txt["type"].as_str(),
-            Some("text"),
-            "second block should be text"
-        );
-        assert_eq!(
-            txt["text"].as_str(),
-            Some("look at this"),
-            "text should match"
-        );
-    }
-
-    /// text が空でも image block だけ送信できること。
-    ///
-    /// 期待結果：
-    ///   - content array に image block のみ（len == 1）
-    ///   - image media_type == "image/png"（PNG ファイルの場合）
-    #[test]
-    fn test_write_user_message_with_image_no_text() {
-        let dir = tempdir().unwrap();
-        let file_path = dir.path().join("test.png");
-        std::fs::write(&file_path, b"fake_png").unwrap();
-
-        let mut buf = Cursor::new(Vec::<u8>::new());
-        write_user_message_with_image(&mut buf, "", &file_path).unwrap();
-
-        let written = String::from_utf8(buf.into_inner()).unwrap();
-        let json: serde_json::Value = serde_json::from_str(written.trim()).unwrap();
-        let content = json["message"]["content"].as_array().unwrap();
-        assert_eq!(
-            content.len(),
-            1,
-            "should have only image block when text is empty"
-        );
-        assert_eq!(
-            content[0]["type"].as_str(),
-            Some("image"),
-            "block should be image type"
-        );
-        assert_eq!(
-            content[0]["source"]["media_type"].as_str(),
-            Some("image/png"),
-            "png file should have image/png media_type"
-        );
-    }
-}
+#[path = "claude_tests.rs"]
+mod tests;

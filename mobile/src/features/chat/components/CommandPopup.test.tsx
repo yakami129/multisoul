@@ -5,6 +5,18 @@ import CommandPopup from './CommandPopup';
 const noop = () => {};
 
 describe('CommandPopup', () => {
+  it('renders command palette chrome from the pencli reference', () => {
+    const { getByLabelText, getByText, getByTestId } = render(
+      <CommandPopup visible={true} onSelect={noop} onDismiss={noop} />,
+    );
+
+    expect(getByText('Commands')).toBeTruthy();
+    expect(getByText('ESC to close')).toBeTruthy();
+    expect(getByLabelText('Search commands')).toBeTruthy();
+    expect(getByTestId('command-badge-clear')).toBeTruthy();
+    expect(getByTestId('command-chevron-clear')).toBeTruthy();
+  });
+
   it('renders all 5 commands when visible', () => {
     const { getByText } = render(<CommandPopup visible={true} onSelect={noop} onDismiss={noop} />);
     expect(getByText('/clear')).toBeTruthy();

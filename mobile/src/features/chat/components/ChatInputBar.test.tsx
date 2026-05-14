@@ -6,6 +6,47 @@ import ChatInputBar from './ChatInputBar';
 const noop = () => {};
 
 describe('ChatInputBar', () => {
+  it('renders enhanced input affordances from the pencli reference', () => {
+    const { getByPlaceholderText, getByText, getByTestId } = render(
+      <ChatInputBar
+        value=""
+        onChangeText={noop}
+        onSend={noop}
+        onPickImage={noop}
+        onOpenCommands={noop}
+        disabled={false}
+        isAgentRunning={false}
+        onStop={noop}
+      />,
+    );
+
+    expect(getByText('/')).toBeTruthy();
+    expect(getByText('Commands')).toBeTruthy();
+    expect(getByText('0 / 4096')).toBeTruthy();
+    expect(getByTestId('input-surface')).toBeTruthy();
+    expect(getByTestId('toolbar-divider')).toBeTruthy();
+    expect(getByPlaceholderText('Message Grok...')).toBeTruthy();
+    expect(getByTestId('message-input').props.maxLength).toBe(4096);
+  });
+
+  it('updates the character counter with the current input length', () => {
+    const { getByText, queryByText } = render(
+      <ChatInputBar
+        value="hello"
+        onChangeText={noop}
+        onSend={noop}
+        onPickImage={noop}
+        onOpenCommands={noop}
+        disabled={false}
+        isAgentRunning={false}
+        onStop={noop}
+      />,
+    );
+
+    expect(getByText('5 / 4096')).toBeTruthy();
+    expect(queryByText('0 / 4096')).toBeNull();
+  });
+
   it('renders send button when input has text', () => {
     const { getByTestId } = render(
       <ChatInputBar

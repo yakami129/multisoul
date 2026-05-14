@@ -17,7 +17,10 @@ use uuid::Uuid;
 
 use crate::db::now_ms;
 use crate::logging;
-use crate::serve::{push, state::AppState};
+use crate::serve::{
+    push,
+    state::{start_new_process_group, AppState, SessionHandle},
+};
 use cursor_events::{parse_tool_event, CursorToolEvent};
 use cursor_text::{extract_assistant_text, merge_stream_fragment};
 
@@ -29,8 +32,9 @@ pub fn send_to_session(
     mode: &str,
 ) {
     let mut sessions = state.sessions.lock().unwrap();
-    if let Some(tx) = sessions.get(conv_id) {
-        if tx
+    if let Some(session) = sessions.get(conv_id) {
+        if session
+            .tx
             .send(crate::serve::state::SessionMessage {
                 user_text: user_text.to_string(),
                 file_id: None,
@@ -44,7 +48,8 @@ pub fn send_to_session(
     }
 
     let (tx, rx) = std::sync::mpsc::channel::<crate::serve::state::SessionMessage>();
-    sessions.insert(conv_id.to_string(), tx.clone());
+    let session_handle = SessionHandle::new(tx.clone());
+    sessions.insert(conv_id.to_string(), session_handle.clone());
     drop(sessions);
 
     let _ = tx.send(crate::serve::state::SessionMessage {
@@ -58,7 +63,7 @@ pub fn send_to_session(
     let mode2 = mode.to_string();
 
     tokio::task::spawn_blocking(move || {
-        session_worker(state2, conv_id2, project_path2, mode2, rx);
+        session_worker(state2, conv_id2, project_path2, mode2, rx, session_handle);
     });
 }
 
@@ -68,6 +73,7 @@ fn session_worker(
     project_path: String,
     mode: String,
     rx: std::sync::mpsc::Receiver<crate::serve::state::SessionMessage>,
+    session_handle: SessionHandle,
 ) {
     let span =
         info_span!("session_worker", conv_id = %conv_id, runtime = "cursor-cli", mode = %mode);
@@ -98,18 +104,39 @@ fn session_worker(
             &project_path,
             &mode,
             session_id.as_deref(),
+            &session_handle,
         ) {
             Ok(()) => {
+                if session_handle.is_aborted() {
+                    info!("turn_aborted");
+                    return;
+                }
                 session_id = load_cursor_session(&state, &conv_id);
                 info!("turn_end");
             }
             Err(e) => {
+                if session_handle.is_aborted() {
+                    info!(error = %e, "turn_aborted");
+                    return;
+                }
                 if is_stale_session_error(&e) {
                     warn!(error = %e, "cursor_stale_session");
                     clear_cursor_session(&state, &conv_id);
                     session_id = None;
-                    match process_turn(&state, &conv_id, &user_text, &project_path, &mode, None) {
+                    match process_turn(
+                        &state,
+                        &conv_id,
+                        &user_text,
+                        &project_path,
+                        &mode,
+                        None,
+                        &session_handle,
+                    ) {
                         Ok(()) => {
+                            if session_handle.is_aborted() {
+                                info!("turn_aborted_after_session_reset");
+                                return;
+                            }
                             session_id = load_cursor_session(&state, &conv_id);
                             info!("turn_end_after_session_reset");
                         }
@@ -138,8 +165,10 @@ fn process_turn(
     project_path: &str,
     mode: &str,
     resume: Option<&str>,
+    session_handle: &SessionHandle,
 ) -> Result<(), String> {
     let mut child = spawn_agent(prompt, project_path, mode, resume)?;
+    session_handle.set_current_pid(child.id());
     debug!(pid = ?child.id(), conv_id = %conv_id, "cursor_agent_spawned");
 
     {
@@ -159,6 +188,7 @@ fn process_turn(
         match reader.read_line(&mut line) {
             Ok(0) => {
                 let _ = child.kill();
+                session_handle.clear_current_pid(child.id());
                 let _ = child.wait();
                 let tail = read_stderr_tail(&mut stderr);
                 return Err(if tail.is_empty() {
@@ -202,6 +232,7 @@ fn process_turn(
                     .unwrap_or("")
                     .to_string();
                 let _ = child.kill();
+                session_handle.clear_current_pid(child.id());
                 let _ = child.wait();
 
                 if is_err {
@@ -309,6 +340,7 @@ fn spawn_agent(
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
 
+    start_new_process_group(&mut cmd);
     cmd.spawn().map_err(|e| format!("spawn {}: {}", bin, e))
 }
 
@@ -450,3 +482,7 @@ fn complete_turn(state: &AppState, conv_id: &str, status: &str) {
         broadcast(state, conv_id, seq, "task_status", payload);
     }
 }
+
+#[cfg(test)]
+#[path = "cursor_tests.rs"]
+mod tests;
