@@ -4,7 +4,7 @@ import { Modal, Pressable } from 'react-native';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import { WebView } from 'react-native-webview';
-import mermaidSrc from '../../../assets/mermaid.min.js';
+import mermaidSrc from '../../../../assets/mermaid.min.js';
 
 interface Props {
   visible: boolean;

@@ -3,7 +3,7 @@ import React, { useRef, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { WebView } from 'react-native-webview';
 import type WebViewType from 'react-native-webview';
-import mermaidSrc from '../../../assets/mermaid.min.js';
+import mermaidSrc from '../../../../assets/mermaid.min.js';
 
 interface Props {
   code: string;
