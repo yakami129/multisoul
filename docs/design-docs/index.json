@@ -28,7 +28,7 @@
         },
         {
           "path": "cli/src/serve/state.rs",
-          "sha256": "27a470ef66b528ee6b4e6421a6928690b0270b89ad6051b6c8e9ce02742bfc62",
+          "sha256": "6ace9a00639436e30b16e884b5b4ebee7f97db2bf1d9f1150861621506fa82a1",
           "reason": "AppState、SessionMessage 与 runtime worker 通信结构由文档核心数据结构章节引用。"
         },
         {
@@ -38,17 +38,17 @@
         },
         {
           "path": "cli/src/serve/runtime/claude.rs",
-          "sha256": "6220f0b4b0286105d8ebfb4273884a695236e045461c121b0a651d23e2b6e165",
+          "sha256": "2bef98adfe7058cf14a0a9db82d1a12b22f42dd9e2042aae854101a9f21db2e8",
           "reason": "Claude runtime 是默认 adapter，文档以其行为说明 runtime 模板与特殊注意事项。"
         },
         {
           "path": "cli/src/serve/runtime/codex.rs",
-          "sha256": "f1659611f80e430f319280daeaede455fb0b6cd68a49b42217b2f79002e317cf",
+          "sha256": "ffc4a7d7a5f26e8a44887c6edc3883ea70391b2e1526433889d7c50455ffe9c0",
           "reason": "Codex runtime 是现有 adapter 示例；文档 runtime 列表与接入说明引用它。"
         },
         {
           "path": "cli/src/serve/runtime/cursor.rs",
-          "sha256": "74a0f3a5453c549e72778af8c29a91b15608723fcd55f43d086cd62a2f5eacb1",
+          "sha256": "f7b2a26004af4d7abb4ec1d064b47d1cddc3fd2a07e1a5c2c25084eb317df625",
           "reason": "Cursor runtime 是新接入 adapter 示例；文档 runtime 列表与 CLI 约定引用它。"
         },
         {

@@ -1,3 +1,4 @@
+import { ChevronRight, Search, Terminal } from 'lucide-react-native';
 import React, { useState } from 'react';
 import {
   Pressable,
@@ -27,22 +28,23 @@ export default function CommandPopup({ visible, onSelect, onDismiss }: Props) {
 
   return (
     <View style={s.wrapper} pointerEvents="box-none">
-      {/* Backdrop — dismiss on tap */}
       <Pressable testID="command-popup-backdrop" style={s.backdrop} onPress={onDismiss} />
 
-      {/* Panel */}
       <View style={s.panel}>
-        {/* Header */}
         <View style={s.header}>
-          <Text style={s.headerTitle}>命令</Text>
+          <Terminal size={16} color="#FF6B35" />
+          <Text style={s.headerTitle}>Commands</Text>
+          <View style={s.headerSpacer} />
+          <Text style={s.headerHint}>ESC to close</Text>
         </View>
 
-        {/* Filter row */}
         <View style={s.filterRow}>
+          <Search size={16} color="#555555" />
           <TextInput
             testID="command-search-input"
             style={s.filterInput}
-            placeholder="搜索命令..."
+            accessibilityLabel="Search commands"
+            placeholder="Search commands..."
             placeholderTextColor="#666666"
             value={query}
             onChangeText={setQuery}
@@ -51,7 +53,6 @@ export default function CommandPopup({ visible, onSelect, onDismiss }: Props) {
           />
         </View>
 
-        {/* Command list */}
         <ScrollView
           style={s.list}
           keyboardShouldPersistTaps="handled"
@@ -73,8 +74,13 @@ export default function CommandPopup({ visible, onSelect, onDismiss }: Props) {
                 }}
                 activeOpacity={0.7}
               >
-                <Text style={s.itemCommand}>{cmd.command}</Text>
+                <View testID={`command-badge-${cmd.id}`} style={s.commandBadge}>
+                  <Text style={s.itemCommand}>{cmd.command}</Text>
+                </View>
                 <Text style={s.itemDesc}>{cmd.description}</Text>
+                <View testID={`command-chevron-${cmd.id}`} style={s.chevron}>
+                  <ChevronRight size={14} color="#333333" />
+                </View>
               </TouchableOpacity>
             ))
           )}
@@ -101,31 +107,42 @@ const s = StyleSheet.create({
     backgroundColor: '#1A1A1A',
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
-    paddingTop: 12,
-    paddingBottom: 8,
+    padding: 16,
+    gap: 12,
     maxHeight: 360,
   },
   header: {
-    paddingHorizontal: 16,
-    paddingBottom: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   headerTitle: {
     fontFamily: 'Inter',
-    fontSize: 13,
+    fontSize: 15,
     fontWeight: '600',
-    color: '#888888',
-    letterSpacing: 1,
+    color: '#FFFFFF',
+  },
+  headerSpacer: {
+    flex: 1,
+  },
+  headerHint: {
+    fontFamily: 'Inter',
+    fontSize: 11,
+    color: '#333333',
   },
   filterRow: {
-    marginHorizontal: 16,
-    marginBottom: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
     backgroundColor: '#252525',
     borderRadius: 10,
-    paddingHorizontal: 12,
-    height: 40,
-    justifyContent: 'center',
+    paddingHorizontal: 14,
+    minHeight: 42,
   },
   filterInput: {
+    flex: 1,
+    padding: 0,
+    margin: 0,
     fontFamily: 'Inter',
     fontSize: 14,
     color: '#FFFFFF',
@@ -141,20 +158,32 @@ const s = StyleSheet.create({
     color: '#666666',
   },
   item: {
-    height: 52,
-    paddingHorizontal: 16,
-    justifyContent: 'center',
-    gap: 2,
+    minHeight: 45,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#2A2A2A',
+  },
+  commandBadge: {
+    borderRadius: 6,
+    backgroundColor: '#1E1E1E',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
   },
   itemCommand: {
     fontFamily: 'Inter',
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: '#FF6B35',
   },
   itemDesc: {
+    flex: 1,
     fontFamily: 'Inter',
-    fontSize: 12,
+    fontSize: 13,
     color: '#888888',
+  },
+  chevron: {
+    marginRight: 2,
   },
 });

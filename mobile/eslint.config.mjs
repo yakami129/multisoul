@@ -40,6 +40,8 @@ export default tseslint.config(
       'jest.environment.js',
       'tailwind.config.js',
       'jest.mock-expo-winter.js',
+      '__mocks__/**',
+      'assets/mermaid.min.js',
     ],
   },
 
