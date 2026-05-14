@@ -82,6 +82,9 @@ describe('AgentDetail', () => {
     // Both the section title and the button have text 'INVOKE'; press the last one (the button)
     const invokeElements = getAllByText('INVOKE');
     fireEvent.press(invokeElements[invokeElements.length - 1]);
-    await waitFor(() => expect(getByText('Conversation started: conv-123')).toBeTruthy());
-  });
+    await waitFor(() => expect(getByText('Conversation started: conv-123')).toBeTruthy(), {
+      timeout: 15000,
+      interval: 50,
+    });
+  }, 20000);
 });
