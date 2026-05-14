@@ -257,7 +257,7 @@ pub fn mode_flags(mode: &str) -> Vec<&'static str> {
     match mode.to_lowercase().as_str() {
         "auto-edit" | "full-auto" => vec![
             "--sandbox",
-            "workspace-write",
+            "danger-full-access",
             "-c",
             "approval_policy=\"never\"",
         ],
@@ -275,7 +275,7 @@ pub fn resume_mode_flags(mode: &str) -> Vec<&'static str> {
             "-c",
             "approval_policy=\"never\"",
             "-c",
-            "sandbox_mode=\"workspace-write\"",
+            "sandbox_mode=\"danger-full-access\"",
         ],
         "yolo" => vec!["--dangerously-bypass-approvals-and-sandbox"],
         _ => vec![],

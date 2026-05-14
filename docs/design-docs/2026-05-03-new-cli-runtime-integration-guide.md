@@ -340,7 +340,7 @@ Codex 使用 `codex exec` / `codex exec resume <thread_id>` 命令：
 
 - **线程 ID**：第一轮执行后会拿到 `codex_thread_id`，后续 resume 时传入。
 - **预热（pre-warm）**：每轮成功后立即在后台 spawn 下一个 `codex exec resume` 进程，抵消 Node.js 启动延迟。
-- **模式标志**：`mode` 字段映射到 Codex CLI 参数；fresh `codex exec` 的 `full-auto` / `auto-edit` 使用 `--sandbox workspace-write` 加 `-c approval_policy="never"`，resume 因 `codex exec resume` 不支持 `--sandbox` 而使用 `-c approval_policy="never"` 与 `-c sandbox_mode="workspace-write"`；`yolo` 映射到 `--dangerously-bypass-approvals-and-sandbox`（见 `codex::mode_flags()` / `codex::resume_mode_flags()`）。
+- **模式标志**：`mode` 字段映射到 Codex CLI 参数；fresh `codex exec` 的 `full-auto` / `auto-edit` 使用 `--sandbox danger-full-access` 加 `-c approval_policy="never"`，resume 因 `codex exec resume` 不支持 `--sandbox` 而使用 `-c approval_policy="never"` 与 `-c sandbox_mode="danger-full-access"`；`yolo` 映射到 `--dangerously-bypass-approvals-and-sandbox`（见 `codex::mode_flags()` / `codex::resume_mode_flags()`）。
 - **重试**：失败时最多重试 3 次；若遇到 `"thread ... not found"` 错误，清空 `codex_thread_id` 重新开始。
 - **单测位置**：`codex.rs` 旁的 `codex_tests.rs`（`#[path = "codex_tests.rs"] mod tests`），用于满足仓库单文件行数上限。
 

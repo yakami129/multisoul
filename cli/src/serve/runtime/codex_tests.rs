@@ -73,7 +73,7 @@ fn test_extract_text_fallback_to_text_field() {
 /// mode_flags: maps fresh exec mode strings to Codex CLI flags.
 ///
 /// Data construction:
-///   full-auto / auto-edit = workspace-write sandbox + non-interactive approval
+///   full-auto / auto-edit = danger-full-access sandbox + non-interactive approval
 ///   yolo                  = bypass approvals and sandbox
 ///   suggest / ""          = no runtime overrides
 ///
@@ -83,7 +83,7 @@ fn test_extract_text_fallback_to_text_field() {
 ///   3. Check unsupported modes return no flags
 ///
 /// Expected:
-///   - full-auto uses public `codex exec --sandbox workspace-write`
+///   - full-auto uses public `codex exec --sandbox danger-full-access`
 ///   - full-auto does not use `-c sandbox_mode=...` for fresh exec
 ///   - auto-edit matches full-auto
 ///   - yolo uses bypass flag
@@ -94,25 +94,25 @@ fn test_mode_flags() {
         mode_flags("full-auto"),
         vec![
             "--sandbox",
-            "workspace-write",
+            "danger-full-access",
             "-c",
             "approval_policy=\"never\""
         ],
         "fresh full-auto should use the public --sandbox flag plus non-interactive approval"
     );
     assert!(
-        !mode_flags("full-auto").contains(&"sandbox_mode=\"workspace-write\""),
+        !mode_flags("full-auto").contains(&"sandbox_mode=\"danger-full-access\""),
         "fresh full-auto should not rely on sandbox_mode config when --sandbox is available"
     );
     assert_eq!(
         mode_flags("auto-edit"),
         vec![
             "--sandbox",
-            "workspace-write",
+            "danger-full-access",
             "-c",
             "approval_policy=\"never\""
         ],
-        "fresh auto-edit should match full-auto non-interactive workspace-write behavior"
+        "fresh auto-edit should match full-auto non-interactive danger-full-access behavior"
     );
     assert_eq!(
         mode_flags("yolo"),
@@ -139,7 +139,7 @@ fn test_mode_flags() {
 ///
 /// Expected:
 ///   - full-auto includes approval_policy="never"
-///   - full-auto includes sandbox_mode="workspace-write"
+///   - full-auto includes sandbox_mode="danger-full-access"
 ///   - full-auto does not include --sandbox
 ///   - auto-edit matches full-auto
 ///   - suggest returns no flags
@@ -151,7 +151,7 @@ fn test_resume_mode_flags() {
             "-c",
             "approval_policy=\"never\"",
             "-c",
-            "sandbox_mode=\"workspace-write\""
+            "sandbox_mode=\"danger-full-access\""
         ],
         "resume full-auto must use config overrides because resume has no --sandbox option"
     );
@@ -165,7 +165,7 @@ fn test_resume_mode_flags() {
             "-c",
             "approval_policy=\"never\"",
             "-c",
-            "sandbox_mode=\"workspace-write\""
+            "sandbox_mode=\"danger-full-access\""
         ],
         "resume auto-edit should match resume full-auto"
     );
