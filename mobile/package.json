@@ -110,7 +110,8 @@
     "moduleNameMapper": {
       "^@/(.*)$": "<rootDir>/src/$1",
       "^react-native-css-interop/jsx-runtime$": "react/jsx-runtime",
-      "^react-native-css-interop/jsx-dev-runtime$": "react/jsx-dev-runtime"
+      "^react-native-css-interop/jsx-dev-runtime$": "react/jsx-dev-runtime",
+      "mermaid\\.min\\.js$": "<rootDir>/__mocks__/mermaid.min.js"
     }
   }
 }
