@@ -225,7 +225,7 @@ jest.mock('./MermaidFullscreen', () => ({
 }));
 
 describe('MarkdownMessage mermaid fence', () => {
-  /// mermaid fence rule：```mermaid 代码块渲染为 MermaidBlock，不显示原始代码
+  /// mermaid fence rule：```mermaid 代码块渲染为 MermaidBlock，Mermaid 源码由静态资产 loader 提供
   ///
   /// 数据构造：
   ///   通过 makeMermaidFenceRule 导出的函数直接调用
@@ -237,8 +237,8 @@ describe('MarkdownMessage mermaid fence', () => {
   ///   3. render 返回的 element
   ///
   /// 预期结果：
-  ///   - testID="mermaid-block-mock" 存在（MermaidBlock 被渲染）
-  ///   - testID="mermaid-error" 不存在（未回退到错误状态）
+  ///   - 正断言：testID="mermaid-block-mock" 存在（MermaidBlock 被渲染）
+  ///   - 负断言：testID="mermaid-error" 不存在（未回退到错误状态）
   it('renders MermaidBlock for mermaid fence node', () => {
     const { makeMermaidFenceRule } = require('./MarkdownMessage');
     const renderFence = makeMermaidFenceRule();

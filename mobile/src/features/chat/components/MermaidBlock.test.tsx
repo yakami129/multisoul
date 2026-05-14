@@ -19,25 +19,31 @@
 ///   执行：fireEvent(webview, 'onMessage', { nativeEvent: { data: '{"type":"height","value":180}' } })
 ///   预期：testID="mermaid-webview-container" 的 style.height === 180
 
-import { fireEvent, render } from '@testing-library/react-native';
+import { fireEvent, render, waitFor } from '@testing-library/react-native';
 import React from 'react';
 import { MermaidBlock } from './MermaidBlock';
 
+jest.mock('./mermaidAsset', () => ({
+  loadMermaidSource: jest.fn().mockResolvedValue('window.mermaid = { render: function(){} };'),
+}));
+
 describe('MermaidBlock', () => {
-  it('renders WebView for valid mermaid code', () => {
+  it('renders WebView for valid mermaid code', async () => {
     const { getByTestId, queryByTestId } = render(
       <MermaidBlock code="flowchart TD\n  A --> B" onFullscreen={jest.fn()} />,
     );
+    await waitFor(() => expect(getByTestId('mermaid-webview')).toBeTruthy());
     // 断言失败 = MermaidBlock 未渲染 WebView，mermaid 代码无法展示
     expect(getByTestId('mermaid-webview')).toBeTruthy();
     // 断言失败 = 正常代码不应显示错误状态
     expect(queryByTestId('mermaid-error')).toBeNull();
   });
 
-  it('shows error fallback when WebView fires onError', () => {
+  it('shows error fallback when WebView fires onError', async () => {
     const { getByTestId, queryByTestId } = render(
       <MermaidBlock code="invalid @@@@" onFullscreen={jest.fn()} />,
     );
+    await waitFor(() => expect(getByTestId('mermaid-webview')).toBeTruthy());
     const webview = getByTestId('mermaid-webview');
     fireEvent(webview, 'onError', { nativeEvent: {} });
 
@@ -47,20 +53,22 @@ describe('MermaidBlock', () => {
     expect(queryByTestId('mermaid-webview')).toBeNull();
   });
 
-  it('calls onFullscreen when thumbnail is pressed', () => {
+  it('calls onFullscreen when thumbnail is pressed', async () => {
     const onFullscreen = jest.fn();
     const { getByTestId } = render(
       <MermaidBlock code="flowchart TD\n  A --> B" onFullscreen={onFullscreen} />,
     );
+    await waitFor(() => expect(getByTestId('mermaid-thumb-press')).toBeTruthy());
     fireEvent.press(getByTestId('mermaid-thumb-press'));
     // 断言失败 = 点击缩略图未触发 onFullscreen 回调
     expect(onFullscreen).toHaveBeenCalledTimes(1);
   });
 
-  it('updates container height from postMessage', () => {
+  it('updates container height from postMessage', async () => {
     const { getByTestId } = render(
       <MermaidBlock code="flowchart TD\n  A --> B" onFullscreen={jest.fn()} />,
     );
+    await waitFor(() => expect(getByTestId('mermaid-webview')).toBeTruthy());
     const webview = getByTestId('mermaid-webview');
     fireEvent(webview, 'onMessage', {
       nativeEvent: { data: JSON.stringify({ type: 'height', value: 180 }) },
