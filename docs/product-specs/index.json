@@ -35,6 +35,10 @@
       "title": "Chat & Inbox 列表刷新 SPEC"
     },
     {
+      "file": "SPEC-mermaid-render.md",
+      "title": "Mermaid 流程图渲染 SPEC"
+    },
+    {
       "file": "SPEC-pr-workflow.md",
       "title": "PR-Based Development Workflow SPEC"
     },

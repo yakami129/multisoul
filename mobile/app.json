@@ -44,7 +44,8 @@
           "iosDisplayInForeground": false
         }
       ],
-      "expo-asset"
+      "expo-asset",
+      "expo-sqlite"
     ],
     "extra": {
       "router": {},
