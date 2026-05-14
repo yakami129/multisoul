@@ -262,6 +262,9 @@ fn abort_kills_child_blocking_inside_claude_process_turn() {
         !state.sessions.lock().unwrap().contains_key("conv-1"),
         "abort should remove the Claude session handle so the next message starts fresh"
     );
+    // Wait on the child so the OS can reclaim its resources (avoids zombie process).
+    // The process was already killed by abort_current_process above; wait() just reaps it.
+    let _ = child.wait();
 }
 
 fn make_runtime_abort_state() -> AppState {
