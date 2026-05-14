@@ -205,3 +205,109 @@ describe('makeImageRule', () => {
     expect(getByTestId('markdown-image-thumb-press').props.accessibilityLabel).toBe('');
   });
 });
+
+jest.mock('./MermaidBlock', () => ({
+  MermaidBlock: ({ code, onFullscreen }: { code: string; onFullscreen: () => void }) => {
+    const { Pressable, Text } = require('react-native');
+    return (
+      <Pressable testID="mermaid-block-mock" onPress={onFullscreen}>
+        <Text>{code}</Text>
+      </Pressable>
+    );
+  },
+}));
+
+jest.mock('./MermaidFullscreen', () => ({
+  MermaidFullscreen: ({ visible }: { visible: boolean }) => {
+    const { View } = require('react-native');
+    return visible ? <View testID="mermaid-fullscreen-mock" /> : null;
+  },
+}));
+
+describe('MarkdownMessage mermaid fence', () => {
+  /// mermaid fence rule：```mermaid 代码块渲染为 MermaidBlock，不显示原始代码
+  ///
+  /// 数据构造：
+  ///   通过 makeMermaidFenceRule 导出的函数直接调用
+  ///   node.sourceInfo='mermaid', node.content='flowchart TD\n  A --> B'
+  ///
+  /// 执行过程：
+  ///   1. 调用 makeMermaidFenceRule() 获取 fence render 函数
+  ///   2. 传入 mermaid node
+  ///   3. render 返回的 element
+  ///
+  /// 预期结果：
+  ///   - testID="mermaid-block-mock" 存在（MermaidBlock 被渲染）
+  ///   - testID="mermaid-error" 不存在（未回退到错误状态）
+  it('renders MermaidBlock for mermaid fence node', () => {
+    const { makeMermaidFenceRule } = require('./MarkdownMessage');
+    const renderFence = makeMermaidFenceRule();
+    const node = {
+      key: 'fence-1',
+      content: 'flowchart TD\n  A --> B',
+      sourceInfo: 'mermaid',
+    };
+    const element = renderFence(node);
+    const { getByTestId, queryByTestId } = render(element as React.ReactElement);
+
+    // 断言失败 = mermaid fence 未渲染 MermaidBlock
+    expect(getByTestId('mermaid-block-mock')).toBeTruthy();
+    // 断言失败 = mermaid fence 不应显示错误状态
+    expect(queryByTestId('mermaid-error')).toBeNull();
+  });
+
+  /// 非 mermaid fence：sourceInfo 不是 'mermaid' 时，渲染原有代码块
+  ///
+  /// 数据构造：
+  ///   node.sourceInfo = 'js', node.content = 'console.log(1)'
+  ///
+  /// 预期结果：
+  ///   - testID="mermaid-block-mock" 不存在
+  ///   - 原始代码内容 'console.log(1)' 存在于渲染树中
+  it('renders normal code block for non-mermaid fence', () => {
+    const { makeMermaidFenceRule } = require('./MarkdownMessage');
+    const renderFence = makeMermaidFenceRule();
+    const node = {
+      key: 'fence-2',
+      content: 'console.log(1)',
+      sourceInfo: 'js',
+    };
+    const element = renderFence(node);
+    const { queryByTestId, getByText } = render(element as React.ReactElement);
+
+    // 断言失败 = 非 mermaid fence 不应渲染 MermaidBlock
+    expect(queryByTestId('mermaid-block-mock')).toBeNull();
+    // 断言失败 = 非 mermaid fence 应显示原始代码内容
+    expect(getByText('console.log(1)')).toBeTruthy();
+  });
+
+  /// 点击 MermaidBlock 触发全屏 Modal 显示
+  ///
+  /// 执行过程：
+  ///   1. render mermaid fence element
+  ///   2. press testID="mermaid-block-mock"
+  ///   3. 检查 testID="mermaid-fullscreen-mock" 出现
+  ///
+  /// 预期结果：
+  ///   - press 前：testID="mermaid-fullscreen-mock" 不存在
+  ///   - press 后：testID="mermaid-fullscreen-mock" 存在
+  it('shows MermaidFullscreen when MermaidBlock is pressed', () => {
+    const { makeMermaidFenceRule } = require('./MarkdownMessage');
+    const renderFence = makeMermaidFenceRule();
+    const node = {
+      key: 'fence-3',
+      content: 'flowchart TD\n  A --> B',
+      sourceInfo: 'mermaid',
+    };
+    const element = renderFence(node);
+    const { getByTestId, queryByTestId } = render(element as React.ReactElement);
+
+    // 断言失败 = 初始状态不应显示全屏 Modal
+    expect(queryByTestId('mermaid-fullscreen-mock')).toBeNull();
+
+    fireEvent.press(getByTestId('mermaid-block-mock'));
+
+    // 断言失败 = 点击 MermaidBlock 后应显示全屏 Modal
+    expect(getByTestId('mermaid-fullscreen-mock')).toBeTruthy();
+  });
+});

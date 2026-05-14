@@ -3,6 +3,8 @@ import React, { memo, useState } from 'react';
 import { Pressable, ScrollView, Text, View, type StyleProp, type TextStyle } from 'react-native';
 import Markdown, { type ASTNode, type RenderRules } from 'react-native-markdown-display';
 import { MarkdownImage } from './MarkdownImage';
+import { MermaidBlock } from './MermaidBlock';
+import { MermaidFullscreen } from './MermaidFullscreen';
 
 interface Props {
   content: string;
@@ -155,15 +157,34 @@ function selectableTextStyle(
 }
 
 // Rule renderers defined at module scope — stable references, no unstable-nested-components.
-function renderFence(node: { key: string; content: string }) {
-  return (
-    <View key={node.key} style={mdStyles.fence}>
-      <Text selectable style={mdStyles.code_block}>
-        {node.content}
-      </Text>
-      <CopyButton code={node.content} />
-    </View>
-  );
+export function makeMermaidFenceRule() {
+  function FenceWithFullscreen({ code }: { code: string }) {
+    const [fullscreenCode, setFullscreenCode] = React.useState<string | null>(null);
+    return (
+      <>
+        <MermaidBlock code={code} onFullscreen={() => setFullscreenCode(code)} />
+        <MermaidFullscreen
+          visible={fullscreenCode !== null}
+          code={fullscreenCode ?? code}
+          onClose={() => setFullscreenCode(null)}
+        />
+      </>
+    );
+  }
+
+  return function renderFence(node: { key: string; content: string; sourceInfo?: string }) {
+    if (node.sourceInfo === 'mermaid') {
+      return <FenceWithFullscreen key={node.key} code={node.content} />;
+    }
+    return (
+      <View key={node.key} style={mdStyles.fence}>
+        <Text selectable style={mdStyles.code_block}>
+          {node.content}
+        </Text>
+        <CopyButton code={node.content} />
+      </View>
+    );
+  };
 }
 
 function renderTable(node: { key: string }, children: React.ReactNode) {
@@ -274,7 +295,6 @@ export const mdRules: RenderRules = {
   code_block: renderSelectableContent('code_block'),
   hardbreak: renderSelectableBreak('hardbreak'),
   softbreak: renderSelectableBreak('softbreak'),
-  fence: renderFence,
   table: renderTable,
 };
 
@@ -283,7 +303,12 @@ export const MarkdownMessage = memo(function MarkdownMessage({
   serverUrl = '',
   token = '',
 }: Props) {
-  const rules: RenderRules = { ...mdRules, image: makeImageRule(serverUrl, token) };
+  const mermaidFenceRule = React.useMemo(() => makeMermaidFenceRule(), []);
+  const rules: RenderRules = {
+    ...mdRules,
+    fence: mermaidFenceRule,
+    image: makeImageRule(serverUrl, token),
+  };
   return (
     <Markdown style={mdStyles} rules={rules}>
       {content}
