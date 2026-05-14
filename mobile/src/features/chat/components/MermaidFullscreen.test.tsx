@@ -17,17 +17,22 @@
 ///   输入：visible=true
 ///   预期：testID="mermaid-fullscreen-reset" 存在
 
-import { fireEvent, render } from '@testing-library/react-native';
+import { fireEvent, render, waitFor } from '@testing-library/react-native';
 import React from 'react';
 import { MermaidFullscreen } from './MermaidFullscreen';
 
+jest.mock('./mermaidAsset', () => ({
+  loadMermaidSource: jest.fn().mockResolvedValue('window.mermaid = { render: function(){} };'),
+}));
+
 describe('MermaidFullscreen', () => {
-  it('renders modal and webview when visible', () => {
+  it('renders modal and webview when visible', async () => {
     const { getByTestId } = render(
       <MermaidFullscreen visible={true} code="flowchart TD\n  A --> B" onClose={jest.fn()} />,
     );
     // 断言失败 = visible=true 时 Modal 未渲染
     expect(getByTestId('mermaid-fullscreen-modal')).toBeTruthy();
+    await waitFor(() => expect(getByTestId('mermaid-fullscreen-webview')).toBeTruthy());
     // 断言失败 = visible=true 时 WebView 未渲染
     expect(getByTestId('mermaid-fullscreen-webview')).toBeTruthy();
   });
@@ -40,20 +45,22 @@ describe('MermaidFullscreen', () => {
     expect(queryByTestId('mermaid-fullscreen-webview')).toBeNull();
   });
 
-  it('calls onClose when close button is pressed', () => {
+  it('calls onClose when close button is pressed', async () => {
     const onClose = jest.fn();
     const { getByTestId } = render(
       <MermaidFullscreen visible={true} code="flowchart TD\n  A --> B" onClose={onClose} />,
     );
+    await waitFor(() => expect(getByTestId('mermaid-fullscreen-webview')).toBeTruthy());
     fireEvent.press(getByTestId('mermaid-fullscreen-close'));
     // 断言失败 = 点击关闭按钮未触发 onClose
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
-  it('renders reset button', () => {
+  it('renders reset button', async () => {
     const { getByTestId } = render(
       <MermaidFullscreen visible={true} code="flowchart TD\n  A --> B" onClose={jest.fn()} />,
     );
+    await waitFor(() => expect(getByTestId('mermaid-fullscreen-webview')).toBeTruthy());
     // 断言失败 = 全屏模式缺少重置按钮
     expect(getByTestId('mermaid-fullscreen-reset')).toBeTruthy();
   });

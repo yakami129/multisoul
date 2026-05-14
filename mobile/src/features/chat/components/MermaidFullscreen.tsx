@@ -4,7 +4,7 @@ import { Modal, Pressable } from 'react-native';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import { WebView } from 'react-native-webview';
-import mermaidSrc from '../../../../assets/mermaid.min.js';
+import { loadMermaidSource } from './mermaidAsset';
 
 interface Props {
   visible: boolean;
@@ -15,7 +15,7 @@ interface Props {
 // buildFullscreenHtml — generates the HTML string loaded by the fullscreen WebView.
 // mermaid.js is inlined from the local bundle so it works offline.
 // Uses dark theme on a #0D0D0D background to match the design system.
-function buildFullscreenHtml(code: string): string {
+function buildFullscreenHtml(code: string, mermaidSrc: string): string {
   const escaped = code.replace(/`/g, '\\`').replace(/\$/g, '\\$');
   return `<!DOCTYPE html>
 <html>
@@ -42,6 +42,8 @@ function buildFullscreenHtml(code: string): string {
 }
 
 export function MermaidFullscreen({ visible, code, onClose }: Props) {
+  const [mermaidSrc, setMermaidSrc] = React.useState<string | null>(null);
+  const [hasError, setHasError] = React.useState(false);
   const scale = useSharedValue(1);
   const translateX = useSharedValue(0);
   const translateY = useSharedValue(0);
@@ -76,6 +78,22 @@ export function MermaidFullscreen({ visible, code, onClose }: Props) {
       { scale: scale.value },
     ],
   }));
+
+  React.useEffect(() => {
+    if (!visible) return undefined;
+    let cancelled = false;
+    setHasError(false);
+    void loadMermaidSource()
+      .then((src) => {
+        if (!cancelled) setMermaidSrc(src);
+      })
+      .catch(() => {
+        if (!cancelled) setHasError(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [visible]);
 
   function handleReset() {
     scale.value = withSpring(1);
@@ -133,17 +151,19 @@ export function MermaidFullscreen({ visible, code, onClose }: Props) {
           <RotateCcw size={16} color="#888888" />
         </Pressable>
 
-        {visible && (
+        {visible && mermaidSrc && !hasError ? (
           <GestureDetector gesture={composed}>
             <Animated.View style={[{ flex: 1 }, animatedStyle]}>
               <WebView
                 testID="mermaid-fullscreen-webview"
-                source={{ html: buildFullscreenHtml(code) }}
+                source={{ html: buildFullscreenHtml(code, mermaidSrc) }}
                 style={{ flex: 1, backgroundColor: '#0D0D0D' }}
                 scrollEnabled={false}
               />
             </Animated.View>
           </GestureDetector>
+        ) : (
+          <Animated.View style={{ flex: 1 }} />
         )}
       </GestureHandlerRootView>
     </Modal>

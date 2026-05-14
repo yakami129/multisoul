@@ -3,7 +3,7 @@ import React, { useRef, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { WebView } from 'react-native-webview';
 import type WebViewType from 'react-native-webview';
-import mermaidSrc from '../../../../assets/mermaid.min.js';
+import { loadMermaidSource } from './mermaidAsset';
 
 interface Props {
   code: string;
@@ -14,7 +14,7 @@ interface Props {
 // mermaid.js is inlined from the local bundle so it works offline.
 // On render success, postMessage({ type: 'height', value: <px> }).
 // On render error, postMessage({ type: 'error', message: <string> }).
-function buildHtml(code: string): string {
+function buildHtml(code: string, mermaidSrc: string): string {
   const escaped = code.replace(/`/g, '\\`').replace(/\$/g, '\\$');
   return `<!DOCTYPE html>
 <html>
@@ -51,7 +51,22 @@ type WebViewMessage = HeightMessage | ErrorMessage;
 export function MermaidBlock({ code, onFullscreen }: Props) {
   const [height, setHeight] = useState(80);
   const [hasError, setHasError] = useState(false);
+  const [mermaidSrc, setMermaidSrc] = useState<string | null>(null);
   const webviewRef = useRef<InstanceType<typeof WebViewType> | null>(null);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    void loadMermaidSource()
+      .then((src) => {
+        if (!cancelled) setMermaidSrc(src);
+      })
+      .catch(() => {
+        if (!cancelled) setHasError(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   function handleMessage(event: { nativeEvent: { data: string } }) {
     try {
@@ -86,6 +101,16 @@ export function MermaidBlock({ code, onFullscreen }: Props) {
     );
   }
 
+  if (!mermaidSrc) {
+    return (
+      <View testID="mermaid-loading" style={{ marginVertical: 6 }}>
+        <Text style={{ fontFamily: 'Inter', fontSize: 12, color: '#888888' }}>
+          Rendering diagram...
+        </Text>
+      </View>
+    );
+  }
+
   return (
     <Pressable testID="mermaid-thumb-press" onPress={onFullscreen}>
       <View
@@ -101,7 +126,7 @@ export function MermaidBlock({ code, onFullscreen }: Props) {
         <WebView
           ref={webviewRef}
           testID="mermaid-webview"
-          source={{ html: buildHtml(code) }}
+          source={{ html: buildHtml(code, mermaidSrc) }}
           scrollEnabled={false}
           onMessage={handleMessage}
           onError={() => setHasError(true)}
