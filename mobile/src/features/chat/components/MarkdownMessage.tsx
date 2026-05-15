@@ -3,8 +3,7 @@ import React, { memo, useState } from 'react';
 import { Pressable, ScrollView, Text, View, type StyleProp, type TextStyle } from 'react-native';
 import Markdown, { type ASTNode, type RenderRules } from 'react-native-markdown-display';
 import { MarkdownImage } from './MarkdownImage';
-import { MermaidBlock } from './MermaidBlock';
-import { MermaidFullscreen } from './MermaidFullscreen';
+import type { MermaidFence as MermaidFenceComponent } from './MermaidFence';
 
 interface Props {
   content: string;
@@ -147,6 +146,24 @@ const mdStyles = {
 };
 
 type MarkdownStyles = Record<string, StyleProp<TextStyle>>;
+type MermaidFenceModule = {
+  MermaidFence: typeof MermaidFenceComponent;
+};
+
+let mermaidFenceModulePromise: Promise<MermaidFenceModule> | null = null;
+let mermaidFenceModuleLoader: () => Promise<MermaidFenceModule> = () => import('./MermaidFence');
+
+export function setMermaidFenceModuleLoaderForTest(
+  loader: (() => Promise<MermaidFenceModule>) | null,
+) {
+  mermaidFenceModulePromise = null;
+  mermaidFenceModuleLoader = loader ?? (() => import('./MermaidFence'));
+}
+
+function loadMermaidFenceModule() {
+  mermaidFenceModulePromise ??= mermaidFenceModuleLoader();
+  return mermaidFenceModulePromise;
+}
 
 function selectableTextStyle(
   styles: MarkdownStyles,
@@ -158,23 +175,28 @@ function selectableTextStyle(
 
 // Rule renderers defined at module scope — stable references, no unstable-nested-components.
 export function makeMermaidFenceRule() {
-  function FenceWithFullscreen({ code }: { code: string }) {
-    const [fullscreenCode, setFullscreenCode] = React.useState<string | null>(null);
-    return (
-      <>
-        <MermaidBlock code={code} onFullscreen={() => setFullscreenCode(code)} />
-        <MermaidFullscreen
-          visible={fullscreenCode !== null}
-          code={fullscreenCode ?? code}
-          onClose={() => setFullscreenCode(null)}
-        />
-      </>
-    );
+  function LazyMermaidFence({ code }: { code: string }) {
+    const [mermaidModule, setMermaidModule] = React.useState<MermaidFenceModule | null>(null);
+
+    React.useEffect(() => {
+      let cancelled = false;
+      void loadMermaidFenceModule().then((loadedModule) => {
+        if (!cancelled) setMermaidModule(loadedModule);
+      });
+      return () => {
+        cancelled = true;
+      };
+    }, []);
+
+    if (!mermaidModule) return null;
+
+    const LoadedMermaidFence = mermaidModule.MermaidFence;
+    return <LoadedMermaidFence code={code} />;
   }
 
   return function renderFence(node: { key: string; content: string; sourceInfo?: string }) {
     if (node.sourceInfo === 'mermaid') {
-      return <FenceWithFullscreen key={node.key} code={node.content} />;
+      return <LazyMermaidFence key={node.key} code={node.content} />;
     }
     return (
       <View key={node.key} style={mdStyles.fence}>

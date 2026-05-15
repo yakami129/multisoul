@@ -24,10 +24,15 @@
 ///   执行：直接调用 mdRules.image(node, [], [], {})
 ///   预期：渲染结果包含 testID="markdown-image-thumb-press"
 
-import { act, fireEvent, render } from '@testing-library/react-native';
+import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import * as Clipboard from 'expo-clipboard';
 import React from 'react';
-import { MarkdownMessage, CopyButton, makeImageRule } from './MarkdownMessage';
+import {
+  MarkdownMessage,
+  CopyButton,
+  makeImageRule,
+  setMermaidFenceModuleLoaderForTest,
+} from './MarkdownMessage';
 
 jest.mock('./MarkdownImage', () => ({
   MarkdownImage: ({ src: _src, alt }: { src: string; alt: string }) => {
@@ -206,25 +211,28 @@ describe('makeImageRule', () => {
   });
 });
 
-jest.mock('./MermaidBlock', () => ({
-  MermaidBlock: ({ code, onFullscreen }: { code: string; onFullscreen: () => void }) => {
-    const { Pressable, Text } = require('react-native');
-    return (
-      <Pressable testID="mermaid-block-mock" onPress={onFullscreen}>
-        <Text>{code}</Text>
-      </Pressable>
-    );
-  },
-}));
-
-jest.mock('./MermaidFullscreen', () => ({
-  MermaidFullscreen: ({ visible }: { visible: boolean }) => {
-    const { View } = require('react-native');
-    return visible ? <View testID="mermaid-fullscreen-mock" /> : null;
-  },
-}));
-
 describe('MarkdownMessage mermaid fence', () => {
+  beforeEach(() => {
+    setMermaidFenceModuleLoaderForTest(async () => ({
+      MermaidFence: ({ code }: { code: string }) => {
+        const { Pressable, Text, View } = require('react-native');
+        const [visible, setVisible] = React.useState(false);
+        return (
+          <>
+            <Pressable testID="mermaid-block-mock" onPress={() => setVisible(true)}>
+              <Text>{code}</Text>
+            </Pressable>
+            {visible ? <View testID="mermaid-fullscreen-mock" /> : null}
+          </>
+        );
+      },
+    }));
+  });
+
+  afterEach(() => {
+    setMermaidFenceModuleLoaderForTest(null);
+  });
+
   /// mermaid fence rule：```mermaid 代码块渲染为 MermaidBlock，Mermaid 源码由静态资产 loader 提供
   ///
   /// 数据构造：
@@ -234,12 +242,12 @@ describe('MarkdownMessage mermaid fence', () => {
   /// 执行过程：
   ///   1. 调用 makeMermaidFenceRule() 获取 fence render 函数
   ///   2. 传入 mermaid node
-  ///   3. render 返回的 element
+  ///   3. render 返回的 element，等待 Mermaid 组件懒加载完成
   ///
   /// 预期结果：
   ///   - 正断言：testID="mermaid-block-mock" 存在（MermaidBlock 被渲染）
   ///   - 负断言：testID="mermaid-error" 不存在（未回退到错误状态）
-  it('renders MermaidBlock for mermaid fence node', () => {
+  it('renders MermaidBlock for mermaid fence node', async () => {
     const { makeMermaidFenceRule } = require('./MarkdownMessage');
     const renderFence = makeMermaidFenceRule();
     const node = {
@@ -250,8 +258,10 @@ describe('MarkdownMessage mermaid fence', () => {
     const element = renderFence(node);
     const { getByTestId, queryByTestId } = render(element as React.ReactElement);
 
-    // 断言失败 = mermaid fence 未渲染 MermaidBlock
-    expect(getByTestId('mermaid-block-mock')).toBeTruthy();
+    await waitFor(() => {
+      // 断言失败 = mermaid fence 未渲染 MermaidBlock
+      expect(getByTestId('mermaid-block-mock')).toBeTruthy();
+    });
     // 断言失败 = mermaid fence 不应显示错误状态
     expect(queryByTestId('mermaid-error')).toBeNull();
   });
@@ -286,12 +296,13 @@ describe('MarkdownMessage mermaid fence', () => {
   /// 执行过程：
   ///   1. render mermaid fence element
   ///   2. press testID="mermaid-block-mock"
-  ///   3. 检查 testID="mermaid-fullscreen-mock" 出现
+  ///   3. 等待 MermaidBlock 懒加载完成后 press testID="mermaid-block-mock"
+  ///   4. 检查 testID="mermaid-fullscreen-mock" 出现
   ///
   /// 预期结果：
   ///   - press 前：testID="mermaid-fullscreen-mock" 不存在
   ///   - press 后：testID="mermaid-fullscreen-mock" 存在
-  it('shows MermaidFullscreen when MermaidBlock is pressed', () => {
+  it('shows MermaidFullscreen when MermaidBlock is pressed', async () => {
     const { makeMermaidFenceRule } = require('./MarkdownMessage');
     const renderFence = makeMermaidFenceRule();
     const node = {
@@ -305,6 +316,7 @@ describe('MarkdownMessage mermaid fence', () => {
     // 断言失败 = 初始状态不应显示全屏 Modal
     expect(queryByTestId('mermaid-fullscreen-mock')).toBeNull();
 
+    await waitFor(() => expect(getByTestId('mermaid-block-mock')).toBeTruthy());
     fireEvent.press(getByTestId('mermaid-block-mock'));
 
     // 断言失败 = 点击 MermaidBlock 后应显示全屏 Modal
