@@ -63,6 +63,36 @@ test('test_markdown_image_local_path_converts_to_files_url', () => {
   expect(img.props.source.uri).toContain('token=test-token');
 });
 
+/// test_markdown_image_local_path_trims_server_url_slash: base URL with trailing slash should not create //api path
+///
+/// Data construction:
+///   src = '/tmp/img.png' (absolute local path)
+///   serverUrl = 'http://localhost:8765/' (manual endpoint entry with trailing slash)
+///   token = 'test-token'
+///
+/// Execution:
+///   1. render MarkdownImage with local path and trailing-slash serverUrl
+///   2. resolveSource trims one trailing slash before appending /api/v1/files
+///
+/// Expected:
+///   - positive: source.uri starts with 'http://localhost:8765/api/v1/files'
+///   - negative: source.uri does not contain '8765//api', which would miss the Axum route
+test('test_markdown_image_local_path_trims_server_url_slash', () => {
+  const { getByTestId } = render(
+    <MarkdownImage src="/tmp/img.png" alt="local" serverUrl={`${SERVER_URL}/`} token={TOKEN} />,
+  );
+
+  const img = getByTestId('markdown-image-thumb');
+  expect(img.props.source.uri.startsWith(`${SERVER_URL}/api/v1/files`)).toBe(
+    true,
+    'local image URL should append /api/v1/files after a normalized server URL',
+  );
+  expect(img.props.source.uri.includes('8765//api')).toBe(
+    false,
+    'local image URL should not contain a double slash before api',
+  );
+});
+
 /// test_markdown_image_opens_fullscreen_on_press: pressing thumbnail sets modal visible
 ///
 /// Data construction:

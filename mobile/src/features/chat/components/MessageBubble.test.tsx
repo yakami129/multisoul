@@ -83,6 +83,35 @@ describe('MessageBubble image rendering', () => {
     expect(getByText('📎 Image')).toBeTruthy();
   });
 
+  /// 图片加载失败：不要留下空白缩略图，显示可诊断占位。
+  ///
+  /// 数据构造：
+  ///   WsMessage role='user_text'
+  ///   payload.file_id = 'abc.jpg'
+  ///   imageUri = 'http://localhost:8080/api/v1/uploads/abc.jpg?token=tok'
+  ///
+  /// 执行过程：
+  ///   1. render MessageBubble → 显示 user-image-thumb
+  ///   2. 对缩略图 Image 触发 onError，模拟 401/404/网络失败
+  ///   3. 组件设置 imageLoadFailed=true
+  ///
+  /// 预期结果：
+  ///   - 正断言：显示 "Image unavailable"，用户不再看到空白块
+  ///   - 负断言：user-image-thumb 不存在，失败图片不会继续占住空白缩略图
+  it('shows image unavailable placeholder when image loading fails', async () => {
+    const msg = makeUserMsg({ text: '', file_id: 'abc.jpg' });
+    const { getByTestId, getByText, queryByTestId } = render(
+      <MessageBubble msg={msg} imageUri="http://localhost:8080/api/v1/uploads/abc.jpg?token=tok" />,
+    );
+
+    await act(async () => {
+      fireEvent(getByTestId('user-image'), 'onError');
+    });
+
+    expect(getByText('Image unavailable')).toBeTruthy();
+    expect(queryByTestId('user-image-thumb')).toBeNull();
+  });
+
   it('renders plain text bubble when no file_id', () => {
     const msg = makeUserMsg({ text: 'hello' });
     const { getByText } = render(<MessageBubble msg={msg} />);

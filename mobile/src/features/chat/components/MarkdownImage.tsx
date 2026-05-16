@@ -14,8 +14,9 @@ function resolveSource(src: string, serverUrl: string, apiKey: string): { uri: s
     return { uri: src };
   }
   if (src.startsWith('/')) {
+    const base = serverUrl.replace(/\/$/, '');
     return {
-      uri: `${serverUrl}/api/v1/files?path=${encodeURIComponent(src)}&token=${encodeURIComponent(apiKey)}`,
+      uri: `${base}/api/v1/files?path=${encodeURIComponent(src)}&token=${encodeURIComponent(apiKey)}`,
     };
   }
   return null;

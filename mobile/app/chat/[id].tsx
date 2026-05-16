@@ -24,6 +24,7 @@ import {
   fetchMessages,
   uploadImage,
   abortConversation,
+  resolveUserMessageImageUri,
 } from '@/features/chat/services/chatService';
 import {
   getLatestAgentActivitySeq,
@@ -35,7 +36,7 @@ import { useWebSocket } from '@/hooks/useWebSocket';
 import { useChatStore } from '@/store/chatStore';
 import { useEndpointStore } from '@/store/endpointStore';
 import { useInboxStore } from '@/store/inboxStore';
-import { type UserTextPayload, type WsMessage } from '@/types';
+import { type WsMessage } from '@/types';
 import { s } from './styles';
 
 // Stable fallback — never recreated, so Zustand won't see a changed snapshot
@@ -112,14 +113,18 @@ export default function ChatDetailScreen() {
   // Memoize the imageUri callback so MessageBubble memo can bail out reliably
   const imageUriForMessage = React.useCallback(
     (msg: WsMessage) => {
-      if (msg.role !== 'user_text') return undefined;
-      const fileId = (msg.payload as UserTextPayload).file_id;
-      return fileId ? imageMapRef.current.get(fileId) : undefined;
+      if (!endpoint) return undefined;
+      return resolveUserMessageImageUri(
+        msg,
+        endpoint.base_url,
+        endpoint.token,
+        imageMapRef.current,
+      );
     },
     // imageMapRef.current mutates in place — we intentionally omit it; the
     // function reference is stable, and Map lookups are always up-to-date.
 
-    [],
+    [endpoint],
   );
 
   const { status, sendAnswer, sendAnswerMulti } = useWebSocket(

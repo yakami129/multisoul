@@ -29,6 +29,20 @@ jest.mock('@/features/chat/services/chatService', () => ({
   postMessage: jest.fn(),
   uploadImage: jest.fn(),
   abortConversation: jest.fn().mockResolvedValue(undefined),
+  resolveUserMessageImageUri: (
+    msg: WsMessage,
+    baseUrl: string,
+    token: string,
+    localUris: Map<string, string>,
+  ) => {
+    if (msg.role !== 'user_text') return undefined;
+    const fileId = (msg.payload as { file_id?: string }).file_id;
+    if (!fileId) return undefined;
+    const base = baseUrl.replace(/\/$/, '');
+    const encodedFileId = encodeURIComponent(fileId);
+    const encodedToken = encodeURIComponent(token);
+    return localUris.get(fileId) ?? `${base}/api/v1/uploads/${encodedFileId}?token=${encodedToken}`;
+  },
 }));
 
 jest.mock('expo-image-picker', () => ({
