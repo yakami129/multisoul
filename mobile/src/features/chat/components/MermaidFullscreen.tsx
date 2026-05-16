@@ -1,6 +1,6 @@
 import { RotateCcw, X } from 'lucide-react-native';
 import React from 'react';
-import { Modal, Pressable } from 'react-native';
+import { Modal, Pressable, Text, View } from 'react-native';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import { WebView } from 'react-native-webview';
@@ -35,11 +35,15 @@ function buildFullscreenHtml(code: string, mermaidSrc: string): string {
     .then(function(result) {
       document.getElementById('graph').innerHTML = result.svg;
     })
-    .catch(function() {});
+    .catch(function(err) {
+      window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'error', message: String(err) }));
+    });
 </script>
 </body>
 </html>`;
 }
+
+type WebViewMessage = { type: 'error'; message: string };
 
 export function MermaidFullscreen({ visible, code, onClose }: Props) {
   const [mermaidSrc, setMermaidSrc] = React.useState<string | null>(null);
@@ -104,6 +108,17 @@ export function MermaidFullscreen({ visible, code, onClose }: Props) {
     savedY.value = 0;
   }
 
+  function handleMessage(event: { nativeEvent: { data: string } }) {
+    try {
+      const msg = JSON.parse(event.nativeEvent.data) as WebViewMessage;
+      if (msg.type === 'error') {
+        setHasError(true);
+      }
+    } catch {
+      setHasError(true);
+    }
+  }
+
   return (
     <Modal
       testID="mermaid-fullscreen-modal"
@@ -151,12 +166,32 @@ export function MermaidFullscreen({ visible, code, onClose }: Props) {
           <RotateCcw size={16} color="#888888" />
         </Pressable>
 
-        {visible && mermaidSrc && !hasError ? (
+        {visible && hasError ? (
+          <View
+            testID="mermaid-fullscreen-error"
+            style={{
+              flex: 1,
+              justifyContent: 'center',
+              padding: 20,
+              backgroundColor: '#0D0D0D',
+            }}
+          >
+            <Text
+              testID="mermaid-fullscreen-error-code"
+              selectable
+              style={{ fontFamily: 'Inter', fontSize: 12, color: '#DDDDDD' }}
+            >
+              {code}
+            </Text>
+          </View>
+        ) : visible && mermaidSrc ? (
           <GestureDetector gesture={composed}>
             <Animated.View style={[{ flex: 1 }, animatedStyle]}>
               <WebView
                 testID="mermaid-fullscreen-webview"
                 source={{ html: buildFullscreenHtml(code, mermaidSrc) }}
+                onMessage={handleMessage}
+                onError={() => setHasError(true)}
                 style={{ flex: 1, backgroundColor: '#0D0D0D' }}
                 scrollEnabled={false}
               />

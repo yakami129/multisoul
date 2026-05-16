@@ -64,4 +64,37 @@ describe('MermaidFullscreen', () => {
     // 断言失败 = 全屏模式缺少重置按钮
     expect(getByTestId('mermaid-fullscreen-reset')).toBeTruthy();
   });
+
+  /// MermaidFullscreen 渲染失败降级：WebView 内部 Mermaid parse/render 错误必须显示源码
+  ///
+  /// 数据构造：
+  ///   visible=true
+  ///   code="invalid @@@@"
+  ///   WebView postMessage: {"type":"error","message":"parse failed"}
+  ///
+  /// 执行过程：
+  ///   1. render 全屏 Mermaid
+  ///   2. 等待 WebView 出现
+  ///   3. 模拟 WebView onMessage 发送 error
+  ///
+  /// 预期结果：
+  ///   - 正断言：testID="mermaid-fullscreen-error" 出现并显示原始源码
+  ///   - 负断言：testID="mermaid-fullscreen-webview" 消失，避免继续展示空白 WebView
+  it('shows code fallback when fullscreen WebView reports a mermaid render error', async () => {
+    const { getByTestId, queryByTestId } = render(
+      <MermaidFullscreen visible={true} code="invalid @@@@" onClose={jest.fn()} />,
+    );
+    await waitFor(() => expect(getByTestId('mermaid-fullscreen-webview')).toBeTruthy());
+
+    fireEvent(getByTestId('mermaid-fullscreen-webview'), 'onMessage', {
+      nativeEvent: { data: JSON.stringify({ type: 'error', message: 'parse failed' }) },
+    });
+
+    // 断言失败 = 全屏 Mermaid 渲染失败后没有展示源码降级
+    expect(getByTestId('mermaid-fullscreen-error')).toBeTruthy();
+    // 断言失败 = 源码降级内容缺失，用户无法查看原始 mermaid
+    expect(getByTestId('mermaid-fullscreen-error-code').props.children).toBe('invalid @@@@');
+    // 断言失败 = 出错后仍保留 WebView，可能继续显示空白或反复报错
+    expect(queryByTestId('mermaid-fullscreen-webview')).toBeNull();
+  });
 });
