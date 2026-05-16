@@ -7,7 +7,6 @@ import {
   Alert,
   Image,
   Linking,
-  SafeAreaView,
   ScrollView,
   View,
   Text,
@@ -16,6 +15,7 @@ import {
   Platform,
   Pressable,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import ChatInputBar from '@/features/chat/components/ChatInputBar';
 import CommandPopup from '@/features/chat/components/CommandPopup';
 import { MessageBubble } from '@/features/chat/components/MessageBubble';
@@ -347,7 +347,7 @@ export default function ChatDetailScreen() {
     : (STATUS_BADGE[conversation?.status ?? 'idle'] ?? STATUS_BADGE.idle);
 
   return (
-    <SafeAreaView style={s.safe}>
+    <SafeAreaView style={s.safe} edges={['top', 'left', 'right']}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -464,7 +464,6 @@ export default function ChatDetailScreen() {
             }}
             placeholder={isOffline ? 'Agent offline...' : 'Message...'}
           />
-          <View style={s.safeArea} />
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
