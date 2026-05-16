@@ -1,6 +1,6 @@
 import { render, fireEvent } from '@testing-library/react-native';
 import React from 'react';
-import { RefreshControl } from 'react-native';
+import { FlatList, RefreshControl, StyleSheet } from 'react-native';
 import { type Agent } from '@/types';
 import { AgentList } from './AgentList';
 
@@ -108,5 +108,71 @@ describe('AgentList', () => {
     );
 
     expect(UNSAFE_getByType(RefreshControl).props.refreshing).toBe(false);
+  });
+
+  /// Agent cards spacing: adjacent cards are separated by a fixed vertical gap.
+  ///
+  /// Data construction:
+  ///   agents = 2 records, enough to create exactly 1 inter-card separator.
+  ///
+  /// Execution:
+  ///   1. Render AgentList with 2 agents.
+  ///   2. Read FlatList.ItemSeparatorComponent and render it.
+  ///   3. Flatten the separator style to inspect the concrete height.
+  ///
+  /// Expected:
+  ///   - Positive: separator exists and height is 12, giving visible space between cards.
+  ///   - Negative: separator height must not be 0, which would make cards visually stick together.
+  it('adds visible spacing between agent cards', () => {
+    const { UNSAFE_getByType } = render(
+      <AgentList
+        agents={agents}
+        isLoading={false}
+        isError={false}
+        error={null}
+        isFetching={false}
+        onRefetch={() => {}}
+        onAgentPress={() => {}}
+      />,
+    );
+
+    const Separator = UNSAFE_getByType(FlatList).props.ItemSeparatorComponent;
+    const separator = render(<Separator />).toJSON();
+    const style = StyleSheet.flatten(separator?.props.style);
+
+    expect(Separator).toBeTruthy();
+    expect(style.height).toBe(12);
+    expect(style.height).not.toBe(0);
+  });
+
+  /// Empty agent list: the empty copy is fixed in place and cannot be dragged.
+  ///
+  /// Data construction:
+  ///   agents = [] so FlatList renders ListEmptyComponent only.
+  ///
+  /// Execution:
+  ///   1. Render AgentList with no agents.
+  ///   2. Read FlatList scroll props.
+  ///
+  /// Expected:
+  ///   - Positive: scrollEnabled=false fixes the empty state vertically.
+  ///   - Negative: bounces=false prevents iOS rubber-band floating when the list has no content.
+  it('disables scrolling and bounce when there are no agents', () => {
+    const { UNSAFE_getByType } = render(
+      <AgentList
+        agents={[]}
+        isLoading={false}
+        isError={false}
+        error={null}
+        isFetching={false}
+        onRefetch={() => {}}
+        onAgentPress={() => {}}
+      />,
+    );
+
+    const flatList = UNSAFE_getByType(FlatList);
+
+    expect(flatList.props.scrollEnabled).toBe(false);
+    expect(flatList.props.bounces).toBe(false);
   });
 });
