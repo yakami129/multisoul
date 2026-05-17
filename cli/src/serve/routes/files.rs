@@ -30,8 +30,8 @@ pub async fn get_file(Query(params): Query<FileQuery>) -> Result<Response, Statu
         return Err(StatusCode::BAD_REQUEST);
     }
 
-    // Reject non-absolute paths
-    if !path.starts_with('/') {
+    // Reject non-absolute paths (Unix `/...` and Windows `C:\...` / `\\?\...`, etc.)
+    if !std::path::Path::new(&path).is_absolute() {
         return Err(StatusCode::BAD_REQUEST);
     }
 
@@ -247,21 +247,18 @@ mod tests {
     /// Nonexistent file: path to a file that does not exist returns 404.
     ///
     /// Data construction:
-    ///   path = "/tmp/multisoul_test_nonexistent_file_xyz.png" — guaranteed not to exist
-    ///
-    /// Execution:
-    ///   1. GET /api/v1/files?path=<nonexistent_path> → fs read fails with NotFound
-    ///
-    /// Expected:
-    ///   - status == 404: file not found on disk
+    ///   path = `<temp_dir>/multisoul_test_nonexistent_xyz_12345.png` — absolute, guaranteed missing
     #[tokio::test]
     async fn test_files_nonexistent_returns_404() {
         let app = make_app();
+        let nonexistent = std::env::temp_dir().join("multisoul_test_nonexistent_xyz_12345.png");
+        let path_str = nonexistent.to_str().expect("temp path must be valid UTF-8");
+        let uri = format!("/api/v1/files?path={}", encode_path(path_str));
         let resp = app
             .oneshot(
                 Request::builder()
                     .method("GET")
-                    .uri("/api/v1/files?path=%2Ftmp%2Fmultisoul_test_nonexistent_xyz_12345.png")
+                    .uri(&uri)
                     .body(Body::empty())
                     .unwrap(),
             )
