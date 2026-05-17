@@ -7,6 +7,7 @@ import {
   FlatList,
   Pressable,
   RefreshControl,
+  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -48,9 +49,9 @@ export function AgentList({ agents, isLoading, isError, error, onRefetch, onAgen
   const [selectedWorkspace, setSelectedWorkspace] = React.useState<string>('all');
   const [fadeAnim] = React.useState(new Animated.Value(1));
 
-  const _workspaces = React.useMemo(() => getWorkspaceList(agents), [agents]);
+  const workspaces = React.useMemo(() => getWorkspaceList(agents), [agents]);
 
-  const _filteredAgents = React.useMemo(
+  const filteredAgents = React.useMemo(
     () => filterAgentsByWorkspace(agents, selectedWorkspace),
     [agents, selectedWorkspace],
   );
@@ -59,14 +60,14 @@ export function AgentList({ agents, isLoading, isError, error, onRefetch, onAgen
   React.useEffect(() => {
     AsyncStorage.getItem(STORAGE_KEY)
       .then((value) => {
-        if (value && (value === 'all' || _workspaces.includes(value))) {
+        if (value && (value === 'all' || workspaces.includes(value))) {
           setSelectedWorkspace(value);
         }
       })
       .catch(() => {
         // 静默失败，使用默认值 'all'
       });
-  }, [_workspaces]);
+  }, [workspaces]);
 
   const handleWorkspaceChange = React.useCallback(
     (workspace: string) => {
@@ -97,7 +98,7 @@ export function AgentList({ agents, isLoading, isError, error, onRefetch, onAgen
     [selectedWorkspace, fadeAnim],
   );
 
-  const _renderWorkspaceChip = React.useCallback(
+  const renderWorkspaceChip = React.useCallback(
     (workspace: string, label: string) => {
       const isSelected = selectedWorkspace === workspace;
       return (
@@ -163,37 +164,60 @@ export function AgentList({ agents, isLoading, isError, error, onRefetch, onAgen
         <SlidersHorizontal size={20} color="#888888" />
       </View>
 
-      <FlatList
-        data={agents}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <AgentCard
-            agent={item}
-            onPress={() => onAgentPress(item.id, item.endpoint_id, item.name)}
-          />
-        )}
-        ItemSeparatorComponent={AgentCardSeparator}
-        scrollEnabled={agents.length > 0}
-        bounces={agents.length > 0}
-        alwaysBounceVertical={agents.length > 0}
-        refreshControl={
-          <RefreshControl
-            refreshing={isRefreshing}
-            onRefresh={() => {
-              void handleRefresh();
-            }}
-            tintColor="#FF6B35"
-            colors={['#FF6B35']}
-          />
-        }
-        ListEmptyComponent={
-          <View style={s.emptyWrap}>
-            <Text style={s.emptyTitle}>NO AGENTS REGISTERED</Text>
-            <Text style={s.emptyDesc}>Register your first agent via the CLI or API.</Text>
-          </View>
-        }
-        contentContainerStyle={agents.length === 0 ? s.emptyContainer : s.listContent}
-      />
+      {/* Workspace Filter */}
+      <View style={s.filterSection}>
+        <Text style={s.filterLabel}>WORKSPACE</Text>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={s.chipScrollContent}
+        >
+          {renderWorkspaceChip('all', 'All')}
+          {workspaces.map((workspace) => renderWorkspaceChip(workspace, workspace))}
+        </ScrollView>
+      </View>
+
+      <Animated.View style={{ flex: 1, opacity: fadeAnim }}>
+        <FlatList
+          data={filteredAgents}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => (
+            <AgentCard
+              agent={item}
+              onPress={() => onAgentPress(item.id, item.endpoint_id, item.name)}
+            />
+          )}
+          ItemSeparatorComponent={AgentCardSeparator}
+          scrollEnabled={filteredAgents.length > 0}
+          bounces={filteredAgents.length > 0}
+          alwaysBounceVertical={filteredAgents.length > 0}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={() => {
+                void handleRefresh();
+              }}
+              tintColor="#FF6B35"
+              colors={['#FF6B35']}
+            />
+          }
+          ListEmptyComponent={
+            <View style={s.emptyWrap}>
+              <Text style={s.emptyTitle}>
+                {selectedWorkspace === 'all'
+                  ? 'NO AGENTS REGISTERED'
+                  : 'NO AGENTS IN THIS WORKSPACE'}
+              </Text>
+              <Text style={s.emptyDesc}>
+                {selectedWorkspace === 'all'
+                  ? 'Register your first agent via the CLI or API.'
+                  : `No agents found in the "${selectedWorkspace}" workspace.`}
+              </Text>
+            </View>
+          }
+          contentContainerStyle={filteredAgents.length === 0 ? s.emptyContainer : s.listContent}
+        />
+      </Animated.View>
     </View>
   );
 }
