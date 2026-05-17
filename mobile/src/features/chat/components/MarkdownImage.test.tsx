@@ -1,9 +1,16 @@
 import { act, fireEvent, render } from '@testing-library/react-native';
 import React from 'react';
+import { StyleSheet } from 'react-native';
+import { clearDiagnosticsEntries, getDiagnosticsLogText } from '@/services/diagnosticsLog';
 import { MarkdownImage } from './MarkdownImage';
 
 const SERVER_URL = 'http://localhost:8765';
 const TOKEN = 'test-token';
+const originalFetch = global.fetch;
+
+afterEach(() => {
+  global.fetch = originalFetch;
+});
 
 /// test_markdown_image_renders_thumbnail: renders <Image> with correct source URI for a remote HTTPS URL
 ///
@@ -18,6 +25,7 @@ const TOKEN = 'test-token';
 /// Expected:
 ///   - testID="markdown-image-thumb" exists: thumbnail Image is rendered
 ///   - source.uri equals the original HTTPS URL: no transformation applied
+///   - source.cache equals 'force-cache': iOS should reuse the cached image instead of redownloading
 test('test_markdown_image_renders_thumbnail', () => {
   const { getByTestId } = render(
     <MarkdownImage
@@ -33,6 +41,50 @@ test('test_markdown_image_renders_thumbnail', () => {
   expect(img).toBeTruthy();
   // assertion failure = source URI was transformed when it should be used as-is
   expect(img.props.source.uri).toBe('https://example.com/photo.png');
+  expect(img.props.source.cache).toBe(
+    'force-cache',
+    'markdown images should request iOS cache reuse instead of redownloading every render',
+  );
+});
+
+/// test_markdown_image_thumbnail_has_stable_size: markdown images must not depend on inherited parent width
+///
+/// Data construction:
+///   src = 'https://example.com/photo.png' (remote HTTPS URL)
+///   thumbnail frame target = 240 x 200 px (fixed render surface for chat bubbles)
+///
+/// Execution:
+///   1. render MarkdownImage with HTTPS src
+///   2. find testID="markdown-image-thumb-press" wrapper
+///   3. inspect wrapper style passed to React Native
+///
+/// Expected:
+///   - positive: wrapper width is 240, giving Image a non-zero render surface
+///   - positive: wrapper height is 200, matching existing thumbnail height
+///   - negative: wrapper width is not '100%', avoiding zero-width markdown parent layouts
+test('test_markdown_image_thumbnail_has_stable_size', () => {
+  const { getByTestId } = render(
+    <MarkdownImage
+      src="https://example.com/photo.png"
+      alt="a photo"
+      serverUrl={SERVER_URL}
+      token={TOKEN}
+    />,
+  );
+
+  const frame = getByTestId('markdown-image-thumb-press');
+  expect(frame.props.style.width).toBe(
+    240,
+    'thumbnail frame should have a concrete width so iOS Image does not render blank',
+  );
+  expect(frame.props.style.height).toBe(
+    200,
+    'thumbnail frame should preserve the existing 200px preview height',
+  );
+  expect(frame.props.style.width).not.toBe(
+    '100%',
+    'thumbnail frame should not depend on markdown parent percentage width',
+  );
 });
 
 /// test_markdown_image_local_path_converts_to_files_url: local path → /api/v1/files?path= with token query param
@@ -61,6 +113,36 @@ test('test_markdown_image_local_path_converts_to_files_url', () => {
   expect(img.props.source.uri).toContain(encodeURIComponent('/tmp/img.png'));
   // assertion failure = token not present as query param (RN Image doesn't support custom headers)
   expect(img.props.source.uri).toContain('token=test-token');
+});
+
+/// test_markdown_image_local_path_trims_server_url_slash: base URL with trailing slash should not create //api path
+///
+/// Data construction:
+///   src = '/tmp/img.png' (absolute local path)
+///   serverUrl = 'http://localhost:8765/' (manual endpoint entry with trailing slash)
+///   token = 'test-token'
+///
+/// Execution:
+///   1. render MarkdownImage with local path and trailing-slash serverUrl
+///   2. resolveSource trims one trailing slash before appending /api/v1/files
+///
+/// Expected:
+///   - positive: source.uri starts with 'http://localhost:8765/api/v1/files'
+///   - negative: source.uri does not contain '8765//api', which would miss the Axum route
+test('test_markdown_image_local_path_trims_server_url_slash', () => {
+  const { getByTestId } = render(
+    <MarkdownImage src="/tmp/img.png" alt="local" serverUrl={`${SERVER_URL}/`} token={TOKEN} />,
+  );
+
+  const img = getByTestId('markdown-image-thumb');
+  expect(img.props.source.uri.startsWith(`${SERVER_URL}/api/v1/files`)).toBe(
+    true,
+    'local image URL should append /api/v1/files after a normalized server URL',
+  );
+  expect(img.props.source.uri.includes('8765//api')).toBe(
+    false,
+    'local image URL should not contain a double slash before api',
+  );
 });
 
 /// test_markdown_image_opens_fullscreen_on_press: pressing thumbnail sets modal visible
@@ -98,6 +180,74 @@ test('test_markdown_image_opens_fullscreen_on_press', async () => {
   expect(getByTestId('markdown-image-modal')).toBeTruthy();
 });
 
+/// test_markdown_image_fullscreen_image_fills_modal: fullscreen preview should use the full modal surface
+///
+/// Data construction:
+///   src = 'https://example.com/photo.png'
+///   alt = 'photo'
+///   expected fullscreen frame = width 100%, height 100%
+///
+/// Execution:
+///   1. render MarkdownImage
+///   2. press thumbnail → fullscreen Modal appears
+///   3. inspect markdown-image-fullscreen style
+///
+/// Expected:
+///   - positive: fullscreen Image width is '100%'
+///   - positive: fullscreen Image height is '100%'
+///   - negative: fullscreen Image height is not '80%', avoiding non-fullscreen previews
+test('test_markdown_image_fullscreen_image_fills_modal', async () => {
+  const { getByTestId } = render(
+    <MarkdownImage
+      src="https://example.com/photo.png"
+      alt="photo"
+      serverUrl={SERVER_URL}
+      token={TOKEN}
+    />,
+  );
+
+  await act(async () => {
+    fireEvent.press(getByTestId('markdown-image-thumb-press'));
+  });
+
+  const style = StyleSheet.flatten(getByTestId('markdown-image-fullscreen').props.style);
+  expect(style.width).toBe('100%', 'fullscreen preview should span the modal width');
+  expect(style.height).toBe('100%', 'fullscreen preview should span the modal height');
+  expect(style.height).not.toBe('80%', 'fullscreen preview should not be capped to 80% height');
+});
+
+/// test_markdown_image_shows_loading_until_thumbnail_loads: large markdown images show loading feedback
+///
+/// Data construction:
+///   src = 'https://example.com/large-photo.png'
+///   initial thumbLoading = true
+///
+/// Execution:
+///   1. render MarkdownImage → loading indicator visible over thumbnail frame
+///   2. fire Image onLoadEnd → component marks thumbnail loading complete
+///
+/// Expected:
+///   - positive: markdown-image-loading exists before load end
+///   - negative: markdown-image-loading disappears after onLoadEnd
+test('test_markdown_image_shows_loading_until_thumbnail_loads', async () => {
+  const { getByTestId, queryByTestId } = render(
+    <MarkdownImage
+      src="https://example.com/large-photo.png"
+      alt="large"
+      serverUrl={SERVER_URL}
+      token={TOKEN}
+    />,
+  );
+
+  expect(getByTestId('markdown-image-loading')).toBeTruthy();
+
+  await act(async () => {
+    fireEvent(getByTestId('markdown-image-thumb'), 'onLoadEnd');
+  });
+
+  expect(queryByTestId('markdown-image-loading')).toBeNull();
+});
+
 /// test_markdown_image_shows_error_placeholder_on_load_error: triggering onError shows "Image unavailable"
 ///
 /// Data construction:
@@ -133,6 +283,62 @@ test('test_markdown_image_shows_error_placeholder_on_load_error', async () => {
   expect(getByTestId('markdown-image-error')).toBeTruthy();
   // assertion failure = "Image unavailable" text not rendered in placeholder
   expect(getByText('Image unavailable')).toBeTruthy();
+});
+
+/// test_markdown_image_records_release_log_on_load_error: markdown image failures are visible in release logs
+///
+/// Data construction:
+///   src = '/tmp/img.png' (local absolute path converted to /api/v1/files)
+///   serverUrl = 'http://localhost:8765', token = 'test-token'
+///   probe response status = 401, content-type = application/json
+///
+/// Execution:
+///   1. clearDiagnosticsEntries() resets prior release logs
+///   2. render MarkdownImage → src resolves to /api/v1/files?...&token=test-token
+///   3. trigger Image onError → component records failure and probes the URL
+///
+/// Expected:
+///   - positive: release logs contain [chat.markdown_image], proving the failure is observable
+///   - positive: release logs contain status 401, proving HTTP status is captured
+///   - positive: release logs contain debug_token, because this temporary image debug path keeps token visible
+///   - positive: release logs contain raw query token, because this temporary image debug path keeps token visible
+test('test_markdown_image_records_release_log_on_load_error', async () => {
+  await clearDiagnosticsEntries();
+  global.fetch = jest.fn().mockResolvedValue({
+    status: 401,
+    ok: false,
+    headers: {
+      get: (name: string) => (name.toLowerCase() === 'content-type' ? 'application/json' : null),
+    },
+  }) as typeof fetch;
+  const { getByTestId } = render(
+    <MarkdownImage src="/tmp/img.png" alt="local" serverUrl={SERVER_URL} token={TOKEN} />,
+  );
+
+  await act(async () => {
+    fireEvent(getByTestId('markdown-image-thumb'), 'onError');
+  });
+
+  await act(async () => {
+    await Promise.resolve();
+  });
+
+  expect(getDiagnosticsLogText()).toContain(
+    '[chat.markdown_image]',
+    'markdown image load failure should be recorded in release diagnostics logs',
+  );
+  expect(getDiagnosticsLogText()).toContain(
+    '"status":401',
+    'markdown image probe should include HTTP status for release debugging',
+  );
+  expect(getDiagnosticsLogText()).toContain(
+    '"debug_token":"test-token"',
+    'temporary markdown image diagnostics should include the token value for iOS debugging',
+  );
+  expect(getDiagnosticsLogText()).toContain(
+    'token=test-token',
+    'temporary markdown image diagnostics should include the raw query token for iOS debugging',
+  );
 });
 
 /// test_markdown_image_closes_modal_on_x_press: pressing X button closes modal

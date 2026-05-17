@@ -61,6 +61,10 @@ pub async fn build_router(state: AppState) -> Router {
             "/api/v1/uploads",
             axum::routing::post(uploads::upload_image),
         )
+        .route(
+            "/api/v1/uploads/:file_id",
+            axum::routing::get(uploads::get_uploaded_image),
+        )
         .route("/api/v1/files", axum::routing::get(files::get_file))
         .layer(middleware::from_fn_with_state(
             state.clone(),

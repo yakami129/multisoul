@@ -1,6 +1,9 @@
 use axum::{
     extract::Query,
-    http::{header::CONTENT_TYPE, StatusCode},
+    http::{
+        header::{CACHE_CONTROL, CONTENT_TYPE},
+        StatusCode,
+    },
     response::Response,
 };
 use serde::Deserialize;
@@ -59,6 +62,7 @@ pub async fn get_file(Query(params): Query<FileQuery>) -> Result<Response, Statu
     let response = Response::builder()
         .status(StatusCode::OK)
         .header(CONTENT_TYPE, content_type)
+        .header(CACHE_CONTROL, "public, max-age=31536000, immutable")
         .body(axum::body::Body::from(bytes))
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
@@ -114,6 +118,7 @@ mod tests {
     /// Expected:
     ///   - status == 200: file exists and extension is allowed
     ///   - content-type == "image/png": extension matched png branch
+    ///   - cache-control == public immutable: iOS Image can reuse cached markdown images
     ///   - body == b"\x89PNG\r\n": bytes returned verbatim
     #[tokio::test]
     async fn test_files_returns_png_bytes() {
@@ -143,6 +148,15 @@ mod tests {
             .and_then(|v| v.to_str().ok())
             .unwrap_or("");
         assert_eq!(ct, "image/png", "content-type should be image/png");
+        let cache_control = resp
+            .headers()
+            .get(CACHE_CONTROL)
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or("");
+        assert_eq!(
+            cache_control, "public, max-age=31536000, immutable",
+            "file image responses should be cacheable so iOS does not redownload markdown images"
+        );
         let body = axum::body::to_bytes(resp.into_body(), usize::MAX)
             .await
             .unwrap();

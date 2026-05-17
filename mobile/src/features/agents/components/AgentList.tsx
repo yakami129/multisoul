@@ -23,6 +23,10 @@ interface Props {
   onAgentPress: (id: string, endpoint_id: string, name: string) => void;
 }
 
+function AgentCardSeparator() {
+  return <View style={s.cardSeparator} />;
+}
+
 export function AgentList({ agents, isLoading, isError, error, onRefetch, onAgentPress }: Props) {
   const insets = useSafeAreaInsets();
   const [isRefreshing, setIsRefreshing] = React.useState(false);
@@ -95,6 +99,10 @@ export function AgentList({ agents, isLoading, isError, error, onRefetch, onAgen
             onPress={() => onAgentPress(item.id, item.endpoint_id, item.name)}
           />
         )}
+        ItemSeparatorComponent={AgentCardSeparator}
+        scrollEnabled={agents.length > 0}
+        bounces={agents.length > 0}
+        alwaysBounceVertical={agents.length > 0}
         refreshControl={
           <RefreshControl
             refreshing={isRefreshing}
@@ -160,7 +168,8 @@ const s = StyleSheet.create({
     justifyContent: 'center',
   },
   retryText: { fontFamily: 'Inter', fontSize: 14, fontWeight: '600', color: '#FFFFFF' },
-  listContent: { paddingVertical: 8, paddingBottom: 110 },
+  listContent: { paddingTop: 16, paddingBottom: 110 },
+  cardSeparator: { height: 12 },
   emptyContainer: { flex: 1 },
   emptyWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8, padding: 24 },
   emptyTitle: { fontFamily: 'Anton', fontSize: 18, color: '#FFFFFF' },

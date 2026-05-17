@@ -56,7 +56,7 @@ export function AgentCard({ agent, onPress }: Props) {
 }
 
 const s = StyleSheet.create({
-  wrap: { paddingHorizontal: 12, paddingVertical: 6 },
+  wrap: { paddingHorizontal: 16 },
   wrapPressed: { opacity: 0.7 },
   card: { backgroundColor: '#1A1A1A', borderRadius: 12, overflow: 'hidden' },
   cardHeader: {

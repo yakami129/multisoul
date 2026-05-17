@@ -6,8 +6,26 @@ import ChatInputBar from './ChatInputBar';
 const noop = () => {};
 
 describe('ChatInputBar', () => {
-  it('renders enhanced input affordances from the pencli reference', () => {
-    const { getByPlaceholderText, getByText, getByTestId } = render(
+  /// Chat input chrome: render the composer controls without a synthetic slash prefix.
+  ///
+  /// Data construction:
+  ///   Empty value length = 0 characters.
+  ///   Max input length   = 4096 characters.
+  ///   Counter text       = "0 / 4096".
+  ///
+  /// Execution process:
+  ///   1. Render the input bar with an empty value and enabled controls.
+  ///   2. Inspect the text nodes and test IDs exposed by the composer.
+  ///
+  /// Expected result:
+  ///   - Positive assertion: commands, counter, surface, divider, placeholder,
+  ///     and maxLength all exist because the input affordances remain available.
+  ///   - Negative assertion: standalone "/" does not exist, because it was a
+  ///     visual prefix and not user-entered content.
+  ///   - Negative assertion: toolbar voice button does not exist, because the
+  ///     bottom row should not show a voice recognition icon.
+  it('renders enhanced input affordances without a slash prefix', () => {
+    const { getByPlaceholderText, getByText, getByTestId, queryByText, queryByTestId } = render(
       <ChatInputBar
         value=""
         onChangeText={noop}
@@ -20,7 +38,8 @@ describe('ChatInputBar', () => {
       />,
     );
 
-    expect(getByText('/')).toBeTruthy();
+    expect(queryByText('/')).toBeNull();
+    expect(queryByTestId('voice-btn')).toBeNull();
     expect(getByText('Commands')).toBeTruthy();
     expect(getByText('0 / 4096')).toBeTruthy();
     expect(getByTestId('input-surface')).toBeTruthy();
@@ -133,7 +152,7 @@ describe('ChatInputBar', () => {
     expect(onPickImage).toHaveBeenCalledTimes(1);
   });
 
-  it('shows alert and does NOT call onSend when voice button pressed', () => {
+  it('shows alert and does NOT call onSend when inline mic button pressed', () => {
     const onSend = jest.fn();
     const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
     const { getByTestId } = render(
@@ -148,7 +167,7 @@ describe('ChatInputBar', () => {
         onStop={noop}
       />,
     );
-    fireEvent.press(getByTestId('voice-btn'));
+    fireEvent.press(getByTestId('mic-btn'));
     expect(onSend).not.toHaveBeenCalled();
     expect(alertSpy).toHaveBeenCalledWith('语音功能即将上线，敬请期待');
     alertSpy.mockRestore();

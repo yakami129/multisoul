@@ -34,9 +34,6 @@ export default function ChatInputBar({
     <View style={s.container}>
       <View testID="input-surface" style={[s.inputSurface, disabled && s.inputRowDisabled]}>
         <View style={s.inputRow}>
-          <View style={s.slashBadge}>
-            <Text style={s.slashText}>/</Text>
-          </View>
           <TextInput
             testID="message-input"
             style={s.input}
@@ -103,16 +100,6 @@ export default function ChatInputBar({
           </TouchableOpacity>
 
           <TouchableOpacity
-            testID="voice-btn"
-            accessibilityLabel="Voice input (coming soon)"
-            accessibilityRole="button"
-            onPress={handleVoicePress}
-            style={s.toolBtn}
-          >
-            <Mic size={22} color="#555555" />
-          </TouchableOpacity>
-
-          <TouchableOpacity
             testID="command-btn"
             accessibilityLabel="Open commands"
             accessibilityRole="button"
@@ -157,18 +144,6 @@ const s = StyleSheet.create({
     paddingVertical: 10,
   },
   inputRowDisabled: { opacity: 0.4 },
-  slashBadge: {
-    paddingRight: 4,
-    alignSelf: 'flex-start',
-    minHeight: 34,
-    justifyContent: 'center',
-  },
-  slashText: {
-    fontFamily: 'Inter',
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FF6B35',
-  },
   input: {
     flex: 1,
     minHeight: 34,

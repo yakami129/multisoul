@@ -7,7 +7,6 @@ import {
   Alert,
   Image,
   Linking,
-  SafeAreaView,
   ScrollView,
   View,
   Text,
@@ -16,6 +15,7 @@ import {
   Platform,
   Pressable,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import ChatInputBar from '@/features/chat/components/ChatInputBar';
 import CommandPopup from '@/features/chat/components/CommandPopup';
 import { MessageBubble } from '@/features/chat/components/MessageBubble';
@@ -24,6 +24,7 @@ import {
   fetchMessages,
   uploadImage,
   abortConversation,
+  resolveUserMessageImageUri,
 } from '@/features/chat/services/chatService';
 import {
   getLatestAgentActivitySeq,
@@ -32,10 +33,11 @@ import {
 import { loadAnsweredAsks } from '@/features/inbox/services/inboxService';
 import { mirrorAskQuestionsToInbox } from '@/features/inbox/utils/mirrorAskQuestionsToInbox';
 import { useWebSocket } from '@/hooks/useWebSocket';
+import { recordDiagnosticsEvent } from '@/services/diagnosticsLog';
 import { useChatStore } from '@/store/chatStore';
 import { useEndpointStore } from '@/store/endpointStore';
 import { useInboxStore } from '@/store/inboxStore';
-import { type UserTextPayload, type WsMessage } from '@/types';
+import { type WsMessage } from '@/types';
 import { s } from './styles';
 
 // Stable fallback — never recreated, so Zustand won't see a changed snapshot
@@ -112,14 +114,17 @@ export default function ChatDetailScreen() {
   // Memoize the imageUri callback so MessageBubble memo can bail out reliably
   const imageUriForMessage = React.useCallback(
     (msg: WsMessage) => {
-      if (msg.role !== 'user_text') return undefined;
-      const fileId = (msg.payload as UserTextPayload).file_id;
-      return fileId ? imageMapRef.current.get(fileId) : undefined;
+      if (!endpoint) return undefined;
+      return resolveUserMessageImageUri(
+        msg,
+        endpoint.base_url,
+        endpoint.token,
+        imageMapRef.current,
+      );
     },
     // imageMapRef.current mutates in place — we intentionally omit it; the
     // function reference is stable, and Map lookups are always up-to-date.
-
-    [],
+    [endpoint],
   );
 
   const { status, sendAnswer, sendAnswerMulti } = useWebSocket(
@@ -167,7 +172,12 @@ export default function ChatDetailScreen() {
           addItem: addInboxItem,
         });
       })
-      .catch(() => {
+      .catch((error: unknown) => {
+        recordDiagnosticsEvent('error', 'chat.history', 'failed to load chat history', {
+          conv_id,
+          endpoint_id,
+          error,
+        });
         hasLoadedInitialMessagesRef.current = true;
       });
   }, [
@@ -208,7 +218,11 @@ export default function ChatDetailScreen() {
               : img,
           ),
         );
-      } catch {
+      } catch (error: unknown) {
+        recordDiagnosticsEvent('error', 'chat.image', 'image upload failed', {
+          endpoint_id,
+          error,
+        });
         setPendingImages((prev) =>
           prev.map((img) =>
             img.localUri === localUri && img.status === 'uploading'
@@ -283,7 +297,13 @@ export default function ChatDetailScreen() {
         await postMessage(endpoint.base_url, endpoint.token, conv_id, text);
       }
       setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
-    } catch {
+    } catch (error: unknown) {
+      recordDiagnosticsEvent('error', 'chat.send', 'failed to send message', {
+        conv_id,
+        endpoint_id,
+        image_count: uploadedImages.length,
+        error,
+      });
       setIsAwaitingResponse(false);
     }
   };
@@ -347,7 +367,7 @@ export default function ChatDetailScreen() {
     : (STATUS_BADGE[conversation?.status ?? 'idle'] ?? STATUS_BADGE.idle);
 
   return (
-    <SafeAreaView style={s.safe}>
+    <SafeAreaView style={s.safe} edges={['top', 'left', 'right']}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -456,15 +476,23 @@ export default function ChatDetailScreen() {
                     setIsAwaitingResponse(false);
                   })
                   .catch((e: unknown) => {
+                    recordDiagnosticsEvent('warn', 'chat.abort', 'abort request failed', {
+                      conv_id,
+                      endpoint_id,
+                      error: e,
+                    });
                     console.warn('abort failed', e);
                   });
               } else {
+                recordDiagnosticsEvent('warn', 'chat.abort', 'abort skipped without endpoint', {
+                  conv_id,
+                  endpoint_id,
+                });
                 console.warn('abort: no endpoint available');
               }
             }}
             placeholder={isOffline ? 'Agent offline...' : 'Message...'}
           />
-          <View style={s.safeArea} />
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>

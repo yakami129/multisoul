@@ -3,6 +3,7 @@ import * as ImageManipulator from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
 import React from 'react';
 import { Alert } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { fetchMessages, postMessage, uploadImage } from '@/features/chat/services/chatService';
 import { useChatStore } from '@/store/chatStore';
 import { useEndpointStore } from '@/store/endpointStore';
@@ -28,6 +29,20 @@ jest.mock('@/features/chat/services/chatService', () => ({
   postMessage: jest.fn(),
   uploadImage: jest.fn(),
   abortConversation: jest.fn().mockResolvedValue(undefined),
+  resolveUserMessageImageUri: (
+    msg: WsMessage,
+    baseUrl: string,
+    token: string,
+    localUris: Map<string, string>,
+  ) => {
+    if (msg.role !== 'user_text') return undefined;
+    const fileId = (msg.payload as { file_id?: string }).file_id;
+    if (!fileId) return undefined;
+    const base = baseUrl.replace(/\/$/, '');
+    const encodedFileId = encodeURIComponent(fileId);
+    const encodedToken = encodeURIComponent(token);
+    return localUris.get(fileId) ?? `${base}/api/v1/uploads/${encodedFileId}?token=${encodedToken}`;
+  },
 }));
 
 jest.mock('expo-image-picker', () => ({
@@ -231,6 +246,43 @@ test('renders image picker button in chat list detail composer', () => {
 
   expect(getByLabelText('Attach image')).toBeTruthy();
   expect(getByTestId('attach-btn')).toBeTruthy();
+});
+
+/// Chat detail bottom edge: the screen-level safe area must not reserve bottom
+/// inset space below the composer.
+///
+/// Data construction:
+///   iOS home-indicator inset ≈ 34 px on common full-screen iPhones.
+///   ChatInputBar already paints the bottom composer surface.
+///   Applying SafeAreaView bottom edge would add ≈ 34 px of blank space under it.
+///
+/// Execution process:
+///   1. Render ChatDetailScreen with the default conversation fixture.
+///   2. Inspect the screen-level SafeAreaView edge list.
+///
+/// Expected result:
+///   - Positive assertion: top edge should be present, so the header remains
+///     protected from the notch/status bar.
+///   - Negative assertion: bottom edge should be absent, otherwise the input
+///     sits above a visible blank safe-area gap.
+///   - Boundary assertion: the full edge list should be exactly top/left/right.
+test('chat detail safe area excludes the bottom edge under the composer', () => {
+  const { UNSAFE_getByType } = render(<ChatDetailScreen />);
+
+  const safeArea = UNSAFE_getByType(SafeAreaView);
+
+  expect(safeArea.props.edges).toContain(
+    'top',
+    'chat detail safe area must keep top protection for the header',
+  );
+  expect(safeArea.props.edges).not.toContain(
+    'bottom',
+    'chat detail safe area must not add bottom inset space under the composer',
+  );
+  expect(safeArea.props.edges).toEqual(
+    ['top', 'left', 'right'],
+    'chat detail safe area should protect only top and horizontal edges',
+  );
 });
 
 test('uploads selected image and renders the sent image message with local uri', async () => {

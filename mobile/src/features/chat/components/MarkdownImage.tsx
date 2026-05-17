@@ -1,6 +1,7 @@
 import { X } from 'lucide-react-native';
 import React, { useState } from 'react';
-import { Image, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Image, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { recordDiagnosticsEvent } from '@/services/diagnosticsLog';
 
 interface Props {
   src: string;
@@ -9,23 +10,67 @@ interface Props {
   token: string;
 }
 
-function resolveSource(src: string, serverUrl: string, apiKey: string): { uri: string } | null {
+function resolveSource(
+  src: string,
+  serverUrl: string,
+  apiKey: string,
+): { uri: string; cache: 'force-cache' } | null {
   if (src.startsWith('https://') || src.startsWith('http://')) {
-    return { uri: src };
+    return { uri: src, cache: 'force-cache' };
   }
   if (src.startsWith('/')) {
+    const base = serverUrl.replace(/\/$/, '');
     return {
-      uri: `${serverUrl}/api/v1/files?path=${encodeURIComponent(src)}&token=${encodeURIComponent(apiKey)}`,
+      uri: `${base}/api/v1/files?path=${encodeURIComponent(src)}&token=${encodeURIComponent(apiKey)}`,
+      cache: 'force-cache',
     };
   }
   return null;
 }
 
+async function probeMarkdownImageUri(uri: string, src: string, alt: string, token: string) {
+  try {
+    const res = await fetch(uri, { method: 'GET' });
+    recordDiagnosticsEvent('warn', 'chat.markdown_image', 'markdown image probe completed', {
+      src,
+      alt,
+      uri,
+      debug_token: token,
+      status: res.status,
+      ok: res.ok,
+      content_type: res.headers.get('content-type'),
+      content_length: res.headers.get('content-length'),
+    });
+  } catch (error: unknown) {
+    recordDiagnosticsEvent('error', 'chat.markdown_image', 'markdown image probe failed', {
+      src,
+      alt,
+      uri,
+      debug_token: token,
+      error,
+    });
+  }
+}
+
 export function MarkdownImage({ src, alt, serverUrl, token }: Props) {
   const [previewVisible, setPreviewVisible] = useState(false);
   const [hasError, setHasError] = useState(false);
+  const [thumbLoading, setThumbLoading] = useState(true);
+  const [fullscreenLoading, setFullscreenLoading] = useState(false);
 
   const source = resolveSource(src, serverUrl, token);
+  const markImageLoadFailed = React.useCallback(() => {
+    recordDiagnosticsEvent('warn', 'chat.markdown_image', 'markdown image load failed', {
+      src,
+      alt,
+      uri: source?.uri,
+      debug_token: token,
+    });
+    if (source?.uri) void probeMarkdownImageUri(source.uri, src, alt, token);
+    setThumbLoading(false);
+    setFullscreenLoading(false);
+    setHasError(true);
+  }, [alt, source?.uri, src, token]);
 
   if (!source) {
     return (
@@ -49,6 +94,7 @@ export function MarkdownImage({ src, alt, serverUrl, token }: Props) {
         testID="markdown-image-modal"
         visible={previewVisible}
         transparent
+        presentationStyle="overFullScreen"
         animationType="fade"
         onRequestClose={() => setPreviewVisible(false)}
       >
@@ -64,32 +110,62 @@ export function MarkdownImage({ src, alt, serverUrl, token }: Props) {
             source={source}
             style={s.fullscreenImage}
             resizeMode="contain"
+            onLoadStart={() => setFullscreenLoading(true)}
+            onLoadEnd={() => setFullscreenLoading(false)}
+            onError={markImageLoadFailed}
             testID="markdown-image-fullscreen"
           />
+          {fullscreenLoading ? (
+            <View style={s.fullscreenLoadingOverlay} testID="markdown-image-fullscreen-loading">
+              <ActivityIndicator color="#FF6B35" />
+              <Text style={s.loadingText}>Loading image...</Text>
+            </View>
+          ) : null}
           <Text style={s.altText}>{alt}</Text>
         </View>
       </Modal>
 
-      <Pressable testID="markdown-image-thumb-press" onPress={() => setPreviewVisible(true)}>
+      <Pressable
+        testID="markdown-image-thumb-press"
+        style={s.thumbnailFrame}
+        onPress={() => {
+          setFullscreenLoading(true);
+          setPreviewVisible(true);
+        }}
+      >
         <Image
           source={source}
           style={s.thumbnail}
           resizeMode="contain"
-          onError={() => setHasError(true)}
+          onLoadStart={() => setThumbLoading(true)}
+          onLoadEnd={() => setThumbLoading(false)}
+          onError={markImageLoadFailed}
           testID="markdown-image-thumb"
         />
+        {thumbLoading ? (
+          <View style={s.loadingOverlay} testID="markdown-image-loading">
+            <ActivityIndicator color="#FF6B35" />
+            <Text style={s.loadingText}>Loading image...</Text>
+          </View>
+        ) : null}
       </Pressable>
     </>
   );
 }
 
 const s = StyleSheet.create({
-  thumbnail: {
-    width: '100%',
+  thumbnailFrame: {
+    width: 240,
+    maxWidth: '100%',
     height: 200,
   },
-  placeholder: {
+  thumbnail: {
     width: '100%',
+    height: '100%',
+  },
+  placeholder: {
+    width: 240,
+    maxWidth: '100%',
     height: 200,
     backgroundColor: '#1A1A1A',
     alignItems: 'center',
@@ -120,12 +196,33 @@ const s = StyleSheet.create({
   },
   fullscreenImage: {
     width: '100%',
-    height: '80%',
+    height: '100%',
+  },
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: '#1A1A1A',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  fullscreenLoadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.72)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  loadingText: {
+    fontFamily: 'Inter',
+    fontSize: 12,
+    color: '#888888',
   },
   altText: {
     fontFamily: 'Inter',
     fontSize: 11,
     color: '#888888',
+    position: 'absolute',
+    bottom: 36,
     marginTop: 12,
   },
 });

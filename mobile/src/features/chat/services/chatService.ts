@@ -1,5 +1,5 @@
 import { getEndpointClient } from '@/api/endpointClient';
-import { type Conversation, type WsMessage } from '@/types';
+import { type Conversation, type UserTextPayload, type WsMessage } from '@/types';
 
 function buildConversationWsUrl(base_url: string, token: string, conv_id: string): string {
   const wsUrl = base_url.replace(/^https/, 'wss').replace(/^http/, 'ws');
@@ -78,6 +78,25 @@ export async function uploadImage(
     headers: { 'Content-Type': 'multipart/form-data' },
   });
   return res.data;
+}
+
+export function buildUploadedImageUrl(base_url: string, token: string, file_id: string): string {
+  const base = base_url.replace(/\/$/, '');
+  const encodedFileId = encodeURIComponent(file_id);
+  const encodedToken = encodeURIComponent(token);
+  return `${base}/api/v1/uploads/${encodedFileId}?token=${encodedToken}`;
+}
+
+export function resolveUserMessageImageUri(
+  msg: WsMessage,
+  base_url: string,
+  token: string,
+  localImageUris: ReadonlyMap<string, string>,
+): string | undefined {
+  if (msg.role !== 'user_text') return undefined;
+  const fileId = (msg.payload as UserTextPayload).file_id;
+  if (!fileId) return undefined;
+  return localImageUris.get(fileId) ?? buildUploadedImageUrl(base_url, token, fileId);
 }
 
 export async function sendConversationAnswer(

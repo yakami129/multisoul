@@ -76,5 +76,5 @@ export const s = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  safeArea: { height: 34, backgroundColor: '#1A1A1A' },
+  safeArea: { height: 0, backgroundColor: '#1A1A1A' },
 });

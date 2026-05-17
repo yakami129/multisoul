@@ -1,5 +1,6 @@
 import React, { Component, type ErrorInfo, type ReactNode } from 'react';
 import { Pressable, Text, View } from 'react-native';
+import { recordDiagnosticsEvent } from '@/services/diagnosticsLog';
 
 interface Props {
   children: ReactNode;
@@ -22,6 +23,10 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
+    recordDiagnosticsEvent('error', 'app.error_boundary', error.message, {
+      name: error.name,
+      componentStack: info.componentStack,
+    });
     console.error('[ErrorBoundary]', error, info);
   }
 

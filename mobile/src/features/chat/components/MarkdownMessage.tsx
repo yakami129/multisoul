@@ -1,6 +1,15 @@
 import * as Clipboard from 'expo-clipboard';
 import React, { memo, useState } from 'react';
-import { Pressable, ScrollView, Text, View, type StyleProp, type TextStyle } from 'react-native';
+import {
+  Linking,
+  Pressable,
+  ScrollView,
+  Text,
+  View,
+  type StyleProp,
+  type TextStyle,
+  type ViewStyle,
+} from 'react-native';
 import Markdown, { type ASTNode, type RenderRules } from 'react-native-markdown-display';
 import { MarkdownImage } from './MarkdownImage';
 import type { MermaidFence as MermaidFenceComponent } from './MermaidFence';
@@ -264,6 +273,48 @@ function renderSelectableTextGroup(
   );
 }
 
+function renderSelectableTextContainer(styleKey: string) {
+  return (
+    node: ASTNode,
+    children: React.ReactNode[],
+    _parent: ASTNode[],
+    styles: MarkdownStyles,
+  ) => (
+    <Text key={node.key} selectable style={styles[styleKey]}>
+      {children}
+    </Text>
+  );
+}
+
+function isTextChild(child: React.ReactNode): boolean {
+  if (typeof child === 'string' || typeof child === 'number') return true;
+  if (Array.isArray(child)) return child.every(isTextChild);
+  return React.isValidElement(child) && child.type === Text;
+}
+
+function renderSelectableParagraph(
+  node: ASTNode,
+  children: React.ReactNode[],
+  _parent: ASTNode[],
+  styles: MarkdownStyles,
+) {
+  if (!children.every(isTextChild)) {
+    const paragraphViewStyle = (styles as Record<string, StyleProp<ViewStyle>>)
+      ._VIEW_SAFE_paragraph;
+    return (
+      <View key={node.key} style={paragraphViewStyle}>
+        {children}
+      </View>
+    );
+  }
+
+  return (
+    <Text key={node.key} selectable style={styles.paragraph}>
+      {children}
+    </Text>
+  );
+}
+
 function renderSelectableStyledChildren(styleKey: string) {
   return (
     node: ASTNode,
@@ -273,6 +324,30 @@ function renderSelectableStyledChildren(styleKey: string) {
     inheritedStyles?: StyleProp<TextStyle>,
   ) => (
     <Text key={node.key} selectable style={selectableTextStyle(styles, styleKey, inheritedStyles)}>
+      {children}
+    </Text>
+  );
+}
+
+function renderSelectableLink(
+  node: ASTNode,
+  children: React.ReactNode[],
+  _parent: ASTNode[],
+  styles: MarkdownStyles,
+  onLinkPress?: (url: string) => boolean,
+) {
+  const href = String(node.attributes.href ?? '');
+  return (
+    <Text
+      key={node.key}
+      selectable
+      style={styles.link}
+      onPress={() => {
+        if (!href) return;
+        const shouldOpen = onLinkPress ? onLinkPress(href) : true;
+        if (shouldOpen) void Linking.openURL(href);
+      }}
+    >
       {children}
     </Text>
   );
@@ -306,6 +381,13 @@ function renderSelectableBreak(styleKey: 'hardbreak' | 'softbreak') {
 }
 
 export const mdRules: RenderRules = {
+  heading1: renderSelectableTextContainer('heading1'),
+  heading2: renderSelectableTextContainer('heading2'),
+  heading3: renderSelectableTextContainer('heading3'),
+  heading4: renderSelectableTextContainer('heading4'),
+  heading5: renderSelectableTextContainer('heading5'),
+  heading6: renderSelectableTextContainer('heading6'),
+  paragraph: renderSelectableParagraph,
   text: renderSelectableText,
   textgroup: renderSelectableTextGroup,
   strong: renderSelectableStyledChildren('strong'),
@@ -313,6 +395,7 @@ export const mdRules: RenderRules = {
   s: renderSelectableStyledChildren('s'),
   inline: renderSelectableStyledChildren('inline'),
   span: renderSelectableStyledChildren('span'),
+  link: renderSelectableLink,
   code_inline: renderSelectableContent('code_inline'),
   code_block: renderSelectableContent('code_block'),
   hardbreak: renderSelectableBreak('hardbreak'),
