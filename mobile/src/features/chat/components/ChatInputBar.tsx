@@ -1,6 +1,22 @@
-import { ArrowUp, ImagePlus, Mic, Square, Terminal } from 'lucide-react-native';
+import { ArrowUp, ImagePlus, Mic, Square, Terminal, X } from 'lucide-react-native';
 import React from 'react';
-import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import {
+  Alert,
+  Image,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+
+interface PendingImage {
+  localUri: string;
+  fileId: string | null;
+  status: 'uploading' | 'uploaded' | 'failed';
+}
 
 interface Props {
   value: string;
@@ -12,6 +28,8 @@ interface Props {
   isAgentRunning: boolean;
   onStop: () => void;
   placeholder?: string;
+  pendingImages: PendingImage[];
+  onRemoveImage: (index: number) => void;
 }
 
 export default function ChatInputBar({
@@ -24,6 +42,8 @@ export default function ChatInputBar({
   isAgentRunning,
   onStop,
   placeholder = 'Message Grok...',
+  pendingImages,
+  onRemoveImage,
 }: Props) {
   const hasText = value.trim().length > 0;
   const handleVoicePress = () => Alert.alert('语音功能即将上线，敬请期待');
@@ -31,59 +51,90 @@ export default function ChatInputBar({
   const actionDisabled = disabled && !isAgentRunning;
 
   return (
-    <View style={s.container}>
-      <View testID="input-surface" style={[s.inputSurface, disabled && s.inputRowDisabled]}>
-        <View style={s.inputRow}>
-          <TextInput
-            testID="message-input"
-            style={s.input}
-            placeholder={placeholder}
-            placeholderTextColor="#555555"
-            value={value}
-            onChangeText={onChangeText}
-            editable={!disabled}
-            multiline
-            maxLength={4096}
-            returnKeyType="default"
-            scrollEnabled
-          />
-          {isAgentRunning ? (
-            <TouchableOpacity
-              testID="stop-btn"
-              accessibilityLabel="Stop conversation"
-              accessibilityRole="button"
-              onPress={onStop}
-              style={[s.actionBtn, s.stopBtn]}
-            >
-              <Square size={14} color="#FF4444" />
-            </TouchableOpacity>
-          ) : hasText ? (
-            <TouchableOpacity
-              testID="send-btn"
-              accessibilityLabel="Send message"
-              accessibilityRole="button"
-              accessibilityState={{ disabled: actionDisabled }}
-              onPress={onSend}
-              disabled={actionDisabled}
-              style={[s.actionBtn, s.sendBtn, actionDisabled && s.toolBtnDisabled]}
-            >
-              <ArrowUp size={18} color="#FFFFFF" />
-            </TouchableOpacity>
-          ) : (
-            <TouchableOpacity
-              testID="mic-btn"
-              accessibilityLabel="Voice input (coming soon)"
-              accessibilityRole="button"
-              onPress={handleVoicePress}
-              style={s.actionBtn}
-            >
-              <Mic size={17} color="#666666" />
-            </TouchableOpacity>
-          )}
-        </View>
-      </View>
+    <View style={s.card}>
+      {pendingImages.length > 0 && (
+        <ScrollView
+          testID="img-preview-row"
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={s.imgStrip}
+          contentContainerStyle={s.imgStripContent}
+        >
+          {pendingImages.map((img, idx) => (
+            <View key={img.localUri} style={s.thumbWrapper}>
+              <Image source={{ uri: img.localUri }} style={s.thumb} />
+              {img.status === 'uploading' && (
+                <View style={s.thumbOverlay}>
+                  <Text style={s.thumbOverlayText}>...</Text>
+                </View>
+              )}
+              {img.status === 'failed' && (
+                <View style={[s.thumbOverlay, s.thumbFailed]}>
+                  <Text style={s.thumbOverlayText}>!</Text>
+                </View>
+              )}
+              <Pressable
+                testID={`remove-img-${idx}`}
+                style={s.removeBadge}
+                onPress={() => onRemoveImage(idx)}
+                accessibilityLabel="Remove image"
+                accessibilityRole="button"
+              >
+                <X size={8} color="#FFFFFF" />
+              </Pressable>
+            </View>
+          ))}
+        </ScrollView>
+      )}
 
-      <View testID="toolbar-divider" style={s.divider} />
+      <View style={s.textRow}>
+        <TextInput
+          testID="message-input"
+          style={s.input}
+          placeholder={placeholder}
+          placeholderTextColor="#3A3A3A"
+          value={value}
+          onChangeText={onChangeText}
+          editable={!disabled}
+          multiline
+          maxLength={4096}
+          returnKeyType="default"
+          scrollEnabled
+        />
+        {isAgentRunning ? (
+          <TouchableOpacity
+            testID="stop-btn"
+            accessibilityLabel="Stop conversation"
+            accessibilityRole="button"
+            onPress={onStop}
+            style={[s.actionBtn, s.stopBtn]}
+          >
+            <Square size={14} color="#FF4444" />
+          </TouchableOpacity>
+        ) : hasText ? (
+          <TouchableOpacity
+            testID="send-btn"
+            accessibilityLabel="Send message"
+            accessibilityRole="button"
+            accessibilityState={{ disabled: actionDisabled }}
+            onPress={onSend}
+            disabled={actionDisabled}
+            style={[s.actionBtn, s.sendBtn, actionDisabled && s.toolBtnDisabled]}
+          >
+            <ArrowUp size={18} color="#FFFFFF" />
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity
+            testID="mic-btn"
+            accessibilityLabel="Voice input (coming soon)"
+            accessibilityRole="button"
+            onPress={handleVoicePress}
+            style={s.actionBtn}
+          >
+            <Mic size={17} color="#666666" />
+          </TouchableOpacity>
+        )}
+      </View>
 
       <View style={s.toolbar}>
         <View style={s.toolbarLeft}>
@@ -120,56 +171,94 @@ export default function ChatInputBar({
 }
 
 const s = StyleSheet.create({
-  container: {
-    backgroundColor: '#1A1A1A',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 4,
+  card: {
+    backgroundColor: '#111111',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#222222',
+    padding: 12,
+    paddingHorizontal: 14,
     gap: 8,
   },
-  inputSurface: {
-    backgroundColor: '#252525',
-    borderRadius: 14,
+  imgStrip: {
+    maxHeight: 68,
   },
-  inputRow: {
-    minHeight: 54,
+  imgStripContent: {
+    gap: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  thumbWrapper: {
+    width: 52,
+    height: 52,
+    borderRadius: 8,
+    overflow: 'hidden',
+    position: 'relative',
+    borderWidth: 1,
+    borderColor: '#2A2A2A',
+  },
+  thumb: {
+    width: 52,
+    height: 52,
+  },
+  thumbOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: '#00000099',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  thumbFailed: {
+    backgroundColor: '#FF444499',
+  },
+  thumbOverlayText: {
+    fontFamily: 'Inter',
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  removeBadge: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: '#000000CC',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  textRow: {
+    minHeight: 40,
     maxHeight: 120,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    paddingLeft: 14,
-    paddingRight: 10,
-    paddingVertical: 10,
   },
-  inputRowDisabled: { opacity: 0.4 },
   input: {
     flex: 1,
-    minHeight: 34,
+    minHeight: 24,
     maxHeight: 98,
     padding: 0,
     margin: 0,
     fontFamily: 'Inter',
-    fontSize: 15,
+    fontSize: 14,
     color: '#FFFFFF',
-    lineHeight: 22,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: '#252525',
+    lineHeight: 20,
   },
   toolbar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    minHeight: 40,
-    paddingHorizontal: 4,
-    paddingBottom: 4,
+    minHeight: 36,
   },
   toolbarLeft: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 8,
   },
   toolBtn: {
     width: 36,
@@ -204,9 +293,9 @@ const s = StyleSheet.create({
     color: '#333333',
   },
   actionBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
   },

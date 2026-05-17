@@ -1,11 +1,10 @@
 import * as ImageManipulator from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { ChevronLeft, X } from 'lucide-react-native';
+import { ChevronLeft } from 'lucide-react-native';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   Alert,
-  Image,
   Linking,
   ScrollView,
   View,
@@ -13,7 +12,6 @@ import {
   TouchableOpacity,
   KeyboardAvoidingView,
   Platform,
-  Pressable,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import ChatInputBar from '@/features/chat/components/ChatInputBar';
@@ -425,38 +423,6 @@ export default function ChatDetailScreen() {
           onDismiss={() => setCommandPopupVisible(false)}
         />
         <View style={s.inputArea}>
-          {pendingImages.length > 0 && (
-            <ScrollView
-              testID="img-preview-row"
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              style={s.previewRow}
-              contentContainerStyle={s.previewRowContent}
-            >
-              {pendingImages.map((img, idx) => (
-                <View key={img.localUri} style={s.thumbWrapper}>
-                  <Image source={{ uri: img.localUri }} style={s.thumb} />
-                  {img.status === 'uploading' && (
-                    <View style={s.thumbOverlay}>
-                      <Text style={s.thumbOverlayText}>...</Text>
-                    </View>
-                  )}
-                  {img.status === 'failed' && (
-                    <View style={[s.thumbOverlay, s.thumbFailed]}>
-                      <Text style={s.thumbOverlayText}>!</Text>
-                    </View>
-                  )}
-                  <Pressable
-                    testID={`remove-img-${idx}`}
-                    style={s.removeBadge}
-                    onPress={() => setPendingImages((prev) => prev.filter((_, i) => i !== idx))}
-                  >
-                    <X size={8} color="#FFFFFF" />
-                  </Pressable>
-                </View>
-              ))}
-            </ScrollView>
-          )}
           <ChatInputBar
             value={input}
             onChangeText={handleInputChange}
@@ -492,6 +458,8 @@ export default function ChatDetailScreen() {
               }
             }}
             placeholder={isOffline ? 'Agent offline...' : 'Message...'}
+            pendingImages={pendingImages}
+            onRemoveImage={(idx) => setPendingImages((prev) => prev.filter((_, i) => i !== idx))}
           />
         </View>
       </KeyboardAvoidingView>
