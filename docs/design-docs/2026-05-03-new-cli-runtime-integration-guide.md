@@ -266,7 +266,7 @@ serde_json::json!({ "call_id": "tool-1", "ok": true, "summary": "/repo" })
 
 ### Step 4：注册到 mod.rs
 
-打开 `cli/src/serve/runtime/mod.rs`，添加模块声明和 match arm：
+打开 `cli/src/serve/runtime/mod.rs`，添加模块声明和 match arm（`inject_image_prefix` 将拼接后的路径里的 `\\` 换成 `/`，保证 Windows 上注入串仍与 Unix 一样可读）：
 
 ```rust
 mod claude;

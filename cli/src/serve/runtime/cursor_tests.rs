@@ -27,6 +27,7 @@ use tempfile::tempdir;
 ///   - process_turn 在 1000ms 内返回：没有继续卡在 read_line
 ///   - process_turn 返回 Err：被杀 Cursor child 不会被误判成成功 turn
 ///   - sessions 中 conv_id 不存在：下一条消息会创建新 worker
+#[cfg(unix)]
 #[test]
 fn abort_kills_child_blocking_inside_cursor_process_turn() {
     let state = make_runtime_abort_state();
