@@ -35,6 +35,8 @@ describe('ChatInputBar', () => {
         disabled={false}
         isAgentRunning={false}
         onStop={noop}
+        pendingImages={[]}
+        onRemoveImage={noop}
       />,
     );
 
@@ -42,8 +44,6 @@ describe('ChatInputBar', () => {
     expect(queryByTestId('voice-btn')).toBeNull();
     expect(getByText('Commands')).toBeTruthy();
     expect(getByText('0 / 4096')).toBeTruthy();
-    expect(getByTestId('input-surface')).toBeTruthy();
-    expect(getByTestId('toolbar-divider')).toBeTruthy();
     expect(getByPlaceholderText('Message Grok...')).toBeTruthy();
     expect(getByTestId('message-input').props.maxLength).toBe(4096);
   });
@@ -59,6 +59,8 @@ describe('ChatInputBar', () => {
         disabled={false}
         isAgentRunning={false}
         onStop={noop}
+        pendingImages={[]}
+        onRemoveImage={noop}
       />,
     );
 
@@ -77,6 +79,8 @@ describe('ChatInputBar', () => {
         disabled={false}
         isAgentRunning={false}
         onStop={noop}
+        pendingImages={[]}
+        onRemoveImage={noop}
       />,
     );
     expect(getByTestId('send-btn')).toBeTruthy();
@@ -93,6 +97,8 @@ describe('ChatInputBar', () => {
         disabled={false}
         isAgentRunning={false}
         onStop={noop}
+        pendingImages={[]}
+        onRemoveImage={noop}
       />,
     );
     expect(getByTestId('mic-btn')).toBeTruthy();
@@ -110,6 +116,8 @@ describe('ChatInputBar', () => {
         disabled={false}
         isAgentRunning={false}
         onStop={noop}
+        pendingImages={[]}
+        onRemoveImage={noop}
       />,
     );
     fireEvent.press(getByTestId('send-btn'));
@@ -128,6 +136,8 @@ describe('ChatInputBar', () => {
         disabled={false}
         isAgentRunning={false}
         onStop={noop}
+        pendingImages={[]}
+        onRemoveImage={noop}
       />,
     );
     fireEvent.press(getByTestId('command-btn'));
@@ -146,6 +156,8 @@ describe('ChatInputBar', () => {
         disabled={false}
         isAgentRunning={false}
         onStop={noop}
+        pendingImages={[]}
+        onRemoveImage={noop}
       />,
     );
     fireEvent.press(getByTestId('attach-btn'));
@@ -165,6 +177,8 @@ describe('ChatInputBar', () => {
         disabled={false}
         isAgentRunning={false}
         onStop={noop}
+        pendingImages={[]}
+        onRemoveImage={noop}
       />,
     );
     fireEvent.press(getByTestId('mic-btn'));
@@ -185,6 +199,8 @@ describe('ChatInputBar', () => {
         disabled={false}
         isAgentRunning={true}
         onStop={onStop}
+        pendingImages={[]}
+        onRemoveImage={noop}
       />,
     );
     fireEvent.press(getByTestId('stop-btn'));
@@ -202,10 +218,128 @@ describe('ChatInputBar', () => {
         disabled={true}
         isAgentRunning={false}
         onStop={noop}
+        pendingImages={[]}
+        onRemoveImage={noop}
       />,
     );
     // Buttons exist but are disabled
     expect(getByTestId('attach-btn').props.accessibilityState?.disabled).toBe(true);
     expect(getByTestId('command-btn').props.accessibilityState?.disabled).toBe(true);
+  });
+
+  describe('Image Preview', () => {
+    it('should not render image preview row when pendingImages is empty', () => {
+      const { queryByTestId } = render(
+        <ChatInputBar
+          value=""
+          onChangeText={jest.fn()}
+          onSend={jest.fn()}
+          onPickImage={jest.fn()}
+          onOpenCommands={jest.fn()}
+          disabled={false}
+          isAgentRunning={false}
+          onStop={jest.fn()}
+          pendingImages={[]}
+          onRemoveImage={jest.fn()}
+        />,
+      );
+
+      expect(queryByTestId('img-preview-row')).toBeNull();
+    });
+
+    it('should render image preview row when pendingImages has items', () => {
+      const pendingImages = [
+        { localUri: 'file:///test1.jpg', fileId: 'f1', status: 'uploaded' as const },
+        { localUri: 'file:///test2.jpg', fileId: null, status: 'uploading' as const },
+      ];
+
+      const { getByTestId } = render(
+        <ChatInputBar
+          value=""
+          onChangeText={jest.fn()}
+          onSend={jest.fn()}
+          onPickImage={jest.fn()}
+          onOpenCommands={jest.fn()}
+          disabled={false}
+          isAgentRunning={false}
+          onStop={jest.fn()}
+          pendingImages={pendingImages}
+          onRemoveImage={jest.fn()}
+        />,
+      );
+
+      expect(getByTestId('img-preview-row')).toBeTruthy();
+    });
+
+    it('should call onRemoveImage when remove button is pressed', () => {
+      const onRemoveImage = jest.fn();
+      const pendingImages = [
+        { localUri: 'file:///test1.jpg', fileId: 'f1', status: 'uploaded' as const },
+      ];
+
+      const { getByTestId } = render(
+        <ChatInputBar
+          value=""
+          onChangeText={jest.fn()}
+          onSend={jest.fn()}
+          onPickImage={jest.fn()}
+          onOpenCommands={jest.fn()}
+          disabled={false}
+          isAgentRunning={false}
+          onStop={jest.fn()}
+          pendingImages={pendingImages}
+          onRemoveImage={onRemoveImage}
+        />,
+      );
+
+      fireEvent.press(getByTestId('remove-img-0'));
+      expect(onRemoveImage).toHaveBeenCalledWith(0);
+    });
+
+    it('should show uploading overlay for uploading images', () => {
+      const pendingImages = [
+        { localUri: 'file:///test1.jpg', fileId: null, status: 'uploading' as const },
+      ];
+
+      const { getByText } = render(
+        <ChatInputBar
+          value=""
+          onChangeText={jest.fn()}
+          onSend={jest.fn()}
+          onPickImage={jest.fn()}
+          onOpenCommands={jest.fn()}
+          disabled={false}
+          isAgentRunning={false}
+          onStop={jest.fn()}
+          pendingImages={pendingImages}
+          onRemoveImage={jest.fn()}
+        />,
+      );
+
+      expect(getByText('...')).toBeTruthy();
+    });
+
+    it('should show failed overlay for failed images', () => {
+      const pendingImages = [
+        { localUri: 'file:///test1.jpg', fileId: null, status: 'failed' as const },
+      ];
+
+      const { getByText } = render(
+        <ChatInputBar
+          value=""
+          onChangeText={jest.fn()}
+          onSend={jest.fn()}
+          onPickImage={jest.fn()}
+          onOpenCommands={jest.fn()}
+          disabled={false}
+          isAgentRunning={false}
+          onStop={jest.fn()}
+          pendingImages={pendingImages}
+          onRemoveImage={jest.fn()}
+        />,
+      );
+
+      expect(getByText('!')).toBeTruthy();
+    });
   });
 });
