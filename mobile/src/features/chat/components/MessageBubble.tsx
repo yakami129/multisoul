@@ -1,6 +1,7 @@
 import { X } from 'lucide-react-native';
 import React, { memo, useEffect, useRef, useState } from 'react';
 import { Animated, Easing, View, Text, StyleSheet, Image, Modal, Pressable } from 'react-native';
+import { recordDiagnosticsEvent } from '@/services/diagnosticsLog';
 import {
   type WsMessage,
   type AskQuestionPayload,
@@ -15,6 +16,26 @@ import { ToolCallRow } from './ToolCallRow';
 
 const TYPEWRITER_INTERVAL_MS = 18;
 const DOT_PULSE_DURATION = 600;
+
+async function probeFailedImageUri(imageUri: string, fileId: string | undefined, seq: number) {
+  try {
+    const res = await fetch(imageUri, { method: 'GET' });
+    recordDiagnosticsEvent('warn', 'chat.image.probe', 'image url probe completed', {
+      file_id: fileId,
+      seq,
+      status: res.status,
+      ok: res.ok,
+      content_type: res.headers.get('content-type'),
+      content_length: res.headers.get('content-length'),
+    });
+  } catch (error: unknown) {
+    recordDiagnosticsEvent('error', 'chat.image.probe', 'image url probe failed', {
+      file_id: fileId,
+      seq,
+      error,
+    });
+  }
+}
 
 interface Props {
   msg: WsMessage;
@@ -82,6 +103,19 @@ export const MessageBubble = memo(function MessageBubble({
   useEffect(() => {
     setImageLoadFailed(false);
   }, [imageUri]);
+
+  const markImageLoadFailed = React.useCallback(() => {
+    if (msg.role === 'user_text') {
+      const payload = msg.payload as UserTextPayload;
+      recordDiagnosticsEvent('warn', 'chat.image', 'image load failed', {
+        file_id: payload.file_id,
+        uri: imageUri,
+        seq: msg.seq,
+      });
+      if (imageUri) void probeFailedImageUri(imageUri, payload.file_id, msg.seq);
+    }
+    setImageLoadFailed(true);
+  }, [imageUri, msg]);
 
   useEffect(() => {
     if (!waiting) return undefined;
@@ -166,7 +200,7 @@ export const MessageBubble = memo(function MessageBubble({
                   source={{ uri: imageUri }}
                   style={s.previewImage}
                   resizeMode="contain"
-                  onError={() => setImageLoadFailed(true)}
+                  onError={markImageLoadFailed}
                 />
                 <Text style={s.previewFilename}>{payload.file_id}</Text>
               </View>
@@ -181,7 +215,7 @@ export const MessageBubble = memo(function MessageBubble({
                     source={{ uri: imageUri }}
                     style={s.thumbImage}
                     resizeMode="cover"
-                    onError={() => setImageLoadFailed(true)}
+                    onError={markImageLoadFailed}
                   />
                 </Pressable>
               ) : (

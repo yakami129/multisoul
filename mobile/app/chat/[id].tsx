@@ -33,6 +33,7 @@ import {
 import { loadAnsweredAsks } from '@/features/inbox/services/inboxService';
 import { mirrorAskQuestionsToInbox } from '@/features/inbox/utils/mirrorAskQuestionsToInbox';
 import { useWebSocket } from '@/hooks/useWebSocket';
+import { recordDiagnosticsEvent } from '@/services/diagnosticsLog';
 import { useChatStore } from '@/store/chatStore';
 import { useEndpointStore } from '@/store/endpointStore';
 import { useInboxStore } from '@/store/inboxStore';
@@ -123,7 +124,6 @@ export default function ChatDetailScreen() {
     },
     // imageMapRef.current mutates in place — we intentionally omit it; the
     // function reference is stable, and Map lookups are always up-to-date.
-
     [endpoint],
   );
 
@@ -172,7 +172,12 @@ export default function ChatDetailScreen() {
           addItem: addInboxItem,
         });
       })
-      .catch(() => {
+      .catch((error: unknown) => {
+        recordDiagnosticsEvent('error', 'chat.history', 'failed to load chat history', {
+          conv_id,
+          endpoint_id,
+          error,
+        });
         hasLoadedInitialMessagesRef.current = true;
       });
   }, [
@@ -213,7 +218,11 @@ export default function ChatDetailScreen() {
               : img,
           ),
         );
-      } catch {
+      } catch (error: unknown) {
+        recordDiagnosticsEvent('error', 'chat.image', 'image upload failed', {
+          endpoint_id,
+          error,
+        });
         setPendingImages((prev) =>
           prev.map((img) =>
             img.localUri === localUri && img.status === 'uploading'
@@ -288,7 +297,13 @@ export default function ChatDetailScreen() {
         await postMessage(endpoint.base_url, endpoint.token, conv_id, text);
       }
       setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
-    } catch {
+    } catch (error: unknown) {
+      recordDiagnosticsEvent('error', 'chat.send', 'failed to send message', {
+        conv_id,
+        endpoint_id,
+        image_count: uploadedImages.length,
+        error,
+      });
       setIsAwaitingResponse(false);
     }
   };
@@ -461,9 +476,18 @@ export default function ChatDetailScreen() {
                     setIsAwaitingResponse(false);
                   })
                   .catch((e: unknown) => {
+                    recordDiagnosticsEvent('warn', 'chat.abort', 'abort request failed', {
+                      conv_id,
+                      endpoint_id,
+                      error: e,
+                    });
                     console.warn('abort failed', e);
                   });
               } else {
+                recordDiagnosticsEvent('warn', 'chat.abort', 'abort skipped without endpoint', {
+                  conv_id,
+                  endpoint_id,
+                });
                 console.warn('abort: no endpoint available');
               }
             }}

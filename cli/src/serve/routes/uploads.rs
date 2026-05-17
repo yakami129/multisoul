@@ -2,7 +2,10 @@ use crate::serve::state::AppState;
 use axum::{
     body::Bytes,
     extract::{Multipart, Path as AxumPath, State},
-    http::{header::CONTENT_TYPE, StatusCode},
+    http::{
+        header::{CACHE_CONTROL, CONTENT_TYPE},
+        StatusCode,
+    },
     response::Response,
     Json,
 };
@@ -95,6 +98,7 @@ pub async fn get_uploaded_image(
     Response::builder()
         .status(StatusCode::OK)
         .header(CONTENT_TYPE, content_type)
+        .header(CACHE_CONTROL, "public, max-age=31536000, immutable")
         .body(axum::body::Body::from(bytes))
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)
 }
@@ -340,6 +344,7 @@ mod tests {
     ///   - 断言 B：content-type == image/jpeg，说明移动端 Image 能按图片解码
     ///   - 断言 C：body 等于原始 4 字节，说明读取的是上传文件本体
     ///   - 断言 D：body 不为空，避免空响应被误判为成功
+    ///   - 断言 E：cache-control 为 immutable，说明 iOS 可缓存历史图片
     #[tokio::test]
     async fn test_get_uploaded_image_returns_file_bytes_by_file_id() {
         let upload_dir = tempdir().unwrap();
@@ -371,6 +376,15 @@ mod tests {
             content_type,
             Some("image/jpeg"),
             "jpg upload should be served with image/jpeg content type"
+        );
+        let cache_control = resp
+            .headers()
+            .get("cache-control")
+            .and_then(|value| value.to_str().ok());
+        assert_eq!(
+            cache_control,
+            Some("public, max-age=31536000, immutable"),
+            "uploaded image responses should be cacheable so iOS does not redownload them"
         );
         let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX)
             .await

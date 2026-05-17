@@ -1,11 +1,15 @@
-import { act, fireEvent, render } from '@testing-library/react-native';
+import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import React from 'react';
 import { StyleSheet } from 'react-native';
+import { clearDiagnosticsEntries, getDiagnosticsLogText } from '@/services/diagnosticsLog';
 import type { WsMessage } from '@/types';
 import { MessageBubble } from './MessageBubble';
 
+const originalFetch = global.fetch;
+
 afterEach(() => {
   jest.useRealTimers();
+  global.fetch = originalFetch;
 });
 
 const agentMessage: WsMessage = {
@@ -110,6 +114,49 @@ describe('MessageBubble image rendering', () => {
 
     expect(getByText('Image unavailable')).toBeTruthy();
     expect(queryByTestId('user-image-thumb')).toBeNull();
+  });
+
+  /// 图片加载失败诊断：失败后主动探测 URL，记录 HTTP 状态。
+  ///
+  /// 数据构造：
+  ///   WsMessage role='user_text'
+  ///   payload.file_id = 'abc.jpg'
+  ///   imageUri = 'http://localhost:8080/api/v1/uploads/abc.jpg?token=tok'
+  ///   fetch mock status = 404, content-type = text/plain
+  ///
+  /// 执行过程：
+  ///   1. clearDiagnosticsEntries() 清空前置日志
+  ///   2. render MessageBubble → 显示图片缩略图
+  ///   3. 触发 Image onError → 组件记录 image load failed，并执行 fetch 探测
+  ///   4. 等待 diagnosticsLog 收到 chat.image.probe
+  ///
+  /// 预期结果：
+  ///   - 正断言：日志包含 chat.image.probe，说明发布版能采集 HTTP 诊断
+  ///   - 正断言：日志包含 status 404，能区分服务端缺文件/旧 CLI
+  ///   - 正断言：日志包含 token=tok，方便直接复现图片 URL
+  it('records an HTTP probe after image loading fails', async () => {
+    await clearDiagnosticsEntries();
+    global.fetch = jest.fn().mockResolvedValue({
+      status: 404,
+      ok: false,
+      headers: {
+        get: (name: string) => (name.toLowerCase() === 'content-type' ? 'text/plain' : null),
+      },
+    }) as typeof fetch;
+    const msg = makeUserMsg({ text: '', file_id: 'abc.jpg' });
+    const { getByTestId } = render(
+      <MessageBubble msg={msg} imageUri="http://localhost:8080/api/v1/uploads/abc.jpg?token=tok" />,
+    );
+
+    await act(async () => {
+      fireEvent(getByTestId('user-image'), 'onError');
+    });
+
+    await waitFor(() => {
+      expect(getDiagnosticsLogText()).toContain('[chat.image.probe]');
+    });
+    expect(getDiagnosticsLogText()).toContain('"status":404');
+    expect(getDiagnosticsLogText()).toContain('token=tok');
   });
 
   it('renders plain text bubble when no file_id', () => {

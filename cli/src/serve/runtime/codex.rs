@@ -200,36 +200,7 @@ fn spawn_codex(
     thread_id: Option<&str>,
     mode: &str,
 ) -> Option<(Child, ChildStdin)> {
-    let args: Vec<String> = if let Some(tid) = thread_id.filter(|s| !s.is_empty()) {
-        // Resume: re-apply mode flags. codex's sandbox/approval policy is
-        // per-invocation, not stored in the session — without --full-auto
-        // resume falls back to interactive approval and would hang on stdin
-        // (which we close after writing the prompt).
-        let mut a = vec![
-            "exec".to_string(),
-            "resume".to_string(),
-            "--skip-git-repo-check".to_string(),
-        ];
-        for flag in resume_mode_flags(mode) {
-            a.push(flag.to_string());
-        }
-        a.push(tid.to_string());
-        a.extend_from_slice(&["--json".to_string(), "-".to_string()]);
-        a
-    } else {
-        let mut a = vec!["exec".to_string(), "--skip-git-repo-check".to_string()];
-        for flag in mode_flags(mode) {
-            a.push(flag.to_string());
-        }
-        a.extend_from_slice(&[
-            "--json".to_string(),
-            "--cd".to_string(),
-            project_path.to_string(),
-            "-".to_string(),
-        ]);
-        a
-    };
-
+    let args = build_codex_args(project_path, thread_id, mode);
     debug!(args = ?args, "codex_spawn_args");
 
     let mut command = Command::new("codex");
@@ -250,36 +221,56 @@ fn spawn_codex(
     Some((child, stdin))
 }
 
+fn build_codex_args(project_path: &str, thread_id: Option<&str>, mode: &str) -> Vec<String> {
+    let is_resume = thread_id.filter(|s| !s.is_empty()).is_some();
+    let mode_args = if is_resume {
+        resume_mode_flags(mode)
+    } else {
+        mode_flags(mode)
+    };
+    let mut args: Vec<String> = mode_args.into_iter().map(ToString::to_string).collect();
+
+    if let Some(tid) = thread_id.filter(|s| !s.is_empty()) {
+        // Resume: re-apply mode flags. codex's sandbox/approval policy is
+        // per-invocation, not stored in the session; without non-interactive
+        // full-access defaults
+        // resume falls back to interactive approval and would hang on stdin
+        // (which we close after writing the prompt).
+        args.extend_from_slice(&[
+            "exec".to_string(),
+            "resume".to_string(),
+            "--skip-git-repo-check".to_string(),
+            tid.to_string(),
+            "--json".to_string(),
+            "-".to_string(),
+        ]);
+    } else {
+        args.extend_from_slice(&[
+            "exec".to_string(),
+            "--skip-git-repo-check".to_string(),
+            "--json".to_string(),
+            "--cd".to_string(),
+            project_path.to_string(),
+            "-".to_string(),
+        ]);
+    }
+    args
+}
+
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
 /// Returns the `codex exec` mode flags for the given mode string.
 pub fn mode_flags(mode: &str) -> Vec<&'static str> {
     match mode.to_lowercase().as_str() {
-        "auto-edit" | "full-auto" => vec![
-            "--sandbox",
-            "danger-full-access",
-            "-c",
-            "approval_policy=\"never\"",
-        ],
+        "auto-edit" | "full-auto" => vec!["-s", "danger-full-access", "-a", "never"],
         "yolo" => vec!["--dangerously-bypass-approvals-and-sandbox"],
         _ => vec![],
     }
 }
 
 /// Returns mode flags for `codex exec resume`.
-///
-/// `resume` supports `-c/--config`, but not the fresh-exec `--sandbox` flag.
 pub fn resume_mode_flags(mode: &str) -> Vec<&'static str> {
-    match mode.to_lowercase().as_str() {
-        "auto-edit" | "full-auto" => vec![
-            "-c",
-            "approval_policy=\"never\"",
-            "-c",
-            "sandbox_mode=\"danger-full-access\"",
-        ],
-        "yolo" => vec!["--dangerously-bypass-approvals-and-sandbox"],
-        _ => vec![],
-    }
+    mode_flags(mode)
 }
 
 /// Extract text from an item's array field, filtering by element type.

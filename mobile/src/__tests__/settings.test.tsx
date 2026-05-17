@@ -1,6 +1,9 @@
-import { act, render, screen } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import * as Clipboard from 'expo-clipboard';
 import React from 'react';
+import { Alert } from 'react-native';
 import SettingsScreen from '../../app/(tabs)/settings';
+import { clearDiagnosticsEntries, recordDiagnosticsEvent } from '../services/diagnosticsLog';
 import { useEndpointStore } from '../store/endpointStore';
 
 jest.mock('react-native-safe-area-context', () => ({
@@ -34,7 +37,10 @@ jest.mock('../api/endpointClient', () => ({
 ///   - ENDPOINTS section label visible
 ///   - Seeded endpoint label visible
 describe('SettingsScreen', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
+    jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+    (Clipboard.setStringAsync as jest.Mock).mockClear();
+    await clearDiagnosticsEntries();
     useEndpointStore.setState({
       endpoints: [
         {
@@ -49,6 +55,7 @@ describe('SettingsScreen', () => {
   });
 
   afterEach(() => {
+    jest.restoreAllMocks();
     act(() => {
       useEndpointStore.setState({ endpoints: [] });
     });
@@ -68,5 +75,36 @@ describe('SettingsScreen', () => {
     render(<SettingsScreen />);
 
     expect(screen.getByText('NO ENDPOINTS CONFIGURED')).toBeTruthy();
+  });
+
+  /// Settings diagnostics: copy button exports release logs
+  ///
+  /// Data construction:
+  ///   diagnostics entry = warn / chat.image / "image load failed"
+  ///   endpoint count    = 1 existing endpoint
+  ///   copied payload    = formatted diagnostics text from diagnosticsLog
+  ///
+  /// Execution:
+  ///   1. Seed one diagnostics event before rendering SettingsScreen
+  ///   2. Render SettingsScreen
+  ///   3. Press Copy logs
+  ///
+  /// Expected:
+  ///   - positive assertion: DIAGNOSTICS section is visible in release UI
+  ///   - positive assertion: Clipboard receives the chat.image log
+  ///   - negative assertion: placeholder-only "No diagnostics yet." is not copied
+  it('copies diagnostics logs from settings', async () => {
+    recordDiagnosticsEvent('warn', 'chat.image', 'image load failed', { file_id: 'file-1.jpg' });
+
+    render(<SettingsScreen />);
+
+    expect(screen.getByText('DIAGNOSTICS')).toBeTruthy();
+
+    fireEvent.press(screen.getByTestId('diagnostics-copy-btn'));
+
+    await waitFor(() => {
+      expect(Clipboard.setStringAsync).toHaveBeenCalledWith(expect.stringContaining('chat.image'));
+    });
+    expect(Clipboard.setStringAsync).not.toHaveBeenCalledWith('No diagnostics yet.');
   });
 });

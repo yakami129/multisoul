@@ -27,9 +27,11 @@
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import * as Clipboard from 'expo-clipboard';
 import React from 'react';
+import { View } from 'react-native';
 import {
   MarkdownMessage,
   CopyButton,
+  mdRules,
   makeImageRule,
   setMermaidFenceModuleLoaderForTest,
 } from './MarkdownMessage';
@@ -114,6 +116,134 @@ describe('MarkdownMessage', () => {
     expect(queryByTestId('copy-btn') === null).toBe(
       true,
       'plain markdown text should not render the code-block copy button',
+    );
+  });
+
+  /// Markdown 段落容器：父级 paragraph 也必须 selectable，避免只给叶子 text 设置后长按无选择菜单。
+  ///
+  /// 数据构造：
+  ///   paragraph node.key = 'paragraph-1'
+  ///   children = ['copy selected paragraph']
+  ///   styles.paragraph = {}
+  ///
+  /// 执行过程：
+  ///   1. 直接调用 mdRules.paragraph，模拟 Markdown 渲染普通段落容器
+  ///   2. render 返回的 paragraph Text
+  ///   3. 读取该 Text.props.selectable
+  ///
+  /// 预期结果：
+  ///   - 正断言：段落 Text selectable=true，历史 AI 回复的普通段落可长按选取
+  ///   - 负断言：普通段落不渲染 copy-btn，避免退化成只能整块复制代码按钮
+  it('makes markdown paragraph containers selectable for native text selection', () => {
+    const node = { key: 'paragraph-1', attributes: {} };
+    const element = mdRules.paragraph?.(node as any, ['copy selected paragraph'], [], {
+      paragraph: {},
+    });
+
+    const { getByText, queryByTestId } = render(element as React.ReactElement);
+
+    expect(getByText('copy selected paragraph').props.selectable).toBe(
+      true,
+      'markdown paragraph container should be selectable so native selection can start on completed AI replies',
+    );
+    expect(queryByTestId('copy-btn') === null).toBe(
+      true,
+      'markdown paragraph text should not use the code-block copy button',
+    );
+  });
+
+  /// Markdown 图片段落：含非 Text 子节点时 paragraph 必须回退 View，避免 Text 内嵌图片 View。
+  ///
+  /// 数据构造：
+  ///   paragraph node.key = 'paragraph-with-image'
+  ///   children = [<View testID="inline-image-node" />]（模拟 MarkdownImage 渲染结果）
+  ///   styles._VIEW_SAFE_paragraph = {}
+  ///
+  /// 执行过程：
+  ///   1. 直接调用 mdRules.paragraph，传入非文本子节点
+  ///   2. render 返回节点
+  ///   3. 查找 inline-image-node
+  ///
+  /// 预期结果：
+  ///   - 正断言：inline-image-node 存在，说明图片段落仍可渲染
+  ///   - 负断言：图片段落不渲染 copy-btn，避免图片路径被误当代码块复制
+  it('keeps markdown image paragraphs renderable by falling back to View', () => {
+    const node = { key: 'paragraph-with-image', attributes: {} };
+    const element = mdRules.paragraph?.(
+      node as any,
+      [<View key="inline-image-node" testID="inline-image-node" />],
+      [],
+      { _VIEW_SAFE_paragraph: {} },
+    );
+
+    const { getByTestId, queryByTestId } = render(element as React.ReactElement);
+
+    expect(getByTestId('inline-image-node')).toBeTruthy();
+    expect(queryByTestId('copy-btn') === null).toBe(
+      true,
+      'markdown image paragraph should not render the code-block copy button',
+    );
+  });
+
+  /// Markdown 标题容器：标题文本也必须 selectable，避免 AI 回复中的标题无法单独复制。
+  ///
+  /// 数据构造：
+  ///   heading1 node.key = 'heading-1'
+  ///   children = ['Copyable Heading']
+  ///   styles.heading1 = {}
+  ///
+  /// 执行过程：
+  ///   1. 直接调用 mdRules.heading1，模拟 "# Copyable Heading"
+  ///   2. render 返回的 heading Text
+  ///   3. 读取该 Text.props.selectable
+  ///
+  /// 预期结果：
+  ///   - 正断言：标题 Text selectable=true，标题可被用户单独选择复制
+  ///   - 负断言：标题不渲染 code copy-btn，避免把标题误当代码块处理
+  it('makes markdown heading containers selectable for native text selection', () => {
+    const node = { key: 'heading-1', attributes: {} };
+    const element = mdRules.heading1?.(node as any, ['Copyable Heading'], [], { heading1: {} });
+
+    const { getByText, queryByTestId } = render(element as React.ReactElement);
+
+    expect(getByText('Copyable Heading').props.selectable).toBe(
+      true,
+      'markdown heading container should be selectable so AI reply headings can be copied',
+    );
+    expect(queryByTestId('copy-btn') === null).toBe(
+      true,
+      'markdown heading text should not render the code-block copy button',
+    );
+  });
+
+  /// Markdown 链接：链接文字既保留点击打开，也必须 selectable，避免 URL/锚文本无法选择复制。
+  ///
+  /// 数据构造：
+  ///   link node.key = 'link-1'
+  ///   node.attributes.href = 'https://example.com'
+  ///   children = ['Example Link']
+  ///
+  /// 执行过程：
+  ///   1. 直接调用 mdRules.link，模拟 Markdown 链接节点
+  ///   2. render 返回的 link Text
+  ///   3. 读取该 Text.props.selectable
+  ///
+  /// 预期结果：
+  ///   - 正断言：链接 Text selectable=true，用户可选择复制链接文字
+  ///   - 负断言：链接不渲染 copy-btn，避免普通链接被当作代码块复制
+  it('makes markdown links selectable while keeping them as text nodes', () => {
+    const node = { key: 'link-1', attributes: { href: 'https://example.com' } };
+    const element = mdRules.link?.(node as any, ['Example Link'], [], { link: {} });
+
+    const { getByText, queryByTestId } = render(element as React.ReactElement);
+
+    expect(getByText('Example Link').props.selectable).toBe(
+      true,
+      'markdown link text should be selectable so users can copy link labels from AI replies',
+    );
+    expect(queryByTestId('copy-btn') === null).toBe(
+      true,
+      'markdown link text should not render the code-block copy button',
     );
   });
 });

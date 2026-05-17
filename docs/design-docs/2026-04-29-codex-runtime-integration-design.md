@@ -43,13 +43,13 @@ Implements a session worker that drives `codex exec` as a subprocess.
 
 1. **New session** (no thread_id in DB):
    ```
-   codex exec --skip-git-repo-check [MODE_FLAGS] --json --cd <project_path> -
+   codex [MODE_FLAGS] exec --skip-git-repo-check --json --cd <project_path> -
    ```
    Stdin: plain-text user prompt (newline-terminated)
 
 2. **Resume session** (thread_id exists in DB):
    ```
-   codex exec resume --skip-git-repo-check <thread_id> --json -
+   codex [MODE_FLAGS] exec resume --skip-git-repo-check <thread_id> --json -
    ```
    Stdin: plain-text user prompt
 
@@ -57,11 +57,11 @@ Implements a session worker that drives `codex exec` as a subprocess.
 
 **Mode flags** (from `agents.mode`):
 
-| `mode` value  | Flag added to `codex exec`                          |
+| `mode` value  | Top-level flags added before `exec`                 |
 |---------------|-----------------------------------------------------|
 | `suggest`     | _(none)_                                            |
-| `auto-edit`   | `--full-auto`                                       |
-| `full-auto`   | `--full-auto`                                       |
+| `auto-edit`   | `-s danger-full-access -a never`                    |
+| `full-auto`   | `-s danger-full-access -a never`                    |
 | `yolo`        | `--dangerously-bypass-approvals-and-sandbox`        |
 
 Default: `full-auto`.
