@@ -7,6 +7,10 @@
       "title": "Agent 卡片直达对话 SPEC"
     },
     {
+      "file": "SPEC-agents-workspace-filter.md",
+      "title": "Agents 工作空间筛选功能 SPEC"
+    },
+    {
       "file": "SPEC-bugfix-bot.md",
       "title": "Bugfix-Bot SPEC"
     },
