@@ -49,6 +49,8 @@ info "当前 EAS 用户: $(eas whoami)"
 # ── 切换到 mobile 目录 ────────────────────────────────────────
 cd "$MOBILE_DIR"
 info "工作目录: $MOBILE_DIR"
+info "生成 Mermaid 静态资产..."
+node scripts/generate-mermaid-asset.mjs
 
 # 读取当前版本号
 VERSION=$(node -p "require('./app.json').expo.version")

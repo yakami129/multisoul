@@ -4,7 +4,7 @@ const mockDownloadAsync = jest.fn().mockResolvedValue(undefined);
 const mockText = jest.fn().mockResolvedValue('globalThis["mermaid"] = {}');
 const mockFile = jest.fn();
 
-jest.mock('../../../../assets/mermaid.min.html', () => 123, { virtual: true });
+jest.mock('../../../../assets/generated/mermaid.min.js.txt', () => 123, { virtual: true });
 
 jest.mock('expo-file-system', () => ({
   File: class MockFile {
@@ -41,7 +41,7 @@ describe('loadMermaidSource', () => {
   /// 数据构造：
   ///   Asset.fromModule mock 返回 localUri='file://mermaid.min.html'
   ///   File mock 接收该 localUri，file.text() 返回 'globalThis["mermaid"] = {}'
-  ///   mermaid.min.html mock 模块 id = 123（模拟 Metro 静态资产编号）
+  ///   generated/mermaid.min.js.txt mock 模块 id = 123（模拟 Metro 静态资产编号）
   ///
   /// 执行过程：
   ///   1. import loadMermaidSource

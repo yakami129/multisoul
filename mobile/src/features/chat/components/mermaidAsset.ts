@@ -1,6 +1,6 @@
 import { Asset } from 'expo-asset';
 import { File } from 'expo-file-system';
-import mermaidAsset from '../../../../assets/mermaid.min.html';
+import mermaidAsset from '../../../../assets/generated/mermaid.min.js.txt';
 
 const mermaidAssetModule = mermaidAsset as number;
 

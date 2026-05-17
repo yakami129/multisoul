@@ -317,6 +317,8 @@ build_ipa() {
   else
     warn "Skipping pnpm install"
   fi
+  info "Generating Mermaid static asset"
+  node scripts/generate-mermaid-asset.mjs
 
   if [ "$SKIP_PODS" = false ]; then
     info "Installing CocoaPods"
