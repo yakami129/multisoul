@@ -174,6 +174,10 @@ fn make_executable(path: &std::path::Path) {
         perms.set_mode(0o755);
         std::fs::set_permissions(path, perms).unwrap();
     }
+    #[cfg(not(unix))]
+    {
+        let _ = path;
+    }
 }
 
 struct CursorAgentBinGuard {

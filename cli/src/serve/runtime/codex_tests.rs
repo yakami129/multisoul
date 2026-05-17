@@ -416,8 +416,32 @@ fn join_with_timeout<T>(
 }
 
 fn process_exists(pid: u32) -> bool {
-    // SAFETY: kill(pid, 0) only checks whether the pid exists; it does not send a signal.
-    unsafe { libc::kill(pid as libc::pid_t, 0) == 0 }
+    #[cfg(unix)]
+    {
+        // SAFETY: kill(pid, 0) only checks whether the pid exists; it does not send a signal.
+        unsafe { libc::kill(pid as libc::pid_t, 0) == 0 }
+    }
+    #[cfg(windows)]
+    {
+        use windows_sys::Win32::Foundation::CloseHandle;
+        use windows_sys::Win32::System::Threading::{
+            OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION,
+        };
+
+        unsafe {
+            let h = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, pid);
+            if h.is_null() {
+                return false;
+            }
+            CloseHandle(h);
+            true
+        }
+    }
+    #[cfg(not(any(unix, windows)))]
+    {
+        let _ = pid;
+        false
+    }
 }
 
 trait StartNewProcessGroupForTest {

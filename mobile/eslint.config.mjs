@@ -130,6 +130,17 @@ export default tseslint.config(
     },
   },
 
+  // ── Node 小脚本（.mjs）：module/Console/Process 全局 ─────────
+  {
+    files: ['scripts/**/*.mjs'],
+    languageOptions: {
+      globals: {
+        console: 'readonly',
+        process: 'readonly',
+      },
+    },
+  },
+
   // ── 测试文件：放宽规则 ───────────────────────────────────────
   {
     files: ['**/*.test.ts', '**/*.test.tsx', '**/__tests__/**/*.{ts,tsx}'],
