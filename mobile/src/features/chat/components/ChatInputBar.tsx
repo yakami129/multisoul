@@ -2,6 +2,12 @@ import { ArrowUp, ImagePlus, Mic, Square, Terminal } from 'lucide-react-native';
 import React from 'react';
 import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
+interface PendingImage {
+  localUri: string;
+  fileId: string | null;
+  status: 'uploading' | 'uploaded' | 'failed';
+}
+
 interface Props {
   value: string;
   onChangeText: (text: string) => void;
@@ -12,6 +18,8 @@ interface Props {
   isAgentRunning: boolean;
   onStop: () => void;
   placeholder?: string;
+  pendingImages: PendingImage[];
+  onRemoveImage: (index: number) => void;
 }
 
 export default function ChatInputBar({
