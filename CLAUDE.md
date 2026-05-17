@@ -122,6 +122,7 @@ Monorepo 两大件：
 - 同一用户流程只能有一个权威实现；避免为不同入口复制 screen / route / protocol 逻辑。需要多入口时，让入口只做参数准备，统一跳到同一页面或调用同一模块。
 - **文档落盘**：产品 / 功能规格 → **只** [`docs/product-specs/`](docs/product-specs/)（`SPEC-<feature>.md`）；实施 / 执行计划 → **只** [`docs/exec-plans/`](docs/exec-plans/)（`YYYY-MM-DD-<feature>.md`）；设计权衡 → `docs/design-docs/YYYY-MM-DD-<feature>-design.md`（命名见 [`docs/design-docs/README.md`](docs/design-docs/README.md)）。**勿**在 [`docs/specs/`](docs/specs/)、[`docs/superpowers/`](docs/superpowers/) 新增权威内容。**Superpowers skills**（`writing-plans`、`executing-plans`、`brainstorming` 等）在本仓库落盘**必须**使用上述路径 · [`docs/superpowers/README.md`](docs/superpowers/README.md)
 - **Exec plan 施工**：`docs/exec-plans/*.md` 所列任务 **全部验证通过后一次** `git commit`；**不要**套用 Superpowers `subagent-driven-development` 的「每任务一 commit」。该次提交后把对应 `documents[]` 条目的 `lastCompletedCommit` 写入 [`docs/exec-plans/index.json`](docs/exec-plans/index.json)（40 位小写 hex，`git rev-parse HEAD`），便于 `git revert <sha>` 撤回该批改动。
+- **Commit 前强制 review**：每次 `git commit` 前必须执行 `requesting-code-review`，修复 Critical/Important 反馈并重新跑对应验证后，才允许提交。若当前运行环境不允许自动派发 subagent，则在当前会话按该 skill 的审查标准执行等效 review。
 - **执行方式选择（强制）**：writing-plans 写完计划后，**必须**用 `AskUserQuestion` 工具弹出问答卡片，让用户在「Subagent 驱动（推荐）」和「当前会话内联执行」之间选择，**禁止**在纯文本里提问或自行假设默认选项。
 - **Image Output**：生成图片（图表、截图、可视化）时，保存为文件并在回复中用 Markdown 语法引用：`![描述](/绝对路径/image.png)`。支持格式：png、jpg、jpeg、gif、webp。MultiSoul 手机端会自动渲染为内联缩略图，点击可全屏查看。
 - 不要把规则塞进 `AGENTS.md`。`AGENTS.md` 只长指针，不长内容

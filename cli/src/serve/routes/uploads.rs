@@ -98,7 +98,7 @@ pub async fn get_uploaded_image(
     Response::builder()
         .status(StatusCode::OK)
         .header(CONTENT_TYPE, content_type)
-        .header(CACHE_CONTROL, "public, max-age=31536000, immutable")
+        .header(CACHE_CONTROL, "private, max-age=31536000, immutable")
         .body(axum::body::Body::from(bytes))
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)
 }
@@ -383,7 +383,7 @@ mod tests {
             .and_then(|value| value.to_str().ok());
         assert_eq!(
             cache_control,
-            Some("public, max-age=31536000, immutable"),
+            Some("private, max-age=31536000, immutable"),
             "uploaded image responses should be cacheable so iOS does not redownload them"
         );
         let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX)

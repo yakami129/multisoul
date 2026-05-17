@@ -106,6 +106,7 @@ cd mobile && ./scripts/publish-ios.sh
 - 修改代码后必须按 §5 跑验证；引入了 lint error **必须修根本原因，禁止用 `#[allow]` / `// eslint-disable` / `@ts-ignore` 抑制**
 - **文档落盘**：产品 / 功能规格（要做什么、验收）→ **只** [`docs/product-specs/`](docs/product-specs/)（`SPEC-<feature>.md`）；实施 / 执行计划 → **只** [`docs/exec-plans/`](docs/exec-plans/)（`YYYY-MM-DD-<feature>.md`）；设计权衡 → `docs/design-docs/YYYY-MM-DD-<feature>-design.md`（命名见 [`docs/design-docs/README.md`](docs/design-docs/README.md)）。**勿**在 [`docs/specs/`](docs/specs/)、[`docs/superpowers/`](docs/superpowers/) 新增权威内容。**Superpowers skills**（`writing-plans`、`executing-plans`、`brainstorming` 等）在本仓库写规格或计划时**必须**使用上述 canonical 路径 · [`docs/superpowers/README.md`](docs/superpowers/README.md)
 - **Exec plan 施工**：全部任务验证通过后一次 `git commit`；不要套用 `subagent-driven-development` 的「每任务一 commit」。提交后把 `lastCompletedCommit` 写入 [`docs/exec-plans/index.json`](docs/exec-plans/index.json)（40 位 SHA）。
+- **Commit 前强制 review**：每次 `git commit` 前必须执行 `requesting-code-review`，修复 Critical/Important 反馈并重新验证后，才允许提交。
 - **执行方式选择（强制）**：writing-plans 写完计划后，**必须**用 `AskUserQuestion` 弹卡片让用户选「Subagent 驱动（推荐）」或「当前会话内联执行」，**禁止**纯文本提问或自行假设。
 - **Image Output**：生成图片（图表、截图、可视化）时，保存为文件并在回复中用 Markdown 语法引用：
   ```

@@ -62,7 +62,7 @@ pub async fn get_file(Query(params): Query<FileQuery>) -> Result<Response, Statu
     let response = Response::builder()
         .status(StatusCode::OK)
         .header(CONTENT_TYPE, content_type)
-        .header(CACHE_CONTROL, "public, max-age=31536000, immutable")
+        .header(CACHE_CONTROL, "private, max-age=31536000, immutable")
         .body(axum::body::Body::from(bytes))
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
@@ -154,7 +154,7 @@ mod tests {
             .and_then(|v| v.to_str().ok())
             .unwrap_or("");
         assert_eq!(
-            cache_control, "public, max-age=31536000, immutable",
+            cache_control, "private, max-age=31536000, immutable",
             "file image responses should be cacheable so iOS does not redownload markdown images"
         );
         let body = axum::body::to_bytes(resp.into_body(), usize::MAX)

@@ -14,9 +14,9 @@ function resolveSource(
   src: string,
   serverUrl: string,
   apiKey: string,
-): { uri: string; cache: 'force-cache' } | null {
+): { uri: string; cache?: 'force-cache' } | null {
   if (src.startsWith('https://') || src.startsWith('http://')) {
-    return { uri: src, cache: 'force-cache' };
+    return { uri: src };
   }
   if (src.startsWith('/')) {
     const base = serverUrl.replace(/\/$/, '');
@@ -28,14 +28,17 @@ function resolveSource(
   return null;
 }
 
-async function probeMarkdownImageUri(uri: string, src: string, alt: string, token: string) {
+function redactImageUriForLog(uri: string | undefined) {
+  return uri?.replace(/([?&]token=)[^&\s"',)]+/gi, '$1[REDACTED]');
+}
+
+async function probeMarkdownImageUri(uri: string, src: string, alt: string) {
   try {
     const res = await fetch(uri, { method: 'GET' });
     recordDiagnosticsEvent('warn', 'chat.markdown_image', 'markdown image probe completed', {
-      src,
+      src: redactImageUriForLog(src),
       alt,
-      uri,
-      debug_token: token,
+      uri: redactImageUriForLog(uri),
       status: res.status,
       ok: res.ok,
       content_type: res.headers.get('content-type'),
@@ -43,10 +46,9 @@ async function probeMarkdownImageUri(uri: string, src: string, alt: string, toke
     });
   } catch (error: unknown) {
     recordDiagnosticsEvent('error', 'chat.markdown_image', 'markdown image probe failed', {
-      src,
+      src: redactImageUriForLog(src),
       alt,
-      uri,
-      debug_token: token,
+      uri: redactImageUriForLog(uri),
       error,
     });
   }
@@ -54,23 +56,49 @@ async function probeMarkdownImageUri(uri: string, src: string, alt: string, toke
 
 export function MarkdownImage({ src, alt, serverUrl, token }: Props) {
   const [previewVisible, setPreviewVisible] = useState(false);
-  const [hasError, setHasError] = useState(false);
+  const [thumbError, setThumbError] = useState(false);
+  const [fullscreenError, setFullscreenError] = useState(false);
   const [thumbLoading, setThumbLoading] = useState(true);
   const [fullscreenLoading, setFullscreenLoading] = useState(false);
+  const probedUrisRef = React.useRef<Set<string>>(new Set());
 
   const source = resolveSource(src, serverUrl, token);
-  const markImageLoadFailed = React.useCallback(() => {
-    recordDiagnosticsEvent('warn', 'chat.markdown_image', 'markdown image load failed', {
-      src,
-      alt,
-      uri: source?.uri,
-      debug_token: token,
-    });
-    if (source?.uri) void probeMarkdownImageUri(source.uri, src, alt, token);
-    setThumbLoading(false);
+
+  React.useEffect(() => {
+    probedUrisRef.current.clear();
+    setThumbError(false);
+    setFullscreenError(false);
+    setThumbLoading(true);
     setFullscreenLoading(false);
-    setHasError(true);
-  }, [alt, source?.uri, src, token]);
+  }, [source?.uri]);
+
+  const recordImageLoadFailed = React.useCallback(
+    (surface: 'thumbnail' | 'fullscreen') => {
+      recordDiagnosticsEvent('warn', 'chat.markdown_image', 'markdown image load failed', {
+        src: redactImageUriForLog(src),
+        alt,
+        surface,
+        uri: redactImageUriForLog(source?.uri),
+      });
+      if (source?.uri && !probedUrisRef.current.has(source.uri)) {
+        probedUrisRef.current.add(source.uri);
+        void probeMarkdownImageUri(source.uri, src, alt);
+      }
+    },
+    [alt, source?.uri, src],
+  );
+
+  const markThumbnailLoadFailed = React.useCallback(() => {
+    recordImageLoadFailed('thumbnail');
+    setThumbLoading(false);
+    setThumbError(true);
+  }, [recordImageLoadFailed]);
+
+  const markFullscreenLoadFailed = React.useCallback(() => {
+    recordImageLoadFailed('fullscreen');
+    setFullscreenLoading(false);
+    setFullscreenError(true);
+  }, [recordImageLoadFailed]);
 
   if (!source) {
     return (
@@ -80,7 +108,7 @@ export function MarkdownImage({ src, alt, serverUrl, token }: Props) {
     );
   }
 
-  if (hasError) {
+  if (thumbError) {
     return (
       <View style={s.placeholder} testID="markdown-image-error">
         <Text style={s.placeholderText}>Image unavailable</Text>
@@ -102,19 +130,29 @@ export function MarkdownImage({ src, alt, serverUrl, token }: Props) {
           <Pressable
             testID="markdown-image-close-btn"
             style={s.closeButton}
-            onPress={() => setPreviewVisible(false)}
+            onPress={() => {
+              setPreviewVisible(false);
+              setFullscreenError(false);
+              setFullscreenLoading(false);
+            }}
           >
             <X size={18} color="#FFFFFF" />
           </Pressable>
-          <Image
-            source={source}
-            style={s.fullscreenImage}
-            resizeMode="contain"
-            onLoadStart={() => setFullscreenLoading(true)}
-            onLoadEnd={() => setFullscreenLoading(false)}
-            onError={markImageLoadFailed}
-            testID="markdown-image-fullscreen"
-          />
+          {fullscreenError ? (
+            <View style={s.fullscreenError} testID="markdown-image-fullscreen-error">
+              <Text style={s.placeholderText}>Image unavailable</Text>
+            </View>
+          ) : (
+            <Image
+              source={source}
+              style={s.fullscreenImage}
+              resizeMode="contain"
+              onLoadStart={() => setFullscreenLoading(true)}
+              onLoadEnd={() => setFullscreenLoading(false)}
+              onError={markFullscreenLoadFailed}
+              testID="markdown-image-fullscreen"
+            />
+          )}
           {fullscreenLoading ? (
             <View style={s.fullscreenLoadingOverlay} testID="markdown-image-fullscreen-loading">
               <ActivityIndicator color="#FF6B35" />
@@ -129,6 +167,7 @@ export function MarkdownImage({ src, alt, serverUrl, token }: Props) {
         testID="markdown-image-thumb-press"
         style={s.thumbnailFrame}
         onPress={() => {
+          setFullscreenError(false);
           setFullscreenLoading(true);
           setPreviewVisible(true);
         }}
@@ -139,7 +178,7 @@ export function MarkdownImage({ src, alt, serverUrl, token }: Props) {
           resizeMode="contain"
           onLoadStart={() => setThumbLoading(true)}
           onLoadEnd={() => setThumbLoading(false)}
-          onError={markImageLoadFailed}
+          onError={markThumbnailLoadFailed}
           testID="markdown-image-thumb"
         />
         {thumbLoading ? (
@@ -211,6 +250,12 @@ const s = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
+  },
+  fullscreenError: {
+    width: '100%',
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   loadingText: {
     fontFamily: 'Inter',

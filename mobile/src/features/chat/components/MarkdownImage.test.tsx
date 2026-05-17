@@ -25,7 +25,7 @@ afterEach(() => {
 /// Expected:
 ///   - testID="markdown-image-thumb" exists: thumbnail Image is rendered
 ///   - source.uri equals the original HTTPS URL: no transformation applied
-///   - source.cache equals 'force-cache': iOS should reuse the cached image instead of redownloading
+///   - source.cache is absent: RN Image should use default loading path, avoiding iOS force-cache failures
 test('test_markdown_image_renders_thumbnail', () => {
   const { getByTestId } = render(
     <MarkdownImage
@@ -41,10 +41,8 @@ test('test_markdown_image_renders_thumbnail', () => {
   expect(img).toBeTruthy();
   // assertion failure = source URI was transformed when it should be used as-is
   expect(img.props.source.uri).toBe('https://example.com/photo.png');
-  expect(img.props.source.cache).toBe(
-    'force-cache',
-    'markdown images should request iOS cache reuse instead of redownloading every render',
-  );
+  // assertion failure = iOS force-cache is back; it can make Image fail while fetch still returns 200
+  expect(img.props.source.cache).toBeUndefined();
 });
 
 /// test_markdown_image_thumbnail_has_stable_size: markdown images must not depend on inherited parent width
@@ -113,6 +111,10 @@ test('test_markdown_image_local_path_converts_to_files_url', () => {
   expect(img.props.source.uri).toContain(encodeURIComponent('/tmp/img.png'));
   // assertion failure = token not present as query param (RN Image doesn't support custom headers)
   expect(img.props.source.uri).toContain('token=test-token');
+  expect(img.props.source.cache).toBe(
+    'force-cache',
+    'local files URLs should reuse the iOS decode cache similar to CDN images where safe',
+  );
 });
 
 /// test_markdown_image_local_path_trims_server_url_slash: base URL with trailing slash should not create //api path
@@ -300,8 +302,8 @@ test('test_markdown_image_shows_error_placeholder_on_load_error', async () => {
 /// Expected:
 ///   - positive: release logs contain [chat.markdown_image], proving the failure is observable
 ///   - positive: release logs contain status 401, proving HTTP status is captured
-///   - positive: release logs contain debug_token, because this temporary image debug path keeps token visible
-///   - positive: release logs contain raw query token, because this temporary image debug path keeps token visible
+///   - negative: release logs do not contain debug_token，避免调试字段进入发布版
+///   - negative: release logs do not contain raw query token，避免泄露 URL token
 test('test_markdown_image_records_release_log_on_load_error', async () => {
   await clearDiagnosticsEntries();
   global.fetch = jest.fn().mockResolvedValue({
@@ -331,14 +333,131 @@ test('test_markdown_image_records_release_log_on_load_error', async () => {
     '"status":401',
     'markdown image probe should include HTTP status for release debugging',
   );
-  expect(getDiagnosticsLogText()).toContain(
-    '"debug_token":"test-token"',
-    'temporary markdown image diagnostics should include the token value for iOS debugging',
-  );
-  expect(getDiagnosticsLogText()).toContain(
+  expect(getDiagnosticsLogText()).not.toContain('"debug_token"');
+  expect(getDiagnosticsLogText()).not.toContain(
     'token=test-token',
-    'temporary markdown image diagnostics should include the raw query token for iOS debugging',
+    'release diagnostics logs should redact markdown image token query values',
   );
+});
+
+/// test_markdown_image_redacts_direct_url_src_token: direct URL markdown src must also be redacted
+///
+/// Data construction:
+///   src = 'https://example.com/img.png?token=test-token'
+///   fetch mock status = 401
+///
+/// Execution:
+///   1. render MarkdownImage with direct URL src containing token
+///   2. trigger thumbnail onError
+///   3. read diagnostics log text
+///
+/// Expected:
+///   - positive: release logs contain token=[REDACTED]，说明 URL 可用于定位
+///   - negative: release logs do not contain token=test-token，说明 src/uri 双字段均脱敏
+test('test_markdown_image_redacts_direct_url_src_token', async () => {
+  await clearDiagnosticsEntries();
+  global.fetch = jest.fn().mockResolvedValue({
+    status: 401,
+    ok: false,
+    headers: { get: () => null },
+  }) as typeof fetch;
+  const { getByTestId } = render(
+    <MarkdownImage
+      src="https://example.com/img.png?token=test-token"
+      alt="remote"
+      serverUrl={SERVER_URL}
+      token={TOKEN}
+    />,
+  );
+
+  await act(async () => {
+    fireEvent(getByTestId('markdown-image-thumb'), 'onError');
+    await Promise.resolve();
+  });
+
+  expect(getDiagnosticsLogText()).toContain('token=[REDACTED]');
+  expect(getDiagnosticsLogText()).not.toContain('token=test-token');
+});
+
+/// test_markdown_image_dedupes_failure_probe_per_uri: repeated Image onError should not spam release logs
+///
+/// Data construction:
+///   src = 'https://example.com/broken.png'
+///   fetch mock status = 404
+///
+/// Execution:
+///   1. render MarkdownImage
+///   2. trigger thumbnail onError twice before unmount
+///   3. wait for pending probe task
+///
+/// Expected:
+///   - positive: fetch called once，说明同一 URI 只 probe 一次
+///   - negative: fetch not called twice，避免 release logs 和网络请求被重复刷屏
+test('test_markdown_image_dedupes_failure_probe_per_uri', async () => {
+  await clearDiagnosticsEntries();
+  global.fetch = jest.fn().mockResolvedValue({
+    status: 404,
+    ok: false,
+    headers: { get: () => null },
+  }) as typeof fetch;
+  const { getByTestId } = render(
+    <MarkdownImage
+      src="https://example.com/broken.png"
+      alt="broken"
+      serverUrl={SERVER_URL}
+      token={TOKEN}
+    />,
+  );
+
+  await act(async () => {
+    fireEvent(getByTestId('markdown-image-thumb'), 'onError');
+    fireEvent(getByTestId('markdown-image-thumb'), 'onError');
+    await Promise.resolve();
+  });
+
+  expect(global.fetch).toHaveBeenCalledTimes(1);
+});
+
+/// test_markdown_image_fullscreen_error_does_not_replace_thumbnail: fullscreen failures should not poison inline thumbnail
+///
+/// Data construction:
+///   src = 'https://example.com/photo.png'
+///   thumbnail already loaded successfully
+///   fullscreen Image then fires onError
+///
+/// Execution:
+///   1. render MarkdownImage
+///   2. fire thumbnail onLoadEnd → loading hidden，thumbnail considered loaded
+///   3. press thumbnail → Modal opens
+///   4. fire fullscreen Image onError
+///
+/// Expected:
+///   - positive: inline thumbnail still exists，用户仍能看到聊天里的缩略图
+///   - positive: fullscreen error placeholder exists in Modal
+///   - negative: markdown-image-error 不存在，说明没有把整体组件切到失败占位
+test('test_markdown_image_fullscreen_error_does_not_replace_thumbnail', async () => {
+  const { getByTestId, queryByTestId } = render(
+    <MarkdownImage
+      src="https://example.com/photo.png"
+      alt="photo"
+      serverUrl={SERVER_URL}
+      token={TOKEN}
+    />,
+  );
+
+  await act(async () => {
+    fireEvent(getByTestId('markdown-image-thumb'), 'onLoadEnd');
+  });
+  await act(async () => {
+    fireEvent.press(getByTestId('markdown-image-thumb-press'));
+  });
+  await act(async () => {
+    fireEvent(getByTestId('markdown-image-fullscreen'), 'onError');
+  });
+
+  expect(getByTestId('markdown-image-thumb')).toBeTruthy();
+  expect(getByTestId('markdown-image-fullscreen-error')).toBeTruthy();
+  expect(queryByTestId('markdown-image-error')).toBeNull();
 });
 
 /// test_markdown_image_closes_modal_on_x_press: pressing X button closes modal

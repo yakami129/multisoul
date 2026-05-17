@@ -1,9 +1,13 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SlidersHorizontal, AlertCircle } from 'lucide-react-native';
 import React from 'react';
 import {
   ActivityIndicator,
+  Animated,
   FlatList,
+  Pressable,
   RefreshControl,
+  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -12,6 +16,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { type Agent } from '@/types';
 import { AgentCard } from './AgentCard';
+import { getWorkspaceList, filterAgentsByWorkspace } from '../utils/workspaceUtils';
 
 interface Props {
   agents: Agent[];
@@ -39,6 +44,75 @@ export function AgentList({ agents, isLoading, isError, error, onRefetch, onAgen
       setIsRefreshing(false);
     }
   }, [onRefetch]);
+
+  const STORAGE_KEY = '@multisoul:selected_workspace';
+  const [selectedWorkspace, setSelectedWorkspace] = React.useState<string>('all');
+  const [fadeAnim] = React.useState(new Animated.Value(1));
+
+  const workspaces = React.useMemo(() => getWorkspaceList(agents), [agents]);
+
+  const filteredAgents = React.useMemo(
+    () => filterAgentsByWorkspace(agents, selectedWorkspace),
+    [agents, selectedWorkspace],
+  );
+
+  // 恢复上次选中的工作空间
+  React.useEffect(() => {
+    AsyncStorage.getItem(STORAGE_KEY)
+      .then((value) => {
+        if (value && (value === 'all' || workspaces.includes(value))) {
+          setSelectedWorkspace(value);
+        }
+      })
+      .catch(() => {
+        // 静默失败，使用默认值 'all'
+      });
+  }, [workspaces]);
+
+  const handleWorkspaceChange = React.useCallback(
+    (workspace: string) => {
+      if (workspace === selectedWorkspace) return;
+
+      // 淡出动画
+      Animated.timing(fadeAnim, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: true,
+      }).start(() => {
+        // 更新选中的工作空间
+        setSelectedWorkspace(workspace);
+
+        // 保存到 AsyncStorage
+        AsyncStorage.setItem(STORAGE_KEY, workspace).catch(() => {
+          // 静默失败
+        });
+
+        // 淡入动画
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 200,
+          useNativeDriver: true,
+        }).start();
+      });
+    },
+    [selectedWorkspace, fadeAnim],
+  );
+
+  const renderWorkspaceChip = React.useCallback(
+    (workspace: string, label: string) => {
+      const isSelected = selectedWorkspace === workspace;
+      return (
+        <Pressable
+          key={workspace}
+          onPress={() => handleWorkspaceChange(workspace)}
+          style={({ pressed }) => [s.chip, isSelected && s.chipSelected, pressed && s.chipPressed]}
+        >
+          <Text style={[s.chipText, isSelected && s.chipTextSelected]}>{label}</Text>
+        </Pressable>
+      );
+    },
+    [selectedWorkspace, handleWorkspaceChange],
+  );
 
   if (isLoading) {
     return (
@@ -90,37 +164,60 @@ export function AgentList({ agents, isLoading, isError, error, onRefetch, onAgen
         <SlidersHorizontal size={20} color="#888888" />
       </View>
 
-      <FlatList
-        data={agents}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <AgentCard
-            agent={item}
-            onPress={() => onAgentPress(item.id, item.endpoint_id, item.name)}
-          />
-        )}
-        ItemSeparatorComponent={AgentCardSeparator}
-        scrollEnabled={agents.length > 0}
-        bounces={agents.length > 0}
-        alwaysBounceVertical={agents.length > 0}
-        refreshControl={
-          <RefreshControl
-            refreshing={isRefreshing}
-            onRefresh={() => {
-              void handleRefresh();
-            }}
-            tintColor="#FF6B35"
-            colors={['#FF6B35']}
-          />
-        }
-        ListEmptyComponent={
-          <View style={s.emptyWrap}>
-            <Text style={s.emptyTitle}>NO AGENTS REGISTERED</Text>
-            <Text style={s.emptyDesc}>Register your first agent via the CLI or API.</Text>
-          </View>
-        }
-        contentContainerStyle={agents.length === 0 ? s.emptyContainer : s.listContent}
-      />
+      {/* Workspace Filter */}
+      <View style={s.filterSection}>
+        <Text style={s.filterLabel}>WORKSPACE</Text>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={s.chipScrollContent}
+        >
+          {renderWorkspaceChip('all', 'All')}
+          {workspaces.map((workspace) => renderWorkspaceChip(workspace, workspace))}
+        </ScrollView>
+      </View>
+
+      <Animated.View style={{ flex: 1, opacity: fadeAnim }}>
+        <FlatList
+          data={filteredAgents}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => (
+            <AgentCard
+              agent={item}
+              onPress={() => onAgentPress(item.id, item.endpoint_id, item.name)}
+            />
+          )}
+          ItemSeparatorComponent={AgentCardSeparator}
+          scrollEnabled={filteredAgents.length > 0}
+          bounces={filteredAgents.length > 0}
+          alwaysBounceVertical={filteredAgents.length > 0}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={() => {
+                void handleRefresh();
+              }}
+              tintColor="#FF6B35"
+              colors={['#FF6B35']}
+            />
+          }
+          ListEmptyComponent={
+            <View style={s.emptyWrap}>
+              <Text style={s.emptyTitle}>
+                {selectedWorkspace === 'all'
+                  ? 'NO AGENTS REGISTERED'
+                  : 'NO AGENTS IN THIS WORKSPACE'}
+              </Text>
+              <Text style={s.emptyDesc}>
+                {selectedWorkspace === 'all'
+                  ? 'Register your first agent via the CLI or API.'
+                  : `No agents found in the "${selectedWorkspace}" workspace.`}
+              </Text>
+            </View>
+          }
+          contentContainerStyle={filteredAgents.length === 0 ? s.emptyContainer : s.listContent}
+        />
+      </Animated.View>
     </View>
   );
 }
@@ -179,5 +276,51 @@ const s = StyleSheet.create({
     color: '#888888',
     textAlign: 'center',
     maxWidth: 260,
+  },
+  filterSection: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    gap: 8,
+    backgroundColor: '#0D0D0D',
+    borderBottomWidth: 1,
+    borderBottomColor: '#1E1E1E',
+  },
+  filterLabel: {
+    fontFamily: 'Inter',
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#666666',
+    letterSpacing: 1.5,
+  },
+  chipScrollContent: {
+    gap: 8,
+    paddingRight: 16,
+  },
+  chip: {
+    height: 32,
+    paddingHorizontal: 14,
+    borderRadius: 16,
+    backgroundColor: '#1A1A1A',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  chipSelected: {
+    backgroundColor: '#FF6B35',
+  },
+  chipPressed: {
+    opacity: 0.7,
+  },
+  chipText: {
+    fontFamily: 'Inter',
+    fontSize: 13,
+    fontWeight: 'normal',
+    color: '#DDDDDD',
+  },
+  chipTextSelected: {
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  listContainer: {
+    flex: 1,
   },
 });
