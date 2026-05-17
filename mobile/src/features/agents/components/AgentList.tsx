@@ -105,7 +105,9 @@ export function AgentList({ agents, isLoading, isError, error, onRefetch, onAgen
         <Pressable
           key={workspace}
           onPress={() => handleWorkspaceChange(workspace)}
-          style={({ pressed }) => [s.chip, isSelected && s.chipSelected, pressed && s.chipPressed]}
+          style={({ pressed }) => {
+            return [s.chip, isSelected && s.chipSelected, pressed && s.chipPressed];
+          }}
         >
           <Text style={[s.chipText, isSelected && s.chipTextSelected]}>{label}</Text>
         </Pressable>
@@ -301,8 +303,8 @@ const s = StyleSheet.create({
     paddingHorizontal: 14,
     borderRadius: 16,
     backgroundColor: '#1A1A1A',
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
   },
   chipSelected: {
     backgroundColor: '#FF6B35',
