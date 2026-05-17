@@ -75,6 +75,66 @@ useFocusEffect(useCallback(() => { refetch(); }, [refetch]));
 
 ---
 
+## 5. Pressable 动态样式的 TypeScript 类型问题
+
+**错误写法：**
+```tsx
+<Pressable
+  style={({ pressed }) => [
+    s.chip,
+    isSelected && s.chipSelected,
+    pressed && s.chipPressed,
+  ]}
+>
+```
+
+**问题：** TypeScript 无法正确推断样式数组的类型，导致类型错误：
+```
+Argument of type '{ backgroundColor: string; }' is not assignable to parameter of type '{ height: number; ... }'.
+```
+
+**正确写法 1（推荐）：**
+```tsx
+<Pressable
+  style={({ pressed }) => {
+    return [s.chip, isSelected && s.chipSelected, pressed && s.chipPressed];
+  }}
+>
+```
+
+**正确写法 2（更明确）：**
+```tsx
+<Pressable
+  style={({ pressed }) => {
+    const styles = [s.chip];
+    if (isSelected) styles.push(s.chipSelected);
+    if (pressed) styles.push(s.chipPressed);
+    return styles;
+  }}
+>
+```
+
+**规则：**
+- 使用显式 `return` 语句，帮助 TypeScript 正确推断返回类型
+- 使用函数体 `{}` 包裹，而不是直接返回数组表达式
+- 确保 StyleSheet 中的 `alignItems` 和 `justifyContent` 使用 `as const` 类型断言
+
+**StyleSheet 定义：**
+```tsx
+const s = StyleSheet.create({
+  chip: {
+    height: 32,
+    paddingHorizontal: 14,
+    borderRadius: 16,
+    backgroundColor: '#1A1A1A',
+    alignItems: 'center' as const,  // 必须使用 as const
+    justifyContent: 'center' as const,
+  },
+});
+```
+
+---
+
 ## 参考
 
 - 设计系统：`mobile/docs/design.md`

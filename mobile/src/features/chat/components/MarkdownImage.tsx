@@ -61,6 +61,7 @@ export function MarkdownImage({ src, alt, serverUrl, token }: Props) {
   const [thumbLoading, setThumbLoading] = useState(true);
   const [fullscreenLoading, setFullscreenLoading] = useState(false);
   const probedUrisRef = React.useRef<Set<string>>(new Set());
+  const thumbPrefetchLoadedRef = React.useRef(false);
 
   const source = resolveSource(src, serverUrl, token);
 
@@ -68,8 +69,30 @@ export function MarkdownImage({ src, alt, serverUrl, token }: Props) {
     probedUrisRef.current.clear();
     setThumbError(false);
     setFullscreenError(false);
+    thumbPrefetchLoadedRef.current = false;
     setThumbLoading(true);
     setFullscreenLoading(false);
+  }, [source?.uri]);
+
+  React.useEffect(() => {
+    if (!source?.uri) return undefined;
+    const prefetchFn = Image.prefetch;
+    if (typeof prefetchFn !== 'function') return undefined;
+    let cancelled = false;
+    void Promise.resolve(prefetchFn(source.uri))
+      .then((loaded) => {
+        if (!cancelled && loaded) {
+          thumbPrefetchLoadedRef.current = true;
+          setThumbLoading(false);
+        }
+      })
+      .catch(() => {
+        // Keep the Image component as the source of truth for failures; prefetch
+        // is only a fallback for cache/load paths that miss onLoadEnd.
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [source?.uri]);
 
   const recordImageLoadFailed = React.useCallback(
@@ -90,9 +113,19 @@ export function MarkdownImage({ src, alt, serverUrl, token }: Props) {
 
   const markThumbnailLoadFailed = React.useCallback(() => {
     recordImageLoadFailed('thumbnail');
+    thumbPrefetchLoadedRef.current = false;
     setThumbLoading(false);
     setThumbError(true);
   }, [recordImageLoadFailed]);
+
+  const markThumbnailLoadStarted = React.useCallback(() => {
+    if (!thumbPrefetchLoadedRef.current) setThumbLoading(true);
+  }, []);
+
+  const markThumbnailLoaded = React.useCallback(() => {
+    thumbPrefetchLoadedRef.current = true;
+    setThumbLoading(false);
+  }, []);
 
   const markFullscreenLoadFailed = React.useCallback(() => {
     recordImageLoadFailed('fullscreen');
@@ -148,6 +181,7 @@ export function MarkdownImage({ src, alt, serverUrl, token }: Props) {
               style={s.fullscreenImage}
               resizeMode="contain"
               onLoadStart={() => setFullscreenLoading(true)}
+              onLoad={() => setFullscreenLoading(false)}
               onLoadEnd={() => setFullscreenLoading(false)}
               onError={markFullscreenLoadFailed}
               testID="markdown-image-fullscreen"
@@ -176,8 +210,9 @@ export function MarkdownImage({ src, alt, serverUrl, token }: Props) {
           source={source}
           style={s.thumbnail}
           resizeMode="contain"
-          onLoadStart={() => setThumbLoading(true)}
-          onLoadEnd={() => setThumbLoading(false)}
+          onLoadStart={markThumbnailLoadStarted}
+          onLoad={markThumbnailLoaded}
+          onLoadEnd={markThumbnailLoaded}
           onError={markThumbnailLoadFailed}
           testID="markdown-image-thumb"
         />
