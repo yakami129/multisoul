@@ -1,15 +1,18 @@
 import { act, fireEvent, render } from '@testing-library/react-native';
 import React from 'react';
-import { StyleSheet } from 'react-native';
+import { Image, StyleSheet } from 'react-native';
 import { clearDiagnosticsEntries, getDiagnosticsLogText } from '@/services/diagnosticsLog';
 import { MarkdownImage } from './MarkdownImage';
 
 const SERVER_URL = 'http://localhost:8765';
 const TOKEN = 'test-token';
 const originalFetch = global.fetch;
+const originalPrefetch = Image.prefetch;
 
 afterEach(() => {
   global.fetch = originalFetch;
+  Image.prefetch = originalPrefetch;
+  jest.clearAllMocks();
 });
 
 /// test_markdown_image_renders_thumbnail: renders <Image> with correct source URI for a remote HTTPS URL
@@ -248,6 +251,91 @@ test('test_markdown_image_shows_loading_until_thumbnail_loads', async () => {
   });
 
   expect(queryByTestId('markdown-image-loading')).toBeNull();
+});
+
+/// test_markdown_image_hides_loading_after_prefetch_success: Image.onLoadEnd 缺失时仍不能永久 loading
+///
+/// Data construction:
+///   src = 'https://example.com/cached-photo.png'（远端图片 URL）
+///   Image.prefetch result = true（RN 已经确认资源可取或已命中缓存）
+///   Image.onLoadEnd event = not fired（模拟 iOS/cache 路径未回调）
+///
+/// Execution:
+///   1. mock Image.prefetch → Promise<true>
+///   2. render MarkdownImage → thumbLoading 初始为 true，显示 loading overlay
+///   3. 等待 prefetch promise resolve → 组件把 thumbLoading 置为 false
+///
+/// Expected:
+///   - positive: Image.prefetch 被传入完整 src，说明使用独立加载信号兜底
+///   - positive: markdown-image-thumb 仍存在，说明缩略图没有被错误替换为失败占位
+///   - negative: markdown-image-loading 不存在，说明不会因为 onLoadEnd 缺失而一直遮住图片
+///   - negative: markdown-image-error 不存在，说明 prefetch 成功不会误报失败
+test('test_markdown_image_hides_loading_after_prefetch_success', async () => {
+  Image.prefetch = jest.fn().mockResolvedValue(true);
+
+  const { getByTestId, queryByTestId } = render(
+    <MarkdownImage
+      src="https://example.com/cached-photo.png"
+      alt="cached"
+      serverUrl={SERVER_URL}
+      token={TOKEN}
+    />,
+  );
+
+  expect(getByTestId('markdown-image-loading')).toBeTruthy();
+
+  await act(async () => {
+    await Promise.resolve();
+  });
+
+  expect(Image.prefetch).toHaveBeenCalledWith('https://example.com/cached-photo.png');
+  expect(getByTestId('markdown-image-thumb')).toBeTruthy();
+  expect(queryByTestId('markdown-image-loading')).toBeNull();
+  expect(queryByTestId('markdown-image-error')).toBeNull();
+});
+
+/// test_markdown_image_prefetch_success_ignores_late_load_start: prefetch 成功后迟到的 onLoadStart 不能恢复 loading
+///
+/// Data construction:
+///   src = 'https://example.com/cache-race.png'（远端图片 URL）
+///   Image.prefetch result = true（独立加载信号已确认图片可用）
+///   event order = prefetch resolve → Image.onLoadStart → no onLoad/onLoadEnd
+///
+/// Execution:
+///   1. mock Image.prefetch → Promise<true>
+///   2. render MarkdownImage → loading 初始显示
+///   3. 等待 prefetch resolve → loading 隐藏
+///   4. 触发 thumbnail onLoadStart，模拟 RN 事件迟到
+///
+/// Expected:
+///   - positive: markdown-image-thumb 仍存在，说明图片节点没有被移除
+///   - negative: markdown-image-loading 仍不存在，说明迟到 onLoadStart 不会恢复永久遮罩
+///   - negative: markdown-image-error 不存在，说明该竞态没有被误判为失败
+test('test_markdown_image_prefetch_success_ignores_late_load_start', async () => {
+  Image.prefetch = jest.fn().mockResolvedValue(true);
+
+  const { getByTestId, queryByTestId } = render(
+    <MarkdownImage
+      src="https://example.com/cache-race.png"
+      alt="cache race"
+      serverUrl={SERVER_URL}
+      token={TOKEN}
+    />,
+  );
+
+  await act(async () => {
+    await Promise.resolve();
+  });
+
+  expect(queryByTestId('markdown-image-loading')).toBeNull();
+
+  await act(async () => {
+    fireEvent(getByTestId('markdown-image-thumb'), 'onLoadStart');
+  });
+
+  expect(getByTestId('markdown-image-thumb')).toBeTruthy();
+  expect(queryByTestId('markdown-image-loading')).toBeNull();
+  expect(queryByTestId('markdown-image-error')).toBeNull();
 });
 
 /// test_markdown_image_shows_error_placeholder_on_load_error: triggering onError shows "Image unavailable"
