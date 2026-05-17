@@ -25,3 +25,6 @@ cli/cc-connect.zip
 cli/npm/vendor/
 .worktrees/
 .playwright-mcp
+
+# Local Claude Code / tooling (large; machine-specific)
+.claude/
