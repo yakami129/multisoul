@@ -10,7 +10,11 @@ interface Props {
   token: string;
 }
 
-function resolveSource(src: string, serverUrl: string, apiKey: string): { uri: string } | null {
+function resolveSource(
+  src: string,
+  serverUrl: string,
+  apiKey: string,
+): { uri: string; cache?: 'force-cache' } | null {
   if (src.startsWith('https://') || src.startsWith('http://')) {
     return { uri: src };
   }
@@ -18,6 +22,7 @@ function resolveSource(src: string, serverUrl: string, apiKey: string): { uri: s
     const base = serverUrl.replace(/\/$/, '');
     return {
       uri: `${base}/api/v1/files?path=${encodeURIComponent(src)}&token=${encodeURIComponent(apiKey)}`,
+      cache: 'force-cache',
     };
   }
   return null;

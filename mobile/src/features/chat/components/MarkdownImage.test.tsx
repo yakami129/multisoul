@@ -111,6 +111,10 @@ test('test_markdown_image_local_path_converts_to_files_url', () => {
   expect(img.props.source.uri).toContain(encodeURIComponent('/tmp/img.png'));
   // assertion failure = token not present as query param (RN Image doesn't support custom headers)
   expect(img.props.source.uri).toContain('token=test-token');
+  expect(img.props.source.cache).toBe(
+    'force-cache',
+    'local files URLs should reuse the iOS decode cache similar to CDN images where safe',
+  );
 });
 
 /// test_markdown_image_local_path_trims_server_url_slash: base URL with trailing slash should not create //api path
