@@ -34,13 +34,15 @@
 ```rust
 fn inject_image_prefix(user_text: &str, file_id: &str, uploads_dir: &std::path::Path) -> String {
     let path = uploads_dir.join(file_id);
+    let path_str = path.to_string_lossy().replace('\\', "/");
     format!(
         "[Attached image: {} — use your file reading tool to view it]\n\n{}",
-        path.display(),
-        user_text
+        path_str, user_text
     )
 }
 ```
+
+注入串中的路径统一用正斜杠，避免 Windows 上出现混合分隔符。
 
 dispatch 时：
 

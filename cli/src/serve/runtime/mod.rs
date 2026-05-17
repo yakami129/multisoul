@@ -35,12 +35,14 @@ pub fn send_to_session(
 /// Prepend an image path hint to the prompt for runtimes that cannot natively
 /// receive image content blocks (codex, cursor-cli).
 /// Format: "[Attached image: <abs_path> — use your file reading tool to view it]\n\n<user_text>"
+///
+/// Path is rendered with forward slashes so the same string is stable across Windows and Unix.
 fn inject_image_prefix(user_text: &str, file_id: &str, uploads_dir: &std::path::Path) -> String {
     let path = uploads_dir.join(file_id);
+    let path_str = path.to_string_lossy().replace('\\', "/");
     format!(
         "[Attached image: {} — use your file reading tool to view it]\n\n{}",
-        path.display(),
-        user_text
+        path_str, user_text
     )
 }
 

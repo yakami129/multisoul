@@ -263,6 +263,7 @@ fn clears_stale_codex_thread_id() {
 ///   - process_turn 在 1000ms 内返回：没有继续卡在 read_line
 ///   - child pid 在 1000ms 内不可 kill(pid, 0)：真实子进程已退出
 ///   - sessions 中 conv_id 不存在：下一条消息会创建新 worker
+#[cfg(unix)]
 #[test]
 fn abort_kills_child_blocking_inside_codex_process_turn() {
     let conn = rusqlite::Connection::open_in_memory().unwrap();
