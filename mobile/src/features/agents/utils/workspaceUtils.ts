@@ -33,3 +33,18 @@ export function getWorkspaceList(agents: Agent[]): string[] {
 
   return Array.from(workspaceSet).sort();
 }
+
+/**
+ * 按工作空间筛选 Agent
+ * @param agents - Agent 列表
+ * @param workspace - 工作空间名称，'all' 表示显示所有
+ * @returns 筛选后的 Agent 列表
+ */
+export function filterAgentsByWorkspace(agents: Agent[], workspace: string): Agent[] {
+  if (workspace === 'all') {
+    // 返回所有有效路径的 Agent
+    return agents.filter((agent) => extractWorkspace(agent.project_path) !== null);
+  }
+
+  return agents.filter((agent) => extractWorkspace(agent.project_path) === workspace);
+}
