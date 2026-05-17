@@ -58,6 +58,7 @@ pub struct AppState {
 
 **关键约定：**
 - `sessions` map 里若已有该 conv 的 `SessionHandle`，说明 worker 正在运行，直接 `handle.tx.send()` 即可。
+- abort 路径：`kill_process_group`（Unix：`kill(-pgid, SIGKILL)`）失败时再 `kill_single_process`。**Windows** 无 POSIX `kill`：单进程终止用 `TerminateProcess`；进程组级联杀仍仅在 Unix 上生效（与 `start_new_process_group` 对称）。
 - sender 断裂（worker crash）时重建，这是唯一允许重建 worker 的时机。
 - runtime 启动 CLI 子进程时应调用 `start_new_process_group(&mut command)`，并在 turn 开始时 `handle.set_current_pid(child.id())`；abort 才能杀掉父进程及其派生子进程。
 - `plugin_manager` 在 `msctl serve` 启动时初始化，加载 `plugin_agents` 表中所有已注册的 plugin agent 进程；serve 退出时调用 `shutdown()` 将状态写回 DB。

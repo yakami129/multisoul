@@ -114,8 +114,33 @@ fn kill_process_group(pid: u32) -> bool {
 }
 
 fn kill_single_process(pid: u32) -> bool {
-    // SAFETY: kill is called with a concrete child pid captured from std::process::Child.
-    unsafe { libc::kill(pid as libc::pid_t, libc::SIGKILL) == 0 }
+    #[cfg(unix)]
+    {
+        // SAFETY: kill is called with a concrete child pid captured from std::process::Child.
+        unsafe { libc::kill(pid as libc::pid_t, libc::SIGKILL) == 0 }
+    }
+    #[cfg(windows)]
+    {
+        use windows_sys::Win32::Foundation::CloseHandle;
+        use windows_sys::Win32::System::Threading::{
+            OpenProcess, TerminateProcess, PROCESS_TERMINATE,
+        };
+
+        unsafe {
+            let h = OpenProcess(PROCESS_TERMINATE, 0, pid);
+            if h.is_null() {
+                return false;
+            }
+            let ok = TerminateProcess(h, 1) != 0;
+            CloseHandle(h);
+            ok
+        }
+    }
+    #[cfg(not(any(unix, windows)))]
+    {
+        let _ = pid;
+        false
+    }
 }
 
 pub type ConvBus = Arc<Mutex<HashMap<String, broadcast::Sender<String>>>>;

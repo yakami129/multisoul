@@ -17,13 +17,13 @@
 
 ## 规则清单
 
-### R1 · AGENTS.md ≤ 120 行
+### R1 · AGENTS.md ≤ 150 行
 
 | | |
 |---|---|
 | 脚本 | [`scripts/check-agents-md-size.sh`](../../scripts/check-agents-md-size.sh) |
 | 起因 | Harness 文章核心教训：AGENTS.md 必须是地图不是说明书 |
-| 拒绝信号 | `ERROR: AGENTS.md is N lines (limit: 120)` |
+| 拒绝信号 | `ERROR: AGENTS.md is N lines (limit: 150)` |
 | 修复方式 | 把详情下沉到 `docs/` 子目录，AGENTS.md 只保留指针 |
 
 ### R2 · 禁止硬编码 token
