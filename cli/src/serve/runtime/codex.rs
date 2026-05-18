@@ -440,5 +440,5 @@ pub(super) fn broadcast(
 }
 
 #[cfg(test)]
-#[path = "codex_tests.rs"]
+#[path = "codex_tests/mod.rs"]
 mod tests;
