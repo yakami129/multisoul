@@ -221,6 +221,45 @@ test('test_markdown_image_fullscreen_image_fills_modal', async () => {
   expect(style.height).not.toBe('80%', 'fullscreen preview should not be capped to 80% height');
 });
 
+/// test_markdown_image_fullscreen_reuses_loaded_thumbnail_state: cached fullscreen preview must not stay loading
+///
+/// Data construction:
+///   src = 'https://example.com/photo.png' (same URI for thumbnail and fullscreen Image)
+///   thumbnail load state = loaded via Image.onLoadEnd
+///   fullscreen Image events = none (simulates RN/iOS cache path where visible image is reused but load callbacks do not fire)
+///
+/// Execution:
+///   1. render MarkdownImage → thumbnail starts with loading overlay
+///   2. fire thumbnail onLoadEnd → thumbPrefetchLoadedRef=true and thumbLoading=false
+///   3. press thumbnail → Modal opens with the same image URI
+///   4. do not fire fullscreen onLoad/onLoadEnd
+///
+/// Expected:
+///   - positive: markdown-image-fullscreen exists, so the full-screen Image is mounted
+///   - negative: markdown-image-fullscreen-loading is absent, because the already loaded thumbnail proves the URI is available
+///   - negative: markdown-image-fullscreen-error is absent, because no fullscreen load failure occurred
+test('test_markdown_image_fullscreen_reuses_loaded_thumbnail_state', async () => {
+  const { getByTestId, queryByTestId } = render(
+    <MarkdownImage
+      src="https://example.com/photo.png"
+      alt="photo"
+      serverUrl={SERVER_URL}
+      token={TOKEN}
+    />,
+  );
+
+  await act(async () => {
+    fireEvent(getByTestId('markdown-image-thumb'), 'onLoadEnd');
+  });
+  await act(async () => {
+    fireEvent.press(getByTestId('markdown-image-thumb-press'));
+  });
+
+  expect(getByTestId('markdown-image-fullscreen')).toBeTruthy();
+  expect(queryByTestId('markdown-image-fullscreen-loading')).toBeNull();
+  expect(queryByTestId('markdown-image-fullscreen-error')).toBeNull();
+});
+
 /// test_markdown_image_shows_loading_until_thumbnail_loads: large markdown images show loading feedback
 ///
 /// Data construction:
