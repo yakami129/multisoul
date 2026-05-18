@@ -10,6 +10,7 @@
 //! the next message arrives the process is already waiting for stdin.
 
 use serde_json::Value;
+use std::path::{Path, PathBuf};
 use std::process::{Child, ChildStdin, Command, Stdio};
 use tracing::{debug, error, info, info_span, warn};
 use uuid::Uuid;
@@ -30,6 +31,7 @@ pub fn send_to_session(
     state: &AppState,
     conv_id: &str,
     user_text: &str,
+    file_id: Option<&str>,
     project_path: &str,
     mode: &str,
 ) {
@@ -39,7 +41,7 @@ pub fn send_to_session(
             .tx
             .send(crate::serve::state::SessionMessage {
                 user_text: user_text.to_string(),
-                file_id: None,
+                file_id: file_id.map(str::to_string),
             })
             .is_ok()
         {
@@ -56,7 +58,7 @@ pub fn send_to_session(
 
     let _ = tx.send(crate::serve::state::SessionMessage {
         user_text: user_text.to_string(),
-        file_id: None,
+        file_id: file_id.map(str::to_string),
     });
 
     let state2 = state.clone();
@@ -90,8 +92,8 @@ fn session_worker(
     let mut pre_spawned: Option<(Child, ChildStdin)> = None;
 
     loop {
-        let user_text = match rx.recv() {
-            Ok(msg) => msg.user_text,
+        let msg = match rx.recv() {
+            Ok(msg) => msg,
             Err(_) => {
                 info!("session_channel_closed_shutting_down");
                 // Kill the pre-warmed process if nobody sent a follow-up message.
@@ -103,6 +105,11 @@ fn session_worker(
                 return;
             }
         };
+        let user_text = msg.user_text;
+        let image_path = msg
+            .file_id
+            .as_deref()
+            .map(|file_id| codex_image_path(&state.uploads_dir, file_id));
         let preview = logging::truncate(&user_text, 200);
         info!(
             user_text_len = user_text.chars().count(),
@@ -120,13 +127,35 @@ fn session_worker(
                 }
             }
             let process = if attempt == 1 {
-                pre_spawned.take().or_else(|| {
+                let reusable_pre_spawned = if image_path.is_some() {
+                    if let Some((mut child, _stdin)) = pre_spawned.take() {
+                        let pid = child.id();
+                        let _ = child.kill();
+                        session_handle.clear_current_pid(pid);
+                        let _ = child.wait();
+                        debug!(pid, "codex_pre_warm_discarded_for_image_turn");
+                    }
+                    None
+                } else {
+                    pre_spawned.take()
+                };
+                reusable_pre_spawned.or_else(|| {
                     debug!("codex_no_pre_warm_spawning_fresh");
-                    spawn_codex(&project_path, thread_id.as_deref(), &mode)
+                    spawn_codex(
+                        &project_path,
+                        thread_id.as_deref(),
+                        &mode,
+                        image_path.as_deref(),
+                    )
                 })
             } else {
                 warn!(attempt, "codex_retry_spawn");
-                spawn_codex(&project_path, thread_id.as_deref(), &mode)
+                spawn_codex(
+                    &project_path,
+                    thread_id.as_deref(),
+                    &mode,
+                    image_path.as_deref(),
+                )
             };
 
             let (child, stdin) = match process {
@@ -175,7 +204,7 @@ fn session_worker(
                     info!("session_aborted_skip_pre_warm");
                     return;
                 }
-                match spawn_codex(&project_path, Some(tid), &mode) {
+                match spawn_codex(&project_path, Some(tid), &mode, None) {
                     Some(p) => {
                         session_handle.set_current_pid(p.0.id());
                         pre_spawned = Some(p);
@@ -199,8 +228,9 @@ fn spawn_codex(
     project_path: &str,
     thread_id: Option<&str>,
     mode: &str,
+    image_path: Option<&Path>,
 ) -> Option<(Child, ChildStdin)> {
-    let args = build_codex_args(project_path, thread_id, mode);
+    let args = build_codex_args(project_path, thread_id, mode, image_path);
     debug!(args = ?args, "codex_spawn_args");
 
     let mut command = Command::new("codex");
@@ -221,7 +251,12 @@ fn spawn_codex(
     Some((child, stdin))
 }
 
-fn build_codex_args(project_path: &str, thread_id: Option<&str>, mode: &str) -> Vec<String> {
+fn build_codex_args(
+    project_path: &str,
+    thread_id: Option<&str>,
+    mode: &str,
+    image_path: Option<&Path>,
+) -> Vec<String> {
     let is_resume = thread_id.filter(|s| !s.is_empty()).is_some();
     let mode_args = if is_resume {
         resume_mode_flags(mode)
@@ -254,7 +289,15 @@ fn build_codex_args(project_path: &str, thread_id: Option<&str>, mode: &str) -> 
             "-".to_string(),
         ]);
     }
+    if let Some(image_path) = image_path {
+        args.push("--image".to_string());
+        args.push(image_path.to_string_lossy().replace('\\', "/"));
+    }
     args
+}
+
+fn codex_image_path(uploads_dir: &Path, file_id: &str) -> PathBuf {
+    uploads_dir.join(file_id)
 }
 
 // ─── helpers ─────────────────────────────────────────────────────────────────

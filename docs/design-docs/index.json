@@ -12,7 +12,7 @@
       "trackedFiles": [
         {
           "path": "cli/src/serve/runtime/mod.rs",
-          "sha256": "6b8f04c1aa3bd167b99622f583574fff014c3725649b9e3ebe9bc4f0132363e9",
+          "sha256": "6b1a4bddfa7e08453510caab14d284fc80a49aaf336c9649d8524bd24de0cd3f",
           "reason": "dispatch 层新增 inject_image_prefix 逻辑，是本设计的唯一变更文件。"
         }
       ]
@@ -23,7 +23,7 @@
       "trackedFiles": [
         {
           "path": "cli/src/serve/runtime/mod.rs",
-          "sha256": "6b8f04c1aa3bd167b99622f583574fff014c3725649b9e3ebe9bc4f0132363e9",
+          "sha256": "6b1a4bddfa7e08453510caab14d284fc80a49aaf336c9649d8524bd24de0cd3f",
           "reason": "Runtime 分发入口；文档说明新增 runtime module 与 match arm。"
         },
         {
@@ -43,7 +43,7 @@
         },
         {
           "path": "cli/src/serve/runtime/codex.rs",
-          "sha256": "97333c606478211f0719d859a9fec8691705d8815c844c5c896ef24f6bc367f3",
+          "sha256": "732d1ca94ace3cb3afa861b25430886df860e6e35c858dfbe6e63ff8cf99e9d4",
           "reason": "Codex runtime 是现有 adapter 示例；文档 runtime 列表与接入说明引用它。"
         },
         {

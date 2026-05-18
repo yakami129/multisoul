@@ -1,6 +1,7 @@
 use super::*;
 use serde_json::json;
 use std::{
+    path::Path,
     process::{Command, Stdio},
     time::{Duration, Instant},
 };
@@ -174,7 +175,7 @@ fn test_resume_mode_flags() {
 ///   - 负断言：不再出现 sandbox_mode 配置覆盖
 #[test]
 fn test_build_codex_args_full_auto_fresh_uses_top_level_defaults() {
-    let args = build_codex_args("/repo", None, "full-auto");
+    let args = build_codex_args("/repo", None, "full-auto", None);
 
     assert_eq!(
         args,
@@ -201,6 +202,189 @@ fn test_build_codex_args_full_auto_fresh_uses_top_level_defaults() {
             .iter()
             .any(|arg| arg == "sandbox_mode=\"danger-full-access\""),
         "fresh full-auto should not pass sandbox_mode config override"
+    );
+}
+
+/// send_to_session: 已存在的 Codex session 必须把 file_id 放进队列消息。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   conv_id     = "conv-1"（已有 session key）
+///   user_text   = "请看图"
+///   file_id     = "img-1.jpg"（上传接口返回的文件名）
+///   uploads_dir = /tmp/uploads（本测试不 spawn Codex，因此不读取文件）
+///
+/// 执行过程：
+///   1. 手动创建 SessionHandle 并插入 state.sessions["conv-1"]
+///   2. 调用 codex::send_to_session(..., Some("img-1.jpg"), ...)
+///   3. 从 session channel 接收消息
+///
+/// 预期结果：
+///   - 正断言：queued.user_text == "请看图"，说明文本未丢
+///   - 正断言：queued.file_id == Some("img-1.jpg")，说明图片 id 没在 Codex 分支丢失
+///   - 负断言：queued.file_id != None，防止退回旧实现的纯文本队列
+#[test]
+fn test_send_to_existing_codex_session_preserves_file_id() {
+    let conn = rusqlite::Connection::open_in_memory().unwrap();
+    let state = AppState::new(
+        conn,
+        "token".to_string(),
+        std::path::PathBuf::from("/tmp/uploads"),
+        crate::serve::plugin::PluginManager::empty(std::sync::Arc::new(std::sync::Mutex::new(
+            rusqlite::Connection::open_in_memory().unwrap(),
+        ))),
+    );
+    let (tx, rx) = std::sync::mpsc::channel();
+    let handle = crate::serve::state::SessionHandle::new(tx);
+    state
+        .sessions
+        .lock()
+        .unwrap()
+        .insert("conv-1".to_string(), handle);
+
+    send_to_session(
+        &state,
+        "conv-1",
+        "请看图",
+        Some("img-1.jpg"),
+        "/repo",
+        "full-auto",
+    );
+
+    let queued = rx
+        .recv_timeout(Duration::from_millis(100))
+        .expect("existing session should receive one queued Codex message");
+    assert_eq!(
+        queued.user_text, "请看图",
+        "Codex queued message should preserve the original user text"
+    );
+    assert_eq!(
+        queued.file_id.as_deref(),
+        Some("img-1.jpg"),
+        "Codex queued message should preserve file_id for --image spawning"
+    );
+    assert!(
+        queued.file_id.is_some(),
+        "Codex queued message must not drop file_id back to None"
+    );
+}
+
+/// build_codex_args: 新 Codex 会话带图时，把 `--image <path>` 放在 stdin prompt `-` 后。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   project_path = "/repo"（--cd 参数）
+///   thread_id    = None（新会话，因此走 `exec` 分支）
+///   mode         = "full-auto" → mode_flags = ["-s", "danger-full-access", "-a", "never"]
+///   image_path   = "/tmp/uploads/img-1.jpg"
+///
+/// 执行过程：
+///   1. 调用 build_codex_args(..., image_path=Some(...))
+///   2. 新会话 argv 先追加 stdin prompt marker "-"
+///   3. 再追加 ["--image", "/tmp/uploads/img-1.jpg"]
+///
+/// 预期结果：
+///   - 正断言：argv 精确包含 `- --image /tmp/uploads/img-1.jpg`
+///   - 正断言：`--image` 出现在 `-` 之后，避免 Codex CLI 可变参数吞掉 prompt
+///   - 负断言：不包含旧的文本路径提示字符串
+#[test]
+fn test_build_codex_args_fresh_with_image_places_image_after_stdin_marker() {
+    let args = build_codex_args(
+        "/repo",
+        None,
+        "full-auto",
+        Some(Path::new("/tmp/uploads/img-1.jpg")),
+    );
+
+    assert_eq!(
+        args,
+        vec![
+            "-s",
+            "danger-full-access",
+            "-a",
+            "never",
+            "exec",
+            "--skip-git-repo-check",
+            "--json",
+            "--cd",
+            "/repo",
+            "-",
+            "--image",
+            "/tmp/uploads/img-1.jpg"
+        ],
+        "fresh Codex image turn should pass the uploaded image via `--image` after stdin marker"
+    );
+    let stdin_idx = args
+        .iter()
+        .position(|arg| arg == "-")
+        .expect("fresh Codex args should contain stdin marker");
+    let image_idx = args
+        .iter()
+        .position(|arg| arg == "--image")
+        .expect("fresh Codex args should contain --image");
+    assert!(
+        image_idx > stdin_idx,
+        "`--image` should be after `-`; otherwise Codex CLI may treat the prompt marker as an image path"
+    );
+    assert!(
+        !args.iter().any(|arg| arg.contains("[Attached image:")),
+        "Codex image args should not use the old text prefix injection"
+    );
+}
+
+/// build_codex_args: resume Codex 会话带图时，同样使用 `--image <path>`。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   project_path = "/repo"（resume 分支不使用 --cd）
+///   thread_id    = Some("thread-1")（已有 Codex thread，因此走 `exec resume`）
+///   mode         = "suggest" → mode_flags = []（便于断言 resume argv 主体）
+///   image_path   = "/tmp/uploads/img-2.png"
+///
+/// 执行过程：
+///   1. 调用 build_codex_args(..., thread_id=Some("thread-1"), image_path=Some(...))
+///   2. resume argv 追加 ["exec", "resume", "--skip-git-repo-check", "thread-1", "--json", "-"]
+///   3. 再追加 ["--image", "/tmp/uploads/img-2.png"]
+///
+/// 预期结果：
+///   - 正断言：resume argv 精确包含 image 参数
+///   - 正断言：`--image` 出现在 `-` 之后
+///   - 负断言：resume 带图时不误加 `--cd`
+#[test]
+fn test_build_codex_args_resume_with_image_places_image_after_stdin_marker() {
+    let args = build_codex_args(
+        "/repo",
+        Some("thread-1"),
+        "suggest",
+        Some(Path::new("/tmp/uploads/img-2.png")),
+    );
+
+    assert_eq!(
+        args,
+        vec![
+            "exec",
+            "resume",
+            "--skip-git-repo-check",
+            "thread-1",
+            "--json",
+            "-",
+            "--image",
+            "/tmp/uploads/img-2.png"
+        ],
+        "resume Codex image turn should pass the uploaded image via `--image` after stdin marker"
+    );
+    let stdin_idx = args
+        .iter()
+        .position(|arg| arg == "-")
+        .expect("resume Codex args should contain stdin marker");
+    let image_idx = args
+        .iter()
+        .position(|arg| arg == "--image")
+        .expect("resume Codex args should contain --image");
+    assert!(
+        image_idx > stdin_idx,
+        "`--image` should be after `-` for resume as well"
+    );
+    assert!(
+        !args.iter().any(|arg| arg == "--cd"),
+        "resume Codex args should not include --cd when a thread id is provided"
     );
 }
 

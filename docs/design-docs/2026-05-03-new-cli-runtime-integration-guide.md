@@ -266,7 +266,7 @@ serde_json::json!({ "call_id": "tool-1", "ok": true, "summary": "/repo" })
 
 ### Step 4：注册到 mod.rs
 
-打开 `cli/src/serve/runtime/mod.rs`，添加模块声明和 match arm（`inject_image_prefix` 将拼接后的路径里的 `\\` 换成 `/`，保证 Windows 上注入串仍与 Unix 一样可读）：
+打开 `cli/src/serve/runtime/mod.rs`，添加模块声明和 match arm。已知能原生接收图片的 runtime 应直接传递 `file_id`；不支持原生图片的 runtime 才使用 `inject_image_prefix`（该函数会将拼接后的路径里的 `\\` 换成 `/`，保证 Windows 上注入串仍与 Unix 一样可读）：
 
 ```rust
 mod claude;
@@ -275,7 +275,11 @@ pub mod your_runtime;   // 新增
 
 pub fn send_to_session(...) {
     match runtime {
-        "codex" | "cursor-cli" | "your-runtime" => {
+        "codex" => {
+            // Codex 支持 `codex exec ... - --image <path>`，由 codex adapter 消费 file_id。
+            codex::send_to_session(state, conv_id, user_text, file_id, project_path, mode);
+        }
+        "cursor-cli" | "your-runtime" => {
             // file_id 在 dispatch 层转换为路径前缀注入到 prompt（inject_image_prefix）
             let effective_text = match file_id {
                 Some(fid) => inject_image_prefix(user_text, fid, &state.uploads_dir),
@@ -284,14 +288,14 @@ pub fn send_to_session(...) {
             // 按 runtime 分发
             if runtime == "your-runtime" {
                 your_runtime::send_to_session(state, conv_id, &effective_text, project_path);
-            } else { /* codex / cursor-cli */ }
+            } else { /* cursor-cli */ }
         }
         _ => claude::send_to_session(state, conv_id, user_text, file_id, project_path),
     }
 }
 ```
 
-> **注意：** 不原生支持图片 content block 的 runtime（codex、cursor-cli 及新接入的 runtime）应加入上方的 `"codex" | "cursor-cli" | "your-runtime"` arm，由 dispatch 层统一注入图片路径前缀；`claude` runtime 保持独立，直接传递 `file_id` 以发送 base64 image block。
+> **注意：** `claude` runtime 直接传递 `file_id` 以发送 base64 image block；`codex` runtime 直接传递 `file_id` 并在 adapter 内追加 `--image <path>`；不原生支持图片 content block / image flag 的 runtime（如 `cursor-cli` 及新接入的 runtime）才应加入路径前缀注入分支。
 
 ---
 
@@ -341,6 +345,7 @@ Codex 使用 `codex exec` / `codex exec resume <thread_id>` 命令；`full-auto`
 
 - **线程 ID**：第一轮执行后会拿到 `codex_thread_id`，后续 resume 时传入。
 - **预热（pre-warm）**：每轮成功后立即在后台 spawn 下一个 `codex exec resume` 进程，抵消 Node.js 启动延迟。
+- **图片输入**：带 `file_id` 的 turn 使用 `codex exec ... - --image <uploads_dir/file_id>` 或 `codex exec resume ... - --image <uploads_dir/file_id>`。`--image` 放在 stdin marker `-` 之后，避免 Codex CLI 的可变图片参数吞掉 prompt marker。若当前消息带图且已有无图 pre-warmed 进程，先丢弃预热进程再重新 spawn 带 `--image` 的进程。
 - **模式标志**：`mode` 字段映射到 Codex CLI 顶层参数；fresh 与 resume 的 `full-auto` / `auto-edit` 都使用 `codex -s danger-full-access -a never exec ...`，避免交互式审批阻塞；`yolo` 映射到 `--dangerously-bypass-approvals-and-sandbox`（见 `codex::mode_flags()` / `codex::resume_mode_flags()`）。
 - **重试**：失败时最多重试 3 次；若遇到 `"thread ... not found"` 错误，清空 `codex_thread_id` 重新开始。
 - **单测位置**：`codex.rs` 旁的 `codex_tests.rs`（`#[path = "codex_tests.rs"] mod tests`），用于满足仓库单文件行数上限。

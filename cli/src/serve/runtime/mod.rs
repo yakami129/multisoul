@@ -17,23 +17,22 @@ pub fn send_to_session(
     mode: &str,
 ) {
     match runtime {
-        "codex" | "cursor-cli" => {
+        "codex" => {
+            codex::send_to_session(state, conv_id, user_text, file_id, project_path, mode);
+        }
+        "cursor-cli" => {
             let effective_text = match file_id {
                 Some(fid) => inject_image_prefix(user_text, fid, &state.uploads_dir),
                 None => user_text.to_string(),
             };
-            if runtime == "codex" {
-                codex::send_to_session(state, conv_id, &effective_text, project_path, mode);
-            } else {
-                cursor::send_to_session(state, conv_id, &effective_text, project_path, mode);
-            }
+            cursor::send_to_session(state, conv_id, &effective_text, project_path, mode);
         }
         _ => claude::send_to_session(state, conv_id, user_text, file_id, project_path),
     }
 }
 
 /// Prepend an image path hint to the prompt for runtimes that cannot natively
-/// receive image content blocks (codex, cursor-cli).
+/// receive image content blocks (cursor-cli).
 /// Format: "[Attached image: <abs_path> — use your file reading tool to view it]\n\n<user_text>"
 ///
 /// Path is rendered with forward slashes so the same string is stable across Windows and Unix.
