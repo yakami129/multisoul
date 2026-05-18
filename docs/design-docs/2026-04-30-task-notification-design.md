@@ -40,7 +40,9 @@ Claude emits AskUserQuestion
 Runtime emits task_status completed/failed
   └─> push.send_task_status_push(...)
         ├─ skip if current user turn already produced ask_question
-        └─ send one Expo payload type=task_completed/task_failed
+        └─ send one Expo payload per unique Expo token type=task_completed/task_failed
+
+The CLI may store multiple `push_tokens` rows for the same phone when the same Expo token is registered under multiple `endpoint_id` values. Push fan-out deduplicates by `expo_push_token` before calling Expo and keeps the newest registered row's `endpoint_id` for tap navigation.
 
 Mobile receives WS task_status
   └─> update conversation status only
@@ -113,4 +115,4 @@ When active, the service plays the sound directly; the notification handler supp
 ## Out of scope (this iteration)
 
 - User-facing notification settings toggle
-- Notification grouping / deduplication
+- Notification grouping beyond same-token deduplication

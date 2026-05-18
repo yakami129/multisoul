@@ -1,5 +1,6 @@
 use crate::logging;
 use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
 use tracing::{error, info, warn};
 
 const EXPO_PUSH_URL: &str = "https://exp.host/--/api/v2/push/send";
@@ -35,7 +36,11 @@ struct ExpoTicket {
 
 fn build_payloads_for_tokens(db: &rusqlite::Connection, push: &TaskStatusPush) -> Vec<PushPayload> {
     let tokens: Vec<(String, Option<String>)> = {
-        let mut stmt = match db.prepare("SELECT expo_push_token, endpoint_id FROM push_tokens") {
+        let mut stmt = match db.prepare(
+            "SELECT expo_push_token, endpoint_id
+             FROM push_tokens
+             ORDER BY registered_at DESC",
+        ) {
             Ok(s) => s,
             Err(e) => {
                 error!(error = %e, "push_db_error");
@@ -56,8 +61,10 @@ fn build_payloads_for_tokens(db: &rusqlite::Connection, push: &TaskStatusPush) -
         return vec![];
     }
 
+    let mut seen_tokens = HashSet::new();
     tokens
         .into_iter()
+        .filter(|(token, _)| seen_tokens.insert(token.clone()))
         .map(|(token, endpoint_id)| {
             let mut data = push.data.clone();
             if let Some(endpoint_id) = endpoint_id {

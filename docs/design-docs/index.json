@@ -85,7 +85,7 @@
       "trackedFiles": [
         {
           "path": "cli/src/serve/push.rs",
-          "sha256": "0e98cbfa151f73b15e252c7fe675fec08a8d926d07a947de82a328a6c4e1f2fb",
+          "sha256": "64203ca9c696935af7cfc8c59bc751e570ddff7bd502f80c914dae432612c383",
           "reason": "通知发送权、payload 结构、问答/完成互斥逻辑由本文档定义。"
         },
         {
