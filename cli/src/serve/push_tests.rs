@@ -48,6 +48,73 @@ mod tests {
         assert_eq!(payloads[0].data["endpoint_id"], "ep-1");
     }
 
+    /// 同一台 iPhone 在同一个 CLI 中有 3 条 endpoint 注册时，任务完成只能发 1 条手机通知。
+    ///
+    /// 数据构造（含关键数值的推导过程）：
+    ///   push-1 = ExponentPushToken[abc] + ep-1
+    ///   push-2 = ExponentPushToken[abc] + ep-2
+    ///   push-3 = ExponentPushToken[abc] + ep-3
+    ///   唯一 Expo token 数 = 1，因此预期 payload 数 = 1
+    ///
+    /// 执行过程（逐步说明系统如何处理）：
+    ///   1. 创建一个 completed conversation → completion push 是可发送状态
+    ///   2. 插入 3 条相同 expo_push_token、不同 endpoint_id 的 push_tokens 行
+    ///   3. 调用 build_task_status_push_payloads → 应按 expo_push_token 去重
+    ///
+    /// 预期结果：
+    ///   - 正断言：只生成 1 个 payload，同一手机只收到 1 条通知
+    ///   - 正断言：payload 目标 token 是 ExponentPushToken[abc]
+    ///   - 负断言：不能生成 3 个 payload，否则同一手机会收到 3 条通知
+    #[test]
+    fn build_task_status_push_dedupes_same_expo_token_across_endpoints() {
+        let dir = tempdir().unwrap();
+        let conn = db::open_at(&dir.path().join("t.db")).unwrap();
+        let agent_id = insert_agent(&conn, "Deploy Bot", "/p", "codex", "full-auto").unwrap();
+        conn.execute(
+            "INSERT INTO conversations (id, agent_id, title, created_at, last_message_at, status)
+             VALUES ('conv-1', ?1, 'Deploy', 1, 1, 'completed')",
+            [&agent_id],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO push_tokens (id, expo_push_token, device_label, endpoint_id, registered_at)
+             VALUES ('push-1', 'ExponentPushToken[abc]', 'iPhone', 'ep-1', 1)",
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO push_tokens (id, expo_push_token, device_label, endpoint_id, registered_at)
+             VALUES ('push-2', 'ExponentPushToken[abc]', 'iPhone', 'ep-2', 2)",
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO push_tokens (id, expo_push_token, device_label, endpoint_id, registered_at)
+             VALUES ('push-3', 'ExponentPushToken[abc]', 'iPhone', 'ep-3', 3)",
+            [],
+        )
+        .unwrap();
+
+        let payloads =
+            build_task_status_push_payloads(&conn, "conv-1", "completed", "Build succeeded")
+                .unwrap();
+
+        assert_eq!(
+            payloads.len(),
+            1,
+            "same Expo token registered under multiple endpoint_ids must produce one push payload"
+        );
+        assert_eq!(
+            payloads[0].to, "ExponentPushToken[abc]",
+            "deduped payload must target the registered iPhone token"
+        );
+        assert_ne!(
+            payloads.len(),
+            3,
+            "three payloads would reproduce the triple iOS notifications bug"
+        );
+    }
+
     #[test]
     fn build_ask_question_push_includes_pending_question_inbox_data() {
         let dir = tempdir().unwrap();
