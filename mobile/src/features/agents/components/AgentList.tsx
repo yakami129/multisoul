@@ -104,6 +104,8 @@ export function AgentList({ agents, isLoading, isError, error, onRefetch, onAgen
       return (
         <Pressable
           key={workspace}
+          testID={`workspace-chip-${workspace}`}
+          accessibilityRole="button"
           onPress={() => handleWorkspaceChange(workspace)}
           style={({ pressed }) => {
             return [s.chip, isSelected && s.chipSelected, pressed && s.chipPressed];
@@ -281,7 +283,7 @@ const s = StyleSheet.create({
   },
   filterSection: {
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 14,
     gap: 8,
     backgroundColor: '#0D0D0D',
     borderBottomWidth: 1,
@@ -295,19 +297,28 @@ const s = StyleSheet.create({
     letterSpacing: 1.5,
   },
   chipScrollContent: {
-    gap: 8,
-    paddingRight: 16,
+    gap: 6,
+    padding: 4,
+    paddingRight: 20,
+    borderRadius: 22,
+    backgroundColor: '#161616',
+    borderWidth: 1,
+    borderColor: '#1E1E1E',
   },
   chip: {
-    height: 32,
-    paddingHorizontal: 14,
-    borderRadius: 16,
-    backgroundColor: '#1A1A1A',
+    height: 36,
+    minWidth: 56,
+    paddingHorizontal: 16,
+    borderRadius: 18,
+    backgroundColor: '#252525',
+    borderWidth: 1,
+    borderColor: '#2A2A2A',
     alignItems: 'center' as const,
     justifyContent: 'center' as const,
   },
   chipSelected: {
     backgroundColor: '#FF6B35',
+    borderColor: '#FF6B35',
   },
   chipPressed: {
     opacity: 0.7,
