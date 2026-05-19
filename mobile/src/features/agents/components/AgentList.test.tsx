@@ -110,6 +110,71 @@ describe('AgentList', () => {
     expect(UNSAFE_getByType(RefreshControl).props.refreshing).toBe(false);
   });
 
+  /// Workspace filter chips: selected and unselected workspace buttons have clear surfaces.
+  ///
+  /// Data construction:
+  ///   agents = 2 records:
+  ///     /repo/alpha -> workspace "alpha"
+  ///     /repo/beta  -> workspace "beta"
+  ///   default selected workspace = "all" from component state.
+  ///
+  /// Execution:
+  ///   1. Render AgentList with 2 workspace names.
+  ///   2. Read the "All" chip and the "alpha" chip styles in the unpressed state.
+  ///   3. Flatten the Pressable style arrays returned by their style callbacks.
+  ///
+  /// Expected:
+  ///   - Positive: selected "All" chip has orange background and pill radius.
+  ///   - Positive: unselected "alpha" chip has a visible dark button background and pill radius.
+  ///   - Negative: unselected "alpha" chip must not share the page background, or it will look borderless.
+  it('styles workspace filter chips as rounded buttons with visible backgrounds', () => {
+    const { getByTestId } = render(
+      <AgentList
+        agents={agents}
+        isLoading={false}
+        isError={false}
+        error={null}
+        isFetching={false}
+        onRefetch={() => {}}
+        onAgentPress={() => {}}
+      />,
+    );
+
+    const selectedChip = getByTestId('workspace-chip-all');
+    const alphaChip = getByTestId('workspace-chip-alpha');
+    const selectedRawStyle =
+      typeof selectedChip.props.style === 'function'
+        ? selectedChip.props.style({ pressed: false })
+        : selectedChip.props.style;
+    const alphaRawStyle =
+      typeof alphaChip.props.style === 'function'
+        ? alphaChip.props.style({ pressed: false })
+        : alphaChip.props.style;
+    const selectedStyle = StyleSheet.flatten(selectedRawStyle);
+    const alphaStyle = StyleSheet.flatten(alphaRawStyle);
+
+    expect(selectedStyle.backgroundColor).toBe(
+      '#FF6B35',
+      'selected workspace chip should keep the documented action background',
+    );
+    expect(selectedStyle.borderRadius).toBe(
+      18,
+      'selected workspace chip should be a soft pill, not a sharp rectangle',
+    );
+    expect(alphaStyle.backgroundColor).toBe(
+      '#252525',
+      'unselected workspace chip should have a visible dark button surface',
+    );
+    expect(alphaStyle.backgroundColor).not.toBe(
+      '#0D0D0D',
+      'unselected workspace chip must not disappear into the page background',
+    );
+    expect(alphaStyle.borderRadius).toBe(
+      18,
+      'unselected workspace chip should use the same pill radius as the selected chip',
+    );
+  });
+
   /// Agent cards spacing: adjacent cards are separated by a fixed vertical gap.
   ///
   /// Data construction:
