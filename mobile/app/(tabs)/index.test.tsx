@@ -67,8 +67,8 @@ describe('AgentListScreen', () => {
 
     const { getByText } = renderScreen();
 
-    await waitFor(() => expect(getByText('ALPHA AGENT')).toBeTruthy());
-    fireEvent.press(getByText('ALPHA AGENT'));
+    await waitFor(() => expect(getByText('Alpha Agent')).toBeTruthy());
+    fireEvent.press(getByText('Alpha Agent'));
 
     await waitFor(() => expect(mockPush).toHaveBeenCalledWith('/agent/a1?endpoint_id=ep-1'));
   });
@@ -88,8 +88,8 @@ describe('AgentListScreen', () => {
 
     const { getByText } = renderScreen();
 
-    await waitFor(() => expect(getByText('修复 BOT/QA')).toBeTruthy());
-    fireEvent.press(getByText('修复 BOT/QA'));
+    await waitFor(() => expect(getByText('修复 Bot/QA')).toBeTruthy());
+    fireEvent.press(getByText('修复 Bot/QA'));
 
     await waitFor(() =>
       expect(mockPush).toHaveBeenCalledWith(

@@ -46,8 +46,8 @@ const mockAgent = {
 ///   4. Wait for agent name to appear
 ///
 /// Expected:
-///   - 'WEATHER AGENT' visible after load
-///   - 'Local' endpoint label visible
+///   - 'Weather Agent' visible after load
+///   - endpoint status pill visible
 describe('AgentDetailScreen', () => {
   const { fetchAgent } = require('../features/agents/services/agentService');
   const {
@@ -105,10 +105,10 @@ describe('AgentDetailScreen', () => {
     render(<AgentDetailScreen />);
 
     await waitFor(() => {
-      expect(screen.getByText('WEATHER AGENT')).toBeTruthy();
+      expect(screen.getByText('Weather Agent')).toBeTruthy();
     });
 
-    expect(screen.getByText('Local')).toBeTruthy();
+    expect(screen.getByText('Running on Local · Claude Code')).toBeTruthy();
     expect(screen.getByText('Recent Chats')).toBeTruthy();
     expect(screen.getByText('Check forecast alerts')).toBeTruthy();
   });
@@ -119,7 +119,7 @@ describe('AgentDetailScreen', () => {
     render(<AgentDetailScreen />);
 
     await waitFor(() => {
-      expect(screen.getByText('FAILED TO LOAD')).toBeTruthy();
+      expect(screen.getByText('Failed to load')).toBeTruthy();
     });
   });
 
@@ -129,7 +129,7 @@ describe('AgentDetailScreen', () => {
     render(<AgentDetailScreen />);
 
     await waitFor(() => {
-      expect(screen.getByText('WEATHER AGENT')).toBeTruthy();
+      expect(screen.getByText('Weather Agent')).toBeTruthy();
     });
 
     expect(screen.getByText('No recent chats yet.')).toBeTruthy();
@@ -139,7 +139,7 @@ describe('AgentDetailScreen', () => {
     render(<AgentDetailScreen />);
 
     await waitFor(() => {
-      expect(screen.getByText('WEATHER AGENT')).toBeTruthy();
+      expect(screen.getByText('Weather Agent')).toBeTruthy();
     });
 
     fireEvent.press(screen.getByText('New Chat'));

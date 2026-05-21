@@ -41,8 +41,7 @@ describe('AgentDetail', () => {
         onNewChat={() => {}}
       />,
     );
-    // Loading state shows LOADING… text
-    expect(getByText('LOADING...')).toBeTruthy();
+    expect(getByText('Loading...')).toBeTruthy();
   });
 
   it('renders project details and recent chats', () => {
@@ -56,9 +55,8 @@ describe('AgentDetail', () => {
         onNewChat={() => {}}
       />,
     );
-    expect(getByText('MY AGENT')).toBeTruthy();
-    expect(getByText('Local')).toBeTruthy();
-    expect(getAllByText('Running').length).toBeGreaterThanOrEqual(1);
+    expect(getByText('My Agent')).toBeTruthy();
+    expect(getAllByText('Running on Local · Claude Code').length).toBeGreaterThanOrEqual(1);
     expect(getByText('Recent Chats')).toBeTruthy();
     expect(getByText('Add dark mode toggle')).toBeTruthy();
     expect(queryByText('INVOKE')).toBeNull();
@@ -75,7 +73,7 @@ describe('AgentDetail', () => {
         onNewChat={() => {}}
       />,
     );
-    fireEvent.press(getByText('GO BACK'));
+    fireEvent.press(getByText('Go back'));
     expect(onBack).toHaveBeenCalledTimes(1);
   });
 

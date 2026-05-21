@@ -1,4 +1,4 @@
-import { Folder } from 'lucide-react-native';
+import { ChevronRight, Cpu } from 'lucide-react-native';
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { type Agent } from '@/types';
@@ -7,93 +7,101 @@ interface Props {
   agent: Agent;
   onPress: () => void;
   index?: number;
+  statusLabel?: string;
+  isActive?: boolean;
+  pendingCount?: number;
 }
 
-function initials(name: string) {
-  return name
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((w) => w[0]?.toUpperCase() ?? '')
-    .join('');
+const avatarColors = ['#FF6B35', '#7C3AED', '#2563EB', '#059669'];
+
+function displayRuntime(runtime: Agent['runtime']) {
+  switch (runtime) {
+    case 'claude-code':
+      return 'Claude Code';
+    case 'codex':
+      return 'Codex';
+    case 'cursor-cli':
+      return 'Cursor CLI';
+    case 'custom':
+      return 'Custom';
+  }
 }
 
-export function AgentCard({ agent, onPress }: Props) {
+export function AgentCard({
+  agent,
+  onPress,
+  index = 0,
+  statusLabel = 'Idle',
+  isActive = false,
+  pendingCount = 0,
+}: Props) {
+  const avatarColor = avatarColors[index % avatarColors.length];
+
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [s.wrap, pressed && s.wrapPressed]}>
-      <View style={s.card}>
-        {/* Card header row */}
-        <View style={s.cardHeader}>
-          <View style={s.cardHeaderLeft}>
-            <View style={s.avatar}>
-              <Text style={s.avatarText}>{initials(agent.name)}</Text>
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [s.row, pressed && s.rowPressed]}
+      accessibilityRole="button"
+      accessibilityLabel={`Open ${agent.name}`}
+    >
+      <View style={[s.avatar, { backgroundColor: avatarColor }]}>
+        <Cpu size={18} color="#FFFFFF" />
+      </View>
+      <View style={s.body}>
+        <View style={s.titleRow}>
+          <Text style={s.agentName} numberOfLines={1}>
+            {agent.name}
+          </Text>
+          {pendingCount > 0 ? (
+            <View style={s.countBadge}>
+              <Text style={s.countText}>{pendingCount}</Text>
             </View>
-            <View style={s.nameLine}>
-              <Text style={s.agentName} numberOfLines={1}>
-                {agent.name.toUpperCase()}
-              </Text>
-            </View>
-          </View>
-          <View style={s.runtimeBadge}>
-            <Text style={s.runtimeText}>{agent.runtime.toUpperCase()}</Text>
-          </View>
+          ) : null}
         </View>
-
-        <View style={s.workspaceRow}>
-          <Folder size={12} color="#555555" />
-          <Text style={s.workspaceText} numberOfLines={1}>
-            {agent.project_path}
+        <View style={s.metaRow}>
+          <View style={[s.statusDot, isActive && s.statusDotActive]} />
+          <Text style={[s.metaText, isActive && s.metaTextActive]} numberOfLines={1}>
+            {statusLabel} · {displayRuntime(agent.runtime)}
           </Text>
         </View>
       </View>
+      <ChevronRight size={14} color="#666666" />
     </Pressable>
   );
 }
 
 const s = StyleSheet.create({
-  wrap: { paddingHorizontal: 16 },
-  wrapPressed: { opacity: 0.7 },
-  card: { backgroundColor: '#1A1A1A', borderRadius: 8, overflow: 'hidden' },
-  cardHeader: {
-    height: 52,
+  row: {
+    height: 68,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#1E1E1E',
+    gap: 10,
+    paddingHorizontal: 14,
   },
-  cardHeaderLeft: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1, marginRight: 8 },
+  rowPressed: { opacity: 0.72 },
   avatar: {
     width: 40,
     height: 40,
-    borderRadius: 20,
-    backgroundColor: '#FF6B35',
+    borderRadius: 9,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  avatarText: { fontFamily: 'Anton', fontSize: 14, color: '#FFFFFF' },
-  nameLine: { flex: 1 },
-  agentName: { fontFamily: 'Inter', fontSize: 15, fontWeight: '600', color: '#FFFFFF' },
-  runtimeBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-    backgroundColor: '#0D0D0D',
-  },
-  runtimeText: {
-    fontFamily: 'Inter',
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#888888',
-    letterSpacing: 0.5,
-  },
-  workspaceRow: {
-    flexDirection: 'row',
+  body: { flex: 1, gap: 4 },
+  titleRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  agentName: { flex: 1, fontFamily: 'Inter', fontSize: 15, fontWeight: '700', color: '#FFFFFF' },
+  metaRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  statusDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#555555' },
+  statusDotActive: { backgroundColor: '#4CAF50' },
+  metaText: { flex: 1, fontFamily: 'Inter', fontSize: 12, color: '#888888' },
+  metaTextActive: { color: '#4CAF50' },
+  countBadge: {
+    minWidth: 24,
+    borderRadius: 12,
+    backgroundColor: '#FF6B35',
     alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 16,
-    paddingTop: 10,
-    paddingBottom: 10,
+    justifyContent: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
   },
-  workspaceText: { fontFamily: 'Inter', fontSize: 12, color: '#888888', flex: 1 },
+  countText: { fontFamily: 'Inter', fontSize: 13, fontWeight: '700', color: '#FFFFFF' },
 });

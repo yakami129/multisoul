@@ -66,7 +66,7 @@ function wrapper({ children }: { children: React.ReactNode }) {
 ///   4. Wait for data to load
 ///
 /// Expected:
-///   - All three project names visible (uppercased)
+///   - All three project names visible with their source casing
 describe('AgentListScreen', () => {
   const { fetchAllAgents } = require('../../src/features/agents/services/agentService');
 
@@ -101,11 +101,11 @@ describe('AgentListScreen', () => {
     render(<AgentListScreen />, { wrapper });
 
     await waitFor(() => {
-      expect(screen.getByText('WEATHER AGENT')).toBeTruthy();
+      expect(screen.getByText('Weather Agent')).toBeTruthy();
     });
 
-    expect(screen.getByText('BROKEN AGENT')).toBeTruthy();
-    expect(screen.getByText('IDLE AGENT')).toBeTruthy();
+    expect(screen.getByText('Broken Agent')).toBeTruthy();
+    expect(screen.getByText('Idle Agent')).toBeTruthy();
   });
 
   it('shows loading state initially', () => {
