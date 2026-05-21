@@ -3,6 +3,10 @@
   "version": 1,
   "documents": [
     {
+      "file": "2026-05-21-ui-projects-navigation.md",
+      "title": "Projects-First Navigation Refactor Implementation Plan"
+    },
+    {
       "file": "2026-05-17-agents-workspace-filter.md",
       "title": "Agents 工作空间筛选功能实施计划"
     },

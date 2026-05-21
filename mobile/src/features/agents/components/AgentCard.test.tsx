@@ -14,10 +14,14 @@ const agent: Agent = {
 };
 
 describe('AgentCard', () => {
-  it('renders agent name and endpoint', () => {
-    const { getByText } = render(<AgentCard agent={agent} onPress={() => {}} index={0} />);
+  it('renders project name, workspace path, and runtime', () => {
+    const { getByText, queryByText } = render(
+      <AgentCard agent={agent} onPress={() => {}} index={0} />,
+    );
     expect(getByText('MY AGENT')).toBeTruthy();
     expect(getByText('/home/user/project')).toBeTruthy();
+    expect(getByText('CLAUDE-CODE')).toBeTruthy();
+    expect(queryByText('LOCAL')).toBeNull();
   });
 
   it('calls onPress when tapped', () => {

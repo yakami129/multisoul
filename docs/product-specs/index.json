@@ -51,6 +51,18 @@
       "title": "Agent 任务完成通知 SPEC"
     },
     {
+      "file": "SPEC-ui-activity-routing.md",
+      "title": "Activity Routing SPEC"
+    },
+    {
+      "file": "SPEC-ui-project-detail-chat.md",
+      "title": "Project Detail and Chat Flow SPEC"
+    },
+    {
+      "file": "SPEC-ui-projects-navigation.md",
+      "title": "Projects-First Navigation Refactor SPEC"
+    },
+    {
       "file": "SPEC.md",
       "title": "MultiSoul — 个人 AI Agent 随身控制台 SPEC"
     }

@@ -4,7 +4,7 @@ import { sendConversationAnswer } from '@/features/chat/services/chatService';
 import { markAskAnswered } from '@/features/inbox/services/inboxService';
 import { useEndpointStore } from '@/store/endpointStore';
 import { type InboxItem } from '@/types';
-import InboxTab from '../../app/(tabs)/inbox';
+import ActivityTab from '../../app/(tabs)/activity';
 
 const mockRemoveItem = jest.fn().mockResolvedValue(undefined);
 const mockLoad = jest.fn().mockResolvedValue(undefined);
@@ -28,10 +28,7 @@ const mockPendingQuestion: InboxItem = {
 };
 
 jest.mock('expo-router', () => ({
-  useFocusEffect: (cb: () => void) => {
-    const React = require('react');
-    React.useEffect(cb, [cb]);
-  },
+  useFocusEffect: jest.fn(),
   useRouter: () => ({ push: jest.fn() }),
 }));
 
@@ -61,10 +58,11 @@ jest.mock('@/store/inboxStore', () => ({
 }));
 
 jest.mock('@/features/inbox/components/InboxScreen', () => {
-  return function MockInboxScreen({ onAnswer, onAnswerMulti }: any) {
-    const { Button } = require('react-native');
+  return function MockInboxScreen({ title, onAnswer, onAnswerMulti }: any) {
+    const { Button, Text } = require('react-native');
     return (
       <>
+        <Text>{title}</Text>
         <Button
           title="Answer single"
           onPress={() => onAnswer(mockPendingQuestion, 'ask-1', 'yes')}
@@ -78,7 +76,7 @@ jest.mock('@/features/inbox/components/InboxScreen', () => {
   };
 });
 
-describe('InboxTab answering pending questions', () => {
+describe('ActivityTab answering pending questions', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     useEndpointStore.setState({
@@ -94,8 +92,13 @@ describe('InboxTab answering pending questions', () => {
     });
   });
 
-  it('persists answered ask state after answering a single question from inbox', async () => {
-    const { getByText } = render(<InboxTab />);
+  it('renders the activity title through the reused inbox screen', () => {
+    const { getByText } = render(<ActivityTab />);
+    expect(getByText('Activity')).toBeTruthy();
+  });
+
+  it('persists answered ask state after answering a single question from activity', async () => {
+    const { getByText } = render(<ActivityTab />);
 
     fireEvent.press(getByText('Answer single'));
 
@@ -110,8 +113,8 @@ describe('InboxTab answering pending questions', () => {
     expect(markAskAnswered).toHaveBeenCalledWith('ask-1', 'conv-1', 'yes');
   });
 
-  it('persists answered ask state after answering a multi question from inbox', async () => {
-    const { getByText } = render(<InboxTab />);
+  it('persists answered ask state after answering a multi question from activity', async () => {
+    const { getByText } = render(<ActivityTab />);
 
     fireEvent.press(getByText('Answer multi'));
 

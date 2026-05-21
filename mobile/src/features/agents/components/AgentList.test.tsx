@@ -31,7 +31,7 @@ const agents: Agent[] = [
 ];
 
 describe('AgentList', () => {
-  it('renders list of agents', () => {
+  it('renders list of projects', () => {
     const { getByText } = render(
       <AgentList
         agents={agents}
@@ -45,6 +45,8 @@ describe('AgentList', () => {
     );
     expect(getByText('ALPHA')).toBeTruthy();
     expect(getByText('BETA')).toBeTruthy();
+    expect(getByText('Projects')).toBeTruthy();
+    expect(getByText('2 PROJECTS')).toBeTruthy();
   });
 
   it('shows loading text when isLoading', () => {
@@ -59,7 +61,7 @@ describe('AgentList', () => {
         onAgentPress={() => {}}
       />,
     );
-    expect(getByText('LOADING AGENTS...')).toBeTruthy();
+    expect(getByText('Loading projects...')).toBeTruthy();
   });
 
   it('shows error state when isError', () => {
@@ -77,7 +79,7 @@ describe('AgentList', () => {
     expect(getByText('FAILED TO LOAD')).toBeTruthy();
   });
 
-  it('calls onAgentPress with agent id, endpoint id, and name', () => {
+  it('calls onAgentPress with project id, endpoint id, and name', () => {
     const onAgentPress = jest.fn();
     const { getByText } = render(
       <AgentList
@@ -145,7 +147,7 @@ describe('AgentList', () => {
     expect(style.height).not.toBe(0);
   });
 
-  /// Empty agent list: the empty copy is fixed in place and cannot be dragged.
+  /// Empty project list: the empty copy is fixed in place and cannot be dragged.
   ///
   /// Data construction:
   ///   agents = [] so FlatList renders ListEmptyComponent only.
@@ -174,5 +176,24 @@ describe('AgentList', () => {
 
     expect(flatList.props.scrollEnabled).toBe(false);
     expect(flatList.props.bounces).toBe(false);
+  });
+
+  it('points empty state to adding a machine', () => {
+    const { getByText } = render(
+      <AgentList
+        agents={[]}
+        isLoading={false}
+        isError={false}
+        error={null}
+        isFetching={false}
+        onRefetch={() => {}}
+        onAgentPress={() => {}}
+      />,
+    );
+
+    expect(getByText('Connect a machine')).toBeTruthy();
+    expect(
+      getByText('Add a machine by scanning its QR code or pasting a connection string.'),
+    ).toBeTruthy();
   });
 });

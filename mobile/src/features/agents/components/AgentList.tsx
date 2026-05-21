@@ -121,12 +121,12 @@ export function AgentList({ agents, isLoading, isError, error, onRefetch, onAgen
       <View style={[s.root, { paddingTop: insets.top }]}>
         <View style={s.header}>
           <View style={s.headerLeft}>
-            <Text style={s.headerTitle}>AGENTS</Text>
+            <Text style={s.headerTitle}>Projects</Text>
           </View>
         </View>
         <View style={s.centered}>
           <ActivityIndicator size="large" color="#FF6B35" />
-          <Text style={s.loadingText}>LOADING AGENTS...</Text>
+          <Text style={s.loadingText}>Loading projects...</Text>
         </View>
       </View>
     );
@@ -137,7 +137,7 @@ export function AgentList({ agents, isLoading, isError, error, onRefetch, onAgen
       <View style={[s.root, { paddingTop: insets.top }]}>
         <View style={s.header}>
           <View style={s.headerLeft}>
-            <Text style={s.headerTitle}>AGENTS</Text>
+            <Text style={s.headerTitle}>Projects</Text>
             <Text style={s.headerSubError}>CONNECTION FAILED</Text>
           </View>
         </View>
@@ -160,15 +160,17 @@ export function AgentList({ agents, isLoading, isError, error, onRefetch, onAgen
       {/* Header */}
       <View style={s.header}>
         <View style={s.headerLeft}>
-          <Text style={s.headerTitle}>AGENTS</Text>
-          <Text style={s.headerSub}>{agents.length} REGISTERED</Text>
+          <Text style={s.headerTitle}>Projects</Text>
+          <Text style={s.headerSub}>
+            {agents.length} {agents.length === 1 ? 'PROJECT' : 'PROJECTS'}
+          </Text>
         </View>
         <SlidersHorizontal size={20} color="#888888" />
       </View>
 
       {/* Workspace Filter */}
       <View style={s.filterSection}>
-        <Text style={s.filterLabel}>WORKSPACE</Text>
+        <Text style={s.filterLabel}>Workspace</Text>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -206,14 +208,12 @@ export function AgentList({ agents, isLoading, isError, error, onRefetch, onAgen
           ListEmptyComponent={
             <View style={s.emptyWrap}>
               <Text style={s.emptyTitle}>
-                {selectedWorkspace === 'all'
-                  ? 'NO AGENTS REGISTERED'
-                  : 'NO AGENTS IN THIS WORKSPACE'}
+                {selectedWorkspace === 'all' ? 'Connect a machine' : 'No projects here'}
               </Text>
               <Text style={s.emptyDesc}>
                 {selectedWorkspace === 'all'
-                  ? 'Register your first agent via the CLI or API.'
-                  : `No agents found in the "${selectedWorkspace}" workspace.`}
+                  ? 'Add a machine by scanning its QR code or pasting a connection string.'
+                  : `No projects found in the "${selectedWorkspace}" workspace.`}
               </Text>
             </View>
           }
@@ -237,7 +237,7 @@ const s = StyleSheet.create({
     borderBottomColor: '#1E1E1E',
   },
   headerLeft: { gap: 2 },
-  headerTitle: { fontFamily: 'Anton', fontSize: 20, color: '#FFFFFF' },
+  headerTitle: { fontFamily: 'Anton', fontSize: 28, color: '#FFFFFF' },
   headerSub: { fontFamily: 'Inter', fontSize: 11, color: '#888888', letterSpacing: 1.5 },
   headerSubError: { fontFamily: 'Inter', fontSize: 11, color: '#FF6B35', letterSpacing: 1.5 },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 16, padding: 24 },

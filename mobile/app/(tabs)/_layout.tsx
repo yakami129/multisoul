@@ -1,5 +1,5 @@
 import { Tabs } from 'expo-router';
-import { Zap, MessageCircle, Inbox, Settings } from 'lucide-react-native';
+import { Inbox, Layers, Settings } from 'lucide-react-native';
 
 export const TAB_BAR_HEIGHT = 62;
 export const TAB_BAR_SAFE_AREA_BOTTOM = 34;
@@ -32,13 +32,10 @@ export const tabScreenOptions = {
   },
 };
 
-function AgentsIcon({ color }: { color: string }) {
-  return <Zap size={24} color={color} />;
+function ProjectsIcon({ color }: { color: string }) {
+  return <Layers size={24} color={color} />;
 }
-function ChatIcon({ color }: { color: string }) {
-  return <MessageCircle size={24} color={color} />;
-}
-function InboxIcon({ color }: { color: string }) {
+function ActivityIcon({ color }: { color: string }) {
   return <Inbox size={24} color={color} />;
 }
 function SettingsIcon({ color }: { color: string }) {
@@ -51,22 +48,15 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Agents',
-          tabBarIcon: AgentsIcon,
+          title: 'Projects',
+          tabBarIcon: ProjectsIcon,
         }}
       />
       <Tabs.Screen
-        name="chat"
+        name="activity"
         options={{
-          title: 'Chat',
-          tabBarIcon: ChatIcon,
-        }}
-      />
-      <Tabs.Screen
-        name="inbox"
-        options={{
-          title: 'Inbox',
-          tabBarIcon: InboxIcon,
+          title: 'Activity',
+          tabBarIcon: ActivityIcon,
         }}
       />
       <Tabs.Screen

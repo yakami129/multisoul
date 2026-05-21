@@ -1,6 +1,7 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useCallback, useState } from 'react';
-import { SafeAreaView, StyleSheet } from 'react-native';
+import { StyleSheet } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { sendConversationAnswer } from '@/features/chat/services/chatService';
 import InboxScreen from '@/features/inbox/components/InboxScreen';
 import { markAskAnswered } from '@/features/inbox/services/inboxService';
@@ -9,7 +10,7 @@ import { useEndpointStore } from '@/store/endpointStore';
 import { useInboxStore } from '@/store/inboxStore';
 import { type InboxItem } from '@/types';
 
-export default function InboxTab() {
+export default function ActivityTab() {
   const items = useInboxStore((s) => s.items);
   const markRead = useInboxStore((s) => s.markRead);
   const removeItem = useInboxStore((s) => s.removeItem);
@@ -88,6 +89,7 @@ export default function InboxTab() {
   return (
     <SafeAreaView style={s.safe}>
       <InboxScreen
+        title="Activity"
         items={items}
         onOpen={handleOpen}
         onAnswer={(item, ask_id, choice_id, freeform) => {

@@ -1,4 +1,4 @@
-import { Zap } from 'lucide-react-native';
+import { Folder } from 'lucide-react-native';
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { type Agent } from '@/types';
@@ -38,17 +38,11 @@ export function AgentCard({ agent, onPress }: Props) {
           </View>
         </View>
 
-        {/* Project path */}
-        <View style={s.endpointRow}>
-          <Zap size={12} color="#555555" />
-          <Text style={s.endpointText} numberOfLines={1}>
+        <View style={s.workspaceRow}>
+          <Folder size={12} color="#555555" />
+          <Text style={s.workspaceText} numberOfLines={1}>
             {agent.project_path}
           </Text>
-        </View>
-
-        {/* Endpoint label badge */}
-        <View style={s.machineRow}>
-          <Text style={s.machineText}>{agent.endpoint_label.toUpperCase()}</Text>
         </View>
       </View>
     </Pressable>
@@ -58,7 +52,7 @@ export function AgentCard({ agent, onPress }: Props) {
 const s = StyleSheet.create({
   wrap: { paddingHorizontal: 16 },
   wrapPressed: { opacity: 0.7 },
-  card: { backgroundColor: '#1A1A1A', borderRadius: 12, overflow: 'hidden' },
+  card: { backgroundColor: '#1A1A1A', borderRadius: 8, overflow: 'hidden' },
   cardHeader: {
     height: 52,
     flexDirection: 'row',
@@ -93,15 +87,13 @@ const s = StyleSheet.create({
     color: '#888888',
     letterSpacing: 0.5,
   },
-  endpointRow: {
+  workspaceRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
     paddingHorizontal: 16,
     paddingTop: 10,
-    paddingBottom: 4,
+    paddingBottom: 10,
   },
-  endpointText: { fontFamily: 'Inter', fontSize: 12, color: '#888888', flex: 1 },
-  machineRow: { paddingHorizontal: 16, paddingBottom: 10 },
-  machineText: { fontFamily: 'Inter', fontSize: 11, color: '#555555', letterSpacing: 1 },
+  workspaceText: { fontFamily: 'Inter', fontSize: 12, color: '#888888', flex: 1 },
 });

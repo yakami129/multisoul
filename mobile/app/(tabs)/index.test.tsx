@@ -5,7 +5,6 @@ import AgentListScreen from './index';
 
 const mockPush = jest.fn();
 const mockFetchAllAgents = jest.fn();
-const mockCreateConversation = jest.fn();
 
 jest.mock('expo-router', () => ({
   useRouter: () => ({ push: mockPush }),
@@ -27,10 +26,6 @@ jest.mock('../../src/store/endpointStore', () => ({
 
 jest.mock('../../src/features/agents/services/agentService', () => ({
   fetchAllAgents: (...args: unknown[]) => mockFetchAllAgents(...args),
-}));
-
-jest.mock('../../src/features/chat/services/chatService', () => ({
-  createConversation: (...args: unknown[]) => mockCreateConversation(...args),
 }));
 
 jest.mock('react-native-safe-area-context', () => ({
@@ -55,18 +50,9 @@ describe('AgentListScreen', () => {
   beforeEach(() => {
     mockPush.mockClear();
     mockFetchAllAgents.mockReset();
-    mockCreateConversation.mockReset();
-    mockCreateConversation.mockResolvedValue({
-      id: 'conv-1',
-      agent_id: 'a1',
-      title: 'New Chat',
-      created_at: 1,
-      last_message_at: 1,
-      status: 'idle',
-    });
   });
 
-  it('opens chat directly when an agent card is pressed', async () => {
+  it('opens project detail when a project card is pressed', async () => {
     mockFetchAllAgents.mockResolvedValue([
       {
         id: 'a1',
@@ -84,33 +70,21 @@ describe('AgentListScreen', () => {
     await waitFor(() => expect(getByText('ALPHA AGENT')).toBeTruthy());
     fireEvent.press(getByText('ALPHA AGENT'));
 
-    await waitFor(() =>
-      expect(mockPush).toHaveBeenCalledWith(
-        '/chat/conv-1?endpoint_id=ep-1&agent_id=a1&agent_name=Alpha%20Agent',
-      ),
-    );
+    await waitFor(() => expect(mockPush).toHaveBeenCalledWith('/agent/a1?endpoint_id=ep-1'));
   });
 
-  it('URL-encodes agent names when opening chat from a card', async () => {
+  it('URL-encodes project and endpoint ids when opening detail from a card', async () => {
     mockFetchAllAgents.mockResolvedValue([
       {
-        id: 'a2',
+        id: 'project/二',
         name: '修复 Bot/QA',
         project_path: '/repo/beta',
         runtime: 'claude-code',
         created_at: 2,
-        endpoint_id: 'ep-1',
+        endpoint_id: 'ep/二',
         endpoint_label: 'Mac',
       },
     ]);
-    mockCreateConversation.mockResolvedValue({
-      id: 'conv-2',
-      agent_id: 'a2',
-      title: 'New Chat',
-      created_at: 1,
-      last_message_at: 1,
-      status: 'idle',
-    });
 
     const { getByText } = renderScreen();
 
@@ -119,7 +93,7 @@ describe('AgentListScreen', () => {
 
     await waitFor(() =>
       expect(mockPush).toHaveBeenCalledWith(
-        `/chat/conv-2?endpoint_id=ep-1&agent_id=a2&agent_name=${encodeURIComponent('修复 Bot/QA')}`,
+        `/agent/${encodeURIComponent('project/二')}?endpoint_id=${encodeURIComponent('ep/二')}`,
       ),
     );
   });

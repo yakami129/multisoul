@@ -6,26 +6,47 @@ jest.mock('expo-router', () => {
   const React = require('react');
   const { View, Text, TouchableOpacity } = require('react-native');
 
-  return {
-    Tabs: ({ children: _children }: any) => {
-      const [tab, setTab] = React.useState('index');
-      return (
-        <View>
-          <View testID="tab-bar">
-            <TouchableOpacity testID="tab-agents" onPress={() => setTab('index')}>
-              <Text>Agents</Text>
+  function Tabs({ children }: any) {
+    const screens = React.Children.toArray(children).map((child: any) => ({
+      name: child.props.name,
+      title: child.props.options?.title ?? child.props.name,
+    }));
+    const [tab, setTab] = React.useState('index');
+    return (
+      <View>
+        <View testID="tab-bar">
+          {screens.map((screen: { name: string; title: string }) => (
+            <TouchableOpacity
+              key={screen.name}
+              testID={`tab-${screen.name}`}
+              onPress={() => setTab(screen.name)}
+            >
+              <Text>{screen.title}</Text>
             </TouchableOpacity>
-            <TouchableOpacity testID="tab-settings" onPress={() => setTab('settings')}>
-              <Text>Settings</Text>
-            </TouchableOpacity>
-          </View>
-          <Text testID="active-tab">{tab}</Text>
+          ))}
         </View>
-      );
-    },
-    'Tabs.Screen': () => null,
+        <Text testID="active-tab">{tab}</Text>
+      </View>
+    );
+  }
+
+  Tabs.Screen = () => null;
+
+  return {
+    Tabs,
     useRouter: () => ({ push: jest.fn(), replace: jest.fn() }),
     useLocalSearchParams: () => ({}),
+  };
+});
+
+jest.mock('lucide-react-native', () => {
+  const React = require('react');
+  const { Text } = require('react-native');
+
+  return {
+    Inbox: ({ color }: { color: string }) => <Text>{`Inbox ${color}`}</Text>,
+    Layers: ({ color }: { color: string }) => <Text>{`Layers ${color}`}</Text>,
+    Settings: ({ color }: { color: string }) => <Text>{`Settings ${color}`}</Text>,
   };
 });
 
@@ -50,28 +71,36 @@ function wrapper({ children }: { children: React.ReactNode }) {
   return <QueryClientProvider client={qc}>{children}</QueryClientProvider>;
 }
 
-/// Tab navigation: both Agents and Settings tabs are accessible
+/// Tab navigation: Projects, Activity, and Settings tabs are accessible
 ///
 /// Execution:
 ///   1. Render TabLayout
-///   2. Verify Agents tab visible
-///   3. Press Settings tab
-///   4. Verify Settings tab active
+///   2. Verify new tab labels visible
+///   3. Verify old global tab labels hidden
+///   4. Press Activity tab
+///   5. Verify Activity tab active
 ///
 /// Expected:
-///   - 'Agents' tab label visible
+///   - 'Projects' tab label visible
+///   - 'Activity' tab label visible
 ///   - 'Settings' tab label visible
+///   - 'Agents', 'Chat', and 'Inbox' tab labels hidden
 describe('Tab navigation', () => {
-  it('renders both Agents and Settings tabs', () => {
+  it('renders only Projects, Activity, and Settings tabs', () => {
     render(<TabLayout />, { wrapper });
-    expect(screen.getByText('Agents')).toBeTruthy();
+    expect(screen.getByText('Projects')).toBeTruthy();
+    expect(screen.getByText('Activity')).toBeTruthy();
     expect(screen.getByText('Settings')).toBeTruthy();
+
+    expect(screen.queryByText('Agents')).toBeNull();
+    expect(screen.queryByText('Chat')).toBeNull();
+    expect(screen.queryByText('Inbox')).toBeNull();
   });
 
-  it('switches to Settings tab on press', () => {
+  it('switches to Activity tab on press', () => {
     render(<TabLayout />, { wrapper });
-    fireEvent.press(screen.getByTestId('tab-settings'));
-    expect(screen.getByTestId('active-tab').props.children).toBe('settings');
+    fireEvent.press(screen.getByTestId('tab-activity'));
+    expect(screen.getByTestId('active-tab').props.children).toBe('activity');
   });
 
   /// iOS tab bar labels: safe-area padding must not consume the 62px content rail
