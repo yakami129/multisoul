@@ -33,7 +33,7 @@ jest.mock('@/store/chatStore', () => ({
 }));
 jest.mock('@/store/inboxStore', () => ({
   useInboxStore: (sel: (s: unknown) => unknown) =>
-    sel({ addItem: jest.fn(), removeItem: jest.fn() }),
+    sel({ addItem: jest.fn(), removeItem: jest.fn(), removeAnsweredAsk: jest.fn() }),
 }));
 
 // Minimal WebSocket mock

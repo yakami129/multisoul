@@ -1,14 +1,12 @@
-import { fireEvent, render, waitFor } from '@testing-library/react-native';
+import { fireEvent, render, screen } from '@testing-library/react-native';
 import React from 'react';
-import { sendConversationAnswer } from '@/features/chat/services/chatService';
-import { markAskAnswered } from '@/features/inbox/services/inboxService';
-import { useEndpointStore } from '@/store/endpointStore';
+import { useChatStore } from '@/store/chatStore';
 import { type InboxItem } from '@/types';
 import ActivityTab from '../../app/(tabs)/activity';
 
-const mockRemoveItem = jest.fn().mockResolvedValue(undefined);
+const mockPush = jest.fn();
+const mockMarkRead = jest.fn().mockResolvedValue(undefined);
 const mockLoad = jest.fn().mockResolvedValue(undefined);
-const mockMarkAnswered = jest.fn();
 
 const mockPendingQuestion: InboxItem = {
   id: 'ask-1',
@@ -16,116 +14,94 @@ const mockPendingQuestion: InboxItem = {
   agent_id: 'agent-1',
   conversation_id: 'conv-1',
   kind: 'pending_question',
-  title: 'Agent',
+  title: 'Deploy Project',
   body: 'Deploy now?',
   payload: {
     ask_id: 'ask-1',
     allow_freeform: false,
     questions: [{ id: '0', text: 'Deploy now?', options: [{ id: 'yes', label: 'Yes' }] }],
   },
-  received_at: 1,
+  received_at: Date.now(),
   read_at: null,
 };
 
 jest.mock('expo-router', () => ({
   useFocusEffect: jest.fn(),
-  useRouter: () => ({ push: jest.fn() }),
-}));
-
-jest.mock('@/features/chat/services/chatService', () => ({
-  sendConversationAnswer: jest.fn().mockResolvedValue(undefined),
-}));
-
-jest.mock('@/features/inbox/services/inboxService', () => ({
-  markAskAnswered: jest.fn().mockResolvedValue(undefined),
-}));
-
-jest.mock('@/store/chatStore', () => ({
-  useChatStore: (sel: (s: unknown) => unknown) =>
-    sel({
-      markAnswered: mockMarkAnswered,
-    }),
+  useRouter: () => ({ push: mockPush }),
 }));
 
 jest.mock('@/store/inboxStore', () => ({
   useInboxStore: (sel: (s: unknown) => unknown) =>
     sel({
       items: [mockPendingQuestion],
-      markRead: jest.fn(),
-      removeItem: mockRemoveItem,
+      markRead: mockMarkRead,
+      removeItem: jest.fn(),
       load: mockLoad,
     }),
 }));
 
-jest.mock('@/features/inbox/components/InboxScreen', () => {
-  return function MockInboxScreen({ title, onAnswer, onAnswerMulti }: any) {
-    const { Button, Text } = require('react-native');
-    return (
-      <>
-        <Text>{title}</Text>
-        <Button
-          title="Answer single"
-          onPress={() => onAnswer(mockPendingQuestion, 'ask-1', 'yes')}
-        />
-        <Button
-          title="Answer multi"
-          onPress={() => onAnswerMulti(mockPendingQuestion, 'ask-1', { '0': 'yes' })}
-        />
-      </>
-    );
-  };
-});
-
-describe('ActivityTab answering pending questions', () => {
+describe('ActivityTab routing', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    useEndpointStore.setState({
-      endpoints: [
+    useChatStore.setState({
+      conversations: [
         {
-          id: 'endpoint-1',
-          label: 'Local',
-          base_url: 'http://localhost:8080',
-          token: 'token',
-          last_seen_at: null,
+          id: 'conv-running',
+          agent_id: 'agent-2',
+          title: 'Refactor login flow',
+          created_at: Date.now() - 2000,
+          last_message_at: Date.now() - 1000,
+          status: 'running',
+          endpoint_id: 'endpoint-1',
+          agent_name: 'Auth Project',
+          first_user_message: 'Tighten sign in states',
+        },
+        {
+          id: 'conv-done',
+          agent_id: 'agent-3',
+          title: 'Ship release notes',
+          created_at: Date.now() - 5000,
+          last_message_at: Date.now() - 3000,
+          status: 'completed',
+          endpoint_id: 'endpoint-1',
+          agent_name: 'Docs Project',
+          last_ai_reply: 'Release notes are ready',
         },
       ],
+      messages: {},
     });
   });
 
-  it('renders the activity title through the reused inbox screen', () => {
-    const { getByText } = render(<ActivityTab />);
-    expect(getByText('Activity')).toBeTruthy();
+  it('renders Activity sections with pending, running, and done items', () => {
+    render(<ActivityTab />);
+
+    expect(screen.getByText('Activity')).toBeTruthy();
+    expect(screen.getByText('Needs Attention')).toBeTruthy();
+    expect(screen.getAllByText('Running').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('Done').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText('Deploy now?')).toBeTruthy();
+    expect(screen.getByText('Refactor login flow')).toBeTruthy();
+    expect(screen.getByText('Ship release notes')).toBeTruthy();
   });
 
-  it('persists answered ask state after answering a single question from activity', async () => {
-    const { getByText } = render(<ActivityTab />);
+  it('opens a pending decision with focus_ask_id', () => {
+    render(<ActivityTab />);
 
-    fireEvent.press(getByText('Answer single'));
+    fireEvent.press(screen.getByLabelText('Open Deploy now?'));
 
-    await waitFor(() =>
-      expect(sendConversationAnswer).toHaveBeenCalledWith(
-        'http://localhost:8080',
-        'token',
-        'conv-1',
-        { ask_id: 'ask-1', choice_id: 'yes', freeform: undefined },
-      ),
+    expect(mockMarkRead).toHaveBeenCalledWith('ask-1');
+    expect(mockPush).toHaveBeenCalledWith(
+      '/chat/conv-1?endpoint_id=endpoint-1&agent_id=agent-1&agent_name=Deploy%20Project&focus_ask_id=ask-1',
     );
-    expect(markAskAnswered).toHaveBeenCalledWith('ask-1', 'conv-1', 'yes');
   });
 
-  it('persists answered ask state after answering a multi question from activity', async () => {
-    const { getByText } = render(<ActivityTab />);
+  it('opens a running conversation at Chat Detail', () => {
+    render(<ActivityTab />);
 
-    fireEvent.press(getByText('Answer multi'));
+    fireEvent.press(screen.getByLabelText('Open Refactor login flow'));
 
-    await waitFor(() =>
-      expect(sendConversationAnswer).toHaveBeenCalledWith(
-        'http://localhost:8080',
-        'token',
-        'conv-1',
-        { ask_id: 'ask-1', choice_ids: { '0': 'yes' } },
-      ),
+    expect(mockPush).toHaveBeenCalledWith(
+      '/chat/conv-running?endpoint_id=endpoint-1&agent_id=agent-2&agent_name=Auth%20Project',
     );
-    expect(markAskAnswered).toHaveBeenCalledWith('ask-1', 'conv-1', undefined, { '0': 'yes' });
   });
 });

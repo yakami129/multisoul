@@ -13,7 +13,7 @@ When an agent task completes, the app notifies the user:
 - **Foreground**: play a bundled `.wav` sound via `expo-av`, no banner
 - **Background/inactive**: CLI sends one Expo remote push with sound, title, and summary; tap navigates to the task's chat screen
 
-Notification ownership is centralized in the CLI to avoid duplicate local + remote notifications. Mobile WebSocket handlers update chat and inbox state only; they do not schedule a second local notification for `task_status`.
+Notification ownership is centralized in the CLI to avoid duplicate local + remote notifications. Mobile WebSocket handlers update chat and inbox state only; they do not schedule a second local notification for `task_status`. When an answer is sent from Chat, `useWebSocket` also removes any matching pending-question inbox rows by `ask_id`, including notification-created rows whose row `id` may differ from the question id. This keeps Activity's Needs Attention section in sync without changing notification ownership.
 
 ---
 
@@ -25,7 +25,7 @@ Notification ownership is centralized in the CLI to avoid duplicate local + remo
 |-----------|------|----------------|
 | CLI push builder | `cli/src/serve/push.rs` | Build Expo payloads for task completion/failure and pending questions |
 | Claude runtime | `cli/src/serve/runtime/claude_stream.rs` | Send pending-question push when `AskUserQuestion` is emitted |
-| `useWebSocket` | `src/hooks/useWebSocket.ts` | Update chat/inbox state from `task_status` and `ask_question`; never schedule duplicate local notifications |
+| `useWebSocket` | `src/hooks/useWebSocket.ts` | Update chat/inbox state from `task_status` and `ask_question`; clear answered ask inbox rows; never schedule duplicate local notifications |
 | Root layout | `app/_layout.tsx` | Register push tokens, suppress foreground banner, add tap-to-navigate listener |
 | Sound asset | `assets/sounds/task-complete.wav` | Bundled short terminal-style beep |
 
@@ -46,6 +46,9 @@ The CLI may store multiple `push_tokens` rows for the same phone when the same E
 
 Mobile receives WS task_status
   └─> update conversation status only
+
+Mobile sends WS answer
+  └─> mark ask answered and remove matching inbox rows; no notification scheduling
 ```
 
 ### Notification tap navigation
@@ -107,7 +110,7 @@ When active, the service plays the sound directly; the notification handler supp
 
 1. `cli/src/serve/push.rs` — task/ask push payload construction, token fan-out, mutual exclusion
 2. `cli/src/serve/runtime/claude_stream.rs` — trigger ask-question push at card creation
-3. `src/hooks/useWebSocket.ts` — remove local completion notification scheduling
+3. `src/hooks/useWebSocket.ts` — remove local completion notification scheduling and clear answered ask inbox rows
 4. `app/_layout.tsx` — token registration, handler, tap listener, cold-start navigation
 
 ---
