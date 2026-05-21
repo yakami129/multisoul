@@ -40,7 +40,6 @@ jest.mock('expo-router', () => {
 });
 
 jest.mock('lucide-react-native', () => {
-  const React = require('react');
   const { Text } = require('react-native');
 
   return {
