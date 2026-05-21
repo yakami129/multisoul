@@ -4,7 +4,8 @@
   "documents": [
     {
       "file": "2026-05-21-ui-projects-navigation.md",
-      "title": "Projects-First Navigation Refactor Implementation Plan"
+      "title": "Projects-First Navigation Refactor Implementation Plan",
+      "lastCompletedCommit": "55a0a5ebeb82c9bf22e15319ce268356a98f08e7"
     },
     {
       "file": "2026-05-17-agents-workspace-filter.md",
