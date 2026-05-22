@@ -72,6 +72,7 @@ export function AgentCard({
 
 const s = StyleSheet.create({
   row: {
+    width: '100%',
     height: 68,
     flexDirection: 'row',
     alignItems: 'center',
@@ -86,8 +87,8 @@ const s = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  body: { flex: 1, gap: 4 },
-  titleRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  body: { flex: 1, minWidth: 0, gap: 4 },
+  titleRow: { flexDirection: 'row', alignItems: 'center', gap: 6, minWidth: 0 },
   agentName: { flex: 1, fontFamily: 'Inter', fontSize: 15, fontWeight: '700', color: '#FFFFFF' },
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   statusDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#555555' },

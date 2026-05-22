@@ -98,7 +98,7 @@ export function AgentList({ agents, isLoading, isError, error, onRefetch, onAgen
   );
 
   const renderProject = (project: ProjectItem, index: number, hasDivider: boolean) => (
-    <View key={project.agent.id}>
+    <View key={project.agent.id} style={s.projectItem}>
       <AgentCard
         agent={project.agent}
         index={index}
@@ -309,6 +309,7 @@ const s = StyleSheet.create({
     backgroundColor: '#1A1A1A',
     overflow: 'hidden',
   },
+  projectItem: { width: '100%' },
   rowDivider: { height: 1, backgroundColor: '#1E1E1E', marginLeft: 64 },
   emptyContainer: { flexGrow: 1 },
   emptyWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8, padding: 24 },
