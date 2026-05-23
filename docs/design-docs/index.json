@@ -12,7 +12,7 @@
       "trackedFiles": [
         {
           "path": "cli/src/serve/runtime/mod.rs",
-          "sha256": "6b1a4bddfa7e08453510caab14d284fc80a49aaf336c9649d8524bd24de0cd3f",
+          "sha256": "ce23039394725b3b03ca02796c7739b27a3f7039b25c13c6391a37373b545754",
           "reason": "dispatch 层新增 inject_image_prefix 逻辑，是本设计的唯一变更文件。"
         }
       ]
@@ -23,32 +23,32 @@
       "trackedFiles": [
         {
           "path": "cli/src/serve/runtime/mod.rs",
-          "sha256": "6b1a4bddfa7e08453510caab14d284fc80a49aaf336c9649d8524bd24de0cd3f",
+          "sha256": "ce23039394725b3b03ca02796c7739b27a3f7039b25c13c6391a37373b545754",
           "reason": "Runtime 分发入口；文档说明新增 runtime module 与 match arm。"
         },
         {
           "path": "cli/src/serve/state.rs",
-          "sha256": "ba7b1d2f1107557432b6c543ced71636766205e817191de12bf4efd7486eb693",
+          "sha256": "4ee96882f19dc25878ee7cd2f1c6a795e40984c25cd9e80fe416e89b7573fec8",
           "reason": "AppState、SessionMessage 与 runtime worker 通信结构由文档核心数据结构章节引用。"
         },
         {
           "path": "cli/src/serve/routes/messages.rs",
-          "sha256": "daa2bdef3e87aa07f70929e7c0ad6a7a7b2e448394666f55c4ea60ea83d0c314",
+          "sha256": "78fc9473f98122791933362f1e1897b58eb13556c4def1ea6976da07db6b6faf",
           "reason": "HTTP message route 调用 runtime 分发；文档架构图与入口流程依赖该行为。"
         },
         {
           "path": "cli/src/serve/runtime/claude.rs",
-          "sha256": "5cec2cc99d4eb6dce566d56014ec55440fc6d20cd4e1e966b1d4f2aab387f8aa",
+          "sha256": "1243d89d91c49436a6ed27367ae3a4c7721d82977fa2d023caec7c84d9c93680",
           "reason": "Claude runtime 是默认 adapter，文档以其行为说明 runtime 模板与特殊注意事项。"
         },
         {
           "path": "cli/src/serve/runtime/codex.rs",
-          "sha256": "28897949f340d38476e2472b62cd63b8531df2dec1c28a3fe867281f929d5a41",
+          "sha256": "c6c4735b1d84c6fa2fbea038883ef98ceb032021ac8eec5bd13878dcd9b6398b",
           "reason": "Codex runtime 是现有 adapter 示例；文档 runtime 列表与接入说明引用它。"
         },
         {
           "path": "cli/src/serve/runtime/cursor.rs",
-          "sha256": "f7b2a26004af4d7abb4ec1d064b47d1cddc3fd2a07e1a5c2c25084eb317df625",
+          "sha256": "e166514f07c4cdba0010f873d32b06732d90a62e9b5521ca2fb5c07ed9597b74",
           "reason": "Cursor runtime 是新接入 adapter 示例；文档 runtime 列表与 CLI 约定引用它。"
         },
         {
@@ -90,12 +90,12 @@
         },
         {
           "path": "cli/src/serve/runtime/claude_stream.rs",
-          "sha256": "1502529029681d1435b286413148302893e723f85cc9424d60610231d220411a",
+          "sha256": "7d59bd134adfacb967d7f7be7b87fe144bb374e7e2984736427bdb0911d2b0de",
           "reason": "Claude AskUserQuestion 触发问答推送的时机由本文档定义。"
         },
         {
           "path": "mobile/src/hooks/useWebSocket.ts",
-          "sha256": "7845019df1b3895f7bbcb7e136d0e88af46c6113487135f4c3fb76467a3c8e74",
+          "sha256": "776dde71c03ccb607505de4b6d48c28a316748ce5656f245873363c79b5858b7",
           "reason": "Mobile WebSocket 端不再调度本地完成通知，以避免重复推送；发送回答后清理已回答 ask 的 inbox 状态。"
         }
       ]

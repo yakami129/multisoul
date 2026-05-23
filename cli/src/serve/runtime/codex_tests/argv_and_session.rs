@@ -43,6 +43,7 @@ fn test_send_to_existing_codex_session_preserves_file_id() {
         "conv-1",
         "请看图",
         Some("img-1.jpg"),
+        1,
         "/repo",
         "full-auto",
     );
@@ -62,6 +63,10 @@ fn test_send_to_existing_codex_session_preserves_file_id() {
     assert!(
         queued.file_id.is_some(),
         "Codex queued message must not drop file_id back to None"
+    );
+    assert_eq!(
+        queued.seq, 1,
+        "Codex queued message should carry the user_text seq for stale turn protection"
     );
 }
 

@@ -15,6 +15,7 @@ use tracing::{info, warn};
 pub struct SessionMessage {
     pub user_text: String,
     pub file_id: Option<String>,
+    pub seq: i64,
 }
 
 #[derive(Clone)]
@@ -346,6 +347,7 @@ mod tests {
         let msg = SessionMessage {
             user_text: "hello".to_string(),
             file_id: Some("abc.jpg".to_string()),
+            seq: 1,
         };
         assert_eq!(msg.user_text, "hello", "user_text should match");
         assert_eq!(
@@ -357,10 +359,15 @@ mod tests {
         let text_only = SessionMessage {
             user_text: "text only".to_string(),
             file_id: None,
+            seq: 2,
         };
         assert!(
             text_only.file_id.is_none(),
             "file_id should be None for text-only"
+        );
+        assert_eq!(
+            text_only.seq, 2,
+            "seq should carry the user_text message seq"
         );
     }
 }

@@ -32,6 +32,7 @@ pub fn send_to_session(
     conv_id: &str,
     user_text: &str,
     file_id: Option<&str>,
+    user_seq: i64,
     project_path: &str,
     mode: &str,
 ) {
@@ -42,6 +43,7 @@ pub fn send_to_session(
             .send(crate::serve::state::SessionMessage {
                 user_text: user_text.to_string(),
                 file_id: file_id.map(str::to_string),
+                seq: user_seq,
             })
             .is_ok()
         {
@@ -59,6 +61,7 @@ pub fn send_to_session(
     let _ = tx.send(crate::serve::state::SessionMessage {
         user_text: user_text.to_string(),
         file_id: file_id.map(str::to_string),
+        seq: user_seq,
     });
 
     let state2 = state.clone();
@@ -106,6 +109,7 @@ fn session_worker(
             }
         };
         let user_text = msg.user_text;
+        let user_seq = msg.seq;
         let image_path = msg
             .file_id
             .as_deref()
@@ -168,7 +172,15 @@ fn session_worker(
             let child_pid = child.id();
             session_handle.set_current_pid(child_pid);
 
-            match process_turn(&state, &conv_id, &user_text, child, stdin, &mut thread_id) {
+            match process_turn(
+                &state,
+                &conv_id,
+                &user_text,
+                user_seq,
+                child,
+                stdin,
+                &mut thread_id,
+            ) {
                 Ok(()) => {
                     session_handle.clear_current_pid(child_pid);
                     if session_handle.is_aborted() {
@@ -217,7 +229,7 @@ fn session_worker(
             }
         } else {
             error!("turn_failed_after_retries");
-            mark_failed(&state, &conv_id);
+            mark_failed(&state, &conv_id, user_seq);
         }
     }
 }
@@ -379,8 +391,8 @@ fn is_stale_thread_error(error: &str) -> bool {
     error.contains("thread ") && error.contains(" not found")
 }
 
-fn mark_failed(state: &AppState, conv_id: &str) {
-    complete_turn(state, conv_id, "failed");
+fn mark_failed(state: &AppState, conv_id: &str, turn_seq: i64) {
+    complete_turn(state, conv_id, "failed", turn_seq);
 }
 
 pub(super) fn insert_message(

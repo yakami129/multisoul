@@ -129,32 +129,8 @@ pub async fn post_message(
         .db
         .lock()
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-    let next_seq: i64 = db
-        .query_row(
-            "SELECT COALESCE(MAX(seq),0)+1 FROM messages WHERE conversation_id = ?1",
-            [&conv_id],
-            |r| r.get(0),
-        )
-        .map_err(|_| StatusCode::NOT_FOUND)?;
-
-    let id = Uuid::new_v4().to_string();
-    let now = now_ms();
-    let payload = if let Some(ref fid) = body.file_id {
-        serde_json::json!({ "text": body.text, "file_id": fid })
-    } else {
-        serde_json::json!({ "text": body.text })
-    };
-    db.execute(
-        "INSERT INTO messages (id, conversation_id, role, payload, created_at, seq)
-         VALUES (?1,?2,'user_text',?3,?4,?5)",
-        rusqlite::params![id, conv_id, payload.to_string(), now, next_seq],
-    )
-    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-    db.execute(
-        "UPDATE conversations SET last_message_at = ?1 WHERE id = ?2",
-        rusqlite::params![now, conv_id],
-    )
-    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let (next_seq, id, now, payload) = insert_user_message_and_mark_running(&db, &conv_id, &body)
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     drop(db);
 
@@ -177,8 +153,11 @@ pub async fn post_message(
         runtime::send_to_session(
             &state,
             &conv_id,
-            &body.text,
-            body.file_id.as_deref(),
+            runtime::DispatchMessage {
+                text: &body.text,
+                file_id: body.file_id.as_deref(),
+                seq: next_seq,
+            },
             &path,
             &rt,
             &mode,
@@ -206,6 +185,38 @@ pub async fn post_message(
             answered_choice_ids: None,
         }),
     ))
+}
+
+fn insert_user_message_and_mark_running(
+    db: &rusqlite::Connection,
+    conv_id: &str,
+    body: &PostMessageBody,
+) -> rusqlite::Result<(i64, String, i64, serde_json::Value)> {
+    let next_seq: i64 = db.query_row(
+        "SELECT COALESCE(MAX(seq),0)+1 FROM messages WHERE conversation_id = ?1",
+        [conv_id],
+        |r| r.get(0),
+    )?;
+
+    let id = Uuid::new_v4().to_string();
+    let now = now_ms();
+    let payload = if let Some(ref fid) = body.file_id {
+        serde_json::json!({ "text": body.text, "file_id": fid })
+    } else {
+        serde_json::json!({ "text": body.text })
+    };
+    db.execute(
+        "INSERT INTO messages (id, conversation_id, role, payload, created_at, seq)
+         VALUES (?1,?2,'user_text',?3,?4,?5)",
+        rusqlite::params![id, conv_id, payload.to_string(), now, next_seq],
+    )?;
+    db.execute(
+        "UPDATE conversations
+         SET last_message_at = ?1, status = 'running'
+         WHERE id = ?2",
+        rusqlite::params![now, conv_id],
+    )?;
+    Ok((next_seq, id, now, payload))
 }
 
 #[cfg(test)]
@@ -260,6 +271,69 @@ mod tests {
             dir.path().join("uploads"),
             PluginManager::empty(Arc::new(Mutex::new(plugin_db))),
         )
+    }
+
+    /// 用户发送新消息后，后端 DB 立即进入 running，避免 Activity 轮询读到上一轮 completed。
+    ///
+    /// 数据构造（含关键数值的推导过程）：
+    ///   conversation.status = completed（上一轮已完成）
+    ///   existing messages   = 3 条，MAX(seq)=3
+    ///   new user_text       = seq=4（由 MAX(seq)+1 推导）
+    ///
+    /// 执行过程（逐步说明系统如何处理）：
+    ///   1. 构造 completed conversation，模拟上一轮已结束
+    ///   2. 调用消息入库逻辑插入新的 user_text
+    ///   3. 查询 conversations.status 和最新 user_text seq
+    ///
+    /// 预期结果：
+    ///   - 断言 A：status == running，说明 Activity 立即会归入 Running
+    ///   - 断言 B：new seq == 4，说明 running 状态对应最新用户消息
+    ///   - 断言 C：status != completed，说明不会继续暴露上一轮 Done
+    #[test]
+    fn insert_user_message_marks_completed_conversation_running_immediately() {
+        let state = test_state();
+        {
+            let db = state.db.lock().unwrap();
+            db.execute(
+                "UPDATE conversations SET status = 'completed' WHERE id = 'conv-1'",
+                [],
+            )
+            .expect("seeded conversation status should be mutable");
+        }
+
+        let (new_seq, _id, _now, _payload) = {
+            let db = state.db.lock().unwrap();
+            super::insert_user_message_and_mark_running(
+                &db,
+                "conv-1",
+                &PostMessageBody {
+                    text: "Run another task".to_string(),
+                    file_id: None,
+                },
+            )
+            .expect("new user message should be inserted")
+        };
+
+        let db = state.db.lock().unwrap();
+        let status: String = db
+            .query_row(
+                "SELECT status FROM conversations WHERE id = 'conv-1'",
+                [],
+                |r| r.get(0),
+            )
+            .expect("conversation status should be readable");
+        assert_eq!(
+            status, "running",
+            "newly posted user message must immediately mark the conversation running"
+        );
+        assert_eq!(
+            new_seq, 4,
+            "new user message should use MAX(seq)+1 so turn freshness is concrete"
+        );
+        assert_ne!(
+            status, "completed",
+            "conversation must not keep the stale completed status after a new user message"
+        );
     }
 
     /// Message history exposes backend ask answer state for chat rendering.

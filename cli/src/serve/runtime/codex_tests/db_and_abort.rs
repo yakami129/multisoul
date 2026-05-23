@@ -46,6 +46,122 @@ fn clears_stale_codex_thread_id() {
     assert_eq!(thread_id, None);
 }
 
+/// 旧 turn 的 completed 事件不能覆盖新 turn 的 running 状态。
+///
+/// 数据构造（含关键数值推导）：
+///   user_text seq=1 = 旧 turn
+///   user_text seq=2 = 新 turn（已由 POST /messages 标记 running）
+///   conversation.status = running，表示 Activity 应展示 Running
+///
+/// 执行过程：
+///   1. 调用 codex_turn::complete_turn(status=completed, turn_seq=1)
+///   2. complete_turn 检查是否存在 seq > 1 的 user_text
+///   3. 因 seq=2 已存在，旧 completed 应被忽略
+///   4. 再调用 complete_turn(status=completed, turn_seq=2)，模拟当前 turn 正常结束
+///
+/// 预期结果：
+///   - 断言 A：旧 turn completed 后 status 仍为 running，说明 Activity 不会误入 Done
+///   - 断言 B：旧 turn completed 不插入 task_status，说明不会广播陈旧完成事件
+///   - 断言 C：当前 turn completed 后 status 变 completed，说明正常终态仍可落库
+///   - 断言 D：当前 turn completed 插入一条 task_status，说明未破坏完成事件
+#[test]
+fn stale_codex_turn_completion_does_not_override_newer_user_turn() {
+    let conn = rusqlite::Connection::open_in_memory().unwrap();
+    conn.execute_batch(
+        "CREATE TABLE conversations (
+                id TEXT PRIMARY KEY,
+                status TEXT NOT NULL DEFAULT 'idle',
+                last_message_at INTEGER NOT NULL DEFAULT 0,
+                codex_thread_id TEXT
+            );
+            CREATE TABLE messages (
+                id TEXT PRIMARY KEY,
+                conversation_id TEXT NOT NULL,
+                role TEXT NOT NULL,
+                payload TEXT NOT NULL,
+                created_at INTEGER NOT NULL,
+                seq INTEGER NOT NULL
+            );",
+    )
+    .unwrap();
+    conn.execute(
+        "INSERT INTO conversations (id, status, last_message_at, codex_thread_id)
+         VALUES ('conv-1', 'running', 20, NULL)",
+        [],
+    )
+    .unwrap();
+    conn.execute(
+        "INSERT INTO messages (id, conversation_id, role, payload, created_at, seq)
+         VALUES
+         ('u1', 'conv-1', 'user_text', '{\"text\":\"old\"}', 10, 1),
+         ('u2', 'conv-1', 'user_text', '{\"text\":\"new\"}', 20, 2)",
+        [],
+    )
+    .unwrap();
+    let state = AppState::new(
+        conn,
+        "token".to_string(),
+        std::path::PathBuf::from("/tmp/uploads"),
+        crate::serve::plugin::PluginManager::empty(std::sync::Arc::new(std::sync::Mutex::new(
+            rusqlite::Connection::open_in_memory().unwrap(),
+        ))),
+    );
+
+    codex_turn::complete_turn(&state, "conv-1", "completed", 1);
+
+    {
+        let db = state.db.lock().unwrap();
+        let status: String = db
+            .query_row(
+                "SELECT status FROM conversations WHERE id = 'conv-1'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(
+            status, "running",
+            "stale completed from turn seq=1 must not override newer running turn seq=2"
+        );
+        let task_status_count: i64 = db
+            .query_row(
+                "SELECT COUNT(*) FROM messages WHERE conversation_id='conv-1' AND role='task_status'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(
+            task_status_count, 0,
+            "stale completed turn must not insert a task_status message"
+        );
+    }
+
+    codex_turn::complete_turn(&state, "conv-1", "completed", 2);
+
+    let db = state.db.lock().unwrap();
+    let status: String = db
+        .query_row(
+            "SELECT status FROM conversations WHERE id = 'conv-1'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(
+        status, "completed",
+        "current turn seq=2 should still be allowed to mark the conversation completed"
+    );
+    let task_status_count: i64 = db
+        .query_row(
+            "SELECT COUNT(*) FROM messages WHERE conversation_id='conv-1' AND role='task_status'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(
+        task_status_count, 1,
+        "current completed turn should insert exactly one task_status message"
+    );
+}
+
 /// abort API: 正在阻塞于 codex process_turn stdout 读取的真实子进程会被终止。
 ///
 /// 数据构造（含关键数值推导）：
@@ -132,6 +248,7 @@ fn abort_kills_child_blocking_inside_codex_process_turn() {
             &state_for_turn,
             "conv-1",
             "hello",
+            1,
             child,
             stdin,
             &mut thread_id,

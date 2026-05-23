@@ -7,27 +7,54 @@ use crate::serve::state::AppState;
 /// Dispatch a user message to the appropriate runtime backend.
 /// `runtime` matches the agent's `runtime` column (`claude-code` | `codex` | `cursor-cli` | …).
 /// `mode` is the agent's `mode` column (codex flags; cursor-cli maps `ask` / `plan`).
+pub struct DispatchMessage<'a> {
+    pub text: &'a str,
+    pub file_id: Option<&'a str>,
+    pub seq: i64,
+}
+
 pub fn send_to_session(
     state: &AppState,
     conv_id: &str,
-    user_text: &str,
-    file_id: Option<&str>,
+    message: DispatchMessage<'_>,
     project_path: &str,
     runtime: &str,
     mode: &str,
 ) {
     match runtime {
         "codex" => {
-            codex::send_to_session(state, conv_id, user_text, file_id, project_path, mode);
+            codex::send_to_session(
+                state,
+                conv_id,
+                message.text,
+                message.file_id,
+                message.seq,
+                project_path,
+                mode,
+            );
         }
         "cursor-cli" => {
-            let effective_text = match file_id {
-                Some(fid) => inject_image_prefix(user_text, fid, &state.uploads_dir),
-                None => user_text.to_string(),
+            let effective_text = match message.file_id {
+                Some(fid) => inject_image_prefix(message.text, fid, &state.uploads_dir),
+                None => message.text.to_string(),
             };
-            cursor::send_to_session(state, conv_id, &effective_text, project_path, mode);
+            cursor::send_to_session(
+                state,
+                conv_id,
+                &effective_text,
+                message.seq,
+                project_path,
+                mode,
+            );
         }
-        _ => claude::send_to_session(state, conv_id, user_text, file_id, project_path),
+        _ => claude::send_to_session(
+            state,
+            conv_id,
+            message.text,
+            message.file_id,
+            message.seq,
+            project_path,
+        ),
     }
 }
 

@@ -382,6 +382,8 @@ Codex 使用 `codex exec` / `codex exec resume <thread_id>` 命令；`full-auto`
 > **2026-05-23**：`SessionHandle::abort_current_process` 与 `POST .../abort` 增加 `multisoul::abort` 结构化 tracing（无数据结构变更）；用于区分「仅 cooperative abort、未登记 pid」与「已发 SIGKILL / kill 失败」。
 >
 > **2026-05-23**：Activity DB-backed 方案引入 `ask_answers` 作为 AskUserQuestion answered state，并让 `AnswerMap` 持有 `pending_ask_id`。Claude runtime 在写入/广播 `ask_question` 前登记 pending ask；`GET /api/v1/conversations/:id/messages` 对 ask_question 返回 backend answered 字段，避免 mobile 本地状态丢失后重复回答。
+>
+> **2026-05-23**：Cursor runtime 为满足单文件行数上限，将 session 持久化、message insert、broadcast、complete/failed turn 状态更新 helper 拆到相邻 `cursor_db.rs`；`cursor.rs` 仍保留 runtime worker、process turn 和 CLI 参数构造。
 
 完成实现后，按 `CLAUDE.md §5` 跑：
 

@@ -4,6 +4,8 @@
 //!
 //! Override binary path with `CURSOR_AGENT_BIN` (default: `agent` on `PATH`).
 
+#[path = "cursor_db.rs"]
+mod cursor_db;
 #[path = "cursor_events.rs"]
 mod cursor_events;
 #[path = "cursor_text.rs"]
@@ -13,13 +15,12 @@ use serde_json::Value;
 use std::io::{BufRead, BufReader, Read};
 use std::process::{Child, Command, Stdio};
 use tracing::{debug, error, info, info_span, warn};
-use uuid::Uuid;
 
-use crate::db::now_ms;
 use crate::logging;
-use crate::serve::{
-    push,
-    state::{start_new_process_group, AppState, SessionHandle},
+use crate::serve::state::{start_new_process_group, AppState, SessionHandle};
+use cursor_db::{
+    broadcast, clear_cursor_session, complete_turn, insert_message, load_cursor_session,
+    mark_failed, save_cursor_session,
 };
 use cursor_events::{parse_tool_event, CursorToolEvent};
 use cursor_text::{extract_assistant_text, merge_stream_fragment};
@@ -28,6 +29,7 @@ pub fn send_to_session(
     state: &AppState,
     conv_id: &str,
     user_text: &str,
+    user_seq: i64,
     project_path: &str,
     mode: &str,
 ) {
@@ -38,6 +40,7 @@ pub fn send_to_session(
             .send(crate::serve::state::SessionMessage {
                 user_text: user_text.to_string(),
                 file_id: None,
+                seq: user_seq,
             })
             .is_ok()
         {
@@ -55,6 +58,7 @@ pub fn send_to_session(
     let _ = tx.send(crate::serve::state::SessionMessage {
         user_text: user_text.to_string(),
         file_id: None,
+        seq: user_seq,
     });
 
     let state2 = state.clone();
@@ -83,13 +87,15 @@ fn session_worker(
     let mut session_id: Option<String> = load_cursor_session(&state, &conv_id);
 
     loop {
-        let user_text = match rx.recv() {
-            Ok(msg) => msg.user_text,
+        let msg = match rx.recv() {
+            Ok(msg) => msg,
             Err(_) => {
                 info!("session_channel_closed_shutting_down");
                 return;
             }
         };
+        let user_text = msg.user_text;
+        let user_seq = msg.seq;
         let preview = logging::truncate(&user_text, 200);
         info!(
             user_text_len = user_text.chars().count(),
@@ -100,10 +106,13 @@ fn session_worker(
         match process_turn(
             &state,
             &conv_id,
-            &user_text,
-            &project_path,
-            &mode,
-            session_id.as_deref(),
+            CursorTurn {
+                prompt: &user_text,
+                user_seq,
+                project_path: &project_path,
+                mode: &mode,
+                resume: session_id.as_deref(),
+            },
             &session_handle,
         ) {
             Ok(()) => {
@@ -126,10 +135,13 @@ fn session_worker(
                     match process_turn(
                         &state,
                         &conv_id,
-                        &user_text,
-                        &project_path,
-                        &mode,
-                        None,
+                        CursorTurn {
+                            prompt: &user_text,
+                            user_seq,
+                            project_path: &project_path,
+                            mode: &mode,
+                            resume: None,
+                        },
                         &session_handle,
                     ) {
                         Ok(()) => {
@@ -142,12 +154,12 @@ fn session_worker(
                         }
                         Err(e2) => {
                             error!(error = %e2, "turn_failed_after_reset");
-                            mark_failed(&state, &conv_id);
+                            mark_failed(&state, &conv_id, user_seq);
                         }
                     }
                 } else {
                     error!(error = %e, "turn_failed");
-                    mark_failed(&state, &conv_id);
+                    mark_failed(&state, &conv_id, user_seq);
                 }
             }
         }
@@ -158,16 +170,21 @@ fn agent_bin() -> String {
     std::env::var("CURSOR_AGENT_BIN").unwrap_or_else(|_| "agent".to_string())
 }
 
+struct CursorTurn<'a> {
+    prompt: &'a str,
+    user_seq: i64,
+    project_path: &'a str,
+    mode: &'a str,
+    resume: Option<&'a str>,
+}
+
 fn process_turn(
     state: &AppState,
     conv_id: &str,
-    prompt: &str,
-    project_path: &str,
-    mode: &str,
-    resume: Option<&str>,
+    turn: CursorTurn<'_>,
     session_handle: &SessionHandle,
 ) -> Result<(), String> {
-    let mut child = spawn_agent(prompt, project_path, mode, resume)?;
+    let mut child = spawn_agent(turn.prompt, turn.project_path, turn.mode, turn.resume)?;
     session_handle.set_current_pid(child.id());
     debug!(pid = ?child.id(), conv_id = %conv_id, "cursor_agent_spawned");
 
@@ -257,7 +274,7 @@ fn process_turn(
                         broadcast(state, conv_id, seq, "agent_text", payload);
                     }
                 }
-                complete_turn(state, conv_id, "completed");
+                complete_turn(state, conv_id, "completed", turn.user_seq);
                 return Ok(());
             }
             _ => {}
@@ -375,112 +392,10 @@ fn read_stderr_tail(stderr: &mut Option<std::process::ChildStderr>) -> String {
     }
 }
 
-fn load_cursor_session(state: &AppState, conv_id: &str) -> Option<String> {
-    let db = state.db.lock().unwrap();
-    db.query_row(
-        "SELECT cursor_session_id FROM conversations WHERE id = ?1",
-        [conv_id],
-        |r| r.get::<_, Option<String>>(0),
-    )
-    .ok()
-    .flatten()
-}
-
-fn save_cursor_session(state: &AppState, conv_id: &str, session_id: &str) {
-    let db = state.db.lock().unwrap();
-    let _ = db.execute(
-        "UPDATE conversations SET cursor_session_id = ?1 WHERE id = ?2",
-        rusqlite::params![session_id, conv_id],
-    );
-}
-
-fn clear_cursor_session(state: &AppState, conv_id: &str) {
-    let db = state.db.lock().unwrap();
-    let _ = db.execute(
-        "UPDATE conversations SET cursor_session_id = NULL WHERE id = ?1",
-        [conv_id],
-    );
-}
-
 fn is_stale_session_error(msg: &str) -> bool {
     let m = msg.to_lowercase();
     m.contains("session")
         && (m.contains("not found") || m.contains("invalid") || m.contains("expired"))
-}
-
-fn mark_failed(state: &AppState, conv_id: &str) {
-    complete_turn(state, conv_id, "failed");
-}
-
-fn insert_message(
-    db: &rusqlite::Connection,
-    conv_id: &str,
-    role: &str,
-    payload: &Value,
-) -> rusqlite::Result<i64> {
-    let seq: i64 = db.query_row(
-        "SELECT COALESCE(MAX(seq),0)+1 FROM messages WHERE conversation_id = ?1",
-        [conv_id],
-        |r| r.get(0),
-    )?;
-    let id = Uuid::new_v4().to_string();
-    let now = now_ms();
-    db.execute(
-        "INSERT INTO messages (id, conversation_id, role, payload, created_at, seq)
-         VALUES (?1,?2,?3,?4,?5,?6)",
-        rusqlite::params![id, conv_id, role, payload.to_string(), now, seq],
-    )?;
-    db.execute(
-        "UPDATE conversations SET last_message_at = ?1 WHERE id = ?2",
-        rusqlite::params![now, conv_id],
-    )?;
-    Ok(seq)
-}
-
-#[derive(serde::Serialize)]
-struct WsEnvelope {
-    #[serde(rename = "type")]
-    kind: &'static str,
-    seq: i64,
-    role: &'static str,
-    payload: Value,
-    created_at: i64,
-}
-
-fn broadcast(state: &AppState, conv_id: &str, seq: i64, role: &'static str, payload: Value) {
-    let env = WsEnvelope {
-        kind: "message",
-        seq,
-        role,
-        payload,
-        created_at: now_ms(),
-    };
-    if let Ok(json) = serde_json::to_string(&env) {
-        let tx = state.get_or_create_sender(conv_id);
-        let _ = tx.send(json).unwrap_or(0);
-    }
-}
-
-fn complete_turn(state: &AppState, conv_id: &str, status: &str) {
-    {
-        let db = state.db.lock().unwrap();
-        let _ = db.execute(
-            "UPDATE conversations SET status = ?1 WHERE id = ?2",
-            rusqlite::params![status, conv_id],
-        );
-    }
-    let payload = serde_json::json!({
-        "task_id": conv_id,
-        "status": status,
-        "importance": "normal",
-        "summary": ""
-    });
-    let db = state.db.lock().unwrap();
-    if let Ok(seq) = insert_message(&db, conv_id, "task_status", &payload) {
-        push::send_task_status_push(&db, conv_id, status, "");
-        drop(db);
-        broadcast(state, conv_id, seq, "task_status", payload);
-    }
 }
 
 #[cfg(test)]

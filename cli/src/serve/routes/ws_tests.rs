@@ -219,22 +219,24 @@ async fn mismatched_answer_does_not_persist_or_reach_runtime() {
         answer_rx.try_recv().is_err(),
         "runtime channel must not receive an answer for a different ask_id"
     );
-    let db = state.db.lock().unwrap();
-    let ask_one_count: i64 = db
-        .query_row(
-            "SELECT COUNT(*) FROM ask_answers WHERE conversation_id='conv-1' AND ask_id='ask-1'",
-            [],
-            |r| r.get(0),
-        )
-        .unwrap();
-    let ask_two_count: i64 = db
-        .query_row(
-            "SELECT COUNT(*) FROM ask_answers WHERE conversation_id='conv-1' AND ask_id='ask-2'",
-            [],
-            |r| r.get(0),
-        )
-        .unwrap();
-    drop(db);
+    let (ask_one_count, ask_two_count): (i64, i64) = {
+        let db = state.db.lock().unwrap();
+        let ask_one_count = db
+            .query_row(
+                "SELECT COUNT(*) FROM ask_answers WHERE conversation_id='conv-1' AND ask_id='ask-1'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        let ask_two_count = db
+            .query_row(
+                "SELECT COUNT(*) FROM ask_answers WHERE conversation_id='conv-1' AND ask_id='ask-2'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        (ask_one_count, ask_two_count)
+    };
 
     assert_eq!(
         ask_one_count, 0,

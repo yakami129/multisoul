@@ -173,10 +173,11 @@ fn load_done_items(db: &rusqlite::Connection, limit: i64) -> Result<Vec<Activity
     map_items(stmt.query_map([limit], row_to_activity_item))
 }
 
+type ActivityMappedRows<'stmt> =
+    rusqlite::MappedRows<'stmt, fn(&rusqlite::Row<'_>) -> rusqlite::Result<ActivityItem>>;
+
 fn map_items(
-    rows: rusqlite::Result<
-        rusqlite::MappedRows<'_, fn(&rusqlite::Row<'_>) -> rusqlite::Result<ActivityItem>>,
-    >,
+    rows: rusqlite::Result<ActivityMappedRows<'_>>,
 ) -> Result<Vec<ActivityItem>, StatusCode> {
     rows.map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
         .collect::<rusqlite::Result<Vec<_>>>()

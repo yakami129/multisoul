@@ -61,24 +61,30 @@ fn inject_image_prefix(user_text: &str, file_id: &str, uploads_dir: &std::path::
 dispatch 时：
 
 ```rust
+let message = runtime::DispatchMessage { text: user_text, file_id, seq: user_seq };
+
 "codex" => {
-    codex::send_to_session(state, conv_id, user_text, file_id, project_path, mode);
+    codex::send_to_session(state, conv_id, message.text, message.file_id, message.seq, project_path, mode);
 }
 "cursor-cli" => {
-    let effective_text = if let Some(fid) = file_id {
-        inject_image_prefix(user_text, fid, &state.uploads_dir)
+    let effective_text = if let Some(fid) = message.file_id {
+        inject_image_prefix(message.text, fid, &state.uploads_dir)
     } else {
-        user_text.to_string()
+        message.text.to_string()
     };
-    cursor::send_to_session(state, conv_id, &effective_text, project_path, mode);
+    cursor::send_to_session(state, conv_id, &effective_text, message.seq, project_path, mode);
 }
 ```
 
 ### 不变
 
-- `cursor::send_to_session` 签名不变
 - `claude` 路径完全不动
-- `SessionMessage` 结构体不变
+- Codex 仍使用原生 `--image`
+- Cursor 仍使用路径前缀注入
+
+### 2026-05-23 更新
+
+为避免旧 turn 的完成状态覆盖新 turn，runtime dispatch 现在通过 `DispatchMessage { text, file_id, seq }` 传递用户消息。`SessionMessage` 和 `cursor::send_to_session` 因此携带 `seq`，但图片输入策略不变：Codex 继续接收 `file_id`，Cursor 继续接收注入后的 prompt 文本。
 
 ## 测试覆盖
 

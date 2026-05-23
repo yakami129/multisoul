@@ -16,6 +16,7 @@ pub(super) struct TurnInput<'a> {
     pub user_text: &'a str,
     pub file_id: Option<&'a str>,
     pub uploads_dir: &'a std::path::Path,
+    pub seq: i64,
 }
 
 /// Write user message and read stdout until the `result` event.
@@ -195,7 +196,7 @@ pub(super) fn process_turn(
                 handle_user_event(&raw, state, conv_id);
             }
             "result" => {
-                handle_result_event(&raw, state, conv_id);
+                handle_result_event(&raw, state, conv_id, input.seq);
                 return Ok(()); // turn complete — loop back to rx.recv()
             }
             _ => {}
@@ -297,7 +298,7 @@ fn handle_user_event(raw: &Value, state: &AppState, conv_id: &str) {
     }
 }
 
-fn handle_result_event(raw: &Value, state: &AppState, conv_id: &str) {
+fn handle_result_event(raw: &Value, state: &AppState, conv_id: &str, turn_seq: i64) {
     let status = if raw["is_error"].as_bool().unwrap_or(false) {
         "failed"
     } else {
@@ -309,10 +310,29 @@ fn handle_result_event(raw: &Value, state: &AppState, conv_id: &str) {
 
     {
         let db = state.db.lock().unwrap();
-        let _ = db.execute(
-            "UPDATE conversations SET status = ?1 WHERE id = ?2",
-            rusqlite::params![status, conv_id],
-        );
+        let changed = db
+            .execute(
+                "UPDATE conversations
+                 SET status = ?1
+                 WHERE id = ?2
+                   AND NOT EXISTS (
+                       SELECT 1 FROM messages
+                       WHERE conversation_id = ?2
+                         AND role = 'user_text'
+                         AND seq > ?3
+                   )",
+                rusqlite::params![status, conv_id, turn_seq],
+            )
+            .unwrap_or(0);
+        if changed == 0 {
+            debug!(
+                conv_id = %conv_id,
+                turn_seq,
+                status,
+                "stale_task_status_ignored"
+            );
+            return;
+        }
     }
 
     let payload = serde_json::json!({
