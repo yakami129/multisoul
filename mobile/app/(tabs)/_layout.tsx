@@ -23,7 +23,7 @@ export const tabScreenOptions = {
   tabBarLabelPosition: 'below-icon' as const,
   tabBarLabelStyle: {
     fontFamily: 'Inter',
-    fontSize: 11,
+    fontSize: 10,
     marginTop: 2,
   },
   tabBarItemStyle: {

@@ -92,12 +92,14 @@ export function AgentList({ agents, isLoading, isError, error, onRefetch, onAgen
     () => filteredProjects.filter((project) => project.status.isActive),
     [filteredProjects],
   );
-  const allProjects = React.useMemo(
-    () => filteredProjects.filter((project) => !project.status.isActive),
-    [filteredProjects],
-  );
+  const allProjects = filteredProjects;
 
-  const renderProject = (project: ProjectItem, index: number, hasDivider: boolean) => (
+  const renderProject = (
+    project: ProjectItem,
+    index: number,
+    hasDivider: boolean,
+    metaVariant: 'status' | 'machine',
+  ) => (
     <View key={project.agent.id} style={s.projectItem}>
       <AgentCard
         agent={project.agent}
@@ -105,6 +107,7 @@ export function AgentList({ agents, isLoading, isError, error, onRefetch, onAgen
         statusLabel={project.status.label}
         isActive={project.status.isActive}
         pendingCount={project.status.pendingCount}
+        metaVariant={metaVariant}
         onPress={() =>
           onAgentPress(project.agent.id, project.agent.endpoint_id, project.agent.name)
         }
@@ -135,7 +138,7 @@ export function AgentList({ agents, isLoading, isError, error, onRefetch, onAgen
         </View>
         <View style={s.centered}>
           <View style={s.errorIconWrap}>
-            <AlertCircle size={36} color="#FF6B35" />
+            <AlertCircle size={36} color="#FF4444" />
           </View>
           <Text style={s.errorTitle}>Failed to load</Text>
           <Text style={s.errorDesc}>{String(error)}</Text>
@@ -148,14 +151,14 @@ export function AgentList({ agents, isLoading, isError, error, onRefetch, onAgen
   }
 
   return (
-    <View style={[s.root, { paddingTop: insets.top }]}>
+    <View testID="projects-root" style={[s.root, { paddingTop: insets.top }]}>
       <View style={s.header}>
         <Text style={s.headerTitle}>Projects</Text>
         <Plus size={24} color="#FF6B35" />
       </View>
 
       <View style={s.searchSection}>
-        <View style={s.searchBox}>
+        <View testID="projects-search-box" style={s.searchBox}>
           <Search size={14} color="#666666" />
           <TextInput
             value={query}
@@ -208,22 +211,18 @@ export function AgentList({ agents, isLoading, isError, error, onRefetch, onAgen
                 <Text style={s.sectionTitle}>Active Now</Text>
                 {activeProjects.map((project, index) => (
                   <View key={project.agent.id} style={s.activeRow}>
-                    {renderProject(project, index, false)}
+                    {renderProject(project, index, false, 'status')}
                   </View>
                 ))}
               </>
             ) : null}
             <Text style={s.sectionTitle}>All Projects</Text>
-            <View style={s.projectGroup}>
+            <View testID="projects-group" style={s.projectGroup}>
               {allProjects.length === 0 ? (
                 <Text style={s.emptyGroupText}>No idle projects.</Text>
               ) : (
                 allProjects.map((project, index) =>
-                  renderProject(
-                    project,
-                    index + activeProjects.length,
-                    index < allProjects.length - 1,
-                  ),
+                  renderProject(project, index, index < allProjects.length - 1, 'machine'),
                 )
               )}
             </View>
@@ -267,7 +266,7 @@ const s = StyleSheet.create({
     height: 44,
     paddingHorizontal: 24,
     borderRadius: 10,
-    backgroundColor: '#FF6B35',
+    backgroundColor: '#FF4444',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -299,7 +298,7 @@ const s = StyleSheet.create({
     color: '#FFFFFF',
   },
   activeRow: {
-    backgroundColor: '#1F2A1F',
+    backgroundColor: '#0D1A0D',
     borderLeftWidth: 3,
     borderLeftColor: '#4CAF50',
   },

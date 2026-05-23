@@ -140,4 +140,56 @@ describe('Tab navigation', () => {
     );
     expect(tabScreenOptions.tabBarShowLabel).toBe(true, 'tab labels should be explicitly enabled');
   });
+
+  /// Pencli Projects tab rail: bottom navigation uses orange accent and dark surfaces.
+  ///
+  /// Data construction:
+  ///   Target source = user-provided pencli Projects image:
+  ///     background #161616, divider #1E1E1E
+  ///     active #FF6B35, inactive #555555, label size 10
+  ///
+  /// Execution:
+  ///   1. Read exported tabScreenOptions.
+  ///   2. Compare surface, divider, tint, and label sizing values.
+  ///
+  /// Expected:
+  ///   - Positive: tab rail matches the orange pencli visual tokens.
+  ///   - Negative: the blue Pro Dark tab state does not remain on the Projects tab.
+  it('matches the orange pencli Projects tab rail tokens', () => {
+    expect({
+      actual: tabScreenOptions.tabBarStyle.backgroundColor,
+      reason: 'tab rail should use the user-provided pencli sheet surface',
+    }).toEqual({
+      actual: '#161616',
+      reason: 'tab rail should use the user-provided pencli sheet surface',
+    });
+    expect({
+      actual: tabScreenOptions.tabBarStyle.borderTopColor,
+      reason: 'tab rail divider should use the original pencli divider',
+    }).toEqual({
+      actual: '#1E1E1E',
+      reason: 'tab rail divider should use the original pencli divider',
+    });
+    expect({
+      actual: tabScreenOptions.tabBarActiveTintColor,
+      reason: 'active Projects tab should use orange from the supplied mock',
+    }).toEqual({
+      actual: '#FF6B35',
+      reason: 'active Projects tab should use orange from the supplied mock',
+    });
+    expect({
+      actual: tabScreenOptions.tabBarInactiveTintColor,
+      reason: 'inactive tab icons should use pencli muted gray',
+    }).toEqual({
+      actual: '#555555',
+      reason: 'inactive tab icons should use pencli muted gray',
+    });
+    expect({
+      actual: tabScreenOptions.tabBarLabelStyle.fontSize,
+      reason: 'tab labels should match the 10px pencli caption size',
+    }).toEqual({
+      actual: 10,
+      reason: 'tab labels should match the 10px pencli caption size',
+    });
+  });
 });

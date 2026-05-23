@@ -1,6 +1,6 @@
 import { render, fireEvent } from '@testing-library/react-native';
 import React from 'react';
-import { RefreshControl, ScrollView, TextInput } from 'react-native';
+import { RefreshControl, ScrollView, StyleSheet, TextInput } from 'react-native';
 import { useChatStore } from '@/store/chatStore';
 import { type Agent } from '@/types';
 import { AgentList } from './AgentList';
@@ -31,6 +31,10 @@ const agents: Agent[] = [
   },
 ];
 
+function expectEqualWithReason<T>(actual: T, expected: T, reason: string) {
+  expect({ actual, reason }).toEqual({ actual: expected, reason });
+}
+
 describe('AgentList', () => {
   beforeEach(() => {
     useChatStore.setState({ conversations: [], messages: {} });
@@ -53,6 +57,72 @@ describe('AgentList', () => {
     expect(getByText('Projects')).toBeTruthy();
     expect(UNSAFE_getByType(TextInput).props.placeholder).toBe('Search projects');
     expect(getByText('All Projects')).toBeTruthy();
+  });
+
+  /// Pencli Projects surface: root, search, and project group match the orange Projects mock.
+  ///
+  /// Data construction:
+  ///   agents = 2 idle projects, so Active Now is absent and All Projects renders one group.
+  ///   Target source = user-provided pencli Projects image:
+  ///     root #0D0D0D, search/group #1A1A1A, search placeholder #666666
+  ///     search radius 10, group radius 12
+  ///
+  /// Execution:
+  ///   1. Render AgentList with two idle agents.
+  ///   2. Read testID-marked structural containers and TextInput props.
+  ///   3. Flatten RN style arrays to compare resolved values.
+  ///
+  /// Expected:
+  ///   - Positive: orange pencli colors/radii are present on root, search, and group.
+  ///   - Negative: the blue Pro Dark surface values (#000000/#1C1C1E/r=16/18) are not retained.
+  it('matches the orange pencli Projects surface tokens', () => {
+    const { getByTestId, UNSAFE_getByType } = render(
+      <AgentList
+        agents={agents}
+        isLoading={false}
+        isError={false}
+        error={null}
+        isFetching={false}
+        onRefetch={() => {}}
+        onAgentPress={() => {}}
+      />,
+    );
+
+    const rootStyle = StyleSheet.flatten(getByTestId('projects-root').props.style);
+    const searchStyle = StyleSheet.flatten(getByTestId('projects-search-box').props.style);
+    const groupStyle = StyleSheet.flatten(getByTestId('projects-group').props.style);
+    const searchInput = UNSAFE_getByType(TextInput);
+
+    expectEqualWithReason(
+      rootStyle.backgroundColor,
+      '#0D0D0D',
+      'Projects root should use the orange pencli near-black background',
+    );
+    expectEqualWithReason(
+      searchStyle.backgroundColor,
+      '#1A1A1A',
+      'search field should use the orange pencli card surface',
+    );
+    expectEqualWithReason(
+      searchStyle.borderRadius,
+      10,
+      'search field radius should match the user-provided pencli mock',
+    );
+    expectEqualWithReason(
+      searchInput.props.placeholderTextColor,
+      '#666666',
+      'search placeholder should use the pencli disabled text gray',
+    );
+    expectEqualWithReason(
+      groupStyle.backgroundColor,
+      '#1A1A1A',
+      'project list group should share the orange pencli card surface',
+    );
+    expectEqualWithReason(
+      groupStyle.borderRadius,
+      12,
+      'project list group should use the user-provided pencli 12px card radius',
+    );
   });
 
   it('shows loading text when isLoading', () => {
@@ -217,6 +287,54 @@ describe('AgentList', () => {
     );
 
     expect(getByText('Active Now')).toBeTruthy();
-    expect(getByText('Running · Codex')).toBeTruthy();
+    expect(getByText('Running')).toBeTruthy();
+  });
+
+  /// All Projects section: active projects are duplicated below Active Now.
+  ///
+  /// Data construction:
+  ///   agents = Alpha + Beta.
+  ///   conversations = one running conversation for Alpha, so Alpha is active.
+  ///
+  /// Execution:
+  ///   1. Render AgentList.
+  ///   2. Query all visible Alpha labels.
+  ///
+  /// Expected:
+  ///   - Positive: Alpha appears once in Active Now and once in All Projects, matching the mock.
+  ///   - Negative: All Projects is not reduced to idle-only projects.
+  it('keeps active projects in the All Projects section', () => {
+    useChatStore.setState({
+      conversations: [
+        {
+          id: 'conv-1',
+          agent_id: 'a1',
+          title: 'Run checks',
+          created_at: 1,
+          last_message_at: 2,
+          status: 'running',
+          endpoint_id: 'ep-1',
+          agent_name: 'Alpha',
+        },
+      ],
+      messages: {},
+    });
+
+    const { getAllByText } = render(
+      <AgentList
+        agents={agents}
+        isLoading={false}
+        isError={false}
+        error={null}
+        isFetching={false}
+        onRefetch={() => {}}
+        onAgentPress={() => {}}
+      />,
+    );
+
+    expect(getAllByText('Alpha').length).toBe(
+      2,
+      'active Alpha should appear in Active Now and remain in All Projects',
+    );
   });
 });
