@@ -125,3 +125,5 @@ cd mobile && ./scripts/publish-ios.sh
 3. **CLAUDE.md 和 AGENTS.md 必须同步更新** —— 两者约束列表保持镜像，改一个必须改另一个
 4. 在本文 §4 的地图里加指针（如果是新类别）
 5. 必要时把约束机械化（lint / hook / CI），让规则从"建议"升级为"法律"
+
+@RTK.md
