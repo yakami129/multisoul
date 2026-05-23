@@ -1,29 +1,37 @@
 import React, { useEffect, useRef } from 'react';
-import { Animated, Easing, Text, View } from 'react-native';
+import { Animated, Easing, Text, useWindowDimensions, View } from 'react-native';
 import { splashScreenStyles as s } from './splashScreenStyles';
 
 interface Props {
   onComplete: () => void;
 }
 
-function lensPlaneStyle(value: Animated.Value, distance: number) {
+function lensPlaneStyle(value: Animated.Value, screenWidth: number) {
   return {
     opacity: value.interpolate({
-      inputRange: [0, 0.28, 1],
-      outputRange: [0, 0.58, 1],
+      inputRange: [0, 0.38, 1, 2],
+      outputRange: [0, 0.58, 1, 1],
     }),
     transform: [
       { rotate: '-18deg' },
       {
         translateX: value.interpolate({
-          inputRange: [0, 1],
-          outputRange: [-distance, 0],
+          inputRange: [0, 1, 2],
+          outputRange: [-screenWidth * 1.07, 0, screenWidth * 0.47],
         }),
       },
+    ],
+  };
+}
+
+function revealStyle(value: Animated.Value) {
+  return {
+    opacity: value,
+    transform: [
       {
         translateY: value.interpolate({
           inputRange: [0, 1],
-          outputRange: [24, 0],
+          outputRange: [18, 0],
         }),
       },
     ],
@@ -31,66 +39,88 @@ function lensPlaneStyle(value: Animated.Value, distance: number) {
 }
 
 export function SplashScreen({ onComplete }: Props) {
-  const rootOpacity = useRef(new Animated.Value(0)).current;
+  const { height, width } = useWindowDimensions();
   const exitOpacity = useRef(new Animated.Value(1)).current;
   const lensA = useRef(new Animated.Value(0)).current;
   const lensB = useRef(new Animated.Value(0)).current;
   const lensC = useRef(new Animated.Value(0)).current;
   const chip = useRef(new Animated.Value(0)).current;
-  const copy = useRef(new Animated.Value(0)).current;
+  const chipRadius = useRef(new Animated.Value(30)).current;
+  const eyebrow = useRef(new Animated.Value(0)).current;
+  const title = useRef(new Animated.Value(0)).current;
   const ready = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     let cancelled = false;
 
-    const lensIn = (value: Animated.Value, delay: number) =>
+    const lensToCenter = (value: Animated.Value, delay: number) =>
       Animated.timing(value, {
         toValue: 1,
-        duration: 760,
+        duration: 700,
         delay,
-        easing: Easing.out(Easing.cubic),
+        easing: Easing.out(Easing.poly(3)),
+        useNativeDriver: true,
+      });
+
+    const lensSweep = (value: Animated.Value) =>
+      Animated.timing(value, {
+        toValue: 2,
+        duration: 700,
+        easing: Easing.inOut(Easing.quad),
+        useNativeDriver: true,
+      });
+
+    const reveal = (value: Animated.Value) =>
+      Animated.timing(value, {
+        toValue: 1,
+        duration: 420,
+        easing: Easing.out(Easing.poly(3)),
         useNativeDriver: true,
       });
 
     const animation = Animated.sequence([
-      Animated.timing(rootOpacity, {
-        toValue: 1,
-        duration: 220,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      }),
       Animated.parallel([
-        lensIn(lensA, 0),
-        lensIn(lensB, 90),
-        lensIn(lensC, 180),
-        Animated.spring(chip, {
-          toValue: 1,
-          damping: 14,
-          mass: 0.85,
-          stiffness: 145,
-          useNativeDriver: true,
-        }),
+        lensToCenter(lensA, 0),
+        lensToCenter(lensB, 80),
+        lensToCenter(lensC, 160),
       ]),
       Animated.parallel([
-        Animated.timing(copy, {
-          toValue: 1,
-          duration: 460,
-          easing: Easing.out(Easing.cubic),
-          useNativeDriver: true,
-        }),
-        Animated.timing(ready, {
-          toValue: 1,
-          duration: 360,
-          delay: 160,
-          easing: Easing.out(Easing.cubic),
-          useNativeDriver: true,
-        }),
+        lensSweep(lensA),
+        lensSweep(lensB),
+        lensSweep(lensC),
+        Animated.sequence([
+          Animated.delay(100),
+          Animated.timing(chip, {
+            toValue: 1,
+            duration: 480,
+            easing: Easing.out(Easing.back(1.5)),
+            useNativeDriver: true,
+          }),
+        ]),
+        Animated.sequence([
+          Animated.delay(300),
+          Animated.stagger(80, [reveal(eyebrow), reveal(title), reveal(ready)]),
+        ]),
+        Animated.sequence([
+          Animated.delay(800),
+          Animated.timing(chipRadius, {
+            toValue: 22,
+            duration: 340,
+            easing: Easing.inOut(Easing.sin),
+            useNativeDriver: false,
+          }),
+          Animated.timing(chipRadius, {
+            toValue: 30,
+            duration: 340,
+            easing: Easing.inOut(Easing.sin),
+            useNativeDriver: false,
+          }),
+        ]),
       ]),
-      Animated.delay(560),
       Animated.timing(exitOpacity, {
         toValue: 0,
-        duration: 380,
-        easing: Easing.in(Easing.cubic),
+        duration: 280,
+        easing: Easing.in(Easing.poly(3)),
         useNativeDriver: true,
       }),
     ]);
@@ -105,7 +135,7 @@ export function SplashScreen({ onComplete }: Props) {
       cancelled = true;
       animation.stop();
     };
-  }, [chip, copy, exitOpacity, lensA, lensB, lensC, onComplete, ready, rootOpacity]);
+  }, [chip, chipRadius, eyebrow, exitOpacity, lensA, lensB, lensC, onComplete, ready, title]);
 
   const chipScale = chip.interpolate({
     inputRange: [0, 1],
@@ -115,28 +145,16 @@ export function SplashScreen({ onComplete }: Props) {
     inputRange: [0, 1],
     outputRange: ['-8deg', '0deg'],
   });
-  const copyTranslateY = copy.interpolate({
-    inputRange: [0, 1],
-    outputRange: [14, 0],
-  });
-  const readyScale = ready.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0.88, 1],
-  });
+  const stripeTopA = height * 0.225;
+  const stripeTopB = height * 0.377;
+  const stripeTopC = height * 0.528;
 
   return (
-    <Animated.View
-      style={[
-        s.root,
-        {
-          opacity: Animated.multiply(rootOpacity, exitOpacity),
-        },
-      ]}
-    >
+    <Animated.View style={[s.root, { opacity: exitOpacity }]}>
       <View style={s.lensField} pointerEvents="none">
-        <Animated.View style={[s.lensPlane, s.lensPlaneA, lensPlaneStyle(lensA, 320)]} />
-        <Animated.View style={[s.lensPlane, s.lensPlaneB, lensPlaneStyle(lensB, 260)]} />
-        <Animated.View style={[s.lensPlane, s.lensPlaneC, lensPlaneStyle(lensC, 220)]} />
+        <Animated.View style={[s.lensPlane, { top: stripeTopA }, lensPlaneStyle(lensA, width)]} />
+        <Animated.View style={[s.lensPlane, { top: stripeTopB }, lensPlaneStyle(lensB, width)]} />
+        <Animated.View style={[s.lensPlane, { top: stripeTopC }, lensPlaneStyle(lensC, width)]} />
       </View>
 
       <View style={s.lockup}>
@@ -145,6 +163,7 @@ export function SplashScreen({ onComplete }: Props) {
             s.chip,
             {
               opacity: chip,
+              borderRadius: chipRadius,
               transform: [{ scale: chipScale }, { rotate: chipRotate }],
             },
           ]}
@@ -158,27 +177,18 @@ export function SplashScreen({ onComplete }: Props) {
           style={[
             s.copy,
             {
-              opacity: copy,
-              transform: [{ translateY: copyTranslateY }],
+              opacity: exitOpacity,
             },
           ]}
         >
-          <Text style={s.eyebrow} allowFontScaling={false}>
+          <Animated.Text style={[s.eyebrow, revealStyle(eyebrow)]} allowFontScaling={false}>
             PERSONAL AI CONSOLE
-          </Text>
-          <Text style={s.title} allowFontScaling={false}>
+          </Animated.Text>
+          <Animated.Text style={[s.title, revealStyle(title)]} allowFontScaling={false}>
             MULTISOUL
-          </Text>
+          </Animated.Text>
 
-          <Animated.View
-            style={[
-              s.readyPill,
-              {
-                opacity: ready,
-                transform: [{ scale: readyScale }],
-              },
-            ]}
-          >
+          <Animated.View style={[s.readyPill, revealStyle(ready)]}>
             <Text style={s.readyText} allowFontScaling={false}>
               READY
             </Text>
