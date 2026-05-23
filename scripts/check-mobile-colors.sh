@@ -19,15 +19,16 @@ set -euo pipefail
 # Update both the design doc AND this list together (same commit).
 allowlist=$(cat <<'EOF' | tr '\n' '|' | sed 's/|$//'
 0D0D0D
+000000
 1A1A1A
 111111
+0D1A0D
 161616
 141414
 1F2A1F
 252525
 1E1E1E
 2A2A2A
-000000
 FFFFFF
 DDDDDD
 888888
