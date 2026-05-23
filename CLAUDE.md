@@ -78,6 +78,7 @@ Monorepo 两大件：
 | **PR 合并与 CI 强闸** | [`docs/runbooks/github-pr-merge-policy.md`](docs/runbooks/github-pr-merge-policy.md) |
 | **UI 设计系统**（颜色、字号、间距） | [`mobile/docs/design.md`](mobile/docs/design.md) |
 | **RN UI 常见坑** | [`mobile/docs/rules/ui-pitfalls.md`](mobile/docs/rules/ui-pitfalls.md) |
+| **iOS Simulator E2E / 视觉验收** | [`.cursor/skills/ios-simulator-e2e/SKILL.md`](.cursor/skills/ios-simulator-e2e/SKILL.md)（Claude Code 也按此文件执行；`.claude/` 为本机忽略目录，不作为权威落库位置） |
 | **Agent 短导航地图** | [`AGENTS.md`](AGENTS.md) |
 | **面向人类的快速上手** | [`README.md`](README.md) |
 | **msctl 命令速记（`msctl inject`）** | [`docs/references/msctl-inject.md`](docs/references/msctl-inject.md)；完整参考 [`docs/references/cli-commands.md`](docs/references/cli-commands.md) |
@@ -93,7 +94,7 @@ Monorepo 两大件：
 | `mobile/**` 测试相关 | `cd mobile && pnpm test -- --watchAll=false` |
 | `cli/**` Rust | `cd cli && cargo test` |
 | `cli/**` 编译检查 | `cd cli && cargo build` |
-| 改了 UI | 对照 [`mobile/docs/design.md`](mobile/docs/design.md) §11 checklist |
+| 改了 UI | 对照 [`mobile/docs/design.md`](mobile/docs/design.md) §11 checklist；涉及截图、对齐、安全区、导航或真实 iPhone 观感时用 `ios-simulator-e2e` skill |
 | 改了 RN 列表/刷新 | 对照 [`mobile/docs/rules/ui-pitfalls.md`](mobile/docs/rules/ui-pitfalls.md) |
 
 ### Regression Tests
