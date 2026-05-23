@@ -68,11 +68,13 @@ export default function ChatDetailScreen() {
     endpoint_id,
     agent_id,
     agent_name,
+    focus_ask_id,
   } = useLocalSearchParams<{
     id: string;
     endpoint_id: string;
     agent_id?: string;
     agent_name?: string;
+    focus_ask_id?: string;
   }>();
   const router = useRouter();
   const [input, setInput] = useState('');
@@ -83,6 +85,8 @@ export default function ChatDetailScreen() {
   const imageMapRef = useRef<Map<string, string>>(new Map());
   const scrollRef = useRef<ScrollView>(null);
   const prevMessageCountRef = useRef(0);
+  const askMessageYRef = useRef<Map<string, number>>(new Map());
+  const didScrollToFocusRef = useRef(false);
 
   const endpoint = useEndpointStore((s) => s.endpoints.find((e) => e.id === endpoint_id));
   const conversations = useChatStore((s) => s.conversations);
@@ -138,6 +142,19 @@ export default function ChatDetailScreen() {
       : { base_url: '', token: '', conv_id, endpoint_id: '', agent_id: '', agent_name: '' },
   );
 
+  const scrollToFocusedAsk = React.useCallback(() => {
+    if (!focus_ask_id || didScrollToFocusRef.current) return;
+    const y = askMessageYRef.current.get(focus_ask_id);
+    if (y == null) return;
+    scrollRef.current?.scrollTo({ y: Math.max(y - 12, 0), animated: true });
+    didScrollToFocusRef.current = true;
+  }, [focus_ask_id]);
+
+  useEffect(() => {
+    didScrollToFocusRef.current = false;
+    askMessageYRef.current.clear();
+  }, [conv_id, focus_ask_id]);
+
   useEffect(() => {
     if (!endpoint) return;
     Promise.all([
@@ -169,6 +186,7 @@ export default function ChatDetailScreen() {
           conversation_id: conv_id,
           addItem: addInboxItem,
         });
+        setTimeout(scrollToFocusedAsk, 100);
       })
       .catch((error: unknown) => {
         recordDiagnosticsEvent('error', 'chat.history', 'failed to load chat history', {
@@ -187,6 +205,7 @@ export default function ChatDetailScreen() {
     conversation,
     setMessages,
     addInboxItem,
+    scrollToFocusedAsk,
   ]);
 
   async function pickImage() {
@@ -388,6 +407,10 @@ export default function ChatDetailScreen() {
           style={s.scroll}
           contentContainerStyle={s.scrollContent}
           onContentSizeChange={(_w, _h) => {
+            if (focus_ask_id && !didScrollToFocusRef.current) {
+              scrollToFocusedAsk();
+              return;
+            }
             // Only auto-scroll when a new message is appended (count increases).
             // Avoids triggering on every streaming text update while a message
             // is already visible, which causes janky re-layout on long histories.
@@ -398,20 +421,32 @@ export default function ChatDetailScreen() {
             }
           }}
         >
-          {messages.map((msg) => (
-            <MessageBubble
-              key={`${msg.seq}`}
-              msg={msg}
-              typewriter={msg.seq === activeTypewriterSeq}
-              forceComplete={msg.seq === activeTypewriterSeq && shouldForceComplete}
-              onAnswer={sendAnswer}
-              onAnswerMulti={sendAnswerMulti}
-              imageUri={imageUriForMessage(msg)}
-              waiting={false}
-              serverUrl={endpoint?.base_url ?? ''}
-              token={endpoint?.token ?? ''}
-            />
-          ))}
+          {messages.map((msg) => {
+            const askId =
+              msg.role === 'ask_question' ? (msg.payload as { ask_id?: string }).ask_id : undefined;
+            return (
+              <View
+                key={`${msg.seq}`}
+                onLayout={(event) => {
+                  if (!askId) return;
+                  askMessageYRef.current.set(askId, event.nativeEvent.layout.y);
+                  scrollToFocusedAsk();
+                }}
+              >
+                <MessageBubble
+                  msg={msg}
+                  typewriter={msg.seq === activeTypewriterSeq}
+                  forceComplete={msg.seq === activeTypewriterSeq && shouldForceComplete}
+                  onAnswer={sendAnswer}
+                  onAnswerMulti={sendAnswerMulti}
+                  imageUri={imageUriForMessage(msg)}
+                  waiting={false}
+                  serverUrl={endpoint?.base_url ?? ''}
+                  token={endpoint?.token ?? ''}
+                />
+              </View>
+            );
+          })}
           {isAgentRunning && incomingAgentActivitySeq === null && (
             <MessageBubble msg={WAITING_MESSAGE} waiting />
           )}

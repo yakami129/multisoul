@@ -1,6 +1,7 @@
 import { render, fireEvent } from '@testing-library/react-native';
 import React from 'react';
-import { FlatList, RefreshControl, StyleSheet } from 'react-native';
+import { RefreshControl, ScrollView, TextInput } from 'react-native';
+import { useChatStore } from '@/store/chatStore';
 import { type Agent } from '@/types';
 import { AgentList } from './AgentList';
 
@@ -31,8 +32,12 @@ const agents: Agent[] = [
 ];
 
 describe('AgentList', () => {
-  it('renders list of agents', () => {
-    const { getByText } = render(
+  beforeEach(() => {
+    useChatStore.setState({ conversations: [], messages: {} });
+  });
+
+  it('renders list of projects', () => {
+    const { getByText, UNSAFE_getByType } = render(
       <AgentList
         agents={agents}
         isLoading={false}
@@ -43,8 +48,11 @@ describe('AgentList', () => {
         onAgentPress={() => {}}
       />,
     );
-    expect(getByText('ALPHA')).toBeTruthy();
-    expect(getByText('BETA')).toBeTruthy();
+    expect(getByText('Alpha')).toBeTruthy();
+    expect(getByText('Beta')).toBeTruthy();
+    expect(getByText('Projects')).toBeTruthy();
+    expect(UNSAFE_getByType(TextInput).props.placeholder).toBe('Search projects');
+    expect(getByText('All Projects')).toBeTruthy();
   });
 
   it('shows loading text when isLoading', () => {
@@ -59,7 +67,7 @@ describe('AgentList', () => {
         onAgentPress={() => {}}
       />,
     );
-    expect(getByText('LOADING AGENTS...')).toBeTruthy();
+    expect(getByText('Loading projects...')).toBeTruthy();
   });
 
   it('shows error state when isError', () => {
@@ -74,10 +82,10 @@ describe('AgentList', () => {
         onAgentPress={() => {}}
       />,
     );
-    expect(getByText('FAILED TO LOAD')).toBeTruthy();
+    expect(getByText('Failed to load')).toBeTruthy();
   });
 
-  it('calls onAgentPress with agent id, endpoint id, and name', () => {
+  it('calls onAgentPress with project id, endpoint id, and name', () => {
     const onAgentPress = jest.fn();
     const { getByText } = render(
       <AgentList
@@ -90,7 +98,7 @@ describe('AgentList', () => {
         onAgentPress={onAgentPress}
       />,
     );
-    fireEvent.press(getByText('ALPHA'));
+    fireEvent.press(getByText('Alpha'));
     expect(onAgentPress).toHaveBeenCalledWith('a1', 'ep-1', 'Alpha');
   });
 
@@ -110,25 +118,8 @@ describe('AgentList', () => {
     expect(UNSAFE_getByType(RefreshControl).props.refreshing).toBe(false);
   });
 
-  /// Workspace filter chips: selected and unselected workspace buttons have clear surfaces.
-  ///
-  /// Data construction:
-  ///   agents = 2 records:
-  ///     /repo/alpha -> workspace "alpha"
-  ///     /repo/beta  -> workspace "beta"
-  ///   default selected workspace = "all" from component state.
-  ///
-  /// Execution:
-  ///   1. Render AgentList with 2 workspace names.
-  ///   2. Read the "All" chip and the "alpha" chip styles in the unpressed state.
-  ///   3. Flatten the Pressable style arrays returned by their style callbacks.
-  ///
-  /// Expected:
-  ///   - Positive: selected "All" chip has orange background and pill radius.
-  ///   - Positive: unselected "alpha" chip has a visible dark button background and pill radius.
-  ///   - Negative: unselected "alpha" chip must not share the page background, or it will look borderless.
-  it('styles workspace filter chips as rounded buttons with visible backgrounds', () => {
-    const { getByTestId } = render(
+  it('filters projects through the search field', () => {
+    const { UNSAFE_getByType, queryByText, getByText } = render(
       <AgentList
         agents={agents}
         isLoading={false}
@@ -140,84 +131,20 @@ describe('AgentList', () => {
       />,
     );
 
-    const selectedChip = getByTestId('workspace-chip-all');
-    const alphaChip = getByTestId('workspace-chip-alpha');
-    const selectedRawStyle =
-      typeof selectedChip.props.style === 'function'
-        ? selectedChip.props.style({ pressed: false })
-        : selectedChip.props.style;
-    const alphaRawStyle =
-      typeof alphaChip.props.style === 'function'
-        ? alphaChip.props.style({ pressed: false })
-        : alphaChip.props.style;
-    const selectedStyle = StyleSheet.flatten(selectedRawStyle);
-    const alphaStyle = StyleSheet.flatten(alphaRawStyle);
+    fireEvent.changeText(UNSAFE_getByType(TextInput), 'beta');
 
-    expect(selectedStyle.backgroundColor).toBe(
-      '#FF6B35',
-      'selected workspace chip should keep the documented action background',
-    );
-    expect(selectedStyle.borderRadius).toBe(
-      18,
-      'selected workspace chip should be a soft pill, not a sharp rectangle',
-    );
-    expect(alphaStyle.backgroundColor).toBe(
-      '#252525',
-      'unselected workspace chip should have a visible dark button surface',
-    );
-    expect(alphaStyle.backgroundColor).not.toBe(
-      '#0D0D0D',
-      'unselected workspace chip must not disappear into the page background',
-    );
-    expect(alphaStyle.borderRadius).toBe(
-      18,
-      'unselected workspace chip should use the same pill radius as the selected chip',
-    );
+    expect(getByText('Beta')).toBeTruthy();
+    expect(queryByText('Alpha')).toBeNull();
   });
 
-  /// Agent cards spacing: adjacent cards are separated by a fixed vertical gap.
+  /// Empty project list: the empty copy is fixed in place and cannot be dragged.
   ///
   /// Data construction:
-  ///   agents = 2 records, enough to create exactly 1 inter-card separator.
-  ///
-  /// Execution:
-  ///   1. Render AgentList with 2 agents.
-  ///   2. Read FlatList.ItemSeparatorComponent and render it.
-  ///   3. Flatten the separator style to inspect the concrete height.
-  ///
-  /// Expected:
-  ///   - Positive: separator exists and height is 12, giving visible space between cards.
-  ///   - Negative: separator height must not be 0, which would make cards visually stick together.
-  it('adds visible spacing between agent cards', () => {
-    const { UNSAFE_getByType } = render(
-      <AgentList
-        agents={agents}
-        isLoading={false}
-        isError={false}
-        error={null}
-        isFetching={false}
-        onRefetch={() => {}}
-        onAgentPress={() => {}}
-      />,
-    );
-
-    const Separator = UNSAFE_getByType(FlatList).props.ItemSeparatorComponent;
-    const separator = render(<Separator />).toJSON();
-    const style = StyleSheet.flatten(separator?.props.style);
-
-    expect(Separator).toBeTruthy();
-    expect(style.height).toBe(12);
-    expect(style.height).not.toBe(0);
-  });
-
-  /// Empty agent list: the empty copy is fixed in place and cannot be dragged.
-  ///
-  /// Data construction:
-  ///   agents = [] so FlatList renders ListEmptyComponent only.
+  ///   agents = [] so ScrollView renders empty content only.
   ///
   /// Execution:
   ///   1. Render AgentList with no agents.
-  ///   2. Read FlatList scroll props.
+  ///   2. Read ScrollView scroll props.
   ///
   /// Expected:
   ///   - Positive: scrollEnabled=false fixes the empty state vertically.
@@ -235,9 +162,61 @@ describe('AgentList', () => {
       />,
     );
 
-    const flatList = UNSAFE_getByType(FlatList);
+    const scrollView = UNSAFE_getByType(ScrollView);
 
-    expect(flatList.props.scrollEnabled).toBe(false);
-    expect(flatList.props.bounces).toBe(false);
+    expect(scrollView.props.scrollEnabled).toBe(false);
+    expect(scrollView.props.bounces).toBe(false);
+  });
+
+  it('points empty state to adding a machine', () => {
+    const { getByText } = render(
+      <AgentList
+        agents={[]}
+        isLoading={false}
+        isError={false}
+        error={null}
+        isFetching={false}
+        onRefetch={() => {}}
+        onAgentPress={() => {}}
+      />,
+    );
+
+    expect(getByText('Connect a machine')).toBeTruthy();
+    expect(
+      getByText('Add a machine by scanning its QR code or pasting a connection string.'),
+    ).toBeTruthy();
+  });
+
+  it('shows running projects in Active Now', () => {
+    useChatStore.setState({
+      conversations: [
+        {
+          id: 'conv-1',
+          agent_id: 'a1',
+          title: 'Run checks',
+          created_at: 1,
+          last_message_at: 2,
+          status: 'running',
+          endpoint_id: 'ep-1',
+          agent_name: 'Alpha',
+        },
+      ],
+      messages: {},
+    });
+
+    const { getByText } = render(
+      <AgentList
+        agents={agents}
+        isLoading={false}
+        isError={false}
+        error={null}
+        isFetching={false}
+        onRefetch={() => {}}
+        onAgentPress={() => {}}
+      />,
+    );
+
+    expect(getByText('Active Now')).toBeTruthy();
+    expect(getByText('Running · Codex')).toBeTruthy();
   });
 });

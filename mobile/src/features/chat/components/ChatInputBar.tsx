@@ -92,7 +92,7 @@ export default function ChatInputBar({
           testID="message-input"
           style={s.input}
           placeholder={placeholder}
-          placeholderTextColor="#3A3A3A"
+          placeholderTextColor="#333333"
           value={value}
           onChangeText={onChangeText}
           editable={!disabled}
@@ -175,7 +175,7 @@ const s = StyleSheet.create({
     backgroundColor: '#111111',
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#222222',
+    borderColor: '#1E1E1E',
     padding: 12,
     paddingHorizontal: 14,
     gap: 8,
@@ -207,12 +207,12 @@ const s = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: '#00000099',
+    backgroundColor: '#000000',
     alignItems: 'center',
     justifyContent: 'center',
   },
   thumbFailed: {
-    backgroundColor: '#FF444499',
+    backgroundColor: '#FF4444',
   },
   thumbOverlayText: {
     fontFamily: 'Inter',
@@ -227,7 +227,7 @@ const s = StyleSheet.create({
     width: 16,
     height: 16,
     borderRadius: 8,
-    backgroundColor: '#000000CC',
+    backgroundColor: '#000000',
     alignItems: 'center',
     justifyContent: 'center',
   },

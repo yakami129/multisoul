@@ -46,7 +46,7 @@ export function useWebSocket({
   const setMessages = useChatStore((s) => s.setMessages);
   const updateConversation = useChatStore((s) => s.updateConversation);
   const addInboxItem = useInboxStore((s) => s.addItem);
-  const removeInboxItem = useInboxStore((s) => s.removeItem);
+  const removeAnsweredAsk = useInboxStore((s) => s.removeAnsweredAsk);
 
   const appendMessageRef = useRef(appendMessage);
   useEffect(() => {
@@ -205,12 +205,12 @@ export function useWebSocket({
       if (wsRef.current?.readyState === WebSocket.OPEN) {
         wsRef.current.send(JSON.stringify({ type: 'answer', ask_id, choice_id, freeform }));
         updateConversationRef.current(conv_id, { status: 'running' });
-        void removeInboxItem(ask_id);
+        void removeAnsweredAsk(ask_id);
         void markAskAnswered(ask_id, conv_id, choice_id);
         markAnsweredRef.current(conv_id, ask_id, choice_id);
       }
     },
-    [removeInboxItem, conv_id],
+    [removeAnsweredAsk, conv_id],
   );
 
   const sendAnswerMulti = useCallback(
@@ -218,12 +218,12 @@ export function useWebSocket({
       if (wsRef.current?.readyState === WebSocket.OPEN) {
         wsRef.current.send(JSON.stringify({ type: 'answer', ask_id, choice_ids }));
         updateConversationRef.current(conv_id, { status: 'running' });
-        void removeInboxItem(ask_id);
+        void removeAnsweredAsk(ask_id);
         void markAskAnswered(ask_id, conv_id, undefined, choice_ids);
         markAnsweredRef.current(conv_id, ask_id, undefined, choice_ids);
       }
     },
-    [removeInboxItem, conv_id],
+    [removeAnsweredAsk, conv_id],
   );
 
   return { status, sendAnswer, sendAnswerMulti };

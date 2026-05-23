@@ -7,11 +7,11 @@ const mockPush = jest.fn();
 
 jest.mock('../features/agents/services/agentService', () => ({
   fetchAgent: jest.fn(),
-  invokeAgent: jest.fn(),
 }));
 
 jest.mock('../features/chat/services/chatService', () => ({
   createConversation: jest.fn(),
+  fetchConversations: jest.fn(),
 }));
 
 jest.mock('expo-router', () => ({
@@ -46,11 +46,14 @@ const mockAgent = {
 ///   4. Wait for agent name to appear
 ///
 /// Expected:
-///   - 'WEATHER AGENT' visible after load
-///   - 'Local' endpoint label visible
+///   - 'Weather Agent' visible after load
+///   - endpoint status pill visible
 describe('AgentDetailScreen', () => {
   const { fetchAgent } = require('../features/agents/services/agentService');
-  const { createConversation } = require('../features/chat/services/chatService');
+  const {
+    createConversation,
+    fetchConversations,
+  } = require('../features/chat/services/chatService');
 
   beforeEach(() => {
     mockPush.mockClear();
@@ -66,6 +69,19 @@ describe('AgentDetailScreen', () => {
       ],
     });
     fetchAgent.mockResolvedValue(mockAgent);
+    fetchConversations.mockResolvedValue([
+      {
+        id: 'conv-existing',
+        agent_id: 'uuid-1',
+        title: 'Check forecast alerts',
+        created_at: 1,
+        last_message_at: 2,
+        status: 'running',
+        endpoint_id: 'ep-1',
+        agent_name: 'Weather Agent',
+        first_user_message: 'Look for severe weather warnings',
+      },
+    ]);
     createConversation.mockResolvedValue({
       id: 'conv-123',
       agent_id: 'uuid-1',
@@ -81,6 +97,7 @@ describe('AgentDetailScreen', () => {
       useEndpointStore.setState({ endpoints: [] });
     });
     fetchAgent.mockReset();
+    fetchConversations.mockReset();
     createConversation.mockReset();
   });
 
@@ -88,10 +105,12 @@ describe('AgentDetailScreen', () => {
     render(<AgentDetailScreen />);
 
     await waitFor(() => {
-      expect(screen.getByText('WEATHER AGENT')).toBeTruthy();
+      expect(screen.getByText('Weather Agent')).toBeTruthy();
     });
 
-    expect(screen.getByText('Local')).toBeTruthy();
+    expect(screen.getByText('Running on Local · Claude Code')).toBeTruthy();
+    expect(screen.getByText('Recent Chats')).toBeTruthy();
+    expect(screen.getByText('Check forecast alerts')).toBeTruthy();
   });
 
   it('shows error state when fetchAgent fails', async () => {
@@ -100,23 +119,49 @@ describe('AgentDetailScreen', () => {
     render(<AgentDetailScreen />);
 
     await waitFor(() => {
-      expect(screen.getByText('FAILED TO LOAD')).toBeTruthy();
+      expect(screen.getByText('Failed to load')).toBeTruthy();
     });
   });
 
-  it('opens the canonical chat detail screen from OPEN CHAT', async () => {
+  it('still shows Project Detail when recent chats fail to load', async () => {
+    fetchConversations.mockRejectedValue(new Error('recent chats failed'));
+
     render(<AgentDetailScreen />);
 
     await waitFor(() => {
-      expect(screen.getByText('WEATHER AGENT')).toBeTruthy();
+      expect(screen.getByText('Weather Agent')).toBeTruthy();
     });
 
-    fireEvent.press(screen.getByText('OPEN CHAT'));
+    expect(screen.getByText('No recent chats yet.')).toBeTruthy();
+  });
+
+  it('opens the canonical chat detail screen from New Chat', async () => {
+    render(<AgentDetailScreen />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Weather Agent')).toBeTruthy();
+    });
+
+    fireEvent.press(screen.getByText('New Chat'));
 
     await waitFor(() =>
       expect(mockPush).toHaveBeenCalledWith(
         '/chat/conv-123?endpoint_id=ep-1&agent_id=uuid-1&agent_name=Weather%20Agent',
       ),
+    );
+  });
+
+  it('opens a recent chat from Project Detail', async () => {
+    render(<AgentDetailScreen />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Check forecast alerts')).toBeTruthy();
+    });
+
+    fireEvent.press(screen.getByText('Check forecast alerts'));
+
+    expect(mockPush).toHaveBeenCalledWith(
+      '/chat/conv-existing?endpoint_id=ep-1&agent_id=uuid-1&agent_name=Weather%20Agent',
     );
   });
 });

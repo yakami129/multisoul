@@ -13,6 +13,7 @@ import { type AskQuestionPayload, type InboxItem } from '@/types';
 
 interface Props {
   items: InboxItem[];
+  title?: string;
   onOpen: (item: InboxItem) => void;
   onAnswer: (item: InboxItem, ask_id: string, choice_id?: string, freeform?: string) => void;
   onAnswerMulti: (item: InboxItem, ask_id: string, choice_ids: Record<string, string>) => void;
@@ -77,6 +78,7 @@ function formatRelativeTime(ts: number): string {
 
 export default function InboxScreen({
   items,
+  title = 'Inbox',
   onOpen,
   onAnswer,
   onAnswerMulti,
@@ -94,7 +96,7 @@ export default function InboxScreen({
       {/* Header */}
       <View style={s.header}>
         <View style={s.titleRow}>
-          <Text style={s.headerTitle}>Inbox</Text>
+          <Text style={s.headerTitle}>{title}</Text>
           <SlidersHorizontal size={22} color="#888888" />
         </View>
         <Text style={s.headerSub}>

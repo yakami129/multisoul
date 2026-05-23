@@ -1,22 +1,19 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { SlidersHorizontal, AlertCircle } from 'lucide-react-native';
+import { AlertCircle, Plus, Search } from 'lucide-react-native';
 import React from 'react';
 import {
   ActivityIndicator,
-  Animated,
-  FlatList,
-  Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { type Agent } from '@/types';
+import { useChatStore } from '@/store/chatStore';
+import { type Agent, type Conversation } from '@/types';
 import { AgentCard } from './AgentCard';
-import { getWorkspaceList, filterAgentsByWorkspace } from '../utils/workspaceUtils';
 
 interface Props {
   agents: Agent[];
@@ -28,13 +25,36 @@ interface Props {
   onAgentPress: (id: string, endpoint_id: string, name: string) => void;
 }
 
-function AgentCardSeparator() {
-  return <View style={s.cardSeparator} />;
+type ProjectStatus = {
+  label: string;
+  isActive: boolean;
+  pendingCount: number;
+};
+
+type ProjectItem = {
+  agent: Agent;
+  status: ProjectStatus;
+};
+
+function projectStatus(conversations: Conversation[]): ProjectStatus {
+  const pendingCount = conversations.filter((conv) => conv.status === 'awaiting_question').length;
+  if (pendingCount > 0) {
+    return { label: 'Running · Awaiting answer', isActive: true, pendingCount };
+  }
+  if (conversations.some((conv) => conv.status === 'running')) {
+    return { label: 'Running', isActive: true, pendingCount: 0 };
+  }
+  if (conversations.some((conv) => conv.status === 'failed')) {
+    return { label: 'Failed', isActive: false, pendingCount: 0 };
+  }
+  return { label: 'Idle', isActive: false, pendingCount: 0 };
 }
 
 export function AgentList({ agents, isLoading, isError, error, onRefetch, onAgentPress }: Props) {
   const insets = useSafeAreaInsets();
   const [isRefreshing, setIsRefreshing] = React.useState(false);
+  const [query, setQuery] = React.useState('');
+  const conversations = useChatStore((s) => s.conversations);
 
   const handleRefresh = React.useCallback(async () => {
     setIsRefreshing(true);
@@ -45,90 +65,63 @@ export function AgentList({ agents, isLoading, isError, error, onRefetch, onAgen
     }
   }, [onRefetch]);
 
-  const STORAGE_KEY = '@multisoul:selected_workspace';
-  const [selectedWorkspace, setSelectedWorkspace] = React.useState<string>('all');
-  const [fadeAnim] = React.useState(new Animated.Value(1));
-
-  const workspaces = React.useMemo(() => getWorkspaceList(agents), [agents]);
-
-  const filteredAgents = React.useMemo(
-    () => filterAgentsByWorkspace(agents, selectedWorkspace),
-    [agents, selectedWorkspace],
+  const projects = React.useMemo<ProjectItem[]>(
+    () =>
+      agents.map((agent) => {
+        const related = conversations.filter(
+          (conv) => conv.agent_id === agent.id && conv.endpoint_id === agent.endpoint_id,
+        );
+        return { agent, status: projectStatus(related) };
+      }),
+    [agents, conversations],
   );
 
-  // 恢复上次选中的工作空间
-  React.useEffect(() => {
-    AsyncStorage.getItem(STORAGE_KEY)
-      .then((value) => {
-        if (value && (value === 'all' || workspaces.includes(value))) {
-          setSelectedWorkspace(value);
-        }
-      })
-      .catch(() => {
-        // 静默失败，使用默认值 'all'
-      });
-  }, [workspaces]);
-
-  const handleWorkspaceChange = React.useCallback(
-    (workspace: string) => {
-      if (workspace === selectedWorkspace) return;
-
-      // 淡出动画
-      Animated.timing(fadeAnim, {
-        toValue: 0,
-        duration: 200,
-        useNativeDriver: true,
-      }).start(() => {
-        // 更新选中的工作空间
-        setSelectedWorkspace(workspace);
-
-        // 保存到 AsyncStorage
-        AsyncStorage.setItem(STORAGE_KEY, workspace).catch(() => {
-          // 静默失败
-        });
-
-        // 淡入动画
-        Animated.timing(fadeAnim, {
-          toValue: 1,
-          duration: 200,
-          useNativeDriver: true,
-        }).start();
-      });
-    },
-    [selectedWorkspace, fadeAnim],
-  );
-
-  const renderWorkspaceChip = React.useCallback(
-    (workspace: string, label: string) => {
-      const isSelected = selectedWorkspace === workspace;
+  const filteredProjects = React.useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    if (!needle) return projects;
+    return projects.filter(({ agent }) => {
       return (
-        <Pressable
-          key={workspace}
-          testID={`workspace-chip-${workspace}`}
-          accessibilityRole="button"
-          onPress={() => handleWorkspaceChange(workspace)}
-          style={({ pressed }) => {
-            return [s.chip, isSelected && s.chipSelected, pressed && s.chipPressed];
-          }}
-        >
-          <Text style={[s.chipText, isSelected && s.chipTextSelected]}>{label}</Text>
-        </Pressable>
+        agent.name.toLowerCase().includes(needle) ||
+        agent.project_path.toLowerCase().includes(needle) ||
+        agent.runtime.toLowerCase().includes(needle)
       );
-    },
-    [selectedWorkspace, handleWorkspaceChange],
+    });
+  }, [projects, query]);
+
+  const activeProjects = React.useMemo(
+    () => filteredProjects.filter((project) => project.status.isActive),
+    [filteredProjects],
+  );
+  const allProjects = React.useMemo(
+    () => filteredProjects.filter((project) => !project.status.isActive),
+    [filteredProjects],
+  );
+
+  const renderProject = (project: ProjectItem, index: number, hasDivider: boolean) => (
+    <View key={project.agent.id} style={s.projectItem}>
+      <AgentCard
+        agent={project.agent}
+        index={index}
+        statusLabel={project.status.label}
+        isActive={project.status.isActive}
+        pendingCount={project.status.pendingCount}
+        onPress={() =>
+          onAgentPress(project.agent.id, project.agent.endpoint_id, project.agent.name)
+        }
+      />
+      {hasDivider ? <View style={s.rowDivider} /> : null}
+    </View>
   );
 
   if (isLoading) {
     return (
       <View style={[s.root, { paddingTop: insets.top }]}>
         <View style={s.header}>
-          <View style={s.headerLeft}>
-            <Text style={s.headerTitle}>AGENTS</Text>
-          </View>
+          <Text style={s.headerTitle}>Projects</Text>
         </View>
         <View style={s.centered}>
           <ActivityIndicator size="large" color="#FF6B35" />
-          <Text style={s.loadingText}>LOADING AGENTS...</Text>
+          <Text style={s.loadingText}>Loading projects...</Text>
         </View>
       </View>
     );
@@ -138,19 +131,16 @@ export function AgentList({ agents, isLoading, isError, error, onRefetch, onAgen
     return (
       <View style={[s.root, { paddingTop: insets.top }]}>
         <View style={s.header}>
-          <View style={s.headerLeft}>
-            <Text style={s.headerTitle}>AGENTS</Text>
-            <Text style={s.headerSubError}>CONNECTION FAILED</Text>
-          </View>
+          <Text style={s.headerTitle}>Projects</Text>
         </View>
         <View style={s.centered}>
           <View style={s.errorIconWrap}>
             <AlertCircle size={36} color="#FF6B35" />
           </View>
-          <Text style={s.errorTitle}>FAILED TO LOAD</Text>
+          <Text style={s.errorTitle}>Failed to load</Text>
           <Text style={s.errorDesc}>{String(error)}</Text>
           <TouchableOpacity style={s.retryBtn} onPress={onRefetch}>
-            <Text style={s.retryText}>RETRY</Text>
+            <Text style={s.retryText}>Retry</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -159,69 +149,87 @@ export function AgentList({ agents, isLoading, isError, error, onRefetch, onAgen
 
   return (
     <View style={[s.root, { paddingTop: insets.top }]}>
-      {/* Header */}
       <View style={s.header}>
-        <View style={s.headerLeft}>
-          <Text style={s.headerTitle}>AGENTS</Text>
-          <Text style={s.headerSub}>{agents.length} REGISTERED</Text>
+        <Text style={s.headerTitle}>Projects</Text>
+        <Plus size={24} color="#FF6B35" />
+      </View>
+
+      <View style={s.searchSection}>
+        <View style={s.searchBox}>
+          <Search size={14} color="#666666" />
+          <TextInput
+            value={query}
+            onChangeText={setQuery}
+            placeholder="Search projects"
+            placeholderTextColor="#666666"
+            style={s.searchInput}
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
         </View>
-        <SlidersHorizontal size={20} color="#888888" />
       </View>
 
-      {/* Workspace Filter */}
-      <View style={s.filterSection}>
-        <Text style={s.filterLabel}>WORKSPACE</Text>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={s.chipScrollContent}
-        >
-          {renderWorkspaceChip('all', 'All')}
-          {workspaces.map((workspace) => renderWorkspaceChip(workspace, workspace))}
-        </ScrollView>
-      </View>
-
-      <Animated.View style={{ flex: 1, opacity: fadeAnim }}>
-        <FlatList
-          data={filteredAgents}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-            <AgentCard
-              agent={item}
-              onPress={() => onAgentPress(item.id, item.endpoint_id, item.name)}
-            />
-          )}
-          ItemSeparatorComponent={AgentCardSeparator}
-          scrollEnabled={filteredAgents.length > 0}
-          bounces={filteredAgents.length > 0}
-          alwaysBounceVertical={filteredAgents.length > 0}
-          refreshControl={
-            <RefreshControl
-              refreshing={isRefreshing}
-              onRefresh={() => {
-                void handleRefresh();
-              }}
-              tintColor="#FF6B35"
-              colors={['#FF6B35']}
-            />
-          }
-          ListEmptyComponent={
-            <View style={s.emptyWrap}>
-              <Text style={s.emptyTitle}>
-                {selectedWorkspace === 'all'
-                  ? 'NO AGENTS REGISTERED'
-                  : 'NO AGENTS IN THIS WORKSPACE'}
-              </Text>
-              <Text style={s.emptyDesc}>
-                {selectedWorkspace === 'all'
-                  ? 'Register your first agent via the CLI or API.'
-                  : `No agents found in the "${selectedWorkspace}" workspace.`}
-              </Text>
+      <ScrollView
+        contentContainerStyle={filteredProjects.length === 0 ? s.emptyContainer : s.content}
+        scrollEnabled={filteredProjects.length > 0}
+        bounces={filteredProjects.length > 0}
+        alwaysBounceVertical={filteredProjects.length > 0}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={() => {
+              void handleRefresh();
+            }}
+            tintColor="#FF6B35"
+            colors={['#FF6B35']}
+          />
+        }
+      >
+        {filteredProjects.length === 0 ? (
+          <View style={s.emptyWrap}>
+            {agents.length === 0 ? (
+              <>
+                <Text style={s.emptyTitle}>Connect a machine</Text>
+                <Text style={s.emptyDesc}>
+                  Add a machine by scanning its QR code or pasting a connection string.
+                </Text>
+              </>
+            ) : (
+              <>
+                <Text style={s.emptyTitle}>No projects found</Text>
+                <Text style={s.emptyDesc}>Try a different project name, path, or runtime.</Text>
+              </>
+            )}
+          </View>
+        ) : (
+          <>
+            {activeProjects.length > 0 ? (
+              <>
+                <Text style={s.sectionTitle}>Active Now</Text>
+                {activeProjects.map((project, index) => (
+                  <View key={project.agent.id} style={s.activeRow}>
+                    {renderProject(project, index, false)}
+                  </View>
+                ))}
+              </>
+            ) : null}
+            <Text style={s.sectionTitle}>All Projects</Text>
+            <View style={s.projectGroup}>
+              {allProjects.length === 0 ? (
+                <Text style={s.emptyGroupText}>No idle projects.</Text>
+              ) : (
+                allProjects.map((project, index) =>
+                  renderProject(
+                    project,
+                    index + activeProjects.length,
+                    index < allProjects.length - 1,
+                  ),
+                )
+              )}
             </View>
-          }
-          contentContainerStyle={filteredAgents.length === 0 ? s.emptyContainer : s.listContent}
-        />
-      </Animated.View>
+          </>
+        )}
+      </ScrollView>
     </View>
   );
 }
@@ -234,16 +242,11 @@ const s = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#1E1E1E',
+    paddingHorizontal: 20,
   },
-  headerLeft: { gap: 2 },
-  headerTitle: { fontFamily: 'Anton', fontSize: 20, color: '#FFFFFF' },
-  headerSub: { fontFamily: 'Inter', fontSize: 11, color: '#888888', letterSpacing: 1.5 },
-  headerSubError: { fontFamily: 'Inter', fontSize: 11, color: '#FF6B35', letterSpacing: 1.5 },
+  headerTitle: { fontFamily: 'Inter', fontSize: 34, fontWeight: '700', color: '#FFFFFF' },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 16, padding: 24 },
-  loadingText: { fontFamily: 'Inter', fontSize: 11, color: '#888888', letterSpacing: 2 },
+  loadingText: { fontFamily: 'Inter', fontSize: 13, color: '#888888' },
   errorIconWrap: {
     width: 80,
     height: 80,
@@ -252,7 +255,7 @@ const s = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  errorTitle: { fontFamily: 'Anton', fontSize: 20, color: '#FF6B35' },
+  errorTitle: { fontFamily: 'Inter', fontSize: 22, fontWeight: '700', color: '#FF4444' },
   errorDesc: {
     fontFamily: 'Inter',
     fontSize: 13,
@@ -263,17 +266,54 @@ const s = StyleSheet.create({
   retryBtn: {
     height: 44,
     paddingHorizontal: 24,
-    borderRadius: 8,
+    borderRadius: 10,
     backgroundColor: '#FF6B35',
     alignItems: 'center',
     justifyContent: 'center',
   },
   retryText: { fontFamily: 'Inter', fontSize: 14, fontWeight: '600', color: '#FFFFFF' },
-  listContent: { paddingTop: 16, paddingBottom: 110 },
-  cardSeparator: { height: 12 },
-  emptyContainer: { flex: 1 },
+  searchSection: {
+    height: 52,
+    paddingHorizontal: 16,
+    justifyContent: 'center',
+    backgroundColor: '#0D0D0D',
+  },
+  searchBox: {
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: '#1A1A1A',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+  },
+  searchInput: { flex: 1, fontFamily: 'Inter', fontSize: 14, color: '#FFFFFF', padding: 0 },
+  content: { paddingBottom: 110 },
+  sectionTitle: {
+    height: 38,
+    paddingHorizontal: 20,
+    paddingTop: 7,
+    fontFamily: 'Inter',
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  activeRow: {
+    backgroundColor: '#1F2A1F',
+    borderLeftWidth: 3,
+    borderLeftColor: '#4CAF50',
+  },
+  projectGroup: {
+    marginHorizontal: 16,
+    borderRadius: 12,
+    backgroundColor: '#1A1A1A',
+    overflow: 'hidden',
+  },
+  projectItem: { width: '100%' },
+  rowDivider: { height: 1, backgroundColor: '#1E1E1E', marginLeft: 64 },
+  emptyContainer: { flexGrow: 1 },
   emptyWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8, padding: 24 },
-  emptyTitle: { fontFamily: 'Anton', fontSize: 18, color: '#FFFFFF' },
+  emptyTitle: { fontFamily: 'Inter', fontSize: 22, fontWeight: '700', color: '#FFFFFF' },
   emptyDesc: {
     fontFamily: 'Inter',
     fontSize: 13,
@@ -281,59 +321,11 @@ const s = StyleSheet.create({
     textAlign: 'center',
     maxWidth: 260,
   },
-  filterSection: {
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    gap: 8,
-    backgroundColor: '#0D0D0D',
-    borderBottomWidth: 1,
-    borderBottomColor: '#1E1E1E',
-  },
-  filterLabel: {
-    fontFamily: 'Inter',
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#666666',
-    letterSpacing: 1.5,
-  },
-  chipScrollContent: {
-    gap: 6,
-    padding: 4,
-    paddingRight: 20,
-    borderRadius: 22,
-    backgroundColor: '#161616',
-    borderWidth: 1,
-    borderColor: '#1E1E1E',
-  },
-  chip: {
-    height: 36,
-    minWidth: 56,
-    paddingHorizontal: 16,
-    borderRadius: 18,
-    backgroundColor: '#252525',
-    borderWidth: 1,
-    borderColor: '#2A2A2A',
-    alignItems: 'center' as const,
-    justifyContent: 'center' as const,
-  },
-  chipSelected: {
-    backgroundColor: '#FF6B35',
-    borderColor: '#FF6B35',
-  },
-  chipPressed: {
-    opacity: 0.7,
-  },
-  chipText: {
+  emptyGroupText: {
     fontFamily: 'Inter',
     fontSize: 13,
-    fontWeight: 'normal',
-    color: '#DDDDDD',
-  },
-  chipTextSelected: {
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
-  listContainer: {
-    flex: 1,
+    color: '#888888',
+    paddingHorizontal: 14,
+    paddingVertical: 18,
   },
 });

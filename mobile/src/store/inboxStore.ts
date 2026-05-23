@@ -13,6 +13,7 @@ interface InboxState {
   addItem: (item: InboxItem) => Promise<void>;
   markRead: (id: string) => Promise<void>;
   removeItem: (id: string) => Promise<void>;
+  removeAnsweredAsk: (ask_id: string) => Promise<void>;
 }
 
 export const useInboxStore = create<InboxState>((set) => ({
@@ -49,5 +50,16 @@ export const useInboxStore = create<InboxState>((set) => ({
   removeItem: async (id) => {
     await deleteInboxItem(id);
     set((s) => ({ items: s.items.filter((i) => i.id !== id) }));
+  },
+
+  removeAnsweredAsk: async (ask_id) => {
+    const matchingIds = useInboxStore
+      .getState()
+      .items.filter((item) => item.payload?.ask_id === ask_id || item.id === ask_id)
+      .map((item) => item.id);
+    await Promise.all(matchingIds.map((id) => deleteInboxItem(id)));
+    set((s) => ({
+      items: s.items.filter((item) => item.payload?.ask_id !== ask_id && item.id !== ask_id),
+    }));
   },
 }));

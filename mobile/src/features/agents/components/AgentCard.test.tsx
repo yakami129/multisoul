@@ -14,16 +14,20 @@ const agent: Agent = {
 };
 
 describe('AgentCard', () => {
-  it('renders agent name and endpoint', () => {
-    const { getByText } = render(<AgentCard agent={agent} onPress={() => {}} index={0} />);
-    expect(getByText('MY AGENT')).toBeTruthy();
-    expect(getByText('/home/user/project')).toBeTruthy();
+  it('renders project name, status, and runtime', () => {
+    const { getByText, queryByText } = render(
+      <AgentCard agent={agent} onPress={() => {}} index={0} statusLabel="Running" isActive />,
+    );
+    expect(getByText('My Agent')).toBeTruthy();
+    expect(getByText('Running · Claude Code')).toBeTruthy();
+    expect(queryByText('/home/user/project')).toBeNull();
+    expect(queryByText('LOCAL')).toBeNull();
   });
 
   it('calls onPress when tapped', () => {
     const onPress = jest.fn();
     const { getByText } = render(<AgentCard agent={agent} onPress={onPress} index={0} />);
-    fireEvent.press(getByText('MY AGENT'));
+    fireEvent.press(getByText('My Agent'));
     expect(onPress).toHaveBeenCalledTimes(1);
   });
 });

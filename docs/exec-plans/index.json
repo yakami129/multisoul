@@ -3,6 +3,21 @@
   "version": 1,
   "documents": [
     {
+      "file": "2026-05-21-ui-projects-navigation.md",
+      "title": "Projects-First Navigation Refactor Implementation Plan",
+      "lastCompletedCommit": "55a0a5ebeb82c9bf22e15319ce268356a98f08e7"
+    },
+    {
+      "file": "2026-05-21-ui-project-detail-chat.md",
+      "title": "Project Detail and Chat Flow Implementation Plan",
+      "lastCompletedCommit": "905480f5e1b73c98412cb3b027e64871dc2f0f10"
+    },
+    {
+      "file": "2026-05-21-ui-activity-routing.md",
+      "title": "Activity Routing Implementation Plan",
+      "lastCompletedCommit": "c3aca7e5765c275dabb77e749847d847c19b1916"
+    },
+    {
       "file": "2026-05-17-agents-workspace-filter.md",
       "title": "Agents 工作空间筛选功能实施计划"
     },

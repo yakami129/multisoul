@@ -1,6 +1,6 @@
-import { render, fireEvent, waitFor } from '@testing-library/react-native';
+import { render, fireEvent } from '@testing-library/react-native';
 import React from 'react';
-import { type Agent } from '@/types';
+import { type Agent, type Conversation } from '@/types';
 import { AgentDetail } from './AgentDetail';
 
 jest.mock('react-native-safe-area-context', () => ({
@@ -18,6 +18,18 @@ const agent: Agent = {
   endpoint_label: 'Local',
 };
 
+const recentConversation: Conversation = {
+  id: 'conv-1',
+  agent_id: 'a1',
+  title: 'Add dark mode toggle',
+  created_at: 1,
+  last_message_at: 2,
+  status: 'running',
+  endpoint_id: 'ep-1',
+  agent_name: 'My Agent',
+  first_user_message: 'Add a dark mode toggle',
+};
+
 describe('AgentDetail', () => {
   it('renders loading indicator when isLoading', () => {
     const { getByText } = render(
@@ -26,29 +38,28 @@ describe('AgentDetail', () => {
         isLoading
         isError={false}
         onBack={() => {}}
-        onInvoke={async () => 'ok'}
-        onChat={() => {}}
+        onNewChat={() => {}}
       />,
     );
-    // Loading state shows LOADING… text
-    expect(getByText('LOADING…')).toBeTruthy();
+    expect(getByText('Loading...')).toBeTruthy();
   });
 
-  it('renders agent details', () => {
-    const { getByText } = render(
+  it('renders project details and recent chats', () => {
+    const { getByText, getAllByText, queryByText } = render(
       <AgentDetail
         agent={agent}
+        recentConversations={[recentConversation]}
         isLoading={false}
         isError={false}
         onBack={() => {}}
-        onInvoke={async () => 'ok'}
-        onChat={() => {}}
+        onNewChat={() => {}}
       />,
     );
-    // Agent name is rendered uppercased
-    expect(getByText('MY AGENT')).toBeTruthy();
-    // Endpoint label is shown in the ENDPOINT row
-    expect(getByText('Local')).toBeTruthy();
+    expect(getByText('My Agent')).toBeTruthy();
+    expect(getAllByText('Running on Local · Claude Code').length).toBeGreaterThanOrEqual(1);
+    expect(getByText('Recent Chats')).toBeTruthy();
+    expect(getByText('Add dark mode toggle')).toBeTruthy();
+    expect(queryByText('INVOKE')).toBeNull();
   });
 
   it('calls onBack when GO BACK pressed in error state', () => {
@@ -59,32 +70,43 @@ describe('AgentDetail', () => {
         isLoading={false}
         isError
         onBack={onBack}
-        onInvoke={async () => 'ok'}
-        onChat={() => {}}
+        onNewChat={() => {}}
       />,
     );
-    fireEvent.press(getByText('GO BACK'));
+    fireEvent.press(getByText('Go back'));
     expect(onBack).toHaveBeenCalledTimes(1);
   });
 
-  it('shows modal with result after invoke', async () => {
-    const { getByText, getAllByText, getByPlaceholderText } = render(
+  it('calls onNewChat when New Chat is pressed', () => {
+    const onNewChat = jest.fn();
+    const { getByText } = render(
       <AgentDetail
         agent={agent}
         isLoading={false}
         isError={false}
         onBack={() => {}}
-        onInvoke={async () => 'conv-123'}
-        onChat={() => {}}
+        onNewChat={onNewChat}
       />,
     );
-    fireEvent.changeText(getByPlaceholderText('Enter a task for the agent…'), 'hello');
-    // Both the section title and the button have text 'INVOKE'; press the last one (the button)
-    const invokeElements = getAllByText('INVOKE');
-    fireEvent.press(invokeElements[invokeElements.length - 1]);
-    await waitFor(() => expect(getByText('Conversation started: conv-123')).toBeTruthy(), {
-      timeout: 15000,
-      interval: 50,
-    });
-  }, 20000);
+    fireEvent.press(getByText('New Chat'));
+    expect(onNewChat).toHaveBeenCalledTimes(1);
+  });
+
+  it('opens a recent conversation when pressed', () => {
+    const onOpenConversation = jest.fn();
+    const { getByText } = render(
+      <AgentDetail
+        agent={agent}
+        recentConversations={[recentConversation]}
+        isLoading={false}
+        isError={false}
+        onBack={() => {}}
+        onNewChat={() => {}}
+        onOpenConversation={onOpenConversation}
+      />,
+    );
+
+    fireEvent.press(getByText('Add dark mode toggle'));
+    expect(onOpenConversation).toHaveBeenCalledWith(recentConversation);
+  });
 });

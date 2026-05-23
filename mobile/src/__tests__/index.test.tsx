@@ -9,10 +9,6 @@ jest.mock('../../src/features/agents/services/agentService', () => ({
   fetchAllAgents: jest.fn(),
 }));
 
-jest.mock('../../src/features/chat/services/chatService', () => ({
-  createConversation: jest.fn(),
-}));
-
 jest.mock('expo-router', () => ({
   useRouter: () => ({ push: jest.fn() }),
   Link: ({ children }: any) => children,
@@ -59,7 +55,7 @@ function wrapper({ children }: { children: React.ReactNode }) {
   return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
 }
 
-/// Agent list: renders agents returned by fetchAllAgents
+/// Project list: renders projects returned by fetchAllAgents
 ///
 /// Data: 3 agents with different runtimes
 ///
@@ -70,7 +66,7 @@ function wrapper({ children }: { children: React.ReactNode }) {
 ///   4. Wait for data to load
 ///
 /// Expected:
-///   - All three agent names visible (uppercased)
+///   - All three project names visible with their source casing
 describe('AgentListScreen', () => {
   const { fetchAllAgents } = require('../../src/features/agents/services/agentService');
 
@@ -101,30 +97,30 @@ describe('AgentListScreen', () => {
     fetchAllAgents.mockReset();
   });
 
-  it('renders agent list with status badges', async () => {
+  it('renders project list with runtime badges', async () => {
     render(<AgentListScreen />, { wrapper });
 
     await waitFor(() => {
-      expect(screen.getByText('WEATHER AGENT')).toBeTruthy();
+      expect(screen.getByText('Weather Agent')).toBeTruthy();
     });
 
-    expect(screen.getByText('BROKEN AGENT')).toBeTruthy();
-    expect(screen.getByText('IDLE AGENT')).toBeTruthy();
+    expect(screen.getByText('Broken Agent')).toBeTruthy();
+    expect(screen.getByText('Idle Agent')).toBeTruthy();
   });
 
   it('shows loading state initially', () => {
     fetchAllAgents.mockImplementation(() => new Promise(() => {}));
 
     render(<AgentListScreen />, { wrapper });
-    expect(screen.getByText('LOADING AGENTS...')).toBeTruthy();
+    expect(screen.getByText('Loading projects...')).toBeTruthy();
   });
 
-  it('shows empty state when no agents', async () => {
+  it('shows empty state when no projects', async () => {
     fetchAllAgents.mockResolvedValue([]);
 
     render(<AgentListScreen />, { wrapper });
     await waitFor(() => {
-      expect(screen.getByText('NO AGENTS REGISTERED')).toBeTruthy();
+      expect(screen.getByText('Connect a machine')).toBeTruthy();
     });
   });
 });
