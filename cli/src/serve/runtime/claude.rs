@@ -29,6 +29,7 @@ pub fn send_to_session(
     conv_id: &str,
     user_text: &str,
     file_id: Option<&str>,
+    user_seq: i64,
     project_path: &str,
 ) {
     let mut sessions = state.sessions.lock().unwrap();
@@ -39,6 +40,7 @@ pub fn send_to_session(
             .send(crate::serve::state::SessionMessage {
                 user_text: user_text.to_string(),
                 file_id: file_id.map(str::to_string),
+                seq: user_seq,
             })
             .is_ok()
         {
@@ -59,6 +61,7 @@ pub fn send_to_session(
     let _ = tx.send(crate::serve::state::SessionMessage {
         user_text: user_text.to_string(),
         file_id: file_id.map(str::to_string),
+        seq: user_seq,
     });
 
     // Spawn the session worker in a blocking thread
@@ -134,6 +137,7 @@ fn session_worker(
         };
         let user_text = msg.user_text;
         let file_id = msg.file_id;
+        let user_seq = msg.seq;
         session_handle.set_current_pid(child.id());
         let text_preview = logging::truncate(&user_text, 200);
         info!(
@@ -149,6 +153,7 @@ fn session_worker(
                 user_text: &user_text,
                 file_id: file_id.as_deref(),
                 uploads_dir: &state.uploads_dir,
+                seq: user_seq,
             };
             match process_turn(
                 &mut stdin,
@@ -325,3 +330,7 @@ fn is_stale_session_error(raw: &Value) -> bool {
 #[cfg(test)]
 #[path = "claude_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "claude_ask_tests.rs"]
+mod ask_tests;

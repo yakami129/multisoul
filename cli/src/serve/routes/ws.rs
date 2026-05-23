@@ -1,5 +1,6 @@
+use crate::db::now_ms;
 use crate::serve::interactive::AnswerPayload;
-use crate::serve::state::AppState;
+use crate::serve::state::{AnswerSendResult, AppState};
 use axum::extract::ws::{Message, WebSocket};
 use axum::{
     extract::{Path, State, WebSocketUpgrade},
@@ -53,7 +54,7 @@ async fn handle_socket(socket: WebSocket, state: AppState, conv_id: String) {
     .await
 }
 
-async fn handle_client_message(state: &AppState, conv_id: &str, text: &str) {
+pub(super) async fn handle_client_message(state: &AppState, conv_id: &str, text: &str) {
     let Ok(envelope) = serde_json::from_str::<serde_json::Value>(text) else {
         return;
     };
@@ -91,13 +92,105 @@ async fn handle_client_message(state: &AppState, conv_id: &str, text: &str) {
                 choice_ids,
                 freeform,
             };
-            let sent = state.send_answer(conv_id, answer);
-            if sent {
-                info!(conv_id = %conv_id, "answer_routed");
-            } else {
-                warn!(conv_id = %conv_id, "answer_dropped_no_session");
+            match state.send_answer(conv_id, answer.clone()) {
+                AnswerSendResult::Accepted => {
+                    match persist_answer(state, conv_id, &answer) {
+                        Ok(()) => send_answer_status(state, conv_id, &answer._ask_id, true, None),
+                        Err(_) => send_answer_status(
+                            state,
+                            conv_id,
+                            &answer._ask_id,
+                            false,
+                            Some("answer_persist_failed"),
+                        ),
+                    }
+                    info!(conv_id = %conv_id, "answer_routed");
+                }
+                AnswerSendResult::NoSession => {
+                    send_answer_status(
+                        state,
+                        conv_id,
+                        &answer._ask_id,
+                        false,
+                        Some("no_waiting_session"),
+                    );
+                    warn!(conv_id = %conv_id, "answer_dropped_no_session");
+                }
+                AnswerSendResult::NoPendingAsk => {
+                    send_answer_status(
+                        state,
+                        conv_id,
+                        &answer._ask_id,
+                        false,
+                        Some("no_pending_ask"),
+                    );
+                    warn!(conv_id = %conv_id, "answer_dropped_no_pending_ask");
+                }
+                AnswerSendResult::AskMismatch { .. } => {
+                    send_answer_status(
+                        state,
+                        conv_id,
+                        &answer._ask_id,
+                        false,
+                        Some("ask_mismatch"),
+                    );
+                    warn!(conv_id = %conv_id, "answer_dropped_ask_mismatch");
+                }
+                AnswerSendResult::ChannelUnavailable => {
+                    send_answer_status(
+                        state,
+                        conv_id,
+                        &answer._ask_id,
+                        false,
+                        Some("answer_channel_unavailable"),
+                    );
+                    warn!(conv_id = %conv_id, "answer_dropped_channel_unavailable");
+                }
             }
         }
         _ => {}
     }
+}
+
+fn persist_answer(state: &AppState, conv_id: &str, answer: &AnswerPayload) -> rusqlite::Result<()> {
+    let choice_ids = answer
+        .choice_ids
+        .as_ref()
+        .and_then(|ids| serde_json::to_string(ids).ok());
+    let db = state.db.lock().unwrap();
+    db.execute(
+        "INSERT OR REPLACE INTO ask_answers
+         (ask_id, conversation_id, answered_at, choice_id, choice_ids, freeform)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+        rusqlite::params![
+            answer._ask_id,
+            conv_id,
+            now_ms(),
+            answer.choice_id,
+            choice_ids,
+            answer.freeform
+        ],
+    )?;
+    db.execute(
+        "UPDATE conversations SET status = 'running' WHERE id = ?1",
+        [conv_id],
+    )?;
+    Ok(())
+}
+
+fn send_answer_status(
+    state: &AppState,
+    conv_id: &str,
+    ask_id: &str,
+    ok: bool,
+    error: Option<&str>,
+) {
+    let payload = serde_json::json!({
+        "type": "answer_status",
+        "ask_id": ask_id,
+        "ok": ok,
+        "error": error,
+    });
+    let tx = state.get_or_create_sender(conv_id);
+    let _ = tx.send(payload.to_string());
 }

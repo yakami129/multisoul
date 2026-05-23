@@ -51,6 +51,10 @@
       "title": "Agent 任务完成通知 SPEC"
     },
     {
+      "file": "SPEC-ui-activity-db-backed.md",
+      "title": "DB-backed Activity Aggregation SPEC"
+    },
+    {
       "file": "SPEC-ui-activity-routing.md",
       "title": "Activity Routing SPEC"
     },

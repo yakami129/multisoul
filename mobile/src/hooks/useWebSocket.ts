@@ -1,5 +1,9 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { fetchMessages } from '@/features/chat/services/chatService';
+import {
+  fetchMessages,
+  parseAnswerAcknowledgement,
+  type AnswerAcknowledgement,
+} from '@/features/chat/services/chatService';
 import { markAskAnswered, loadAnsweredAsks } from '@/features/inbox/services/inboxService';
 import { buildAskQuestionInboxItem } from '@/features/inbox/utils/buildAskQuestionInboxItem';
 import { mirrorAskQuestionsToInbox } from '@/features/inbox/utils/mirrorAskQuestionsToInbox';
@@ -13,6 +17,12 @@ import {
 } from '@/types';
 
 type WsStatus = 'connecting' | 'open' | 'closed';
+
+interface PendingAnswer {
+  choice_id?: string;
+  choice_ids?: Record<string, string>;
+  freeform?: string;
+}
 
 interface UseWebSocketOptions {
   base_url: string;
@@ -45,8 +55,10 @@ export function useWebSocket({
   const appendMessage = useChatStore((s) => s.appendMessage);
   const setMessages = useChatStore((s) => s.setMessages);
   const updateConversation = useChatStore((s) => s.updateConversation);
+  const markAnswered = useChatStore((s) => s.markAnswered);
   const addInboxItem = useInboxStore((s) => s.addItem);
   const removeAnsweredAsk = useInboxStore((s) => s.removeAnsweredAsk);
+  const pendingAnswersRef = useRef<Map<string, PendingAnswer>>(new Map());
 
   const appendMessageRef = useRef(appendMessage);
   useEffect(() => {
@@ -63,10 +75,41 @@ export function useWebSocket({
     updateConversationRef.current = updateConversation;
   }, [updateConversation]);
 
+  const markAnsweredRef = useRef(markAnswered);
+  useEffect(() => {
+    markAnsweredRef.current = markAnswered;
+  }, [markAnswered]);
+
   const addInboxItemRef = useRef(addInboxItem);
   useEffect(() => {
     addInboxItemRef.current = addInboxItem;
   }, [addInboxItem]);
+
+  const removeAnsweredAskRef = useRef(removeAnsweredAsk);
+  useEffect(() => {
+    removeAnsweredAskRef.current = removeAnsweredAsk;
+  }, [removeAnsweredAsk]);
+
+  const handleAnswerAcknowledgement = useCallback(
+    (ack: AnswerAcknowledgement) => {
+      const pending = pendingAnswersRef.current.get(ack.ask_id);
+      if (!pending && !ack.choice_id && !ack.choice_ids && !ack.freeform) return;
+
+      pendingAnswersRef.current.delete(ack.ask_id);
+      if (!ack.ok) {
+        updateConversationRef.current(conv_id, { status: 'awaiting_question' });
+        return;
+      }
+
+      const choice_id = ack.choice_id ?? pending?.choice_id;
+      const choice_ids = ack.choice_ids ?? pending?.choice_ids;
+      updateConversationRef.current(conv_id, { status: 'running' });
+      void removeAnsweredAskRef.current(ack.ask_id);
+      void markAskAnswered(ack.ask_id, conv_id, choice_id, choice_ids);
+      markAnsweredRef.current(conv_id, ack.ask_id, choice_id, choice_ids);
+    },
+    [conv_id],
+  );
 
   // Track the highest seq we've seen so we can catch up on reconnect
   const lastSeqRef = useRef(0);
@@ -141,6 +184,11 @@ export function useWebSocket({
           type?: string;
           [key: string]: unknown;
         };
+        const answerAck = parseAnswerAcknowledgement(envelope);
+        if (answerAck) {
+          handleAnswerAcknowledgement(answerAck);
+          return;
+        }
         if (envelope.type === 'message') {
           const msg = envelope as unknown as WsMessage;
           appendMessageRef.current(conv_id, msg);
@@ -180,7 +228,7 @@ export function useWebSocket({
     ws.onerror = () => {
       ws.close();
     };
-  }, [base_url, token, conv_id, endpoint_id, agent_id, agent_name]);
+  }, [base_url, token, conv_id, endpoint_id, agent_id, agent_name, handleAnswerAcknowledgement]);
 
   useEffect(() => {
     isCurrentRef.current = true;
@@ -193,38 +241,19 @@ export function useWebSocket({
     };
   }, [connect]);
 
-  const markAnswered = useChatStore((s) => s.markAnswered);
+  const sendAnswer = useCallback((ask_id: string, choice_id?: string, freeform?: string) => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      pendingAnswersRef.current.set(ask_id, { choice_id, freeform });
+      wsRef.current.send(JSON.stringify({ type: 'answer', ask_id, choice_id, freeform }));
+    }
+  }, []);
 
-  const markAnsweredRef = useRef(markAnswered);
-  useEffect(() => {
-    markAnsweredRef.current = markAnswered;
-  }, [markAnswered]);
-
-  const sendAnswer = useCallback(
-    (ask_id: string, choice_id?: string, freeform?: string) => {
-      if (wsRef.current?.readyState === WebSocket.OPEN) {
-        wsRef.current.send(JSON.stringify({ type: 'answer', ask_id, choice_id, freeform }));
-        updateConversationRef.current(conv_id, { status: 'running' });
-        void removeAnsweredAsk(ask_id);
-        void markAskAnswered(ask_id, conv_id, choice_id);
-        markAnsweredRef.current(conv_id, ask_id, choice_id);
-      }
-    },
-    [removeAnsweredAsk, conv_id],
-  );
-
-  const sendAnswerMulti = useCallback(
-    (ask_id: string, choice_ids: Record<string, string>) => {
-      if (wsRef.current?.readyState === WebSocket.OPEN) {
-        wsRef.current.send(JSON.stringify({ type: 'answer', ask_id, choice_ids }));
-        updateConversationRef.current(conv_id, { status: 'running' });
-        void removeAnsweredAsk(ask_id);
-        void markAskAnswered(ask_id, conv_id, undefined, choice_ids);
-        markAnsweredRef.current(conv_id, ask_id, undefined, choice_ids);
-      }
-    },
-    [removeAnsweredAsk, conv_id],
-  );
+  const sendAnswerMulti = useCallback((ask_id: string, choice_ids: Record<string, string>) => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      pendingAnswersRef.current.set(ask_id, { choice_ids });
+      wsRef.current.send(JSON.stringify({ type: 'answer', ask_id, choice_ids }));
+    }
+  }, []);
 
   return { status, sendAnswer, sendAnswerMulti };
 }

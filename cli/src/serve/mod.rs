@@ -29,6 +29,10 @@ pub async fn build_router(state: AppState) -> Router {
         );
 
     let authed_router = Router::new()
+        .route(
+            "/api/v1/activity",
+            axum::routing::get(activity::get_activity),
+        )
         .route("/api/v1/agents", axum::routing::get(agents::list_agents))
         .route("/api/v1/agents/:id", axum::routing::get(agents::get_agent))
         .route(

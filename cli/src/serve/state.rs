@@ -15,6 +15,7 @@ use tracing::{info, warn};
 pub struct SessionMessage {
     pub user_text: String,
     pub file_id: Option<String>,
+    pub seq: i64,
 }
 
 #[derive(Clone)]
@@ -174,7 +175,22 @@ fn kill_single_process(pid: u32) -> bool {
 
 pub type ConvBus = Arc<Mutex<HashMap<String, broadcast::Sender<String>>>>;
 pub type SessionMap = Arc<Mutex<HashMap<String, SessionHandle>>>;
-pub type AnswerMap = Arc<Mutex<HashMap<String, std::sync::mpsc::SyncSender<AnswerPayload>>>>;
+
+pub struct AnswerChannel {
+    pub tx: std::sync::mpsc::SyncSender<AnswerPayload>,
+    pub pending_ask_id: Option<String>,
+}
+
+pub type AnswerMap = Arc<Mutex<HashMap<String, AnswerChannel>>>;
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum AnswerSendResult {
+    Accepted,
+    NoSession,
+    NoPendingAsk,
+    AskMismatch { expected: String, actual: String },
+    ChannelUnavailable,
+}
 
 #[derive(Clone)]
 pub struct AppState {
@@ -217,16 +233,35 @@ impl AppState {
     /// Capacity 1: one pending answer at a time per conversation.
     pub fn create_answer_channel(&self, conv_id: &str) -> std::sync::mpsc::Receiver<AnswerPayload> {
         let (tx, rx) = std::sync::mpsc::sync_channel(1);
-        self.answer_txs
-            .lock()
-            .unwrap()
-            .insert(conv_id.to_string(), tx);
+        self.answer_txs.lock().unwrap().insert(
+            conv_id.to_string(),
+            AnswerChannel {
+                tx,
+                pending_ask_id: None,
+            },
+        );
         rx
     }
 
+    pub fn begin_waiting_answer(&self, conv_id: &str, ask_id: &str) {
+        let mut txs = self.answer_txs.lock().unwrap();
+        if let Some(channel) = txs.get_mut(conv_id) {
+            channel.pending_ask_id = Some(ask_id.to_string());
+        }
+    }
+
+    pub fn clear_waiting_answer(&self, conv_id: &str, ask_id: &str) {
+        let mut txs = self.answer_txs.lock().unwrap();
+        if let Some(channel) = txs.get_mut(conv_id) {
+            if channel.pending_ask_id.as_deref() == Some(ask_id) {
+                channel.pending_ask_id = None;
+            }
+        }
+    }
+
     /// Send a user answer to the session waiting for it.
-    /// Returns false if no session is waiting (answer silently dropped).
-    pub fn send_answer(&self, conv_id: &str, answer: AnswerPayload) -> bool {
+    /// Returns a structured status so callers can avoid marking stale answers as delivered.
+    pub fn send_answer(&self, conv_id: &str, answer: AnswerPayload) -> AnswerSendResult {
         let txs = self.answer_txs.lock().unwrap();
         match txs.get(conv_id) {
             None => {
@@ -236,19 +271,38 @@ impl AppState {
                     registered = ?registered,
                     "answer_no_channel"
                 );
-                false
+                AnswerSendResult::NoSession
             }
-            Some(tx) => match tx.try_send(answer) {
-                Ok(()) => true,
-                Err(e) => {
+            Some(channel) => {
+                let Some(expected) = channel.pending_ask_id.as_deref() else {
+                    warn!(conv_id = %conv_id, ask_id = %answer._ask_id, "answer_no_pending_ask");
+                    return AnswerSendResult::NoPendingAsk;
+                };
+                if expected != answer._ask_id {
                     warn!(
                         conv_id = %conv_id,
-                        reason = ?e,
-                        "answer_send_failed"
+                        expected = %expected,
+                        actual = %answer._ask_id,
+                        "answer_ask_mismatch"
                     );
-                    false
+                    return AnswerSendResult::AskMismatch {
+                        expected: expected.to_string(),
+                        actual: answer._ask_id,
+                    };
                 }
-            },
+
+                match channel.tx.try_send(answer) {
+                    Ok(()) => AnswerSendResult::Accepted,
+                    Err(e) => {
+                        warn!(
+                            conv_id = %conv_id,
+                            reason = ?e,
+                            "answer_send_failed"
+                        );
+                        AnswerSendResult::ChannelUnavailable
+                    }
+                }
+            }
         }
     }
 }
@@ -293,6 +347,7 @@ mod tests {
         let msg = SessionMessage {
             user_text: "hello".to_string(),
             file_id: Some("abc.jpg".to_string()),
+            seq: 1,
         };
         assert_eq!(msg.user_text, "hello", "user_text should match");
         assert_eq!(
@@ -304,10 +359,15 @@ mod tests {
         let text_only = SessionMessage {
             user_text: "text only".to_string(),
             file_id: None,
+            seq: 2,
         };
         assert!(
             text_only.file_id.is_none(),
             "file_id should be None for text-only"
+        );
+        assert_eq!(
+            text_only.seq, 2,
+            "seq should carry the user_text message seq"
         );
     }
 }

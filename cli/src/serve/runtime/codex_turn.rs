@@ -14,6 +14,7 @@ pub(super) fn process_turn(
     state: &AppState,
     conv_id: &str,
     user_text: &str,
+    user_seq: i64,
     mut child: Child,
     stdin: ChildStdin,
     thread_id: &mut Option<String>,
@@ -87,7 +88,7 @@ pub(super) fn process_turn(
                 // codex could block it. kill is harmless after turn.completed.
                 let _ = child.kill();
                 let _ = child.wait();
-                complete_turn(state, conv_id, "completed");
+                complete_turn(state, conv_id, "completed", user_seq);
                 return Ok(());
             }
             "turn.failed" => {
@@ -97,7 +98,7 @@ pub(super) fn process_turn(
                     .to_string();
                 let _ = child.kill();
                 let _ = child.wait();
-                complete_turn(state, conv_id, "failed");
+                complete_turn(state, conv_id, "failed", user_seq);
                 return Err(msg);
             }
             _ => {}
@@ -198,13 +199,32 @@ fn handle_item_completed(raw: &Value, state: &AppState, conv_id: &str) {
     }
 }
 
-pub(super) fn complete_turn(state: &AppState, conv_id: &str, status: &str) {
+pub(super) fn complete_turn(state: &AppState, conv_id: &str, status: &str, turn_seq: i64) {
     {
         let db = state.db.lock().unwrap();
-        let _ = db.execute(
-            "UPDATE conversations SET status = ?1 WHERE id = ?2",
-            rusqlite::params![status, conv_id],
-        );
+        let changed = db
+            .execute(
+                "UPDATE conversations
+                 SET status = ?1
+                 WHERE id = ?2
+                   AND NOT EXISTS (
+                       SELECT 1 FROM messages
+                       WHERE conversation_id = ?2
+                         AND role = 'user_text'
+                         AND seq > ?3
+                   )",
+                rusqlite::params![status, conv_id, turn_seq],
+            )
+            .unwrap_or(0);
+        if changed == 0 {
+            debug!(
+                conv_id = %conv_id,
+                turn_seq,
+                status,
+                "stale_task_status_ignored"
+            );
+            return;
+        }
     }
     let payload = serde_json::json!({
         "task_id": conv_id,

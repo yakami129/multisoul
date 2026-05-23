@@ -51,7 +51,7 @@ pub struct AppState {
     pub uploads_dir: PathBuf,            // 文件上传目录
     pub bus: ConvBus,                    // conv_id → broadcast::Sender<String>（WS 推送）
     pub sessions: SessionMap,            // conv_id → SessionHandle（消息队列 + 当前 runtime pid）
-    pub answer_txs: AnswerMap,           // conv_id → mpsc::SyncSender<AnswerPayload>（交互回答）
+    pub answer_txs: AnswerMap,           // conv_id → AnswerChannel（交互回答 channel + 当前 pending ask_id）
     pub plugin_manager: Arc<PluginManager>, // plugin agent 进程管理器
 }
 ```
@@ -61,6 +61,7 @@ pub struct AppState {
 - abort 路径：`SessionHandle::abort_current_process` 先置 cooperative `aborted` 标记，再对登记的 pid 调用 `kill_process_group`（Unix：`kill(-pgid, SIGKILL)`），失败时回退 `kill_single_process`。**Windows** 无 POSIX `kill`：单进程终止用 `TerminateProcess`；进程组级联杀仍仅在 Unix 上生效（与 `start_new_process_group` 对称）。该函数与 HTTP `abort` handler 均向 `target = "multisoul::abort"` 打结构化日志（`phase` + `outcome`：`no_registered_pid` / `kill_attempt` / `kill_ok_pid_cleared` / `kill_failed`），便于对照 `msctl logs` 判断是未登记 pid 还是 syscall 失败。
 - sender 断裂（worker crash）时重建，这是唯一允许重建 worker 的时机。
 - runtime 启动 CLI 子进程时应调用 `start_new_process_group(&mut command)`，并在 turn 开始时 `handle.set_current_pid(child.id())`；abort 才能杀掉父进程及其派生子进程。
+- 交互式回答不应只检查 runtime channel 是否存在；`AnswerChannel` 还记录当前 `pending_ask_id`，`send_answer` 只接受 ask id 匹配的 answer。runtime 在向 mobile 暴露 `ask_question` 之前必须先登记 pending ask，避免用户极快作答时被误判为 stale answer。
 - `plugin_manager` 在 `msctl serve` 启动时初始化，加载 `plugin_agents` 表中所有已注册的 plugin agent 进程；serve 退出时调用 `shutdown()` 将状态写回 DB。
 
 ### 3.2 SessionMessage
@@ -312,6 +313,8 @@ let _ = conn.execute_batch(
 
 > **规则**：所有 schema 变更走 `ALTER TABLE … ADD COLUMN`，不允许在运行时 `DROP`/`CREATE TABLE`，确保向后兼容现有用户数据。
 
+当前 schema 还包含 `ask_answers` 表，用于记录已经成功交付给 runtime 的 AskUserQuestion answer；HTTP message history 通过它恢复 `ask_question.answered` 状态。新 runtime 若支持交互式提问，应复用这张表作为后端权威 answered state。
+
 ---
 
 ### Step 6：扩展 agents 表的 runtime 枚举
@@ -377,6 +380,10 @@ Codex 使用 `codex exec` / `codex exec resume <thread_id>` 命令；`full-auto`
 > **2026-05-13**：`sessions` 从裸 `mpsc::Sender<SessionMessage>` 升级为 `SessionHandle`，用于同时保存消息队列、当前 runtime 子进程 pid 和 abort 标记。Claude / Codex / Cursor runtime 启动子进程时创建独立 process group，abort endpoint 会通过 `SessionHandle` 终止正在执行的进程组。相关回归测试拆分到相邻 `*_tests.rs` 文件，避免 runtime 主文件超过单文件行数上限。
 >
 > **2026-05-23**：`SessionHandle::abort_current_process` 与 `POST .../abort` 增加 `multisoul::abort` 结构化 tracing（无数据结构变更）；用于区分「仅 cooperative abort、未登记 pid」与「已发 SIGKILL / kill 失败」。
+>
+> **2026-05-23**：Activity DB-backed 方案引入 `ask_answers` 作为 AskUserQuestion answered state，并让 `AnswerMap` 持有 `pending_ask_id`。Claude runtime 在写入/广播 `ask_question` 前登记 pending ask；`GET /api/v1/conversations/:id/messages` 对 ask_question 返回 backend answered 字段，避免 mobile 本地状态丢失后重复回答。
+>
+> **2026-05-23**：Cursor runtime 为满足单文件行数上限，将 session 持久化、message insert、broadcast、complete/failed turn 状态更新 helper 拆到相邻 `cursor_db.rs`；`cursor.rs` 仍保留 runtime worker、process turn 和 CLI 参数构造。
 
 完成实现后，按 `CLAUDE.md §5` 跑：
 

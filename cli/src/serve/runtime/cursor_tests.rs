@@ -53,10 +53,13 @@ fn abort_kills_child_blocking_inside_cursor_process_turn() {
         process_turn(
             &state_for_turn,
             "conv-1",
-            "hello",
-            project_path.to_str().unwrap(),
-            "full-auto",
-            None,
+            CursorTurn {
+                prompt: "hello",
+                user_seq: 1,
+                project_path: project_path.to_str().unwrap(),
+                mode: "full-auto",
+                resume: None,
+            },
             &handle_for_turn,
         )
     });

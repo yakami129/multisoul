@@ -2,7 +2,7 @@ import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import * as ImageManipulator from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
 import React from 'react';
-import { Alert } from 'react-native';
+import { Alert, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { fetchMessages, postMessage, uploadImage } from '@/features/chat/services/chatService';
 import { useChatStore } from '@/store/chatStore';
@@ -11,8 +11,13 @@ import { useInboxStore } from '@/store/inboxStore';
 import type { WsMessage } from '@/types';
 import ChatDetailScreen from '../../app/chat/[id]';
 
+let mockSearchParams: Record<string, string | undefined> = {
+  id: 'conv-1',
+  endpoint_id: 'endpoint-1',
+};
+
 jest.mock('expo-router', () => ({
-  useLocalSearchParams: () => ({ id: 'conv-1', endpoint_id: 'endpoint-1' }),
+  useLocalSearchParams: () => mockSearchParams,
   useRouter: () => ({ back: jest.fn() }),
 }));
 
@@ -93,6 +98,7 @@ const historyMessages: WsMessage[] = [
 ];
 
 beforeEach(() => {
+  mockSearchParams = { id: 'conv-1', endpoint_id: 'endpoint-1' };
   useChatStore.setState({
     conversations: [
       {
@@ -273,6 +279,68 @@ test('mirrors unanswered historical ask_question messages to inbox', async () =>
       body: 'Deploy now?',
     }),
   );
+});
+
+/// Focus ask routing: Chat Detail must keep `focus_ask_id` behavior for
+/// Activity and notification entries that deep-link to a pending decision.
+///
+/// Data construction:
+///   route id = 'conv-1'
+///   route focus_ask_id = 'ask-focus'
+///   ask layout y = 240 px
+///   scroll offset = max(240 - 12, 0) = 228 px
+///
+/// Execution process:
+///   1. Render ChatDetailScreen with focus_ask_id in route params.
+///   2. Load history containing one ask_question with ask_id='ask-focus'.
+///   3. Fire the ask row layout event with y=240.
+///
+/// Expected result:
+///   - Positive: focused ask wrapper exists, so the route id matched a Chat card.
+///   - Positive: ScrollView.scrollTo is called with y=228, proving focus scroll remains wired.
+///   - Negative: scroll y is not 240, because the implementation intentionally applies 12 px top padding.
+test('scrolls to focus_ask_id after focused ask row lays out', async () => {
+  mockSearchParams = {
+    id: 'conv-1',
+    endpoint_id: 'endpoint-1',
+    focus_ask_id: 'ask-focus',
+  };
+  const scrollToSpy = jest.spyOn(ScrollView.prototype, 'scrollTo').mockImplementation(jest.fn());
+  const askMessage: WsMessage = {
+    type: 'message',
+    seq: 3,
+    role: 'ask_question',
+    payload: {
+      ask_id: 'ask-focus',
+      allow_freeform: false,
+      questions: [{ id: '0', text: 'Deploy now?', options: [{ id: 'yes', label: 'Yes' }] }],
+    },
+    created_at: 3,
+  };
+  (fetchMessages as jest.Mock).mockResolvedValue([askMessage]);
+
+  const { getByTestId } = render(<ChatDetailScreen />);
+
+  await waitFor(() =>
+    expect({
+      actual: getByTestId('chat-ask-ask-focus') != null,
+      reason: 'focused ask wrapper should render for the route focus_ask_id',
+    }).toEqual({ actual: true, reason: expect.any(String) }),
+  );
+  fireEvent(getByTestId('chat-ask-ask-focus'), 'layout', {
+    nativeEvent: { layout: { y: 240 } },
+  });
+
+  expect({
+    actual: scrollToSpy.mock.calls.some(([args]) => args.y === 228 && args.animated === true),
+    reason: 'focus_ask_id should scroll to ask y minus the 12 px top offset',
+  }).toEqual({ actual: true, reason: expect.any(String) });
+  expect({
+    actual: scrollToSpy.mock.calls.some(([args]) => args.y === 240 && args.animated === true),
+    reason: 'focus_ask_id should not scroll to the raw layout y without top offset',
+  }).toEqual({ actual: false, reason: expect.any(String) });
+
+  scrollToSpy.mockRestore();
 });
 
 test('renders image picker button in chat list detail composer', () => {

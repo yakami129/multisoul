@@ -13,7 +13,7 @@ use std::collections::HashMap;
 
 // ─── Answer payload (sent from WS handler → session_worker) ──────────────────
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct AnswerPayload {
     pub _ask_id: String,
     pub choice_id: Option<String>,

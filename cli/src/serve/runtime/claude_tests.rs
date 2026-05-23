@@ -224,6 +224,7 @@ fn abort_kills_child_blocking_inside_claude_process_turn() {
             user_text: "hello",
             file_id: None,
             uploads_dir: std::path::Path::new("/tmp/uploads"),
+            seq: 1,
         };
         claude_stream::process_turn(
             &mut stdin,

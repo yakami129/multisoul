@@ -13,7 +13,7 @@ When an agent task completes, the app notifies the user:
 - **Foreground**: play a bundled `.wav` sound via `expo-av`, no banner
 - **Background/inactive**: CLI sends one Expo remote push with sound, title, and summary; tap navigates to the task's chat screen
 
-Notification ownership is centralized in the CLI to avoid duplicate local + remote notifications. Mobile WebSocket handlers update chat and inbox state only; they do not schedule a second local notification for `task_status`. When an answer is sent from Chat, `useWebSocket` also removes any matching pending-question inbox rows by `ask_id`, including notification-created rows whose row `id` may differ from the question id. This keeps Activity's Needs Attention section in sync without changing notification ownership.
+Notification ownership is centralized in the CLI to avoid duplicate local + remote notifications. Mobile WebSocket handlers update chat and inbox state only; they do not schedule a second local notification for `task_status`. When an answer is sent from Chat, `useWebSocket` waits for CLI `answer_status(ok=true)` before marking the ask answered locally; failures leave the ask pending so Activity and Chat do not hide an unanswered decision.
 
 ---
 
@@ -24,8 +24,8 @@ Notification ownership is centralized in the CLI to avoid duplicate local + remo
 | Component | File | Responsibility |
 |-----------|------|----------------|
 | CLI push builder | `cli/src/serve/push.rs` | Build Expo payloads for task completion/failure and pending questions |
-| Claude runtime | `cli/src/serve/runtime/claude_stream.rs` | Send pending-question push when `AskUserQuestion` is emitted |
-| `useWebSocket` | `src/hooks/useWebSocket.ts` | Update chat/inbox state from `task_status` and `ask_question`; clear answered ask inbox rows; never schedule duplicate local notifications |
+| Claude runtime | `cli/src/serve/runtime/claude_stream.rs` | Register pending ask, persist/broadcast `ask_question`, then send pending-question push |
+| `useWebSocket` | `src/hooks/useWebSocket.ts` | Update chat state from `task_status` / `ask_question` / `answer_status`; never schedule duplicate local notifications |
 | Root layout | `app/_layout.tsx` | Register push tokens, suppress foreground banner, add tap-to-navigate listener |
 | Sound asset | `assets/sounds/task-complete.wav` | Bundled short terminal-style beep |
 
@@ -33,7 +33,7 @@ Notification ownership is centralized in the CLI to avoid duplicate local + remo
 
 ```
 Claude emits AskUserQuestion
-  └─> claude_stream inserts/broadcasts ask_question
+  └─> claude_stream registers pending ask, inserts/broadcasts ask_question
         └─> push.send_ask_question_push(...)
               └─> Expo payload kind=pending_question, inbox_id=ask_id, payload=AskQuestionPayload
 
@@ -48,7 +48,9 @@ Mobile receives WS task_status
   └─> update conversation status only
 
 Mobile sends WS answer
-  └─> mark ask answered and remove matching inbox rows; no notification scheduling
+  └─> wait for CLI answer_status
+        ├─ ok=true  → mark ask answered locally
+        └─ ok=false → keep ask pending; no notification scheduling
 ```
 
 ### Notification tap navigation
@@ -109,8 +111,8 @@ When active, the service plays the sound directly; the notification handler supp
 ## Files changed
 
 1. `cli/src/serve/push.rs` — task/ask push payload construction, token fan-out, mutual exclusion
-2. `cli/src/serve/runtime/claude_stream.rs` — trigger ask-question push at card creation
-3. `src/hooks/useWebSocket.ts` — remove local completion notification scheduling and clear answered ask inbox rows
+2. `cli/src/serve/runtime/claude_stream.rs` — register pending ask before ask-question push/broadcast
+3. `src/hooks/useWebSocket.ts` — remove local completion notification scheduling and apply answered state only after `answer_status(ok=true)`
 4. `app/_layout.tsx` — token registration, handler, tap listener, cold-start navigation
 
 ---

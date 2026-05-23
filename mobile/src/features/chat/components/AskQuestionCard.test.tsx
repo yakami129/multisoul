@@ -127,14 +127,91 @@ test('onConfirm includes typed text alongside other selected ids in multi-select
   expect(onConfirm).toHaveBeenCalledWith('a,extra');
 });
 
-// T-6: After answering with Other, the card shows the typed text (not "Other")
-test('answered state shows the typed text for Other selection', () => {
-  const { getByLabelText, getByPlaceholderText, getByText } = render(
+/// Answer acknowledgement boundary: confirming a single-choice card must not
+/// switch the card into answered presentation until the parent message is marked
+/// answered after server acknowledgement.
+///
+/// Data construction:
+///   selected option = Option A / id 'a'
+///   answered prop before ack = false
+///   answered prop after ack  = true
+///
+/// Execution process:
+///   1. Render an unanswered card and select Option A.
+///   2. Press Confirm, which calls onConfirm but does not mutate parent props.
+///   3. Re-render with answered=true, matching a later successful ack.
+///
+/// Expected result:
+///   - Positive: onConfirm receives 'a', proving the answer was submitted.
+///   - Negative: ANSWERED is absent before the parent ack state arrives.
+///   - Positive: ANSWERED appears after the parent passes answered=true.
+test('waits for answered prop before showing answered state', () => {
+  const onConfirm = jest.fn();
+  const { getByLabelText, getByText, queryByText, rerender } = render(
     <AskQuestionCard
       question="Pick one"
       options={baseOptions}
       onCancel={jest.fn()}
+      onConfirm={onConfirm}
+    />,
+  );
+
+  fireEvent.press(getByLabelText('Option A'));
+  fireEvent.press(getByLabelText('Confirm'));
+
+  expect({
+    actual: onConfirm.mock.calls.some(([value]) => value === 'a'),
+    reason: 'Confirm should submit selected option id while waiting for server ack',
+  }).toEqual({ actual: true, reason: expect.any(String) });
+  expect({
+    actual: queryByText('AGENT IS ASKING') != null,
+    reason: 'card should remain in asking state until parent answered prop changes',
+  }).toEqual({ actual: true, reason: expect.any(String) });
+  expect({
+    actual: queryByText('ANSWERED'),
+    reason: 'card must not show ANSWERED before successful acknowledgement',
+  }).toEqual({ actual: null, reason: expect.any(String) });
+
+  rerender(
+    <AskQuestionCard
+      question="Pick one"
+      options={baseOptions}
+      answered
+      initialSelectedId="a"
+      onCancel={jest.fn()}
       onConfirm={jest.fn()}
+    />,
+  );
+
+  expect({
+    actual: getByText('ANSWERED') != null,
+    reason: 'card should show ANSWERED after parent passes answered=true',
+  }).toEqual({ actual: true, reason: expect.any(String) });
+});
+
+/// Answered custom answer rendering: a custom text answer should remain visible
+/// when the parent later marks the card answered.
+///
+/// Data construction:
+///   Other text = 'my custom answer'
+///   answered prop flips false → true after Confirm
+///
+/// Execution process:
+///   1. Select Other, type the custom answer, and commit it with Use.
+///   2. Confirm while answered=false.
+///   3. Re-render with answered=true to model successful server ack.
+///
+/// Expected result:
+///   - Positive: onConfirm receives the custom text.
+///   - Positive: custom text is visible in answered presentation after ack.
+test('answered state shows the typed text for Other selection after ack', () => {
+  const onConfirm = jest.fn();
+  const { getByLabelText, getByPlaceholderText, getByText, rerender } = render(
+    <AskQuestionCard
+      question="Pick one"
+      options={baseOptions}
+      onCancel={jest.fn()}
+      onConfirm={onConfirm}
     />,
   );
 
@@ -143,5 +220,24 @@ test('answered state shows the typed text for Other selection', () => {
   fireEvent.press(getByLabelText('Use answer'));
   fireEvent.press(getByLabelText('Confirm'));
 
-  expect(getByText('my custom answer')).toBeTruthy();
+  expect({
+    actual: onConfirm.mock.calls.some(([value]) => value === 'my custom answer'),
+    reason: 'Confirm should submit custom Other text',
+  }).toEqual({ actual: true, reason: expect.any(String) });
+
+  rerender(
+    <AskQuestionCard
+      question="Pick one"
+      options={baseOptions}
+      answered
+      initialSelectedId="my custom answer"
+      onCancel={jest.fn()}
+      onConfirm={jest.fn()}
+    />,
+  );
+
+  expect({
+    actual: getByText('my custom answer') != null,
+    reason: 'answered presentation should preserve visible custom Other text after ack',
+  }).toEqual({ actual: true, reason: expect.any(String) });
 });

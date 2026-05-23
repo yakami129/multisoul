@@ -1,9 +1,72 @@
 import { getEndpointClient } from '@/api/endpointClient';
 import { type Conversation, type UserTextPayload, type WsMessage } from '@/types';
 
+export interface AnswerAcknowledgement {
+  ask_id: string;
+  ok: boolean;
+  error?: string;
+  choice_id?: string;
+  choice_ids?: Record<string, string>;
+  freeform?: string;
+}
+
 function buildConversationWsUrl(base_url: string, token: string, conv_id: string): string {
   const wsUrl = base_url.replace(/^https/, 'wss').replace(/^http/, 'ws');
   return `${wsUrl}/ws/conversations/${conv_id}?token=${token}`;
+}
+
+function readStringMap(value: unknown): Record<string, string> | undefined {
+  if (value == null || typeof value !== 'object' || Array.isArray(value)) return undefined;
+  const entries = Object.entries(value).filter(
+    (entry): entry is [string, string] => typeof entry[1] === 'string',
+  );
+  if (entries.length === 0) return undefined;
+  return Object.fromEntries(entries);
+}
+
+export function parseAnswerAcknowledgement(value: unknown): AnswerAcknowledgement | null {
+  if (value == null || typeof value !== 'object' || Array.isArray(value)) return null;
+  const envelope = value as Record<string, unknown>;
+  const askId = typeof envelope.ask_id === 'string' ? envelope.ask_id : '';
+  if (!askId) return null;
+
+  const type = typeof envelope.type === 'string' ? envelope.type : '';
+  const isKnownAckType =
+    type === 'answer_ack' ||
+    type === 'answer_status' ||
+    type === 'answer_result' ||
+    type === 'answer_delivery' ||
+    type === 'answer';
+  if (!isKnownAckType) return null;
+
+  const rawStatus = typeof envelope.status === 'string' ? envelope.status.toLowerCase() : '';
+  const successStatus = new Set(['ok', 'success', 'succeeded', 'accepted', 'routed', 'persisted']);
+  const failureStatus = new Set([
+    'error',
+    'failed',
+    'failure',
+    'rejected',
+    'dropped',
+    'no_session',
+    'not_found',
+  ]);
+
+  let ok: boolean | null = null;
+  if (typeof envelope.ok === 'boolean') ok = envelope.ok;
+  if (typeof envelope.success === 'boolean') ok = envelope.success;
+  if (typeof envelope.accepted === 'boolean') ok = envelope.accepted;
+  if (rawStatus && successStatus.has(rawStatus)) ok = true;
+  if (rawStatus && failureStatus.has(rawStatus)) ok = false;
+  if (ok == null) return null;
+
+  return {
+    ask_id: askId,
+    ok,
+    error: typeof envelope.error === 'string' ? envelope.error : undefined,
+    choice_id: typeof envelope.choice_id === 'string' ? envelope.choice_id : undefined,
+    choice_ids: readStringMap(envelope.choice_ids),
+    freeform: typeof envelope.freeform === 'string' ? envelope.freeform : undefined,
+  };
 }
 
 export async function fetchConversations(
@@ -113,6 +176,7 @@ export async function sendConversationAnswer(
   await new Promise<void>((resolve, reject) => {
     const ws = new WebSocket(buildConversationWsUrl(base_url, token, conv_id));
     let settled = false;
+    let sent = false;
 
     const finish = (fn: () => void) => {
       if (settled) return;
@@ -134,11 +198,22 @@ export async function sendConversationAnswer(
       } catch {
         /* ignore close errors */
       }
-      finish(() => reject(new Error('Timed out waiting for answer socket')));
+      finish(() => reject(new Error('Timed out waiting for answer acknowledgement')));
     }, 10_000);
 
     ws.onopen = () => {
       ws.send(JSON.stringify({ type: 'answer', ...payload }));
+      sent = true;
+    };
+
+    ws.onmessage = (event) => {
+      let ack: AnswerAcknowledgement | null = null;
+      try {
+        ack = parseAnswerAcknowledgement(JSON.parse(event.data as string));
+      } catch {
+        return;
+      }
+      if (!ack || ack.ask_id !== payload.ask_id) return;
       clearTimeout(timeout);
       cleanup();
       try {
@@ -146,7 +221,11 @@ export async function sendConversationAnswer(
       } catch {
         /* ignore close errors */
       }
-      finish(resolve);
+      if (ack.ok) {
+        finish(resolve);
+      } else {
+        finish(() => reject(new Error(ack.error ?? 'Answer was rejected by server')));
+      }
     };
 
     ws.onerror = () => {
@@ -163,7 +242,17 @@ export async function sendConversationAnswer(
     ws.onclose = () => {
       clearTimeout(timeout);
       cleanup();
-      if (!settled) finish(() => reject(new Error('Answer socket closed before sending')));
+      if (!settled) {
+        finish(() =>
+          reject(
+            new Error(
+              sent
+                ? 'Answer socket closed before acknowledgement'
+                : 'Answer socket closed before sending',
+            ),
+          ),
+        );
+      }
     };
   });
 }
