@@ -45,7 +45,7 @@ export function SplashScreen({ onComplete }: Props) {
   const lensB = useRef(new Animated.Value(0)).current;
   const lensC = useRef(new Animated.Value(0)).current;
   const chip = useRef(new Animated.Value(0)).current;
-  const chipRadius = useRef(new Animated.Value(30)).current;
+  const chipBreath = useRef(new Animated.Value(0)).current;
   const eyebrow = useRef(new Animated.Value(0)).current;
   const title = useRef(new Animated.Value(0)).current;
   const ready = useRef(new Animated.Value(0)).current;
@@ -103,17 +103,17 @@ export function SplashScreen({ onComplete }: Props) {
         ]),
         Animated.sequence([
           Animated.delay(800),
-          Animated.timing(chipRadius, {
-            toValue: 22,
+          Animated.timing(chipBreath, {
+            toValue: 1,
             duration: 340,
             easing: Easing.inOut(Easing.sin),
-            useNativeDriver: false,
+            useNativeDriver: true,
           }),
-          Animated.timing(chipRadius, {
-            toValue: 30,
+          Animated.timing(chipBreath, {
+            toValue: 0,
             duration: 340,
             easing: Easing.inOut(Easing.sin),
-            useNativeDriver: false,
+            useNativeDriver: true,
           }),
         ]),
       ]),
@@ -135,7 +135,7 @@ export function SplashScreen({ onComplete }: Props) {
       cancelled = true;
       animation.stop();
     };
-  }, [chip, chipRadius, eyebrow, exitOpacity, lensA, lensB, lensC, onComplete, ready, title]);
+  }, [chip, chipBreath, eyebrow, exitOpacity, lensA, lensB, lensC, onComplete, ready, title]);
 
   const chipScale = chip.interpolate({
     inputRange: [0, 1],
@@ -144,6 +144,10 @@ export function SplashScreen({ onComplete }: Props) {
   const chipRotate = chip.interpolate({
     inputRange: [0, 1],
     outputRange: ['-8deg', '0deg'],
+  });
+  const chipBreathScale = chipBreath.interpolate({
+    inputRange: [0, 1],
+    outputRange: [1, 0.96],
   });
   const stripeTopA = height * 0.225;
   const stripeTopB = height * 0.377;
@@ -163,8 +167,7 @@ export function SplashScreen({ onComplete }: Props) {
             s.chip,
             {
               opacity: chip,
-              borderRadius: chipRadius,
-              transform: [{ scale: chipScale }, { rotate: chipRotate }],
+              transform: [{ scale: chipScale }, { rotate: chipRotate }, { scale: chipBreathScale }],
             },
           ]}
         >
