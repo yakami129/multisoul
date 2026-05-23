@@ -106,12 +106,11 @@ pub(super) fn process_turn(
                         if let Some(payload) =
                             interactive::build_ask_payload(&tool_name, &request_id, &orig_input)
                         {
-                            let db = state.db.lock().unwrap();
-                            if let Ok(seq) = insert_message(&db, conv_id, "ask_question", &payload)
-                            {
-                                push::send_ask_question_push(&db, conv_id, &payload);
-                                drop(db);
-                                broadcast(state, conv_id, seq, "ask_question", payload);
+                            if !record_ask_question(state, conv_id, payload) {
+                                return Err(format!(
+                                    "failed to record AskUserQuestion request {}",
+                                    request_id
+                                ));
                             }
                         }
                         info!(
@@ -121,9 +120,26 @@ pub(super) fn process_turn(
                             "ask_question_pending"
                         );
                         let wait_started = Instant::now();
-                        let answer = answer_rx.recv().map_err(|_| {
-                            "answer channel closed while waiting for AskUserQuestion".to_string()
-                        })?;
+                        let answer_result =
+                            loop {
+                                match answer_rx.recv() {
+                                    Ok(answer) if answer._ask_id == request_id => break Ok(answer),
+                                    Ok(answer) => {
+                                        tracing::warn!(
+                                            conv_id = %conv_id,
+                                            expected = %request_id,
+                                            actual = %answer._ask_id,
+                                            "ask_question_ignored_mismatched_answer"
+                                        );
+                                    }
+                                    Err(_) => break Err(
+                                        "answer channel closed while waiting for AskUserQuestion"
+                                            .to_string(),
+                                    ),
+                                }
+                            };
+                        state.clear_waiting_answer(conv_id, &request_id);
+                        let answer = answer_result?;
                         info!(
                             conv_id = %conv_id,
                             ask_id = %request_id,
@@ -185,6 +201,29 @@ pub(super) fn process_turn(
             _ => {}
         }
     }
+}
+
+pub(super) fn record_ask_question(state: &AppState, conv_id: &str, payload: Value) -> bool {
+    let ask_id = payload
+        .get("ask_id")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .to_string();
+    let db = state.db.lock().unwrap();
+    if let Ok(seq) = insert_message(&db, conv_id, "ask_question", &payload) {
+        let _ = db.execute(
+            "UPDATE conversations SET status = 'awaiting_question' WHERE id = ?1",
+            [conv_id],
+        );
+        if !ask_id.is_empty() {
+            state.begin_waiting_answer(conv_id, &ask_id);
+        }
+        push::send_ask_question_push(&db, conv_id, &payload);
+        drop(db);
+        broadcast(state, conv_id, seq, "ask_question", payload);
+        return true;
+    }
+    false
 }
 
 /// Processes an assistant event, broadcasting messages to mobile.

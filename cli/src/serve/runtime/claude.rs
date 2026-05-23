@@ -325,3 +325,7 @@ fn is_stale_session_error(raw: &Value) -> bool {
 #[cfg(test)]
 #[path = "claude_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "claude_ask_tests.rs"]
+mod ask_tests;

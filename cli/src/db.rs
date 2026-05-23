@@ -66,6 +66,15 @@ fn init_schema(conn: &Connection) -> Result<()> {
             endpoint_id     TEXT,
             registered_at   INTEGER NOT NULL
         );
+        CREATE TABLE IF NOT EXISTS ask_answers (
+            ask_id          TEXT NOT NULL,
+            conversation_id TEXT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+            answered_at     INTEGER NOT NULL,
+            choice_id       TEXT,
+            choice_ids      TEXT,
+            freeform        TEXT,
+            PRIMARY KEY (conversation_id, ask_id)
+        );
     "#,
     )?;
     // Migrate existing DBs: add claude_session_id if missing
@@ -103,7 +112,7 @@ mod tests {
     use super::*;
     use tempfile::tempdir;
 
-    /// db::open creates all 5 tables on a fresh database.
+    /// db::open creates all core tables on a fresh database.
     ///
     /// Execution:
     ///   1. Open a temp-path SQLite DB
@@ -115,6 +124,7 @@ mod tests {
     ///   - messages table exists
     ///   - tasks table exists
     ///   - push_tokens table exists
+    ///   - ask_answers table exists
     #[test]
     fn test_open_creates_schema() {
         let dir = tempdir().unwrap();
@@ -148,6 +158,10 @@ mod tests {
         assert!(
             tables.contains(&"push_tokens".to_string()),
             "push_tokens table must exist"
+        );
+        assert!(
+            tables.contains(&"ask_answers".to_string()),
+            "ask_answers table must exist"
         );
     }
 
@@ -195,6 +209,19 @@ mod tests {
         assert!(
             has_cursor_session,
             "conversations.cursor_session_id column must exist after migration"
+        );
+
+        let has_ask_answers_choice_ids: bool = conn
+            .query_row(
+                "SELECT COUNT(*) FROM pragma_table_info('ask_answers') WHERE name='choice_ids'",
+                [],
+                |r| r.get::<_, i64>(0),
+            )
+            .unwrap()
+            > 0;
+        assert!(
+            has_ask_answers_choice_ids,
+            "ask_answers.choice_ids column must exist after migration"
         );
     }
 

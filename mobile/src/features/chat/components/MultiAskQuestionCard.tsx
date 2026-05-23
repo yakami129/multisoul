@@ -25,11 +25,24 @@ export default function MultiAskQuestionCard({
   onCancel,
   onConfirm,
 }: Props) {
-  const [answers, setAnswers] = useState<Record<string, string>>(initialAnswers ?? {});
-  const [customTexts, setCustomTexts] = useState<Record<string, string>>({});
-  const [committedCustomTexts, setCommittedCustomTexts] = useState<Record<string, string>>({});
+  const initialCustomTexts: Record<string, string> = {};
+  const normalizedInitialAnswers = Object.fromEntries(
+    Object.entries(initialAnswers ?? {}).map(([questionId, answer]) => {
+      const question = questions.find((q) => q.id === questionId);
+      const isKnownOption = question?.options.some((option) => option.id === answer) ?? false;
+      if (!isKnownOption) {
+        initialCustomTexts[questionId] = answer;
+        return [questionId, CUSTOM_ID];
+      }
+      return [questionId, answer];
+    }),
+  );
+  const [answers, setAnswers] = useState<Record<string, string>>(normalizedInitialAnswers);
+  const [customTexts, setCustomTexts] = useState<Record<string, string>>(initialCustomTexts);
+  const [committedCustomTexts, setCommittedCustomTexts] =
+    useState<Record<string, string>>(initialCustomTexts);
   const [activeIndex, setActiveIndex] = useState(0);
-  const [answered, setAnswered] = useState(answeredProp);
+  const answered = answeredProp;
 
   const total = questions.length;
   const answeredCount = questions.filter((q) => {
@@ -96,7 +109,6 @@ export default function MultiAskQuestionCard({
 
   const handleConfirm = () => {
     if (!allAnswered || answered) return;
-    setAnswered(true);
     const resolved: Record<string, string> = {};
     for (const q of questions) {
       const raw = answers[q.id];
@@ -107,7 +119,6 @@ export default function MultiAskQuestionCard({
 
   const handleCancel = () => {
     if (answered) return;
-    setAnswered(true);
     onCancel();
   };
 

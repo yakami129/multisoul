@@ -418,6 +418,7 @@ export default function ChatDetailScreen() {
             return (
               <View
                 key={`${msg.seq}`}
+                testID={askId ? `chat-ask-${askId}` : undefined}
                 onLayout={(event) => {
                   if (!askId) return;
                   askMessageYRef.current.set(askId, event.nativeEvent.layout.y);

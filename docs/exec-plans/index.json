@@ -3,6 +3,10 @@
   "version": 1,
   "documents": [
     {
+      "file": "2026-05-23-activity-db-backed.md",
+      "title": "DB-backed Activity Aggregation Implementation Plan"
+    },
+    {
       "file": "2026-05-21-ui-projects-navigation.md",
       "title": "Projects-First Navigation Refactor Implementation Plan",
       "lastCompletedCommit": "55a0a5ebeb82c9bf22e15319ce268356a98f08e7"

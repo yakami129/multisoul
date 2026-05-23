@@ -28,11 +28,17 @@ export default function AskQuestionCard({
   onCancel,
   onConfirm,
 }: Props) {
-  const [selectedId, setSelectedId] = useState<string | null>(initialSelectedId ?? null);
+  const initialSelectedIsCustom =
+    initialSelectedId != null && !options.some((option) => option.id === initialSelectedId);
+  const [selectedId, setSelectedId] = useState<string | null>(
+    initialSelectedIsCustom ? CUSTOM_ID : (initialSelectedId ?? null),
+  );
   const [selectedIds, setSelectedIds] = useState<Set<string>>(initialSelectedIds ?? new Set());
-  const [answered, setAnswered] = useState(answeredProp);
-  const [customText, setCustomText] = useState('');
-  const [committedCustomText, setCommittedCustomText] = useState('');
+  const answered = answeredProp;
+  const [customText, setCustomText] = useState(initialSelectedIsCustom ? initialSelectedId : '');
+  const [committedCustomText, setCommittedCustomText] = useState(
+    initialSelectedIsCustom ? initialSelectedId : '',
+  );
 
   const allOptions: AskQuestionOption[] = [...options, { id: CUSTOM_ID, label: 'Other' }];
 
@@ -69,7 +75,6 @@ export default function AskQuestionCard({
 
   const handleConfirm = () => {
     if (!isReady || answered) return;
-    setAnswered(true);
     if (multiSelect) {
       const ids = Array.from(selectedIds)
         .filter((id) => id !== CUSTOM_ID)
@@ -83,7 +88,6 @@ export default function AskQuestionCard({
 
   const handleCancel = () => {
     if (answered) return;
-    setAnswered(true);
     onCancel();
   };
 

@@ -28,17 +28,17 @@
         },
         {
           "path": "cli/src/serve/state.rs",
-          "sha256": "28737e6747c78529e7facfaa67d1f5fef5fda8f1f243c74b1df8fbcc0f381ae8",
+          "sha256": "ba7b1d2f1107557432b6c543ced71636766205e817191de12bf4efd7486eb693",
           "reason": "AppState、SessionMessage 与 runtime worker 通信结构由文档核心数据结构章节引用。"
         },
         {
           "path": "cli/src/serve/routes/messages.rs",
-          "sha256": "0d65d9504aad3422be9782cc156955ec4eb137a8795545933f717f94e2afd623",
+          "sha256": "daa2bdef3e87aa07f70929e7c0ad6a7a7b2e448394666f55c4ea60ea83d0c314",
           "reason": "HTTP message route 调用 runtime 分发；文档架构图与入口流程依赖该行为。"
         },
         {
           "path": "cli/src/serve/runtime/claude.rs",
-          "sha256": "2bef98adfe7058cf14a0a9db82d1a12b22f42dd9e2042aae854101a9f21db2e8",
+          "sha256": "5cec2cc99d4eb6dce566d56014ec55440fc6d20cd4e1e966b1d4f2aab387f8aa",
           "reason": "Claude runtime 是默认 adapter，文档以其行为说明 runtime 模板与特殊注意事项。"
         },
         {
@@ -53,7 +53,7 @@
         },
         {
           "path": "cli/src/db.rs",
-          "sha256": "bd0124ccc880de8a24b2a768bbb4afc05b2a9ef77f1d165187303c668573b4c2",
+          "sha256": "d48e099e6cf862a1c334bc7af924d75e5c164f0e3e7bcba57efa9dd9533952f8",
           "reason": "文档说明 runtime 持久化字段和 migration 纪律；DB schema 演进会影响该章节。"
         },
         {
@@ -90,12 +90,12 @@
         },
         {
           "path": "cli/src/serve/runtime/claude_stream.rs",
-          "sha256": "d63e3c380da05cff61b10ea244cf167ce4e92e490f8f9fb3d5eb6af1288c5799",
+          "sha256": "1502529029681d1435b286413148302893e723f85cc9424d60610231d220411a",
           "reason": "Claude AskUserQuestion 触发问答推送的时机由本文档定义。"
         },
         {
           "path": "mobile/src/hooks/useWebSocket.ts",
-          "sha256": "419baf6a0fe9ab66f9ccdc3667baa1d665c4b19f2d8c06e163c59748a4e7d1d5",
+          "sha256": "7845019df1b3895f7bbcb7e136d0e88af46c6113487135f4c3fb76467a3c8e74",
           "reason": "Mobile WebSocket 端不再调度本地完成通知，以避免重复推送；发送回答后清理已回答 ask 的 inbox 状态。"
         }
       ]

@@ -71,13 +71,86 @@ test('onConfirm receives typed text for Other selection in multi-question card',
   expect(onConfirm).toHaveBeenCalledWith({ q1: 'custom1', q2: 'c' });
 });
 
-// T-4: Answered state shows typed text for Other selection
-test('answered state shows typed text for Other selection', () => {
-  const { getByLabelText, getByPlaceholderText, getByText } = render(
+/// Answer acknowledgement boundary: confirming a multi-question card must not
+/// switch into answered presentation until the parent message receives a
+/// successful server acknowledgement.
+///
+/// Data construction:
+///   q1 answer = 'a'
+///   q2 answer = 'c'
+///   answered prop before ack = false
+///   answered prop after ack  = true
+///
+/// Execution process:
+///   1. Render an unanswered card and answer both questions.
+///   2. Press Confirm, which calls onConfirm but does not mutate parent props.
+///   3. Re-render with answered=true and the same answer map.
+///
+/// Expected result:
+///   - Positive: onConfirm receives both answers.
+///   - Negative: ANSWERED is absent before the parent ack state arrives.
+///   - Positive: ANSWERED appears after the parent passes answered=true.
+test('waits for answered prop before showing answered state', () => {
+  const onConfirm = jest.fn();
+  const { getByLabelText, getByText, queryByText, rerender } = render(
+    <MultiAskQuestionCard questions={baseQuestions} onCancel={jest.fn()} onConfirm={onConfirm} />,
+  );
+
+  fireEvent.press(getByLabelText('Option A'));
+  fireEvent.press(getByLabelText('Option C'));
+  fireEvent.press(getByLabelText('Confirm'));
+
+  expect({
+    actual: onConfirm.mock.calls.some(([value]) => value.q1 === 'a' && value.q2 === 'c'),
+    reason: 'Confirm should submit all selected answers while waiting for server ack',
+  }).toEqual({ actual: true, reason: expect.any(String) });
+  expect({
+    actual: queryByText('AGENT IS ASKING') != null,
+    reason: 'multi-question card should remain in asking state until parent answered prop changes',
+  }).toEqual({ actual: true, reason: expect.any(String) });
+  expect({
+    actual: queryByText('ANSWERED'),
+    reason: 'multi-question card must not show ANSWERED before successful acknowledgement',
+  }).toEqual({ actual: null, reason: expect.any(String) });
+
+  rerender(
+    <MultiAskQuestionCard
+      questions={baseQuestions}
+      answered
+      initialAnswers={{ q1: 'a', q2: 'c' }}
+      onCancel={jest.fn()}
+      onConfirm={jest.fn()}
+    />,
+  );
+
+  expect({
+    actual: getByText('ANSWERED') != null,
+    reason: 'multi-question card should show ANSWERED after parent passes answered=true',
+  }).toEqual({ actual: true, reason: expect.any(String) });
+});
+
+/// Answered custom answer rendering: a custom text answer should remain visible
+/// when the parent later marks the multi-question card answered.
+///
+/// Data construction:
+///   q1 Other text = 'my custom answer'
+///   answered prop flips false → true after Confirm
+///
+/// Execution process:
+///   1. Select Other, type the custom answer, and commit it with Use.
+///   2. Confirm while answered=false.
+///   3. Re-render with answered=true to model successful server ack.
+///
+/// Expected result:
+///   - Positive: onConfirm receives the custom text.
+///   - Positive: custom text is visible in answered presentation after ack.
+test('answered state shows typed text for Other selection after ack', () => {
+  const onConfirm = jest.fn();
+  const { getByLabelText, getByPlaceholderText, getByText, rerender } = render(
     <MultiAskQuestionCard
       questions={[baseQuestions[0]]}
       onCancel={jest.fn()}
-      onConfirm={jest.fn()}
+      onConfirm={onConfirm}
     />,
   );
 
@@ -86,7 +159,25 @@ test('answered state shows typed text for Other selection', () => {
   fireEvent.press(getByLabelText('Use answer'));
   fireEvent.press(getByLabelText('Confirm'));
 
-  expect(getByText('my custom answer')).toBeTruthy();
+  expect({
+    actual: onConfirm.mock.calls.some(([value]) => value.q1 === 'my custom answer'),
+    reason: 'Confirm should submit custom Other text in the answer map',
+  }).toEqual({ actual: true, reason: expect.any(String) });
+
+  rerender(
+    <MultiAskQuestionCard
+      questions={[baseQuestions[0]]}
+      answered
+      initialAnswers={{ q1: 'my custom answer' }}
+      onCancel={jest.fn()}
+      onConfirm={jest.fn()}
+    />,
+  );
+
+  expect({
+    actual: getByText('my custom answer') != null,
+    reason: 'answered presentation should preserve visible custom Other text after ack',
+  }).toEqual({ actual: true, reason: expect.any(String) });
 });
 
 test('unsubmitted multi-question answers can be edited before final confirm', () => {

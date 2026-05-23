@@ -17,14 +17,24 @@ export interface ActivityItem {
   statusLabel: string;
   tone: 'attention' | 'running' | 'done' | 'failed';
   timestamp: number;
+  endpointId: string;
+  endpointLabel: string;
+  conversationId: string;
+  agentId: string;
+  agentName: string;
+  askId?: string;
 }
 
 interface Props {
   needsAttention: ActivityItem[];
   running: ActivityItem[];
   done: ActivityItem[];
+  failedEndpointLabels?: string[];
+  hasEndpoints?: boolean;
+  allFailed?: boolean;
   isRefreshing?: boolean;
   onRefresh?: () => void;
+  onRetry?: () => void;
   onOpenItem: (item: ActivityItem) => void;
 }
 
@@ -121,12 +131,41 @@ function Section({
   );
 }
 
+function PartialFailureBanner({
+  failedEndpointLabels,
+  onRetry,
+}: {
+  failedEndpointLabels: string[];
+  onRetry?: () => void;
+}) {
+  if (failedEndpointLabels.length === 0) return null;
+
+  return (
+    <View style={s.partialFailure}>
+      <Text style={s.partialFailureText}>
+        Some endpoints failed: {failedEndpointLabels.join(', ')}
+      </Text>
+      <TouchableOpacity
+        onPress={onRetry}
+        accessibilityRole="button"
+        accessibilityLabel="Retry failed endpoints"
+      >
+        <Text style={s.partialFailureRetry}>Retry</Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
+
 export default function ActivityScreen({
   needsAttention,
   running,
   done,
+  failedEndpointLabels = [],
+  hasEndpoints = true,
+  allFailed = false,
   isRefreshing = false,
   onRefresh,
+  onRetry,
   onOpenItem,
 }: Props) {
   const [activeFilter, setActiveFilter] = useState<ActivityFilter>('all');
@@ -176,18 +215,46 @@ export default function ActivityScreen({
         </View>
       </View>
 
-      {totalCount === 0 ? (
+      {allFailed ? (
         <ScrollView
           contentContainerStyle={s.emptyBody}
           refreshControl={
             <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor="#FF6B35" />
           }
+          testID="activity-scroll"
         >
+          <View style={s.emptyIconWrap}>
+            <MessageCircle size={36} color="#FF4444" />
+          </View>
+          <Text style={s.emptyTitle}>Could not load activity</Text>
+          <Text style={s.emptyDesc}>All configured endpoints failed to respond.</Text>
+          <TouchableOpacity
+            style={s.retryButton}
+            onPress={onRetry}
+            accessibilityRole="button"
+            accessibilityLabel="Retry activity"
+          >
+            <Text style={s.retryText}>Retry</Text>
+          </TouchableOpacity>
+        </ScrollView>
+      ) : totalCount === 0 ? (
+        <ScrollView
+          contentContainerStyle={s.emptyBody}
+          refreshControl={
+            <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor="#FF6B35" />
+          }
+          testID="activity-scroll"
+        >
+          <PartialFailureBanner failedEndpointLabels={failedEndpointLabels} onRetry={onRetry} />
           <View style={s.emptyIconWrap}>
             <CircleCheck size={36} color="#4CAF50" />
           </View>
-          <Text style={s.emptyTitle}>All caught up</Text>
-          <Text style={s.emptyDesc}>No decisions, running sessions, or recent results.</Text>
+          <Text style={s.emptyTitle}>{hasEndpoints ? 'All caught up' : 'Connect an endpoint'}</Text>
+          <Text style={s.emptyDesc}>
+            {hasEndpoints
+              ? 'No decisions, running sessions, or recent results.'
+              : 'Add an endpoint in Settings to see Activity.'}
+          </Text>
         </ScrollView>
       ) : (
         <ScrollView
@@ -195,7 +262,9 @@ export default function ActivityScreen({
           refreshControl={
             <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor="#FF6B35" />
           }
+          testID="activity-scroll"
         >
+          <PartialFailureBanner failedEndpointLabels={failedEndpointLabels} onRetry={onRetry} />
           {showAttention && (
             <Section
               title="Needs Attention"
@@ -290,6 +359,17 @@ const s = StyleSheet.create({
   statusAttention: { color: '#FF6B35' },
   statusRunning: { color: '#FF6B35' },
   statusFailed: { color: '#FF4444' },
+  partialFailure: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    backgroundColor: '#1A1A1A',
+    borderRadius: 8,
+    padding: 12,
+  },
+  partialFailureText: { flex: 1, fontFamily: 'Inter', fontSize: 12, color: '#DDDDDD' },
+  partialFailureRetry: { fontFamily: 'Inter', fontSize: 12, fontWeight: '700', color: '#FF6B35' },
   emptyBody: {
     flexGrow: 1,
     alignItems: 'center',
@@ -315,4 +395,14 @@ const s = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 20,
   },
+  retryButton: {
+    marginTop: 18,
+    minHeight: 36,
+    borderRadius: 8,
+    backgroundColor: '#FF6B35',
+    paddingHorizontal: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  retryText: { fontFamily: 'Inter', fontSize: 13, fontWeight: '700', color: '#FFFFFF' },
 });
