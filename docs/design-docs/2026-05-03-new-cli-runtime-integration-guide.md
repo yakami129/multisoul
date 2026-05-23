@@ -58,7 +58,7 @@ pub struct AppState {
 
 **关键约定：**
 - `sessions` map 里若已有该 conv 的 `SessionHandle`，说明 worker 正在运行，直接 `handle.tx.send()` 即可。
-- abort 路径：`kill_process_group`（Unix：`kill(-pgid, SIGKILL)`）失败时再 `kill_single_process`。**Windows** 无 POSIX `kill`：单进程终止用 `TerminateProcess`；进程组级联杀仍仅在 Unix 上生效（与 `start_new_process_group` 对称）。
+- abort 路径：`SessionHandle::abort_current_process` 先置 cooperative `aborted` 标记，再对登记的 pid 调用 `kill_process_group`（Unix：`kill(-pgid, SIGKILL)`），失败时回退 `kill_single_process`。**Windows** 无 POSIX `kill`：单进程终止用 `TerminateProcess`；进程组级联杀仍仅在 Unix 上生效（与 `start_new_process_group` 对称）。该函数与 HTTP `abort` handler 均向 `target = "multisoul::abort"` 打结构化日志（`phase` + `outcome`：`no_registered_pid` / `kill_attempt` / `kill_ok_pid_cleared` / `kill_failed`），便于对照 `msctl logs` 判断是未登记 pid 还是 syscall 失败。
 - sender 断裂（worker crash）时重建，这是唯一允许重建 worker 的时机。
 - runtime 启动 CLI 子进程时应调用 `start_new_process_group(&mut command)`，并在 turn 开始时 `handle.set_current_pid(child.id())`；abort 才能杀掉父进程及其派生子进程。
 - `plugin_manager` 在 `msctl serve` 启动时初始化，加载 `plugin_agents` 表中所有已注册的 plugin agent 进程；serve 退出时调用 `shutdown()` 将状态写回 DB。
@@ -375,6 +375,8 @@ Codex 使用 `codex exec` / `codex exec resume <thread_id>` 命令；`full-auto`
 > **2026-05-10**：`AppState` 新增 `plugin_manager: Arc<PluginManager>` 字段，用于管理 plugin agent 进程生命周期。`cli/src/db.rs` 新增 `plugin_agents` 表 migration（id/name/version/executable/status/restart_count/installed_at/updated_at），`agents` 表零改动。
 >
 > **2026-05-13**：`sessions` 从裸 `mpsc::Sender<SessionMessage>` 升级为 `SessionHandle`，用于同时保存消息队列、当前 runtime 子进程 pid 和 abort 标记。Claude / Codex / Cursor runtime 启动子进程时创建独立 process group，abort endpoint 会通过 `SessionHandle` 终止正在执行的进程组。相关回归测试拆分到相邻 `*_tests.rs` 文件，避免 runtime 主文件超过单文件行数上限。
+>
+> **2026-05-23**：`SessionHandle::abort_current_process` 与 `POST .../abort` 增加 `multisoul::abort` 结构化 tracing（无数据结构变更）；用于区分「仅 cooperative abort、未登记 pid」与「已发 SIGKILL / kill 失败」。
 
 完成实现后，按 `CLAUDE.md §5` 跑：
 

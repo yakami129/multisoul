@@ -162,6 +162,40 @@ test('updates the status badge when conversation metadata changes', async () => 
   await waitFor(() => expect(getByTestId('status-badge-text').props.children).toBe('RUNNING'));
 });
 
+test('syncs stale running badge from task_status embedded in fetched history', async () => {
+  useChatStore.setState((state) => ({
+    conversations: state.conversations.map((conv) =>
+      conv.id === 'conv-1' ? { ...conv, status: 'running' } : conv,
+    ),
+  }));
+  (fetchMessages as jest.Mock).mockResolvedValue([
+    ...historyMessages,
+    {
+      type: 'message',
+      seq: 99,
+      role: 'task_status',
+      payload: {
+        task_id: 'conv-1',
+        status: 'completed',
+        importance: 'normal',
+        summary: '',
+      },
+      created_at: 99,
+    },
+  ]);
+  const { getByTestId } = render(<ChatDetailScreen />);
+
+  await waitFor(() => {
+    expect(getByTestId('status-badge-text').props.children).toBe('COMPLETED');
+  });
+
+  await waitFor(() => {
+    expect(useChatStore.getState().conversations.find((c) => c.id === 'conv-1')?.status).toBe(
+      'completed',
+    );
+  });
+});
+
 test('animates the next agent text after sending a message', async () => {
   (fetchMessages as jest.Mock).mockResolvedValue([]);
   const { getByTestId, getByText } = render(<ChatDetailScreen />);
@@ -454,7 +488,7 @@ describe('send/stop button', () => {
 
   it('calls abortConversation when stop button pressed', async () => {
     const { abortConversation } = require('@/features/chat/services/chatService');
-    const { getByTestId } = render(<ChatDetailScreen />);
+    const { getByTestId, queryByTestId } = render(<ChatDetailScreen />);
 
     await act(async () => {
       fireEvent.changeText(getByTestId('message-input'), 'hello');
@@ -475,6 +509,15 @@ describe('send/stop button', () => {
         expect.any(String),
         'conv-1',
       );
+    });
+
+    await waitFor(() => {
+      expect(useChatStore.getState().conversations.find((c) => c.id === 'conv-1')?.status).toBe(
+        'idle',
+      );
+    });
+    await waitFor(() => {
+      expect(queryByTestId('stop-btn')).toBeNull();
     });
   });
 });

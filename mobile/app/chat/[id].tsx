@@ -28,6 +28,7 @@ import {
 import {
   getLatestAgentActivitySeq,
   getLatestAgentTextSeq,
+  isRenderableInChatTranscript,
 } from '@/features/chat/utils/chatRenderState';
 import { loadAnsweredAsks } from '@/features/inbox/services/inboxService';
 import { mirrorAskQuestionsToInbox } from '@/features/inbox/utils/mirrorAskQuestionsToInbox';
@@ -75,10 +76,15 @@ export default function ChatDetailScreen() {
   const conversations = useChatStore((s) => s.conversations);
   const messagesMap = useChatStore((s) => s.messages);
   const messages = messagesMap[conv_id] ?? EMPTY_MESSAGES;
+  const transcriptMessages = React.useMemo(
+    () => messages.filter(isRenderableInChatTranscript),
+    [messages],
+  );
   const setMessages = useChatStore((s) => s.setMessages);
   const updateConversation = useChatStore((s) => s.updateConversation);
   const addInboxItem = useInboxStore((s) => s.addItem);
   const conversation = conversations.find((c) => c.id === conv_id);
+  const inboxMirrorStableKey = `${conversation?.agent_id ?? agent_id ?? ''}:${conversation?.agent_name ?? agent_name ?? ''}`;
   const navTitle = conversation?.agent_name ?? agent_name ?? conversation?.title ?? 'CHAT';
   const latestAgentActivitySeq = getLatestAgentActivitySeq(messages);
   const latestAgentSeq = getLatestAgentTextSeq(messages);
@@ -136,6 +142,9 @@ export default function ChatDetailScreen() {
     askMessageYRef.current.clear();
   }, [conv_id, focus_ask_id]);
 
+  // History load runs when routing/endpoint/agent identity changes, not when only `conversation.status`
+  // changes (`handleSend` sets optimistic `running` — refetch must not squash Analyzing… / composer state).
+  // `useChatStore.getState()` in `.then()` supplies fresh agent ids at promise resolve time.
   useEffect(() => {
     if (!endpoint) return;
     Promise.all([
@@ -159,11 +168,12 @@ export default function ChatDetailScreen() {
           };
         });
         setMessages(conv_id, merged);
+        const storeConv = useChatStore.getState().conversations.find((c) => c.id === conv_id);
         void mirrorAskQuestionsToInbox({
           messages: merged,
           endpoint_id: endpoint_id ?? '',
-          agent_id: conversation?.agent_id ?? agent_id ?? '',
-          agent_name: conversation?.agent_name ?? agent_name,
+          agent_id: storeConv?.agent_id ?? agent_id ?? '',
+          agent_name: storeConv?.agent_name ?? agent_name,
           conversation_id: conv_id,
           addItem: addInboxItem,
         });
@@ -183,7 +193,7 @@ export default function ChatDetailScreen() {
     endpoint_id,
     agent_id,
     agent_name,
-    conversation,
+    inboxMirrorStableKey,
     setMessages,
     addInboxItem,
     scrollToFocusedAsk,
@@ -395,14 +405,14 @@ export default function ChatDetailScreen() {
             // Only auto-scroll when a new message is appended (count increases).
             // Avoids triggering on every streaming text update while a message
             // is already visible, which causes janky re-layout on long histories.
-            const currentCount = messages.length + (isAgentRunning ? 1 : 0);
+            const currentCount = transcriptMessages.length + (isAgentRunning ? 1 : 0);
             if (currentCount > prevMessageCountRef.current) {
               prevMessageCountRef.current = currentCount;
               scrollRef.current?.scrollToEnd({ animated: true });
             }
           }}
         >
-          {messages.map((msg) => {
+          {transcriptMessages.map((msg) => {
             const askId =
               msg.role === 'ask_question' ? (msg.payload as { ask_id?: string }).ask_id : undefined;
             return (
@@ -456,6 +466,8 @@ export default function ChatDetailScreen() {
                 void abortConversation(endpoint.base_url, endpoint.token, conv_id)
                   .then(() => {
                     setIsAwaitingResponse(false);
+                    // Server sets SQLite status to idle; keep Zustand in sync so composer/stop UI recovers immediately.
+                    updateConversation(conv_id, { status: 'idle' });
                   })
                   .catch((e: unknown) => {
                     recordDiagnosticsEvent('warn', 'chat.abort', 'abort request failed', {

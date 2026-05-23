@@ -2,8 +2,9 @@ import { create } from 'zustand';
 import {
   applyConversationPreviewMessage,
   applyConversationPreviewMessages,
+  resolveConversationStatusFromMessageHistory,
 } from '@/features/chat/utils/conversationPreview';
-import { type Conversation, type WsMessage } from '@/types';
+import { type Conversation, type TaskStatusPayload, type WsMessage } from '@/types';
 
 interface ChatState {
   conversations: Conversation[];
@@ -49,19 +50,35 @@ export const useChatStore = create<ChatState>((set) => ({
       const existing = s.messages[conv_id] ?? [];
       if (existing.some((m) => m.seq === msg.seq)) return s;
       return {
-        conversations: s.conversations.map((conv) =>
-          conv.id === conv_id ? applyConversationPreviewMessage(conv, msg) : conv,
-        ),
+        conversations: s.conversations.map((conv) => {
+          if (conv.id !== conv_id) return conv;
+          let next = applyConversationPreviewMessage(conv, msg);
+          if (msg.role === 'task_status' && msg.payload) {
+            const st = (msg.payload as TaskStatusPayload).status;
+            if (st === 'running' || st === 'completed' || st === 'failed') {
+              next = { ...next, status: st };
+            }
+          }
+          return next;
+        }),
         messages: { ...s.messages, [conv_id]: [...existing, msg] },
       };
     }),
   setMessages: (conv_id, msgs) =>
-    set((s) => ({
-      conversations: s.conversations.map((conv) =>
-        conv.id === conv_id ? applyConversationPreviewMessages(conv, msgs) : conv,
-      ),
-      messages: { ...s.messages, [conv_id]: msgs },
-    })),
+    set((s) => {
+      const fromMsgs = resolveConversationStatusFromMessageHistory(msgs);
+      return {
+        conversations: s.conversations.map((conv) => {
+          if (conv.id !== conv_id) return conv;
+          let next = applyConversationPreviewMessages(conv, msgs);
+          if (fromMsgs != null) {
+            next = { ...next, status: fromMsgs };
+          }
+          return next;
+        }),
+        messages: { ...s.messages, [conv_id]: msgs },
+      };
+    }),
   markAnswered: (conv_id, ask_id, choice_id, choice_ids) =>
     set((s) => {
       const existing = s.messages[conv_id];

@@ -337,6 +337,22 @@ describe('MessageBubble agent_text markdown rendering', () => {
     );
   });
 
+  /// tool_call 使用紧凑 chip（非整行 aiBubble），与历史实现一致
+  it('renders tool_call as compact ToolCallRow without outer aiBubble', () => {
+    const msg: WsMessage = {
+      type: 'message',
+      seq: 50,
+      role: 'tool_call',
+      payload: { tool: 'Read', args: '{}', call_id: 'call-1' },
+      created_at: 0,
+    };
+    const { getByTestId, queryByTestId } = render(<MessageBubble msg={msg} />);
+
+    expect(getByTestId('tool-call-row')).toBeTruthy();
+    expect(queryByTestId('tool-call-bubble')).toBeNull();
+    expect(queryByTestId('agent-text-bubble')).toBeNull();
+  });
+
   /// 历史消息（typewriter=false）：直接渲染 MarkdownMessage，不走 Text 分支
   ///
   /// 数据构造：

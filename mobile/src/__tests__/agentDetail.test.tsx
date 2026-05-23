@@ -17,6 +17,11 @@ jest.mock('../features/chat/services/chatService', () => ({
 jest.mock('expo-router', () => ({
   useLocalSearchParams: () => ({ id: 'uuid-1', endpoint_id: 'ep-1' }),
   useRouter: () => ({ back: jest.fn(), push: mockPush }),
+  useFocusEffect: (cb: () => (() => void) | void) => {
+    // In tests, run the focus effect once on mount (simulating screen focus).
+    const { useEffect } = require('react');
+    useEffect(() => cb(), []); // eslint-disable-line react-hooks/exhaustive-deps -- jest mock: stable one-shot focus
+  },
 }));
 
 jest.mock('react-native-safe-area-context', () => ({

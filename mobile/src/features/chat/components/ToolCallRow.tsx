@@ -14,7 +14,7 @@ export function ToolCallRow({ call, result }: Props) {
   const summary = result ? `-> ${result.ok ? 'ok' : 'err'}: ${result.summary}` : '-> pending';
 
   return (
-    <TouchableOpacity onPress={() => setExpanded((v) => !v)} style={s.row}>
+    <TouchableOpacity testID="tool-call-row" onPress={() => setExpanded((v) => !v)} style={s.row}>
       {expanded ? (
         <ChevronDown size={12} color="#555555" />
       ) : (
