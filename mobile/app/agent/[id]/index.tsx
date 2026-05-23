@@ -1,5 +1,5 @@
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import { AgentDetail } from '../../../src/features/agents/components/AgentDetail';
 import { fetchAgent } from '../../../src/features/agents/services/agentService';
 import {
@@ -21,25 +21,41 @@ export default function AgentDetailScreen() {
   const [recentConversations, setRecentConversations] = useState<Conversation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isError, setIsError] = useState(false);
+  /** After a successful fetch, identifies which agent + endpoint rendered (for silent refocus refreshes). */
+  const hydratedSurfaceRef = useRef<string | null>(null);
 
   useFocusEffect(
     useCallback(() => {
-      setIsLoading(true);
-      setIsError(false);
-      setAgent(undefined);
-      setRecentConversations([]);
-
       if (!id) {
-        setIsError(true);
+        hydratedSurfaceRef.current = null;
         setIsLoading(false);
+        setIsError(true);
+        setAgent(undefined);
+        setRecentConversations([]);
         return;
       }
       // Find the endpoint — prefer explicit endpoint_id param, else search all
       const ep = endpoint_id ? endpoints.find((e) => e.id === endpoint_id) : endpoints[0];
       if (!ep) {
-        setIsError(true);
+        hydratedSurfaceRef.current = null;
         setIsLoading(false);
+        setIsError(true);
+        setAgent(undefined);
+        setRecentConversations([]);
         return;
+      }
+
+      const surfaceKey = `${id}:${ep.id}`;
+      const softRefresh =
+        hydratedSurfaceRef.current !== null && hydratedSurfaceRef.current === surfaceKey;
+
+      if (!softRefresh) {
+        setIsLoading(true);
+        setIsError(false);
+        setAgent(undefined);
+        setRecentConversations([]);
+      } else {
+        setIsError(false);
       }
 
       let cancelled = false;
@@ -47,21 +63,26 @@ export default function AgentDetailScreen() {
       fetchAgent(ep.base_url, ep.token, id, ep.id, ep.label)
         .then(async (a) => {
           if (cancelled) return;
-          setAgent(a);
-          let conversations: Conversation[] = [];
+          let conversations: Conversation[] | undefined;
           try {
             conversations = await fetchConversations(ep.base_url, ep.token, id, ep.id, a.name);
           } catch {
-            conversations = [];
+            conversations = softRefresh ? undefined : [];
           }
           if (cancelled) return;
-          setRecentConversations(conversations);
-          conversations.forEach(addConversation);
+          hydratedSurfaceRef.current = surfaceKey;
+          setAgent(a);
+          if (conversations !== undefined) {
+            setRecentConversations(conversations);
+            conversations.forEach(addConversation);
+          }
           setIsLoading(false);
         })
         .catch(() => {
           if (cancelled) return;
-          setIsError(true);
+          if (!softRefresh) {
+            setIsError(true);
+          }
           setIsLoading(false);
         });
       return () => {

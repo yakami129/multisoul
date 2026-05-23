@@ -5,6 +5,12 @@ import { useEndpointStore } from '../store/endpointStore';
 
 const mockPush = jest.fn();
 
+type AgentDetailFocusHarness = {
+  simulateRefocus?: () => void;
+};
+
+(globalThis as unknown as { __MS_AGENT_FOCUS: AgentDetailFocusHarness }).__MS_AGENT_FOCUS = {};
+
 jest.mock('../features/agents/services/agentService', () => ({
   fetchAgent: jest.fn(),
 }));
@@ -18,9 +24,26 @@ jest.mock('expo-router', () => ({
   useLocalSearchParams: () => ({ id: 'uuid-1', endpoint_id: 'ep-1' }),
   useRouter: () => ({ back: jest.fn(), push: mockPush }),
   useFocusEffect: (cb: () => (() => void) | void) => {
-    // In tests, run the focus effect once on mount (simulating screen focus).
     const { useEffect } = require('react');
-    useEffect(() => cb(), []); // eslint-disable-line react-hooks/exhaustive-deps -- jest mock: stable one-shot focus
+    const g = globalThis as unknown as { __MS_AGENT_FOCUS: AgentDetailFocusHarness };
+    useEffect(() => {
+      let cleanup: void | (() => void);
+      const run = () => {
+        if (typeof cleanup === 'function') {
+          cleanup();
+        }
+        cleanup = cb();
+      };
+      g.__MS_AGENT_FOCUS.simulateRefocus = run;
+      run();
+      return () => {
+        if (typeof cleanup === 'function') {
+          cleanup();
+        }
+        delete g.__MS_AGENT_FOCUS?.simulateRefocus;
+      };
+      // eslint-disable-next-line react-hooks/exhaustive-deps -- jest mock: registers refocus simulator for tests
+    }, []);
   },
 }));
 
@@ -170,5 +193,45 @@ describe('AgentDetailScreen', () => {
     expect(mockPush).toHaveBeenCalledWith(
       '/chat/conv-existing?endpoint_id=ep-1&agent_id=uuid-1&agent_name=Weather%20Agent',
     );
+  });
+
+  it('refocus silently refreshes data without returning to loading screen', async () => {
+    const g = (globalThis as unknown as { __MS_AGENT_FOCUS: AgentDetailFocusHarness })
+      .__MS_AGENT_FOCUS;
+
+    render(<AgentDetailScreen />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Weather Agent')).toBeTruthy();
+      expect(fetchAgent).toHaveBeenCalledTimes(1);
+      expect(fetchConversations).toHaveBeenCalledTimes(1);
+    });
+
+    fetchConversations.mockResolvedValue([
+      {
+        id: 'conv-after-refocus',
+        agent_id: 'uuid-1',
+        title: 'New Chat',
+        created_at: 5,
+        last_message_at: 6,
+        status: 'idle',
+        endpoint_id: 'ep-1',
+        agent_name: 'Weather Agent',
+        first_user_message: 'After refocus list',
+        last_ai_reply: 'Updated snippet',
+      },
+    ]);
+
+    await act(async () => {
+      g.simulateRefocus?.();
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('After refocus list')).toBeTruthy();
+      expect(fetchAgent).toHaveBeenCalledTimes(2);
+      expect(fetchConversations).toHaveBeenCalledTimes(2);
+    });
+
+    expect(screen.queryByText('Loading...')).toBeNull();
   });
 });
