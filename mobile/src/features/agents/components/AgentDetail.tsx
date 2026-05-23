@@ -9,6 +9,7 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { conversationDisplaySummary, conversationDisplayTitle } from '@/features/chat';
 import { type Agent, type Conversation } from '@/types';
 
 interface Props {
@@ -54,10 +55,6 @@ function projectStatus(agent: Agent, conversations: Conversation[]): ProjectStat
     return { label: `Failed on ${machine} · ${displayRuntime(agent.runtime)}`, tone: 'failed' };
   }
   return { label: `Idle on ${machine} · ${displayRuntime(agent.runtime)}`, tone: 'idle' };
-}
-
-function conversationSummary(conversation: Conversation): string {
-  return conversation.last_ai_reply ?? conversation.first_user_message ?? conversation.status;
 }
 
 function relativeTime(ts: number): string {
@@ -163,7 +160,7 @@ export function AgentDetail({
                   style={s.chatRow}
                   onPress={() => onOpenConversation?.(conversation)}
                   accessibilityRole="button"
-                  accessibilityLabel={`Open ${conversation.title}`}
+                  accessibilityLabel={`Open ${conversationDisplayTitle(conversation)}`}
                 >
                   <View
                     style={[
@@ -175,10 +172,10 @@ export function AgentDetail({
                   />
                   <View style={s.chatInfo}>
                     <Text style={s.chatTitle} numberOfLines={1}>
-                      {conversation.title}
+                      {conversationDisplayTitle(conversation)}
                     </Text>
                     <Text style={s.chatSummary} numberOfLines={1}>
-                      {conversationSummary(conversation)}
+                      {conversationDisplaySummary(conversation)}
                     </Text>
                   </View>
                   <View style={s.chatMeta}>
