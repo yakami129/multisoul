@@ -21,13 +21,14 @@ const agent: Agent = {
 const recentConversation: Conversation = {
   id: 'conv-1',
   agent_id: 'a1',
-  title: 'Add dark mode toggle',
+  title: 'New Chat',
   created_at: 1,
   last_message_at: 2,
   status: 'running',
   endpoint_id: 'ep-1',
   agent_name: 'My Agent',
   first_user_message: 'Add a dark mode toggle',
+  last_ai_reply: 'The dark mode toggle is wired up',
 };
 
 describe('AgentDetail', () => {
@@ -58,7 +59,8 @@ describe('AgentDetail', () => {
     expect(getByText('My Agent')).toBeTruthy();
     expect(getAllByText('Running on Local · Claude Code').length).toBeGreaterThanOrEqual(1);
     expect(getByText('Recent Chats')).toBeTruthy();
-    expect(getByText('Add dark mode toggle')).toBeTruthy();
+    expect(getByText('Add a dark mode toggle')).toBeTruthy();
+    expect(getByText('The dark mode toggle is wired up')).toBeTruthy();
     expect(queryByText('INVOKE')).toBeNull();
   });
 
@@ -106,7 +108,7 @@ describe('AgentDetail', () => {
       />,
     );
 
-    fireEvent.press(getByText('Add dark mode toggle'));
+    fireEvent.press(getByText('Add a dark mode toggle'));
     expect(onOpenConversation).toHaveBeenCalledWith(recentConversation);
   });
 });

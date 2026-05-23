@@ -48,23 +48,25 @@ describe('ActivityTab routing', () => {
         {
           id: 'conv-running',
           agent_id: 'agent-2',
-          title: 'Refactor login flow',
+          title: 'New Chat',
           created_at: Date.now() - 2000,
           last_message_at: Date.now() - 1000,
           status: 'running',
           endpoint_id: 'endpoint-1',
           agent_name: 'Auth Project',
           first_user_message: 'Tighten sign in states',
+          last_ai_reply: 'I am checking the sign in state machine',
         },
         {
           id: 'conv-done',
           agent_id: 'agent-3',
-          title: 'Ship release notes',
+          title: 'New Chat',
           created_at: Date.now() - 5000,
           last_message_at: Date.now() - 3000,
           status: 'completed',
           endpoint_id: 'endpoint-1',
           agent_name: 'Docs Project',
+          first_user_message: 'Ship release notes',
           last_ai_reply: 'Release notes are ready',
         },
       ],
@@ -80,8 +82,10 @@ describe('ActivityTab routing', () => {
     expect(screen.getAllByText('Running').length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText('Done').length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText('Deploy now?')).toBeTruthy();
-    expect(screen.getByText('Refactor login flow')).toBeTruthy();
+    expect(screen.getByText('Tighten sign in states')).toBeTruthy();
+    expect(screen.getByText('I am checking the sign in state machine')).toBeTruthy();
     expect(screen.getByText('Ship release notes')).toBeTruthy();
+    expect(screen.getByText('Release notes are ready')).toBeTruthy();
   });
 
   it('opens a pending decision with focus_ask_id', () => {
@@ -98,7 +102,7 @@ describe('ActivityTab routing', () => {
   it('opens a running conversation at Chat Detail', () => {
     render(<ActivityTab />);
 
-    fireEvent.press(screen.getByLabelText('Open Refactor login flow'));
+    fireEvent.press(screen.getByLabelText('Open Tighten sign in states'));
 
     expect(mockPush).toHaveBeenCalledWith(
       '/chat/conv-running?endpoint_id=endpoint-1&agent_id=agent-2&agent_name=Auth%20Project',

@@ -1,4 +1,8 @@
 import { create } from 'zustand';
+import {
+  applyConversationPreviewMessage,
+  applyConversationPreviewMessages,
+} from '@/features/chat/utils/conversationPreview';
 import { type Conversation, type WsMessage } from '@/types';
 
 interface ChatState {
@@ -44,9 +48,20 @@ export const useChatStore = create<ChatState>((set) => ({
     set((s) => {
       const existing = s.messages[conv_id] ?? [];
       if (existing.some((m) => m.seq === msg.seq)) return s;
-      return { messages: { ...s.messages, [conv_id]: [...existing, msg] } };
+      return {
+        conversations: s.conversations.map((conv) =>
+          conv.id === conv_id ? applyConversationPreviewMessage(conv, msg) : conv,
+        ),
+        messages: { ...s.messages, [conv_id]: [...existing, msg] },
+      };
     }),
-  setMessages: (conv_id, msgs) => set((s) => ({ messages: { ...s.messages, [conv_id]: msgs } })),
+  setMessages: (conv_id, msgs) =>
+    set((s) => ({
+      conversations: s.conversations.map((conv) =>
+        conv.id === conv_id ? applyConversationPreviewMessages(conv, msgs) : conv,
+      ),
+      messages: { ...s.messages, [conv_id]: msgs },
+    })),
   markAnswered: (conv_id, ask_id, choice_id, choice_ids) =>
     set((s) => {
       const existing = s.messages[conv_id];

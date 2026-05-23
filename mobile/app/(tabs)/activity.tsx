@@ -3,6 +3,7 @@ import React, { useCallback, useMemo, useState } from 'react';
 import { StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import ActivityScreen, { type ActivityItem } from '@/features/activity/components/ActivityScreen';
+import { conversationDisplaySummary, conversationDisplayTitle } from '@/features/chat';
 import { buildChatDetailPath } from '@/features/chat/utils/chatRoutes';
 import { useChatStore } from '@/store/chatStore';
 import { useInboxStore } from '@/store/inboxStore';
@@ -28,10 +29,6 @@ type RoutedActivityItem = PendingActivityItem | ConversationActivityItem;
 function questionTitle(item: InboxItem): string {
   const payload = item.payload as AskQuestionPayload | null;
   return payload?.questions[0]?.text ?? item.body;
-}
-
-function conversationSubtitle(conversation: Conversation): string {
-  return conversation.last_ai_reply ?? conversation.first_user_message ?? conversation.title;
 }
 
 function doneStatus(conversation: Conversation): { label: string; tone: ActivityItem['tone'] } {
@@ -100,8 +97,8 @@ export default function ActivityTab() {
         source: 'conversation',
         section: 'running',
         projectName: conversation.agent_name,
-        title: conversation.title,
-        subtitle: conversationSubtitle(conversation),
+        title: conversationDisplayTitle(conversation),
+        subtitle: conversationDisplaySummary(conversation),
         statusLabel: 'Running',
         tone: 'running',
         timestamp: conversation.last_message_at,
@@ -120,8 +117,8 @@ export default function ActivityTab() {
           source: 'conversation',
           section: 'done',
           projectName: conversation.agent_name,
-          title: conversation.title,
-          subtitle: conversationSubtitle(conversation),
+          title: conversationDisplayTitle(conversation),
+          subtitle: conversationDisplaySummary(conversation),
           statusLabel: status.label,
           tone: status.tone,
           timestamp: conversation.last_message_at,

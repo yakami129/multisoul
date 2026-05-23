@@ -73,13 +73,14 @@ describe('AgentDetailScreen', () => {
       {
         id: 'conv-existing',
         agent_id: 'uuid-1',
-        title: 'Check forecast alerts',
+        title: 'New Chat',
         created_at: 1,
         last_message_at: 2,
         status: 'running',
         endpoint_id: 'ep-1',
         agent_name: 'Weather Agent',
         first_user_message: 'Look for severe weather warnings',
+        last_ai_reply: 'There are no severe warnings right now',
       },
     ]);
     createConversation.mockResolvedValue({
@@ -110,7 +111,8 @@ describe('AgentDetailScreen', () => {
 
     expect(screen.getByText('Running on Local · Claude Code')).toBeTruthy();
     expect(screen.getByText('Recent Chats')).toBeTruthy();
-    expect(screen.getByText('Check forecast alerts')).toBeTruthy();
+    expect(screen.getByText('Look for severe weather warnings')).toBeTruthy();
+    expect(screen.getByText('There are no severe warnings right now')).toBeTruthy();
   });
 
   it('shows error state when fetchAgent fails', async () => {
@@ -155,10 +157,10 @@ describe('AgentDetailScreen', () => {
     render(<AgentDetailScreen />);
 
     await waitFor(() => {
-      expect(screen.getByText('Check forecast alerts')).toBeTruthy();
+      expect(screen.getByText('Look for severe weather warnings')).toBeTruthy();
     });
 
-    fireEvent.press(screen.getByText('Check forecast alerts'));
+    fireEvent.press(screen.getByText('Look for severe weather warnings'));
 
     expect(mockPush).toHaveBeenCalledWith(
       '/chat/conv-existing?endpoint_id=ep-1&agent_id=uuid-1&agent_name=Weather%20Agent',
