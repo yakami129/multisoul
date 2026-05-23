@@ -14,6 +14,7 @@ import {
   Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { EMPTY_MESSAGES, STATUS_BADGE, WAITING_MESSAGE } from '@/features/chat/chatDetailConstants';
 import ChatInputBar from '@/features/chat/components/ChatInputBar';
 import CommandPopup from '@/features/chat/components/CommandPopup';
 import { MessageBubble } from '@/features/chat/components/MessageBubble';
@@ -37,24 +38,6 @@ import { useEndpointStore } from '@/store/endpointStore';
 import { useInboxStore } from '@/store/inboxStore';
 import { type WsMessage } from '@/types';
 import { s } from './styles';
-
-// Stable fallback — never recreated, so Zustand won't see a changed snapshot
-const EMPTY: WsMessage[] = [];
-const WAITING_MESSAGE: WsMessage = {
-  type: 'message',
-  seq: -1,
-  role: 'agent_text',
-  payload: { text: '' },
-  created_at: 0,
-};
-
-const STATUS_BADGE: Record<string, { label: string; bg: string; dot: string }> = {
-  running: { label: 'RUNNING', bg: '#1A1A1A', dot: '#FF6B35' },
-  awaiting_question: { label: 'AWAITING', bg: '#1A1A1A', dot: '#FF6B35' },
-  completed: { label: 'COMPLETED', bg: '#1A1A1A', dot: '#4CAF50' },
-  failed: { label: 'FAILED', bg: '#1A1A1A', dot: '#FF4444' },
-  idle: { label: 'IDLE', bg: '#1A1A1A', dot: '#555555' },
-};
 
 interface PendingImage {
   localUri: string;
@@ -90,10 +73,8 @@ export default function ChatDetailScreen() {
 
   const endpoint = useEndpointStore((s) => s.endpoints.find((e) => e.id === endpoint_id));
   const conversations = useChatStore((s) => s.conversations);
-  // Select the whole map so the selector returns a stable object reference;
-  // derive the per-conversation array outside the selector using the module-level EMPTY fallback.
   const messagesMap = useChatStore((s) => s.messages);
-  const messages = messagesMap[conv_id] ?? EMPTY;
+  const messages = messagesMap[conv_id] ?? EMPTY_MESSAGES;
   const setMessages = useChatStore((s) => s.setMessages);
   const updateConversation = useChatStore((s) => s.updateConversation);
   const addInboxItem = useInboxStore((s) => s.addItem);
