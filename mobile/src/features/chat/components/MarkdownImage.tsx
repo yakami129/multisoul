@@ -128,11 +128,10 @@ export function MarkdownImage({ src, alt, serverUrl, token }: Props) {
   }, []);
 
   const markFullscreenLoadStarted = React.useCallback(() => {
-    if (!thumbPrefetchLoadedRef.current) setFullscreenLoading(true);
+    setFullscreenLoading(true);
   }, []);
 
   const markFullscreenLoaded = React.useCallback(() => {
-    thumbPrefetchLoadedRef.current = true;
     setFullscreenLoading(false);
   }, []);
 
@@ -211,7 +210,7 @@ export function MarkdownImage({ src, alt, serverUrl, token }: Props) {
         style={s.thumbnailFrame}
         onPress={() => {
           setFullscreenError(false);
-          setFullscreenLoading(!thumbPrefetchLoadedRef.current);
+          setFullscreenLoading(true);
           setPreviewVisible(true);
         }}
       >
