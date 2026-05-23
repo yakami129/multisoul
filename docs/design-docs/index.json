@@ -28,7 +28,7 @@
         },
         {
           "path": "cli/src/serve/state.rs",
-          "sha256": "7c92ea8f53473d3d899cce286dbfca4bcb4b66b3205844978016b4c9a020dc36",
+          "sha256": "28737e6747c78529e7facfaa67d1f5fef5fda8f1f243c74b1df8fbcc0f381ae8",
           "reason": "AppState、SessionMessage 与 runtime worker 通信结构由文档核心数据结构章节引用。"
         },
         {

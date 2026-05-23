@@ -1,6 +1,7 @@
 import {
   type AgentTextPayload,
   type Conversation,
+  type TaskStatusPayload,
   type UserTextPayload,
   type WsMessage,
 } from '@/types';
@@ -55,4 +56,46 @@ export function applyConversationPreviewMessages(
   messages: WsMessage[],
 ): Conversation {
   return messages.reduce(applyConversationPreviewMessage, conversation);
+}
+
+/** Last matching `task_status` in message order reflects the server's task state after history load/catch-up. */
+export function getLatestConversationStatusFromTaskMessages(
+  messages: WsMessage[],
+): Conversation['status'] | null {
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const m = messages[index];
+    if (m.role !== 'task_status' || m.payload == null) continue;
+    const st = (m.payload as TaskStatusPayload).status;
+    if (st === 'running' || st === 'completed' || st === 'failed') {
+      return st;
+    }
+  }
+  return null;
+}
+
+/**
+ * Conversation.status when replacing the **full** message list (REST catch-up).
+ *
+ * Guards against a stale final `task_status` from an **earlier turn** — e.g. after the user sends
+ * again, history may temporarily end with `user_text` while the last streamed `task_status` is still
+ * `completed` until the runtime emits updates for the new turn.
+ *
+ * Keeps parity with transient WS-driven states (`awaiting_question` when the transcript ends on an
+ * unanswered question card).
+ */
+export function resolveConversationStatusFromMessageHistory(
+  messages: WsMessage[],
+): Conversation['status'] | null {
+  if (messages.length === 0) return null;
+
+  const last = messages[messages.length - 1];
+  if (last.role === 'ask_question') {
+    if (!last.answered) return 'awaiting_question';
+    return getLatestConversationStatusFromTaskMessages(messages);
+  }
+  if (last.role === 'user_text') {
+    return 'running';
+  }
+
+  return getLatestConversationStatusFromTaskMessages(messages);
 }

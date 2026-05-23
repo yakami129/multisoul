@@ -1,5 +1,11 @@
-import { CircleCheck, Clock3, MessageCircle, Sparkles } from 'lucide-react-native';
-import React from 'react';
+import {
+  CircleCheck,
+  Clock3,
+  MessageCircle,
+  SlidersHorizontal,
+  Sparkles,
+} from 'lucide-react-native';
+import React, { useState } from 'react';
 import { RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 export interface ActivityItem {
@@ -21,6 +27,15 @@ interface Props {
   onRefresh?: () => void;
   onOpenItem: (item: ActivityItem) => void;
 }
+
+type ActivityFilter = 'all' | 'pending' | 'running' | 'done';
+
+const FILTERS: Array<{ key: ActivityFilter; label: string }> = [
+  { key: 'all', label: 'All' },
+  { key: 'pending', label: 'Pending' },
+  { key: 'running', label: 'Running' },
+  { key: 'done', label: 'Done' },
+];
 
 function formatRelativeTime(ts: number): string {
   const diff = Date.now() - ts;
@@ -114,23 +129,54 @@ export default function ActivityScreen({
   onRefresh,
   onOpenItem,
 }: Props) {
+  const [activeFilter, setActiveFilter] = useState<ActivityFilter>('all');
+  const showAttention = activeFilter === 'all' || activeFilter === 'pending';
+  const showRunning = activeFilter === 'all' || activeFilter === 'running';
+  const showDone = activeFilter === 'all' || activeFilter === 'done';
+  const totalCount = needsAttention.length + running.length + done.length;
+
   return (
     <View style={s.root}>
       <View style={s.header}>
-        <Text style={s.title}>Activity</Text>
+        <View style={s.titleRow}>
+          <Text style={s.title}>Activity</Text>
+          <SlidersHorizontal size={22} color="#888888" />
+        </View>
         <View style={s.summaryRow}>
           <View style={s.summaryPill}>
             <Sparkles size={13} color="#FF6B35" />
-            <Text style={s.summaryText}>{needsAttention.length} attention</Text>
+            <Text style={s.summaryText}>{needsAttention.length} pending</Text>
           </View>
           <View style={s.summaryPill}>
             <Clock3 size={13} color="#888888" />
             <Text style={s.summaryText}>{running.length} running</Text>
           </View>
         </View>
+        <View style={s.filterWrap}>
+          <Text style={s.filterLabel}>STATUS</Text>
+          <View style={s.chipRow}>
+            {FILTERS.map((filter) => {
+              const selected = activeFilter === filter.key;
+              return (
+                <TouchableOpacity
+                  key={filter.key}
+                  style={[s.filterChip, selected && s.filterChipActive]}
+                  onPress={() => setActiveFilter(filter.key)}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected }}
+                  accessibilityLabel={`Show ${filter.label} activity`}
+                >
+                  <Text style={[s.filterChipText, selected && s.filterChipTextActive]}>
+                    {filter.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
       </View>
 
-      {needsAttention.length === 0 && running.length === 0 && done.length === 0 ? (
+      {totalCount === 0 ? (
         <ScrollView
           contentContainerStyle={s.emptyBody}
           refreshControl={
@@ -150,24 +196,30 @@ export default function ActivityScreen({
             <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor="#FF6B35" />
           }
         >
-          <Section
-            title="Needs Attention"
-            items={needsAttention}
-            emptyText="No decisions waiting."
-            onOpenItem={onOpenItem}
-          />
-          <Section
-            title="Running"
-            items={running}
-            emptyText="No active sessions."
-            onOpenItem={onOpenItem}
-          />
-          <Section
-            title="Done"
-            items={done}
-            emptyText="No recent results."
-            onOpenItem={onOpenItem}
-          />
+          {showAttention && (
+            <Section
+              title="Needs Attention"
+              items={needsAttention}
+              emptyText="No pending decisions."
+              onOpenItem={onOpenItem}
+            />
+          )}
+          {showRunning && (
+            <Section
+              title="Running"
+              items={running}
+              emptyText="No active sessions."
+              onOpenItem={onOpenItem}
+            />
+          )}
+          {showDone && (
+            <Section
+              title="Done"
+              items={done}
+              emptyText="No recent results."
+              onOpenItem={onOpenItem}
+            />
+          )}
         </ScrollView>
       )}
     </View>
@@ -177,6 +229,7 @@ export default function ActivityScreen({
 const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#0D0D0D' },
   header: { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 14, gap: 12 },
+  titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   title: { fontFamily: 'Inter', fontSize: 34, fontWeight: '700', color: '#FFFFFF' },
   summaryRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
   summaryPill: {
@@ -189,6 +242,20 @@ const s = StyleSheet.create({
     paddingVertical: 7,
   },
   summaryText: { fontFamily: 'Inter', fontSize: 13, color: '#DDDDDD' },
+  filterWrap: { gap: 8 },
+  filterLabel: { fontFamily: 'Inter', fontSize: 11, fontWeight: '600', color: '#666666' },
+  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  filterChip: {
+    minHeight: 32,
+    borderRadius: 16,
+    backgroundColor: '#1A1A1A',
+    paddingHorizontal: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  filterChipActive: { backgroundColor: '#FF6B35' },
+  filterChipText: { fontFamily: 'Inter', fontSize: 13, color: '#DDDDDD' },
+  filterChipTextActive: { fontWeight: '600', color: '#FFFFFF' },
   content: { paddingHorizontal: 16, paddingBottom: 110, gap: 18 },
   section: { gap: 8 },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },

@@ -1,5 +1,9 @@
 import type { WsMessage } from '@/types';
-import { getLatestAgentActivitySeq, getLatestAgentTextSeq } from './chatRenderState';
+import {
+  getLatestAgentActivitySeq,
+  getLatestAgentTextSeq,
+  isRenderableInChatTranscript,
+} from './chatRenderState';
 
 function message(seq: number, role: WsMessage['role']): WsMessage {
   return {
@@ -31,6 +35,12 @@ test('agent activity includes non-text response messages', () => {
   ];
 
   expect(getLatestAgentActivitySeq(messages)).toBe(4);
+});
+
+test('transcript omits tool_result rows (merged into tool_call UI later / no placeholder gap)', () => {
+  const messages = [message(1, 'tool_call'), message(2, 'tool_result'), message(3, 'tool_call')];
+  const visible = messages.filter(isRenderableInChatTranscript);
+  expect(visible.map((m) => m.seq)).toEqual([1, 3]);
 });
 
 test('agent text sequence only tracks text responses', () => {

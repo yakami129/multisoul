@@ -63,10 +63,19 @@ export function CopyButton({ code }: { code: string }) {
 const mdStyles = {
   body: {
     fontFamily: 'Inter',
-    fontSize: 14,
+    fontSize: 15,
     color: '#DDDDDD',
-    lineHeight: 20,
+    lineHeight: 22,
     backgroundColor: 'transparent',
+  },
+  paragraph: {
+    marginTop: 6,
+    marginBottom: 6,
+    flexWrap: 'wrap' as const,
+    flexDirection: 'row' as const,
+    alignItems: 'flex-start' as const,
+    justifyContent: 'flex-start' as const,
+    width: '100%' as const,
   },
   heading1: {
     fontFamily: 'Inter',
@@ -94,7 +103,7 @@ const mdStyles = {
   },
   bullet_list: { marginVertical: 4 },
   ordered_list: { marginVertical: 4 },
-  list_item: { color: '#DDDDDD', fontFamily: 'Inter', fontSize: 14 },
+  list_item: { color: '#DDDDDD', fontFamily: 'Inter', fontSize: 15 },
   bullet_list_icon: { color: '#888888' },
   ordered_list_icon: { color: '#888888' },
   code_inline: {
@@ -112,7 +121,7 @@ const mdStyles = {
     borderColor: '#1E1E1E',
     borderRadius: 8,
     padding: 12,
-    marginVertical: 6,
+    marginVertical: 4,
     position: 'relative' as const,
   },
   code_block: {

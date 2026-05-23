@@ -8,7 +8,7 @@ use std::sync::{
     Arc, Mutex,
 };
 use tokio::sync::broadcast;
-use tracing::warn;
+use tracing::{info, warn};
 
 /// Message sent from HTTP handler to session worker via channel.
 #[derive(Debug)]
@@ -61,12 +61,41 @@ impl SessionHandle {
 
     pub fn abort_current_process(&self) -> bool {
         self.aborted.store(true, Ordering::SeqCst);
-        let Some(pid) = *self.current_pid.lock().unwrap() else {
+        let registered_pid = *self.current_pid.lock().unwrap();
+        let Some(pid) = registered_pid else {
+            warn!(
+                target: "multisoul::abort",
+                phase = "handle",
+                outcome = "no_registered_pid",
+                "abort skips SIGKILL — set Cooperative `aborted` flag only",
+            );
             return false;
         };
+        info!(
+            target: "multisoul::abort",
+            phase = "handle",
+            outcome = "kill_attempt",
+            pid,
+            "abort sending SIGKILL to registered child / process-group",
+        );
         let killed = (self.kill_process)(pid);
         if killed {
             self.clear_current_pid(pid);
+            info!(
+                target: "multisoul::abort",
+                phase = "handle",
+                outcome = "kill_ok_pid_cleared",
+                pid,
+                "abort kill returned success",
+            );
+        } else {
+            warn!(
+                target: "multisoul::abort",
+                phase = "handle",
+                outcome = "kill_failed",
+                pid,
+                "abort kill syscall returned failure (child may still run)",
+            );
         }
         killed
     }

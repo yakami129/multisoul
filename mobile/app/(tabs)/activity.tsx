@@ -1,13 +1,19 @@
 import { useFocusEffect, useRouter } from 'expo-router';
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import ActivityScreen, { type ActivityItem } from '@/features/activity/components/ActivityScreen';
 import { conversationDisplaySummary, conversationDisplayTitle } from '@/features/chat';
 import { buildChatDetailPath } from '@/features/chat/utils/chatRoutes';
+import { loadAnsweredAsks } from '@/features/inbox/services/inboxService';
 import { useChatStore } from '@/store/chatStore';
 import { useInboxStore } from '@/store/inboxStore';
-import { type AskQuestionPayload, type Conversation, type InboxItem } from '@/types';
+import {
+  type AskQuestionPayload,
+  type Conversation,
+  type InboxItem,
+  type WsMessage,
+} from '@/types';
 
 type PendingActivityItem = ActivityItem & {
   source: 'inbox';
@@ -26,9 +32,18 @@ type ConversationActivityItem = ActivityItem & {
 
 type RoutedActivityItem = PendingActivityItem | ConversationActivityItem;
 
+interface AnsweredAskCache {
+  checkedConversationIds: Set<string>;
+  answeredAskIdsByConversation: Record<string, Set<string>>;
+}
+
 function questionTitle(item: InboxItem): string {
   const payload = item.payload as AskQuestionPayload | null;
   return payload?.questions[0]?.text ?? item.body;
+}
+
+function questionTitleFromPayload(payload: AskQuestionPayload): string {
+  return payload.questions[0]?.text ?? 'Agent needs input';
 }
 
 function doneStatus(conversation: Conversation): { label: string; tone: ActivityItem['tone'] } {
@@ -40,13 +55,42 @@ function byNewest(a: ActivityItem, b: ActivityItem) {
   return b.timestamp - a.timestamp;
 }
 
+function setEqual(a: Set<string>, b: Set<string>) {
+  if (a.size !== b.size) return false;
+  return Array.from(a).every((value) => b.has(value));
+}
+
+function answeredAskIdsEqual(a: Record<string, Set<string>>, b: Record<string, Set<string>>) {
+  const aKeys = Object.keys(a);
+  const bKeys = Object.keys(b);
+  if (aKeys.length !== bKeys.length) return false;
+  return aKeys.every((key) => {
+    const aSet = a[key];
+    const bSet = b[key];
+    if (!bSet || aSet.size !== bSet.size) return false;
+    return Array.from(aSet).every((askId) => bSet.has(askId));
+  });
+}
+
+function answeredAskCacheEqual(a: AnsweredAskCache, b: AnsweredAskCache) {
+  return (
+    setEqual(a.checkedConversationIds, b.checkedConversationIds) &&
+    answeredAskIdsEqual(a.answeredAskIdsByConversation, b.answeredAskIdsByConversation)
+  );
+}
+
 export default function ActivityTab() {
   const inboxItems = useInboxStore((s) => s.items);
   const markRead = useInboxStore((s) => s.markRead);
   const load = useInboxStore((s) => s.load);
   const conversations = useChatStore((s) => s.conversations);
+  const messagesByConversation = useChatStore((s) => s.messages);
   const router = useRouter();
   const [refreshing, setRefreshing] = useState(false);
+  const [answeredAskCache, setAnsweredAskCache] = useState<AnsweredAskCache>({
+    checkedConversationIds: new Set(),
+    answeredAskIdsByConversation: {},
+  });
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -65,9 +109,108 @@ export default function ActivityTab() {
     }, [handleRefresh]),
   );
 
+  useEffect(() => {
+    const conversationIds = Array.from(
+      new Set(
+        inboxItems
+          .filter((item) => item.kind === 'pending_question' && item.payload !== null)
+          .map((item) => item.conversation_id),
+      ),
+    );
+
+    if (conversationIds.length === 0) {
+      setAnsweredAskCache((current) => {
+        const next = {
+          checkedConversationIds: new Set<string>(),
+          answeredAskIdsByConversation: {},
+        };
+        return answeredAskCacheEqual(current, next) ? current : next;
+      });
+      return;
+    }
+
+    let cancelled = false;
+    Promise.all(
+      conversationIds.map(async (conversationId) => {
+        const answered = await loadAnsweredAsks(conversationId);
+        return [conversationId, new Set(answered.keys())] as const;
+      }),
+    )
+      .then((entries) => {
+        if (cancelled) return;
+        const next: AnsweredAskCache = {
+          checkedConversationIds: new Set(conversationIds),
+          answeredAskIdsByConversation: Object.fromEntries(
+            entries.filter(([, askIds]) => askIds.size > 0),
+          ),
+        };
+        setAnsweredAskCache((current) => (answeredAskCacheEqual(current, next) ? current : next));
+      })
+      .catch(() => {
+        if (cancelled) return;
+        const next = {
+          checkedConversationIds: new Set<string>(),
+          answeredAskIdsByConversation: {},
+        };
+        setAnsweredAskCache((current) => (answeredAskCacheEqual(current, next) ? current : next));
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [inboxItems]);
+
   const { needsAttention, running, done } = useMemo(() => {
-    const attention = inboxItems
-      .filter((item) => item.kind === 'pending_question' && item.payload !== null)
+    const conversationsById = new Map(
+      conversations.map((conversation) => [conversation.id, conversation]),
+    );
+    const loadedAskIds = new Set<string>();
+    const answeredLoadedAskIds = new Set<string>();
+
+    const loadedQuestions = Object.entries(messagesByConversation).flatMap(
+      ([conversationId, messages]) => {
+        const conversation = conversationsById.get(conversationId);
+        return messages
+          .filter((message): message is WsMessage & { payload: AskQuestionPayload } => {
+            if (message.role !== 'ask_question') return false;
+            const payload = message.payload as AskQuestionPayload | null;
+            return payload?.ask_id != null;
+          })
+          .map<PendingActivityItem>((message) => {
+            const payload = message.payload as AskQuestionPayload;
+            loadedAskIds.add(payload.ask_id);
+            if (message.answered) {
+              answeredLoadedAskIds.add(payload.ask_id);
+            }
+            return {
+              id: `attention:${payload.ask_id}`,
+              source: 'inbox',
+              section: 'attention',
+              projectName: conversation?.agent_name ?? 'Agent',
+              title: questionTitleFromPayload(payload),
+              subtitle: conversation ? conversationDisplayTitle(conversation) : conversationId,
+              statusLabel: 'Pending',
+              tone: 'attention',
+              timestamp: message.created_at,
+              endpointId: conversation?.endpoint_id ?? '',
+              conversationId,
+              agentId: conversation?.agent_id ?? '',
+              agentName: conversation?.agent_name ?? 'Agent',
+              askId: payload.ask_id,
+              inboxId: payload.ask_id,
+            };
+          });
+      },
+    );
+
+    const inboxFallback = inboxItems
+      .filter((item) => {
+        if (item.kind !== 'pending_question' || item.payload === null) return false;
+        const askId = item.payload.ask_id;
+        if (loadedAskIds.has(askId) || answeredLoadedAskIds.has(askId)) return false;
+        if (!answeredAskCache.checkedConversationIds.has(item.conversation_id)) return false;
+        return !answeredAskCache.answeredAskIdsByConversation[item.conversation_id]?.has(askId);
+      })
       .map<PendingActivityItem>((item) => {
         const payload = item.payload as AskQuestionPayload;
         return {
@@ -77,7 +220,7 @@ export default function ActivityTab() {
           projectName: item.title,
           title: questionTitle(item),
           subtitle: item.conversation_id,
-          statusLabel: 'Needs input',
+          statusLabel: 'Pending',
           tone: 'attention',
           timestamp: item.received_at,
           endpointId: item.endpoint_id,
@@ -87,8 +230,12 @@ export default function ActivityTab() {
           askId: payload.ask_id,
           inboxId: item.id,
         };
-      })
-      .sort(byNewest);
+      });
+
+    const attention = [
+      ...loadedQuestions.filter((item) => !answeredLoadedAskIds.has(item.askId)),
+      ...inboxFallback,
+    ].sort(byNewest);
 
     const active = conversations
       .filter((conversation) => conversation.status === 'running')
@@ -128,7 +275,7 @@ export default function ActivityTab() {
       .sort(byNewest);
 
     return { needsAttention: attention, running: active, done: completed };
-  }, [inboxItems, conversations]);
+  }, [inboxItems, conversations, messagesByConversation, answeredAskCache]);
 
   const handleOpenItem = (item: ActivityItem) => {
     const routed = item as RoutedActivityItem;
