@@ -1,51 +1,92 @@
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import React, { useState } from 'react';
-import {
-  Modal,
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  ActivityIndicator,
-  StyleSheet,
-} from 'react-native';
+import * as Clipboard from 'expo-clipboard';
+import { ChevronLeft, Copy, Info, Terminal, X } from 'lucide-react-native';
+import React, { useEffect, useState } from 'react';
+import { Modal, View, Text, TouchableOpacity, ScrollView } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { getEndpointClient } from '@/api/endpointClient';
+import { addEndpointModalStyles as s } from './addEndpointModalStyles';
 
-type Tab = 'manual' | 'qr';
+type SetupCommand = {
+  id: string;
+  title: string;
+  command: string;
+};
 
 interface Props {
   visible: boolean;
   onClose: () => void;
   onAdd: (label: string, base_url: string, token: string) => void;
+  initialTab?: 'manual' | 'qr';
 }
 
+const SETUP_COMMANDS: SetupCommand[] = [
+  { id: 'install', title: '1. Install msctl', command: 'npm install -g @yakami129/msctl' },
+  {
+    id: 'service',
+    title: '2. Start service',
+    command: 'msctl daemon quickstart --token test --port 8765 --tailnet true',
+  },
+  {
+    id: 'codex',
+    title: 'Codex',
+    command:
+      'msctl agent register \\\n  --name work-codex \\\n  --project /path/to/project \\\n  --runtime codex \\\n  --mode full-auto',
+  },
+  {
+    id: 'claude',
+    title: 'Claude Code',
+    command:
+      'msctl agent register \\\n  --name work-claude \\\n  --project /path/to/project \\\n  --runtime claude-code',
+  },
+  {
+    id: 'cursor',
+    title: 'Cursor Agent CLI',
+    command:
+      'msctl agent register \\\n  --name work-cursor \\\n  --project /path/to/project \\\n  --runtime cursor-cli \\\n  --mode ask',
+  },
+];
+
 export function AddEndpointModal({ visible, onClose, onAdd }: Props) {
-  const [tab, setTab] = useState<Tab>('manual');
-  const [label, setLabel] = useState('');
-  const [url, setUrl] = useState('');
-  const [token, setToken] = useState('');
   const [status, setStatus] = useState<'idle' | 'checking' | 'err'>('idle');
   const [scanned, setScanned] = useState(false);
+  const [helpVisible, setHelpVisible] = useState(false);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
   const [permission, requestPermission] = useCameraPermissions();
 
+  useEffect(() => {
+    if (!visible) return;
+    if (!permission?.granted) void requestPermission();
+  }, [permission?.granted, requestPermission, visible]);
+
+  useEffect(() => {
+    if (!copiedId) return undefined;
+    const timeout = setTimeout(() => setCopiedId(null), 1200);
+    return () => clearTimeout(timeout);
+  }, [copiedId]);
+
   const reset = () => {
-    setLabel('');
-    setUrl('');
-    setToken('');
     setStatus('idle');
     setScanned(false);
-    setTab('manual');
+    setHelpVisible(false);
+    setCopiedId(null);
   };
 
-  const handleAdd = async (overrideUrl?: string, overrideToken?: string) => {
-    const finalUrl = (overrideUrl ?? url).trim();
-    const finalToken = (overrideToken ?? token).trim();
-    if (!label.trim() || !finalUrl || !finalToken) return;
+  const handleCopyCommand = async (command: SetupCommand) => {
+    await Clipboard.setStringAsync(command.command);
+    setCopiedId(command.id);
+  };
+
+  const handleAdd = async (overrideUrl: string, overrideToken: string) => {
+    const finalUrl = overrideUrl.trim();
+    const finalToken = overrideToken.trim();
+    if (!finalUrl || !finalToken) return;
+    const endpointLabel = getEndpointLabel(finalUrl);
     setStatus('checking');
     try {
       const client = getEndpointClient(finalUrl, finalToken);
       await client.get('/api/v1/healthz');
-      onAdd(label.trim(), finalUrl, finalToken);
+      onAdd(endpointLabel, finalUrl, finalToken);
       reset();
       onClose();
     } catch (e: unknown) {
@@ -73,7 +114,7 @@ export function AddEndpointModal({ visible, onClose, onAdd }: Props) {
         const body = await res.text();
         console.warn('[AddEndpoint] fetch body:', body);
         if (res.ok) {
-          onAdd(label.trim(), finalUrl, finalToken);
+          onAdd(endpointLabel, finalUrl, finalToken);
           reset();
           onClose();
           return;
@@ -106,220 +147,222 @@ export function AddEndpointModal({ visible, onClose, onAdd }: Props) {
       }
       const scannedUrl = parsed.searchParams.get('url') ?? '';
       const scannedToken = parsed.searchParams.get('token') ?? '';
-      setUrl(scannedUrl);
-      setToken(scannedToken);
-      setTab('manual'); // switch to manual tab to show filled fields + label input
+      if (!scannedUrl || !scannedToken) {
+        setStatus('err');
+        return;
+      }
+      void handleAdd(scannedUrl, scannedToken);
     } catch {
       setStatus('err');
     }
   };
 
-  return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <View style={s.overlay}>
-        <View style={s.card}>
-          <Text style={s.heading}>ADD ENDPOINT</Text>
+  const renderScanHeader = () => (
+    <View style={s.scanHeader}>
+      <View style={s.scanBadge}>
+        <Text style={s.scanBadgeText}>SCAN QR</Text>
+        <TouchableOpacity
+          accessibilityLabel="Show setup commands"
+          accessibilityRole="button"
+          hitSlop={8}
+          onPress={() => setHelpVisible(true)}
+          style={s.fullHelpButton}
+        >
+          <Info size={13} color="#FFFFFF" />
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
 
-          {/* Tab switcher */}
-          <View style={s.tabs}>
+  const renderQrScanner = () => (
+    <>
+      {permission?.granted ? (
+        <CameraView
+          style={s.camera}
+          barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
+          onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
+        />
+      ) : (
+        <TouchableOpacity
+          style={s.permBtn}
+          onPress={() => {
+            void requestPermission();
+          }}
+        >
+          <Text style={s.permText}>TAP TO ALLOW CAMERA</Text>
+        </TouchableOpacity>
+      )}
+      {status === 'err' && <Text style={s.errText}>INVALID QR CODE</Text>}
+    </>
+  );
+
+  const renderFullScreenQrContent = () => (
+    <>
+      <View style={s.qrCard}>
+        <Text style={s.qrCardTitle}>Scan setup QR</Text>
+        <Text style={s.qrCardSubtitle}>
+          Open msctl on your machine and scan the generated code.
+        </Text>
+        <View style={s.fullScannerBox}>{renderQrScanner()}</View>
+      </View>
+      <TouchableOpacity
+        accessibilityRole="button"
+        accessibilityLabel="Open setup commands hint"
+        style={s.commandHint}
+        onPress={() => setHelpVisible(true)}
+      >
+        <Terminal size={16} color="#FF6B35" />
+        <Text style={s.commandHintText}>Need commands? Tap the help icon next to SCAN QR.</Text>
+      </TouchableOpacity>
+    </>
+  );
+
+  const renderHelpSheet = () =>
+    helpVisible ? (
+      <View style={s.helpOverlay}>
+        <TouchableOpacity
+          accessibilityLabel="Close setup commands"
+          style={s.helpScrim}
+          activeOpacity={1}
+          onPress={() => setHelpVisible(false)}
+        />
+        <View style={s.helpSheet}>
+          <View style={s.sheetHandle} />
+          <View style={s.sheetHeader}>
+            <View style={s.sheetTitleBlock}>
+              <Text style={s.sheetTitle}>Set up local agent</Text>
+              <Text style={s.sheetSubtitle}>
+                Run these commands on the machine you want to connect.
+              </Text>
+            </View>
             <TouchableOpacity
-              style={[s.tab, tab === 'manual' && s.tabActive]}
-              onPress={() => setTab('manual')}
+              accessibilityLabel="Close setup commands"
+              accessibilityRole="button"
+              style={s.sheetCloseButton}
+              onPress={() => setHelpVisible(false)}
             >
-              <Text style={[s.tabText, tab === 'manual' && s.tabTextActive]}>MANUAL</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[s.tab, tab === 'qr' && s.tabActive]}
-              onPress={() => {
-                setScanned(false);
-                setStatus('idle');
-                if (!permission?.granted) void requestPermission();
-                setTab('qr');
-              }}
-            >
-              <Text style={[s.tabText, tab === 'qr' && s.tabTextActive]}>SCAN QR</Text>
+              <X size={16} color="#DDDDDD" />
             </TouchableOpacity>
           </View>
-
-          {tab === 'manual' ? (
-            <>
-              <Text style={s.fieldLabel}>LABEL</Text>
-              <TextInput
-                style={s.input}
-                value={label}
-                onChangeText={setLabel}
-                placeholder="Home Server"
-                placeholderTextColor="#555555"
-                autoCapitalize="none"
+          <ScrollView
+            style={s.commandsScroll}
+            contentContainerStyle={s.commandsContent}
+            showsVerticalScrollIndicator={false}
+          >
+            <CommandBlock
+              command={SETUP_COMMANDS[0]}
+              copiedId={copiedId}
+              onCopy={handleCopyCommand}
+            />
+            <CommandBlock
+              command={SETUP_COMMANDS[1]}
+              copiedId={copiedId}
+              onCopy={handleCopyCommand}
+            />
+            <Text style={s.registerTitle}>3. Register an Agent</Text>
+            {SETUP_COMMANDS.slice(2).map((command) => (
+              <CommandBlock
+                key={command.id}
+                command={command}
+                copiedId={copiedId}
+                onCopy={handleCopyCommand}
+                compact
               />
-              <Text style={s.fieldLabel}>URL</Text>
-              <TextInput
-                style={s.input}
-                value={url}
-                onChangeText={(v) => {
-                  setUrl(v);
-                  setStatus('idle');
-                }}
-                placeholder="http://192.168.1.x:8765"
-                placeholderTextColor="#555555"
-                autoCapitalize="none"
-                keyboardType="url"
-              />
-              <Text style={s.fieldLabel}>TOKEN</Text>
-              <TextInput
-                style={s.input}
-                value={token}
-                onChangeText={(v) => {
-                  setToken(v);
-                  setStatus('idle');
-                }}
-                placeholder="ms_v2_..."
-                placeholderTextColor="#555555"
-                autoCapitalize="none"
-                secureTextEntry
-              />
-              {status === 'err' && (
-                <Text style={s.errText}>CANNOT REACH ENDPOINT — CHECK URL AND TOKEN</Text>
-              )}
-              <View style={s.actions}>
-                <TouchableOpacity
-                  style={s.btnSecondary}
-                  onPress={() => {
-                    reset();
-                    onClose();
-                  }}
-                >
-                  <Text style={s.btnSecondaryText}>CANCEL</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={s.btnPrimary}
-                  onPress={() => {
-                    void handleAdd();
-                  }}
-                  disabled={status === 'checking'}
-                >
-                  {status === 'checking' ? (
-                    <ActivityIndicator size="small" color="#FFFFFF" />
-                  ) : (
-                    <Text style={s.btnPrimaryText}>CONNECT</Text>
-                  )}
-                </TouchableOpacity>
-              </View>
-            </>
-          ) : (
-            <View style={s.cameraWrap}>
-              {permission?.granted ? (
-                <CameraView
-                  style={s.camera}
-                  barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
-                  onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
-                />
-              ) : (
-                <TouchableOpacity
-                  style={s.permBtn}
-                  onPress={() => {
-                    void requestPermission();
-                  }}
-                >
-                  <Text style={s.permText}>TAP TO ALLOW CAMERA</Text>
-                </TouchableOpacity>
-              )}
-              {status === 'err' && <Text style={s.errText}>INVALID QR CODE</Text>}
-              <TouchableOpacity
-                style={s.btnSecondary}
-                onPress={() => {
-                  reset();
-                  onClose();
-                }}
-              >
-                <Text style={s.btnSecondaryText}>CANCEL</Text>
-              </TouchableOpacity>
-            </View>
-          )}
+            ))}
+          </ScrollView>
         </View>
       </View>
+    ) : null;
+
+  return (
+    <Modal visible={visible} transparent={false} animationType="slide" onRequestClose={onClose}>
+      <SafeAreaView style={s.fullScreen}>
+        <View style={s.fullNav}>
+          <TouchableOpacity
+            style={s.backButton}
+            onPress={() => {
+              reset();
+              onClose();
+            }}
+            accessibilityRole="button"
+            accessibilityLabel="Back to Projects"
+          >
+            <ChevronLeft size={18} color="#FF6B35" />
+            <Text style={s.backText}>Projects</Text>
+          </TouchableOpacity>
+          <Text style={s.fullNavTitle}>Add Endpoint</Text>
+          <View style={s.navSpacer} />
+        </View>
+        <ScrollView
+          style={s.fullScroll}
+          contentContainerStyle={s.fullContent}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={s.titleRow}>
+            <Text style={s.fullTitle}>Connect a machine</Text>
+            <TouchableOpacity
+              accessibilityLabel="Close Add Endpoint"
+              accessibilityRole="button"
+              style={s.contentCloseButton}
+              onPress={() => {
+                reset();
+                onClose();
+              }}
+            >
+              <X size={18} color="#DDDDDD" />
+            </TouchableOpacity>
+          </View>
+          <Text style={s.fullSubtitle}>Scan the QR code from msctl quickstart.</Text>
+          {renderScanHeader()}
+          {renderFullScreenQrContent()}
+        </ScrollView>
+        {renderHelpSheet()}
+      </SafeAreaView>
     </Modal>
   );
 }
 
-const s = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.8)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 24,
-  },
-  card: {
-    width: '100%',
-    backgroundColor: '#1A1A1A',
-    borderRadius: 16,
-    padding: 20,
-    gap: 12,
-  },
-  heading: {
-    fontFamily: 'Inter',
-    fontSize: 17,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    marginBottom: 4,
-  },
-  tabs: { flexDirection: 'row', gap: 8, marginBottom: 4 },
-  tab: {
-    flex: 1,
-    height: 36,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 8,
-    backgroundColor: '#252525',
-  },
-  tabActive: { backgroundColor: '#FF6B35' },
-  tabText: { fontFamily: 'Inter', fontSize: 13, color: '#888888' },
-  tabTextActive: { color: '#FFFFFF', fontWeight: '600' },
-  fieldLabel: {
-    fontFamily: 'Inter',
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#888888',
-    letterSpacing: 0.5,
-  },
-  input: {
-    height: 44,
-    backgroundColor: '#252525',
-    borderRadius: 8,
-    paddingHorizontal: 14,
-    fontFamily: 'Inter',
-    fontSize: 15,
-    color: '#FFFFFF',
-  },
-  errText: { fontFamily: 'Inter', fontSize: 12, color: '#FF4444' },
-  actions: { flexDirection: 'row', gap: 10, marginTop: 4 },
-  btnPrimary: {
-    flex: 1,
-    height: 44,
-    backgroundColor: '#FF6B35',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 10,
-  },
-  btnPrimaryText: { fontFamily: 'Inter', fontSize: 15, fontWeight: '600', color: '#FFFFFF' },
-  btnSecondary: {
-    flex: 1,
-    height: 44,
-    backgroundColor: '#252525',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 10,
-  },
-  btnSecondaryText: { fontFamily: 'Inter', fontSize: 15, color: '#888888' },
-  cameraWrap: { gap: 10 },
-  camera: { width: '100%', height: 220, borderRadius: 10 },
-  permBtn: {
-    height: 220,
-    backgroundColor: '#252525',
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  permText: { fontFamily: 'Inter', fontSize: 13, color: '#888888' },
-});
+function getEndpointLabel(baseUrl: string) {
+  try {
+    const hostname = new URL(baseUrl).hostname;
+    if (hostname) return hostname;
+  } catch {
+    const withoutScheme = baseUrl.replace(/^[a-z]+:\/\//i, '');
+    const host = withoutScheme.split(/[/:?#]/)[0];
+    if (host) return host;
+  }
+  return baseUrl;
+}
+
+function CommandBlock({
+  command,
+  copiedId,
+  onCopy,
+  compact = false,
+}: {
+  command: SetupCommand;
+  copiedId: string | null;
+  onCopy: (command: SetupCommand) => Promise<void>;
+  compact?: boolean;
+}) {
+  const copied = copiedId === command.id;
+
+  return (
+    <View style={[s.commandBlock, compact && s.commandBlockCompact]}>
+      <View style={s.commandHeader}>
+        <Text style={[s.commandTitle, compact && s.commandTitleAccent]}>{command.title}</Text>
+        <TouchableOpacity
+          accessibilityLabel={`Copy ${command.title} command`}
+          accessibilityRole="button"
+          onPress={() => {
+            void onCopy(command);
+          }}
+          style={s.copyButton}
+        >
+          {copied ? <Text style={s.copiedText}>COPIED</Text> : <Copy size={13} color="#888888" />}
+        </TouchableOpacity>
+      </View>
+      <Text style={s.commandText}>{command.command}</Text>
+    </View>
+  );
+}

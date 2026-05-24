@@ -7,6 +7,8 @@ import ActivityTab from '../../app/(tabs)/activity';
 
 const mockPush = jest.fn();
 const mockAggregateActivity = jest.fn();
+const mockMarkDoneActivityRead = jest.fn();
+const mockMarkAllDoneActivityRead = jest.fn();
 const mockAbortConversation = jest.fn();
 const mockDeleteConversation = jest.fn();
 let mockEndpoints: Endpoint[] = [];
@@ -23,6 +25,8 @@ jest.mock('expo-router', () => ({
 
 jest.mock('@/features/activity/services/activityService', () => ({
   aggregateActivity: (...args: unknown[]) => mockAggregateActivity(...args),
+  markDoneActivityRead: (...args: unknown[]) => mockMarkDoneActivityRead(...args),
+  markAllDoneActivityRead: (...args: unknown[]) => mockMarkAllDoneActivityRead(...args),
 }));
 
 jest.mock('@/features/chat/services/chatService', () => ({
@@ -106,6 +110,7 @@ function activityResult(
         status_label: 'Done',
         tone: 'done',
         timestamp: 1000,
+        read_at: null,
         endpoint_id: 'ep-2',
         endpoint_label: 'Studio Mac',
       },
@@ -158,6 +163,8 @@ describe('ActivityTab DB-backed aggregation', () => {
     jest.clearAllMocks();
     mockEndpoints = configuredEndpoints();
     mockAggregateActivity.mockResolvedValue(activityResult());
+    mockMarkDoneActivityRead.mockResolvedValue(undefined);
+    mockMarkAllDoneActivityRead.mockResolvedValue(undefined);
     mockAbortConversation.mockResolvedValue(undefined);
     mockDeleteConversation.mockResolvedValue(undefined);
     appStateHandler = null;
@@ -200,6 +207,241 @@ describe('ActivityTab DB-backed aggregation', () => {
       'done title or pending subtitle should render the release notes text',
     );
     expect(screen.queryByText('Connect an endpoint')).toBeNull();
+  });
+
+  /// Activity tabs: top filter exposes inventory counts and the Done unread marker.
+  ///
+  /// Data construction:
+  ///   needsAttention = 1 row
+  ///   running        = 1 row
+  ///   done           = 1 unread row (read_at = null)
+  ///   total          = 1 + 1 + 1 = 3
+  ///
+  /// Execution process:
+  ///   1. Render ActivityTab with one row per section.
+  ///   2. Wait for the DB-backed aggregate to render.
+  ///   3. Inspect top filter accessibility labels and Done unread marker.
+  ///
+  /// Expected result:
+  ///   - Positive: All tab announces 3 total items.
+  ///   - Positive: Pending, Running, and Done tabs announce their own counts.
+  ///   - Positive: Done unread marker renders because the Done row has read_at=null.
+  ///   - Negative: legacy section title "Needs Attention" is not shown in the All tab redesign.
+  it('shows Activity tab counts and a Done unread marker on first render', async () => {
+    await renderActivity();
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Show All activity, 3 items')).toBeTruthy();
+    });
+
+    expect(screen.getByLabelText('Show Pending activity, 1 item')).toBeTruthy();
+    expect(screen.getByLabelText('Show Running activity, 1 item')).toBeTruthy();
+    expect(screen.getByLabelText('Show Done activity, 1 item, 1 unread')).toBeTruthy();
+    expect(screen.getByTestId('activity-done-unread-dot')).toBeTruthy();
+    expect(screen.queryByText('Needs Attention')).toBeNull();
+  });
+
+  /// Done filter: Done-only view splits unread and read completion results.
+  ///
+  /// Data construction:
+  ///   done unread = ep-2 / conv-done / read_at null
+  ///   done read   = ep-1 / conv-read / read_at 1234
+  ///   counts      = Unread 1, Read 1
+  ///
+  /// Execution process:
+  ///   1. Render ActivityTab with one unread and one read Done item.
+  ///   2. Open the Done filter.
+  ///   3. Inspect Done-only segmented controls and visible rows.
+  ///
+  /// Expected result:
+  ///   - Positive: Unread 1 and Read 1 controls render only inside Done.
+  ///   - Positive: Mark All Read is visible while unread Done exists.
+  ///   - Positive: unread Done row is visible by default.
+  ///   - Negative: read Done row is hidden while the Unread sub-filter is active.
+  it('splits Done items into Unread and Read sub-filters', async () => {
+    mockAggregateActivity.mockResolvedValue(
+      activityResult({
+        needsAttention: [],
+        running: [],
+        done: [
+          {
+            id: 'ep-2:done:conv-done',
+            source_id: 'done:conv-done',
+            section: 'done',
+            conversation_id: 'conv-done',
+            agent_id: 'agent-3',
+            agent_name: 'Docs Project',
+            title: 'Unread result',
+            subtitle: 'Release notes are ready',
+            status_label: 'Done',
+            tone: 'done',
+            timestamp: 2000,
+            read_at: null,
+            endpoint_id: 'ep-2',
+            endpoint_label: 'Studio Mac',
+          },
+          {
+            id: 'ep-1:done:conv-read',
+            source_id: 'done:conv-read',
+            section: 'done',
+            conversation_id: 'conv-read',
+            agent_id: 'agent-1',
+            agent_name: 'Deploy Project',
+            title: 'Read result',
+            subtitle: 'Already reviewed',
+            status_label: 'Done',
+            tone: 'done',
+            timestamp: 1000,
+            read_at: 1234,
+            endpoint_id: 'ep-1',
+            endpoint_label: 'Office Mac',
+          },
+        ],
+      }),
+    );
+
+    await renderActivity();
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Show Done activity, 2 items, 1 unread')).toBeTruthy();
+    });
+    fireEvent.press(screen.getByLabelText('Show Done activity, 2 items, 1 unread'));
+
+    expect(screen.getByText('Unread 1')).toBeTruthy();
+    expect(screen.getByText('Read 1')).toBeTruthy();
+    expect(screen.getByLabelText('Mark all Done items read')).toBeTruthy();
+    expect(screen.getByText('Unread result')).toBeTruthy();
+    expect(screen.queryByText('Read result')).toBeNull();
+  });
+
+  /// Done filter interaction: Unread remains selectable even when the unread count is zero.
+  ///
+  /// Data construction:
+  ///   done unread = 0 rows
+  ///   done read   = 1 row (read_at = 1234)
+  ///   counts      = Unread 0, Read 1
+  ///
+  /// Execution process:
+  ///   1. Render ActivityTab with only read Done rows.
+  ///   2. Open the Done filter, which defaults to Read because unread count is zero.
+  ///   3. Press the Unread 0 segment.
+  ///
+  /// Expected result:
+  ///   - Positive: read row is visible when Done opens with zero unread rows.
+  ///   - Positive: pressing Unread 0 switches to the empty unread list.
+  ///   - Negative: Read row must not remain visible after the user explicitly selects Unread.
+  it('allows selecting Unread even when all Done items are already read', async () => {
+    mockAggregateActivity.mockResolvedValue(
+      activityResult({
+        needsAttention: [],
+        running: [],
+        done: [
+          {
+            id: 'ep-1:done:conv-read',
+            source_id: 'done:conv-read',
+            section: 'done',
+            conversation_id: 'conv-read',
+            agent_id: 'agent-1',
+            agent_name: 'Deploy Project',
+            title: 'Read only result',
+            subtitle: 'Already reviewed',
+            status_label: 'Done',
+            tone: 'done',
+            timestamp: 1000,
+            read_at: 1234,
+            endpoint_id: 'ep-1',
+            endpoint_label: 'Office Mac',
+          },
+        ],
+      }),
+    );
+
+    await renderActivity();
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Show Done activity, 1 item')).toBeTruthy();
+    });
+    fireEvent.press(screen.getByLabelText('Show Done activity, 1 item'));
+
+    expect(screen.getByText('Unread 0')).toBeTruthy();
+    expect(screen.getByText('Read 1')).toBeTruthy();
+    expect(screen.getByText('Read only result')).toBeTruthy();
+
+    fireEvent.press(screen.getByText('Unread 0'));
+
+    expect(screen.queryByText('Read only result')).toBeNull();
+    expect(screen.getByText('No recent results.')).toBeTruthy();
+  });
+
+  /// Done open behavior: opening an unread Done row marks it read optimistically and still navigates.
+  ///
+  /// Data construction:
+  ///   unread Done row = ep-2 / conv-done / agent-3 / read_at null
+  ///   endpoint ep-2   = http://studio.local:8765 / tok-studio
+  ///
+  /// Execution process:
+  ///   1. Render ActivityTab and switch to Done.
+  ///   2. Press the unread Done row.
+  ///   3. Inspect mark-read call and route navigation.
+  ///
+  /// Expected result:
+  ///   - Positive: markDoneActivityRead is called with ep-2 and conv-done.
+  ///   - Positive: navigation to the conversation still happens.
+  ///   - Negative: running/pending answer focus is not added to the Done route.
+  it('marks an unread Done item read when opening it and then navigates', async () => {
+    await renderActivity();
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Show Done activity, 1 item, 1 unread')).toBeTruthy();
+    });
+    fireEvent.press(screen.getByLabelText('Show Done activity, 1 item, 1 unread'));
+    fireEvent.press(screen.getByLabelText('Open Ship release notes'));
+
+    expect(mockMarkDoneActivityRead).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'ep-2', token: 'tok-studio' }),
+      'conv-done',
+    );
+    expect(mockPush).toHaveBeenCalledWith(
+      '/chat/conv-done?endpoint_id=ep-2&agent_id=agent-3&agent_name=Docs%20Project',
+    );
+    expect(mockPush).not.toHaveBeenCalledWith(expect.stringContaining('focus_ask_id='));
+  });
+
+  /// Mark all read: Done action sends one read-all request per endpoint that owns unread Done rows.
+  ///
+  /// Data construction:
+  ///   unread Done rows = ep-2 / conv-done only
+  ///   read Done rows   = none in ep-1
+  ///
+  /// Execution process:
+  ///   1. Render ActivityTab and switch to Done.
+  ///   2. Press Mark All Read.
+  ///   3. Inspect endpoint mutation calls.
+  ///
+  /// Expected result:
+  ///   - Positive: markAllDoneActivityRead is called once for ep-2.
+  ///   - Negative: ep-1 is not called because it has no unread Done row.
+  ///   - Negative: markDoneActivityRead is not used for the bulk action.
+  it('marks all unread Done items read for endpoints that have unread Done rows', async () => {
+    await renderActivity();
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Show Done activity, 1 item, 1 unread')).toBeTruthy();
+    });
+    fireEvent.press(screen.getByLabelText('Show Done activity, 1 item, 1 unread'));
+    await act(async () => {
+      fireEvent.press(screen.getByLabelText('Mark all Done items read'));
+      await Promise.resolve();
+    });
+
+    expect(mockMarkAllDoneActivityRead).toHaveBeenCalledTimes(1);
+    expect(mockMarkAllDoneActivityRead).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'ep-2', token: 'tok-studio' }),
+    );
+    expect(mockMarkAllDoneActivityRead).not.toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'ep-1' }),
+    );
+    expect(mockMarkDoneActivityRead).not.toHaveBeenCalled();
   });
 
   /// Route construction: every Activity item opens the matching endpoint Chat detail route.

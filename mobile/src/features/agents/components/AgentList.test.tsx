@@ -59,6 +59,41 @@ describe('AgentList', () => {
     expect(getByText('All Projects')).toBeTruthy();
   });
 
+  /// Projects add affordance: tapping the header plus delegates endpoint creation to the route.
+  ///
+  /// Data construction:
+  ///   agents        = Alpha + Beta, so the Projects header renders in a normal loaded state.
+  ///   onAddEndpoint = jest.fn callback owned by the route layer.
+  ///
+  /// Execution:
+  ///   1. Render AgentList with onAddEndpoint.
+  ///   2. Press the "Add endpoint" accessibility target in the header.
+  ///
+  /// Expected:
+  ///   - Positive: onAddEndpoint is called once.
+  ///   - Negative: onAgentPress is not called, because this is not a project row tap.
+  it('calls onAddEndpoint when the Projects header plus is pressed', () => {
+    const onAddEndpoint = jest.fn();
+    const onAgentPress = jest.fn();
+    const { getByLabelText } = render(
+      <AgentList
+        agents={agents}
+        isLoading={false}
+        isError={false}
+        error={null}
+        isFetching={false}
+        onRefetch={() => {}}
+        onAgentPress={onAgentPress}
+        onAddEndpoint={onAddEndpoint}
+      />,
+    );
+
+    fireEvent.press(getByLabelText('Add endpoint'));
+
+    expect(onAddEndpoint).toHaveBeenCalledTimes(1);
+    expect(onAgentPress).not.toHaveBeenCalled();
+  });
+
   /// Pencli Projects surface: root, search, and project group match the orange Projects mock.
   ///
   /// Data construction:

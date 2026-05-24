@@ -53,7 +53,7 @@
         },
         {
           "path": "cli/src/db.rs",
-          "sha256": "d48e099e6cf862a1c334bc7af924d75e5c164f0e3e7bcba57efa9dd9533952f8",
+          "sha256": "2aefb88dd0e085618a0b2fec2062035862e6038d3e883b8834f1ea4060de5916",
           "reason": "文档说明 runtime 持久化字段和 migration 纪律；DB schema 演进会影响该章节。"
         },
         {

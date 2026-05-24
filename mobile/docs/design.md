@@ -54,16 +54,18 @@
 | `#4CAF50` | 成功 / 已选中 | AskQuestion 选中选项边框、空状态 check 图标 |
 | `#FF4444` | 错误 / 危险 | 停止按钮边框、删除操作文字、错误提示 |
 
-### 2.4 Avatar 色板
+### 2.4 Projects Avatar / Runtime 像素图标
 
-列表中每个 Agent 使用固定颜色 Avatar（圆形）：
+Projects 列表中的 Agent Avatar 为 40×40px、9px 圆角的像素图标画布。优先按 runtime 显示第一组生成的 mascot PNG：
 
-| 色值 | 用途 |
-|------|------|
-| `#FF6B35` → `#FF8C42`（135° 渐变） | Agent 1（默认第一位） |
-| `#7C3AED` | Agent 2 |
-| `#2563EB` | Agent 3 |
-| `#059669` | Agent 4 |
+| Runtime | 画布色 | 像素图形 | 用途 |
+|---------|--------|----------|------|
+| `claude-code` | `#252525` | `mobile/assets/agent-icons/runtime-claude-code.png` | 参考 Claude 像素头像，强调识别度 |
+| `codex` | `#FF6B35` | `mobile/assets/agent-icons/runtime-codex.png` | 保留主强调色，表达 CLI/代码执行 |
+| `cursor-cli` | `#2563EB` | `mobile/assets/agent-icons/runtime-cursor-cli.png` | 表达 Cursor 编辑器/指针语义 |
+| `custom` | index fallback 色板 | 无固定 PNG | 自定义 runtime fallback |
+
+非 runtime 语义场景才使用 index fallback 色板：`#FF6B35`、`#7C3AED`、`#2563EB`、`#059669`。
 
 ---
 
@@ -248,7 +250,7 @@
 
 - 高度：72px，padding `[0, 16]`
 - 布局：horizontal，alignItems center，gap 12px
-- Avatar：40×40px 圆形（ellipse），使用 §2.4 色板
+- Avatar：40×40px、9px 圆角，使用 §2.4 runtime 像素图标
 - 内容区：vertical，gap 2–3px，width fill_container
   - 名称：Inter 15px/600，`#FFFFFF`
   - 摘要：Inter 14px，`#888888`

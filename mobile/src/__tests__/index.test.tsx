@@ -1,9 +1,21 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, render, screen, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import React from 'react';
 import AgentListScreen from '../../app/(tabs)/index';
 import { useEndpointStore } from '../../src/store/endpointStore';
 import { type Agent } from '../types';
+
+jest.mock('expo-camera', () => ({
+  CameraView: () => null,
+  useCameraPermissions: () => [{ granted: false }, jest.fn()],
+}));
+
+jest.mock('../../src/api/endpointClient', () => ({
+  getEndpointClient: jest.fn(() => ({
+    get: jest.fn(),
+  })),
+  clearEndpointClients: jest.fn(),
+}));
 
 jest.mock('../../src/features/agents/services/agentService', () => ({
   fetchAllAgents: jest.fn(),
@@ -17,6 +29,7 @@ jest.mock('expo-router', () => ({
 jest.mock('react-native-safe-area-context', () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
   SafeAreaProvider: ({ children }: any) => children,
+  SafeAreaView: ({ children }: any) => children,
 }));
 
 const mockAgents: Agent[] = [
@@ -122,5 +135,34 @@ describe('AgentListScreen', () => {
     await waitFor(() => {
       expect(screen.getByText('Connect a machine')).toBeTruthy();
     });
+  });
+
+  /// Projects route add endpoint: header plus opens Add Endpoint directly on QR mode.
+  ///
+  /// Data construction:
+  ///   endpointStore = one configured endpoint, so Projects route renders loaded list state.
+  ///   fetchAllAgents = mockAgents, so the header plus is available above project rows.
+  ///   camera permission = false, so QR mode displays the permission CTA.
+  ///
+  /// Execution:
+  ///   1. Render AgentListScreen inside QueryClientProvider.
+  ///   2. Wait for project data.
+  ///   3. Press the "Add endpoint" header button.
+  ///
+  /// Expected:
+  ///   - Positive: full-screen Add Endpoint copy is visible.
+  ///   - Positive: QR mode is active via "TAP TO ALLOW CAMERA".
+  ///   - Negative: legacy centered-card "ADD ENDPOINT" heading is not shown.
+  it('opens the add endpoint modal in QR mode from the Projects header plus', async () => {
+    render(<AgentListScreen />, { wrapper });
+
+    await waitFor(() => {
+      expect(screen.getByText('Weather Agent')).toBeTruthy();
+    });
+    fireEvent.press(screen.getByLabelText('Add endpoint'));
+
+    expect(screen.getByText('Connect a machine')).toBeTruthy();
+    expect(screen.getByText('TAP TO ALLOW CAMERA')).toBeTruthy();
+    expect(screen.queryByText('ADD ENDPOINT')).toBeNull();
   });
 });

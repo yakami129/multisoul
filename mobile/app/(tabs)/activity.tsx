@@ -5,6 +5,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import ActivityScreen, { type ActivityItem } from '@/features/activity/components/ActivityScreen';
 import {
   aggregateActivity,
+  markAllDoneActivityRead,
+  markDoneActivityRead,
   type AggregatedActivityItem,
   type AggregatedActivityResult,
 } from '@/features/activity/services/activityService';
@@ -40,6 +42,7 @@ function toScreenItem(item: AggregatedActivityItem): ActivityItem {
     agentId: item.agent_id,
     agentName: item.agent_name,
     askId: item.ask_id,
+    readAt: item.read_at ?? null,
   };
 }
 
@@ -130,7 +133,26 @@ export default function ActivityTab() {
     activity.failedEndpoints.length === endpoints.length &&
     needsAttention.length + running.length + done.length === 0;
 
+  const setDoneRead = (conversationIds: Set<string>, readAt: number) => {
+    setActivity((current) => ({
+      ...current,
+      done: current.done.map((doneItem) =>
+        conversationIds.has(doneItem.conversation_id) ? { ...doneItem, read_at: readAt } : doneItem,
+      ),
+    }));
+  };
+
   const handleOpenItem = (item: ActivityItem) => {
+    if (item.section === 'done' && item.readAt == null) {
+      const endpoint = endpoints.find((ep) => ep.id === item.endpointId);
+      setDoneRead(new Set([item.conversationId]), Date.now());
+      if (endpoint) {
+        void markDoneActivityRead(endpoint, item.conversationId).catch(() =>
+          refreshActivity(false),
+        );
+      }
+    }
+
     router.push(
       buildChatDetailPath({
         conversationId: item.conversationId,
@@ -140,6 +162,21 @@ export default function ActivityTab() {
         focusAskId: item.section === 'attention' ? item.askId : undefined,
       }),
     );
+  };
+
+  const handleMarkAllDoneRead = () => {
+    const unreadDone = activity.done.filter((item) => item.read_at == null);
+    if (unreadDone.length === 0) return;
+
+    const unreadEndpointIds = new Set(unreadDone.map((item) => item.endpoint_id));
+    const unreadConversationIds = new Set(unreadDone.map((item) => item.conversation_id));
+    setDoneRead(unreadConversationIds, Date.now());
+
+    endpoints
+      .filter((endpoint) => unreadEndpointIds.has(endpoint.id))
+      .forEach((endpoint) => {
+        void markAllDoneActivityRead(endpoint).catch(() => refreshActivity(false));
+      });
   };
 
   const removeActivityConversation = (conversationId: string) => {
@@ -183,6 +220,7 @@ export default function ActivityTab() {
           void refreshActivity();
         }}
         onOpenItem={handleOpenItem}
+        onMarkAllDoneRead={handleMarkAllDoneRead}
         onDeleteItem={(item) => {
           void handleDeleteItem(item);
         }}

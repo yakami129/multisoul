@@ -23,6 +23,7 @@ interface Props {
   isFetching: boolean;
   onRefetch: () => void;
   onAgentPress: (id: string, endpoint_id: string, name: string) => void;
+  onAddEndpoint?: () => void;
 }
 
 type ProjectStatus = {
@@ -50,7 +51,15 @@ function projectStatus(conversations: Conversation[]): ProjectStatus {
   return { label: 'Idle', isActive: false, pendingCount: 0 };
 }
 
-export function AgentList({ agents, isLoading, isError, error, onRefetch, onAgentPress }: Props) {
+export function AgentList({
+  agents,
+  isLoading,
+  isError,
+  error,
+  onRefetch,
+  onAgentPress,
+  onAddEndpoint,
+}: Props) {
   const insets = useSafeAreaInsets();
   const [isRefreshing, setIsRefreshing] = React.useState(false);
   const [query, setQuery] = React.useState('');
@@ -154,7 +163,15 @@ export function AgentList({ agents, isLoading, isError, error, onRefetch, onAgen
     <View testID="projects-root" style={[s.root, { paddingTop: insets.top }]}>
       <View style={s.header}>
         <Text style={s.headerTitle}>Projects</Text>
-        <Plus size={24} color="#FF6B35" />
+        <TouchableOpacity
+          accessibilityLabel="Add endpoint"
+          accessibilityRole="button"
+          hitSlop={12}
+          onPress={onAddEndpoint}
+          style={s.addButton}
+        >
+          <Plus size={24} color="#FF6B35" />
+        </TouchableOpacity>
       </View>
 
       <View style={s.searchSection}>
@@ -244,6 +261,13 @@ const s = StyleSheet.create({
     paddingHorizontal: 20,
   },
   headerTitle: { fontFamily: 'Inter', fontSize: 34, fontWeight: '700', color: '#FFFFFF' },
+  addButton: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 12,
+  },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 16, padding: 24 },
   loadingText: { fontFamily: 'Inter', fontSize: 13, color: '#888888' },
   errorIconWrap: {

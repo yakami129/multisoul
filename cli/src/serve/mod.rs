@@ -33,6 +33,14 @@ pub async fn build_router(state: AppState) -> Router {
             "/api/v1/activity",
             axum::routing::get(activity::get_activity),
         )
+        .route(
+            "/api/v1/activity/done/read-all",
+            axum::routing::post(activity::mark_all_done_read),
+        )
+        .route(
+            "/api/v1/activity/done/:conversation_id/read",
+            axum::routing::post(activity::mark_done_read),
+        )
         .route("/api/v1/agents", axum::routing::get(agents::list_agents))
         .route("/ws/logs", axum::routing::get(logs::logs_ws_handler))
         .route("/api/v1/agents/:id", axum::routing::get(agents::get_agent))
