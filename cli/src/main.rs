@@ -36,7 +36,7 @@ enum Commands {
         #[command(subcommand)]
         subcommand: commands::daemon::DaemonCommands,
     },
-    /// Inspect the local serve log
+    /// Inspect local app and service logs
     Logs(commands::logs::LogsArgs),
 }
 

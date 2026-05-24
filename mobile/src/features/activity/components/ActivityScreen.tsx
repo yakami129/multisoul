@@ -1,12 +1,8 @@
-import {
-  CircleCheck,
-  Clock3,
-  MessageCircle,
-  SlidersHorizontal,
-  Sparkles,
-} from 'lucide-react-native';
-import React, { useState } from 'react';
-import { RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ChevronRight, CircleCheck, MessageCircle, SlidersHorizontal } from 'lucide-react-native';
+import React, { useRef, useState } from 'react';
+import { RefreshControl, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { Swipeable } from 'react-native-gesture-handler';
+import { activityScreenStyles as s } from './activityScreenStyles';
 
 export interface ActivityItem {
   id: string;
@@ -22,6 +18,7 @@ export interface ActivityItem {
   conversationId: string;
   agentId: string;
   agentName: string;
+  readAt?: number | null;
   askId?: string;
 }
 
@@ -36,9 +33,12 @@ interface Props {
   onRefresh?: () => void;
   onRetry?: () => void;
   onOpenItem: (item: ActivityItem) => void;
+  onMarkAllDoneRead?: () => void;
+  onDeleteItem?: (item: ActivityItem) => void;
 }
 
 type ActivityFilter = 'all' | 'pending' | 'running' | 'done';
+type DoneFilter = 'unread' | 'read';
 
 const FILTERS: Array<{ key: ActivityFilter; label: string }> = [
   { key: 'all', label: 'All' },
@@ -50,85 +50,26 @@ const FILTERS: Array<{ key: ActivityFilter; label: string }> = [
 function formatRelativeTime(ts: number): string {
   const diff = Date.now() - ts;
   const m = Math.floor(diff / 60000);
-  if (m < 1) return 'just now';
-  if (m < 60) return `${m}m ago`;
+  if (m < 1) return 'now';
+  if (m < 60) return `${m}m`;
   const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h ago`;
-  return `${Math.floor(h / 24)}d ago`;
+  if (h < 24) return `${h}h`;
+  return `${Math.floor(h / 24)}d`;
 }
 
-function Section({
-  title,
-  items,
-  emptyText,
-  onOpenItem,
-}: {
-  title: string;
-  items: ActivityItem[];
-  emptyText: string;
-  onOpenItem: (item: ActivityItem) => void;
-}) {
-  return (
-    <View style={s.section}>
-      <View style={s.sectionHeader}>
-        <Text style={s.sectionTitle}>{title}</Text>
-        <Text style={s.sectionCount}>{items.length}</Text>
-      </View>
-      {items.length === 0 ? (
-        <Text style={s.emptySectionText}>{emptyText}</Text>
-      ) : (
-        items.map((item) => (
-          <TouchableOpacity
-            key={item.id}
-            style={s.row}
-            onPress={() => onOpenItem(item)}
-            accessibilityRole="button"
-            accessibilityLabel={`Open ${item.title}`}
-          >
-            <View
-              style={[
-                s.iconWrap,
-                item.tone === 'attention' && s.iconAttention,
-                item.tone === 'failed' && s.iconFailed,
-              ]}
-            >
-              {item.section === 'attention' ? (
-                <Sparkles size={15} color="#FF6B35" />
-              ) : (
-                <MessageCircle size={15} color={item.tone === 'failed' ? '#FF4444' : '#888888'} />
-              )}
-            </View>
-            <View style={s.rowBody}>
-              <View style={s.rowTop}>
-                <Text style={s.projectName} numberOfLines={1}>
-                  {item.projectName}
-                </Text>
-                <Text style={s.timeText}>{formatRelativeTime(item.timestamp)}</Text>
-              </View>
-              <Text style={s.itemTitle} numberOfLines={2}>
-                {item.title}
-              </Text>
-              <View style={s.metaRow}>
-                <Text style={s.subtitle} numberOfLines={1}>
-                  {item.subtitle}
-                </Text>
-                <Text
-                  style={[
-                    s.statusLabel,
-                    item.tone === 'attention' && s.statusAttention,
-                    item.tone === 'running' && s.statusRunning,
-                    item.tone === 'failed' && s.statusFailed,
-                  ]}
-                >
-                  {item.statusLabel}
-                </Text>
-              </View>
-            </View>
-          </TouchableOpacity>
-        ))
-      )}
-    </View>
-  );
+function itemCountLabel(count: number): string {
+  return `${count} ${count === 1 ? 'item' : 'items'}`;
+}
+
+function byNewest(a: ActivityItem, b: ActivityItem): number {
+  return b.timestamp - a.timestamp;
+}
+
+function rowDotStyle(item: ActivityItem) {
+  if (item.section === 'running') return s.dotRunning;
+  if (item.tone === 'failed') return s.dotFailed;
+  if (item.section === 'done' && item.readAt != null) return s.dotRead;
+  return s.dotAttention;
 }
 
 function PartialFailureBanner({
@@ -156,6 +97,79 @@ function PartialFailureBanner({
   );
 }
 
+function ActivityRow({
+  item,
+  onOpenItem,
+  onDeleteItem,
+  openSwipeableRef,
+  swipeableRefs,
+}: {
+  item: ActivityItem;
+  onOpenItem: (item: ActivityItem) => void;
+  onDeleteItem?: (item: ActivityItem) => void;
+  openSwipeableRef: React.MutableRefObject<Swipeable | null>;
+  swipeableRefs: React.MutableRefObject<Map<string, Swipeable>>;
+}) {
+  const isUnreadDone = item.section === 'done' && item.readAt == null;
+  const renderDeleteAction = () => (
+    <TouchableOpacity
+      style={s.deleteAction}
+      onPress={() => onDeleteItem?.(item)}
+      accessibilityRole="button"
+      accessibilityLabel={`Delete ${item.title}`}
+    >
+      <Text style={s.deleteText}>DELETE</Text>
+    </TouchableOpacity>
+  );
+
+  return (
+    <Swipeable
+      ref={(ref) => {
+        if (ref) swipeableRefs.current.set(item.id, ref);
+        else swipeableRefs.current.delete(item.id);
+      }}
+      onSwipeableOpen={() => {
+        if (openSwipeableRef.current) openSwipeableRef.current.close();
+        openSwipeableRef.current = swipeableRefs.current.get(item.id) ?? null;
+      }}
+      renderRightActions={renderDeleteAction}
+      overshootRight={false}
+    >
+      <TouchableOpacity
+        style={s.row}
+        onPress={() => onOpenItem(item)}
+        accessibilityRole="button"
+        accessibilityLabel={`Open ${item.title}`}
+      >
+        <View style={[s.rowDot, rowDotStyle(item)]} />
+        <View style={s.rowBody}>
+          <View style={s.rowTop}>
+            <Text style={[s.itemTitle, isUnreadDone && s.itemTitleUnread]} numberOfLines={2}>
+              {item.title}
+            </Text>
+            <Text style={s.timeText}>{formatRelativeTime(item.timestamp)}</Text>
+          </View>
+          <Text style={s.subtitle} numberOfLines={2}>
+            {item.projectName} · {item.subtitle}
+          </Text>
+        </View>
+        <View style={s.rowRight}>
+          <Text
+            style={[
+              s.statusLabel,
+              item.section === 'running' && s.statusRunning,
+              item.tone === 'failed' && s.statusFailed,
+            ]}
+          >
+            {item.statusLabel}
+          </Text>
+          <ChevronRight size={16} color="#555555" />
+        </View>
+      </TouchableOpacity>
+    </Swipeable>
+  );
+}
+
 export default function ActivityScreen({
   needsAttention,
   running,
@@ -167,12 +181,60 @@ export default function ActivityScreen({
   onRefresh,
   onRetry,
   onOpenItem,
+  onMarkAllDoneRead,
+  onDeleteItem,
 }: Props) {
   const [activeFilter, setActiveFilter] = useState<ActivityFilter>('all');
-  const showAttention = activeFilter === 'all' || activeFilter === 'pending';
-  const showRunning = activeFilter === 'all' || activeFilter === 'running';
-  const showDone = activeFilter === 'all' || activeFilter === 'done';
+  const [doneFilter, setDoneFilter] = useState<DoneFilter>('unread');
+  const openSwipeableRef = useRef<Swipeable | null>(null);
+  const swipeableRefs = useRef<Map<string, Swipeable>>(new Map());
+  const unreadDone = done.filter((item) => item.readAt == null);
+  const readDone = done.filter((item) => item.readAt != null);
   const totalCount = needsAttention.length + running.length + done.length;
+  const allItems = [...needsAttention, ...running, ...done].sort(byNewest);
+
+  const tabCount = (filter: ActivityFilter) => {
+    if (filter === 'all') return totalCount;
+    if (filter === 'pending') return needsAttention.length;
+    if (filter === 'running') return running.length;
+    return done.length;
+  };
+
+  const visibleItems =
+    activeFilter === 'all'
+      ? allItems
+      : activeFilter === 'pending'
+        ? needsAttention
+        : activeFilter === 'running'
+          ? running
+          : doneFilter === 'unread'
+            ? unreadDone
+            : readDone;
+
+  const emptyText =
+    activeFilter === 'pending'
+      ? 'No pending decisions.'
+      : activeFilter === 'running'
+        ? 'No active sessions.'
+        : activeFilter === 'done'
+          ? 'No recent results.'
+          : 'No activity.';
+
+  const renderRows = () =>
+    visibleItems.length === 0 ? (
+      <Text style={s.emptySectionText}>{emptyText}</Text>
+    ) : (
+      visibleItems.map((item) => (
+        <ActivityRow
+          key={item.id}
+          item={item}
+          onOpenItem={onOpenItem}
+          onDeleteItem={onDeleteItem}
+          openSwipeableRef={openSwipeableRef}
+          swipeableRefs={swipeableRefs}
+        />
+      ))
+    );
 
   return (
     <View style={s.root}>
@@ -181,37 +243,37 @@ export default function ActivityScreen({
           <Text style={s.title}>Activity</Text>
           <SlidersHorizontal size={22} color="#888888" />
         </View>
-        <View style={s.summaryRow}>
-          <View style={s.summaryPill}>
-            <Sparkles size={13} color="#FF6B35" />
-            <Text style={s.summaryText}>{needsAttention.length} pending</Text>
-          </View>
-          <View style={s.summaryPill}>
-            <Clock3 size={13} color="#888888" />
-            <Text style={s.summaryText}>{running.length} running</Text>
-          </View>
-        </View>
-        <View style={s.filterWrap}>
-          <Text style={s.filterLabel}>STATUS</Text>
-          <View style={s.chipRow}>
-            {FILTERS.map((filter) => {
-              const selected = activeFilter === filter.key;
-              return (
-                <TouchableOpacity
-                  key={filter.key}
-                  style={[s.filterChip, selected && s.filterChipActive]}
-                  onPress={() => setActiveFilter(filter.key)}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected }}
-                  accessibilityLabel={`Show ${filter.label} activity`}
-                >
-                  <Text style={[s.filterChipText, selected && s.filterChipTextActive]}>
-                    {filter.label}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
+        <View style={s.segment} testID="activity-filter-segment">
+          {FILTERS.map((filter) => {
+            const selected = activeFilter === filter.key;
+            const count = tabCount(filter.key);
+            const doneUnreadSuffix =
+              filter.key === 'done' && unreadDone.length > 0 ? `, ${unreadDone.length} unread` : '';
+            return (
+              <TouchableOpacity
+                key={filter.key}
+                style={[s.segmentItem, selected && s.segmentItemActive]}
+                onPress={() => {
+                  setActiveFilter(filter.key);
+                  if (filter.key === 'done') {
+                    setDoneFilter(unreadDone.length > 0 ? 'unread' : 'read');
+                  }
+                }}
+                accessibilityRole="button"
+                accessibilityState={{ selected }}
+                accessibilityLabel={`Show ${filter.label} activity, ${itemCountLabel(
+                  count,
+                )}${doneUnreadSuffix}`}
+              >
+                <Text style={[s.segmentText, selected && s.segmentTextActive]}>
+                  {filter.label} {count}
+                </Text>
+                {filter.key === 'done' && unreadDone.length > 0 ? (
+                  <View testID="activity-done-unread-dot" style={s.tabUnreadDot} />
+                ) : null}
+              </TouchableOpacity>
+            );
+          })}
         </View>
       </View>
 
@@ -265,144 +327,45 @@ export default function ActivityScreen({
           testID="activity-scroll"
         >
           <PartialFailureBanner failedEndpointLabels={failedEndpointLabels} onRetry={onRetry} />
-          {showAttention && (
-            <Section
-              title="Needs Attention"
-              items={needsAttention}
-              emptyText="No pending decisions."
-              onOpenItem={onOpenItem}
-            />
-          )}
-          {showRunning && (
-            <Section
-              title="Running"
-              items={running}
-              emptyText="No active sessions."
-              onOpenItem={onOpenItem}
-            />
-          )}
-          {showDone && (
-            <Section
-              title="Done"
-              items={done}
-              emptyText="No recent results."
-              onOpenItem={onOpenItem}
-            />
-          )}
+          {activeFilter === 'done' ? (
+            <View style={s.doneHeader}>
+              <View style={s.doneSegment}>
+                {(['unread', 'read'] as const).map((filter) => {
+                  const selected = doneFilter === filter;
+                  const count = filter === 'unread' ? unreadDone.length : readDone.length;
+                  const label = filter === 'unread' ? 'Unread' : 'Read';
+                  return (
+                    <TouchableOpacity
+                      key={filter}
+                      style={[s.doneSegmentItem, selected && s.doneSegmentItemActive]}
+                      onPress={() => setDoneFilter(filter)}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected }}
+                    >
+                      <Text style={[s.doneSegmentText, selected && s.doneSegmentTextActive]}>
+                        {label} {count}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+              {doneFilter === 'unread' && unreadDone.length > 0 ? (
+                <TouchableOpacity
+                  onPress={() => {
+                    setDoneFilter('read');
+                    onMarkAllDoneRead?.();
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Mark all Done items read"
+                >
+                  <Text style={s.markReadText}>Mark All Read</Text>
+                </TouchableOpacity>
+              ) : null}
+            </View>
+          ) : null}
+          <View style={s.list}>{renderRows()}</View>
         </ScrollView>
       )}
     </View>
   );
 }
-
-const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#0D0D0D' },
-  header: { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 14, gap: 12 },
-  titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  title: { fontFamily: 'Inter', fontSize: 34, fontWeight: '700', color: '#FFFFFF' },
-  summaryRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
-  summaryPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: '#1A1A1A',
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-  },
-  summaryText: { fontFamily: 'Inter', fontSize: 13, color: '#DDDDDD' },
-  filterWrap: { gap: 8 },
-  filterLabel: { fontFamily: 'Inter', fontSize: 11, fontWeight: '600', color: '#666666' },
-  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  filterChip: {
-    minHeight: 32,
-    borderRadius: 16,
-    backgroundColor: '#1A1A1A',
-    paddingHorizontal: 14,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  filterChipActive: { backgroundColor: '#FF6B35' },
-  filterChipText: { fontFamily: 'Inter', fontSize: 13, color: '#DDDDDD' },
-  filterChipTextActive: { fontWeight: '600', color: '#FFFFFF' },
-  content: { paddingHorizontal: 16, paddingBottom: 110, gap: 18 },
-  section: { gap: 8 },
-  sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  sectionTitle: { fontFamily: 'Inter', fontSize: 13, fontWeight: '700', color: '#888888' },
-  sectionCount: { fontFamily: 'Inter', fontSize: 12, color: '#666666' },
-  emptySectionText: { fontFamily: 'Inter', fontSize: 13, color: '#666666', paddingVertical: 8 },
-  row: {
-    flexDirection: 'row',
-    gap: 12,
-    backgroundColor: '#1A1A1A',
-    borderRadius: 8,
-    padding: 12,
-  },
-  iconWrap: {
-    width: 34,
-    height: 34,
-    borderRadius: 8,
-    backgroundColor: '#111111',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  iconAttention: { backgroundColor: '#1A1A1A' },
-  iconFailed: { backgroundColor: '#1A1A1A' },
-  rowBody: { flex: 1, gap: 6 },
-  rowTop: { flexDirection: 'row', justifyContent: 'space-between', gap: 12 },
-  projectName: { flex: 1, fontFamily: 'Inter', fontSize: 13, fontWeight: '700', color: '#FFFFFF' },
-  timeText: { fontFamily: 'Inter', fontSize: 12, color: '#555555' },
-  itemTitle: { fontFamily: 'Inter', fontSize: 15, color: '#DDDDDD', lineHeight: 21 },
-  metaRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
-  subtitle: { flex: 1, fontFamily: 'Inter', fontSize: 12, color: '#888888' },
-  statusLabel: { fontFamily: 'Inter', fontSize: 11, fontWeight: '700', color: '#888888' },
-  statusAttention: { color: '#FF6B35' },
-  statusRunning: { color: '#FF6B35' },
-  statusFailed: { color: '#FF4444' },
-  partialFailure: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
-    backgroundColor: '#1A1A1A',
-    borderRadius: 8,
-    padding: 12,
-  },
-  partialFailureText: { flex: 1, fontFamily: 'Inter', fontSize: 12, color: '#DDDDDD' },
-  partialFailureRetry: { fontFamily: 'Inter', fontSize: 12, fontWeight: '700', color: '#FF6B35' },
-  emptyBody: {
-    flexGrow: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 32,
-    paddingBottom: 80,
-  },
-  emptyIconWrap: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: '#1A1A1A',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 18,
-  },
-  emptyTitle: { fontFamily: 'Inter', fontSize: 22, fontWeight: '700', color: '#FFFFFF' },
-  emptyDesc: {
-    marginTop: 8,
-    fontFamily: 'Inter',
-    fontSize: 14,
-    color: '#888888',
-    textAlign: 'center',
-    lineHeight: 20,
-  },
-  retryButton: {
-    marginTop: 18,
-    minHeight: 36,
-    borderRadius: 8,
-    backgroundColor: '#FF6B35',
-    paddingHorizontal: 18,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  retryText: { fontFamily: 'Inter', fontSize: 13, fontWeight: '700', color: '#FFFFFF' },
-});

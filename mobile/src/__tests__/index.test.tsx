@@ -1,9 +1,21 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, render, screen, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import React from 'react';
 import AgentListScreen from '../../app/(tabs)/index';
 import { useEndpointStore } from '../../src/store/endpointStore';
 import { type Agent } from '../types';
+
+jest.mock('expo-camera', () => ({
+  CameraView: () => null,
+  useCameraPermissions: () => [{ granted: false }, jest.fn()],
+}));
+
+jest.mock('../../src/api/endpointClient', () => ({
+  getEndpointClient: jest.fn(() => ({
+    get: jest.fn(),
+  })),
+  clearEndpointClients: jest.fn(),
+}));
 
 jest.mock('../../src/features/agents/services/agentService', () => ({
   fetchAllAgents: jest.fn(),
@@ -17,6 +29,7 @@ jest.mock('expo-router', () => ({
 jest.mock('react-native-safe-area-context', () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
   SafeAreaProvider: ({ children }: any) => children,
+  SafeAreaView: ({ children }: any) => children,
 }));
 
 const mockAgents: Agent[] = [
@@ -66,7 +79,7 @@ function wrapper({ children }: { children: React.ReactNode }) {
 ///   4. Wait for data to load
 ///
 /// Expected:
-///   - All three project names visible with their source casing
+///   - All three agent names visible with their source casing
 describe('AgentListScreen', () => {
   const { fetchAllAgents } = require('../../src/features/agents/services/agentService');
 
@@ -112,7 +125,7 @@ describe('AgentListScreen', () => {
     fetchAllAgents.mockImplementation(() => new Promise(() => {}));
 
     render(<AgentListScreen />, { wrapper });
-    expect(screen.getByText('Loading projects...')).toBeTruthy();
+    expect(screen.getByText('Loading agents...')).toBeTruthy();
   });
 
   it('shows empty state when no projects', async () => {
@@ -122,5 +135,34 @@ describe('AgentListScreen', () => {
     await waitFor(() => {
       expect(screen.getByText('Connect a machine')).toBeTruthy();
     });
+  });
+
+  /// Agents route add endpoint: header plus opens Add Endpoint directly on QR mode.
+  ///
+  /// Data construction:
+  ///   endpointStore = one configured endpoint, so Agents route renders loaded list state.
+  ///   fetchAllAgents = mockAgents, so the header plus is available above project rows.
+  ///   camera permission = false, so QR mode displays the permission CTA.
+  ///
+  /// Execution:
+  ///   1. Render AgentListScreen inside QueryClientProvider.
+  ///   2. Wait for project data.
+  ///   3. Press the "Add endpoint" header button.
+  ///
+  /// Expected:
+  ///   - Positive: full-screen Add Endpoint copy is visible.
+  ///   - Positive: QR mode is active via "TAP TO ALLOW CAMERA".
+  ///   - Negative: legacy centered-card "ADD ENDPOINT" heading is not shown.
+  it('opens the add endpoint modal in QR mode from the Agents header plus', async () => {
+    render(<AgentListScreen />, { wrapper });
+
+    await waitFor(() => {
+      expect(screen.getByText('Weather Agent')).toBeTruthy();
+    });
+    fireEvent.press(screen.getByLabelText('Add endpoint'));
+
+    expect(screen.getByText('Connect a machine')).toBeTruthy();
+    expect(screen.getByText('TAP TO ALLOW CAMERA')).toBeTruthy();
+    expect(screen.queryByText('ADD ENDPOINT')).toBeNull();
   });
 });

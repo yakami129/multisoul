@@ -41,7 +41,6 @@ Monorepo 两大件：
 - DB schema 改动走 migration —— 不允许运行时 `CREATE TABLE`（本仓库中 SQLite 由 `cli/src/db.rs` 统一演进，纪律同上）
 - REST/WS 强制 Bearer auth —— 唯一例外 `GET /api/v1/healthz`
 - 决策用 `AskUserQuestion` 工具调用 —— 不在自由文本问选择题
-- **必须使用 `git worktree` 开发** —— 在独立 worktree 的功能分支上改代码；**禁止**在 **`main` 检出目录**直接提交产品变更（见 [`.cursor/rules/git-worktree-development.mdc`](.cursor/rules/git-worktree-development.mdc)、Superpowers `using-git-worktrees`）
 - **禁止直接 push main** —— 所有变更必须通过 PR；直接 push 会被 GitHub branch protection 拒绝
 - **PR 开启前必须验证** —— `cargo test` + `cargo build` + `pnpm typecheck` + `pnpm test --watchAll=false` 全部通过
 - **开 PR 需用户确认** —— Claude Code 自动 commit 到功能分支后，必须等用户确认才能执行 `gh pr create`
@@ -334,7 +333,6 @@ The mobile app uses a **dark modern aesthetic** — near-black backgrounds, whit
 ## 13. PR 工作流（Claude Code 行为约束）
 
 ### 开发时
-- **必须**使用 `git worktree`（skill `superpowers:using-git-worktrees`）：在单独目录检出功能分支再编辑；**禁止**把 **`main` 工作树**当作日常改代码的目录
 - 分支命名：`feat/<desc>`, `fix/<desc>`, `chore/<desc>`
 
 ### 完成功能后

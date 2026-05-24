@@ -14,6 +14,18 @@ interface EndpointState {
 }
 
 const TOKEN_KEY = (id: string) => `endpoint_token_${id}`;
+const pendingEndpointBaseUrls = new Set<string>();
+
+function normalizeEndpointBaseUrl(baseUrl: string): string {
+  const trimmed = baseUrl.trim().replace(/\/+$/, '');
+  try {
+    const parsed = new URL(trimmed);
+    const pathname = parsed.pathname === '/' ? '' : parsed.pathname.replace(/\/+$/, '');
+    return `${parsed.protocol}//${parsed.host}${pathname}`.toLowerCase();
+  } catch {
+    return trimmed.toLowerCase();
+  }
+}
 
 export const useEndpointStore = create<EndpointState>((set) => ({
   endpoints: [],
@@ -36,15 +48,27 @@ export const useEndpointStore = create<EndpointState>((set) => ({
   },
 
   addEndpoint: async ({ label, base_url, token }) => {
+    const normalizedBaseUrl = normalizeEndpointBaseUrl(base_url);
+    const hasExistingEndpoint = useEndpointStore
+      .getState()
+      .endpoints.some(
+        (endpoint) => normalizeEndpointBaseUrl(endpoint.base_url) === normalizedBaseUrl,
+      );
+    if (hasExistingEndpoint || pendingEndpointBaseUrls.has(normalizedBaseUrl)) return;
+    pendingEndpointBaseUrls.add(normalizedBaseUrl);
     const db = getDb();
-    const id = uuidv4();
-    await db.runAsync(
-      'INSERT INTO endpoints (id, label, base_url, last_seen_at) VALUES (?,?,?,NULL)',
-      [id, label, base_url],
-    );
-    await AsyncStorage.setItem(TOKEN_KEY(id), token);
-    const ep: Endpoint = { id, label, base_url, token, last_seen_at: null };
-    set((s) => ({ endpoints: [...s.endpoints, ep] }));
+    try {
+      const id = uuidv4();
+      await db.runAsync(
+        'INSERT INTO endpoints (id, label, base_url, last_seen_at) VALUES (?,?,?,NULL)',
+        [id, label, normalizedBaseUrl],
+      );
+      await AsyncStorage.setItem(TOKEN_KEY(id), token);
+      const ep: Endpoint = { id, label, base_url: normalizedBaseUrl, token, last_seen_at: null };
+      set((s) => ({ endpoints: [...s.endpoints, ep] }));
+    } finally {
+      pendingEndpointBaseUrls.delete(normalizedBaseUrl);
+    }
   },
 
   removeEndpoint: async (id) => {

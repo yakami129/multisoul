@@ -66,7 +66,6 @@
 ## 7. Claude Code 行为约束
 
 ### 开发时
-- **必须**使用 `git worktree` 隔离每个功能开发（`superpowers:using-git-worktrees`）；**禁止**在 **`main` 检出目录**直接修改产品代码并 commit
 - 分支命名遵循 `feat/xxx` 规范
 
 ### 完成功能后

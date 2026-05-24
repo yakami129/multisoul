@@ -36,7 +36,6 @@ Monorepo 两大件：
 - REST/WS 强制 Bearer auth —— 唯一例外 `GET /api/v1/healthz`
 - 决策用 `AskUserQuestion` 工具调用 —— 不在自由文本问选择题
 - **CI 未通过禁止合并 PR** —— 强约束，见 [`docs/runbooks/github-pr-merge-policy.md`](docs/runbooks/github-pr-merge-policy.md)
-- **必须使用 `git worktree` 开发** —— 在独立 worktree 的功能分支上改代码；**禁止**在 **`main` 检出目录**直接提交产品变更（见 [`.cursor/rules/git-worktree-development.mdc`](.cursor/rules/git-worktree-development.mdc)、Superpowers `using-git-worktrees`）
 - 同一用户流程只保留一个权威实现 —— 详见 [`CLAUDE.md`](CLAUDE.md) §2/§7
 
 ## 3. 技术栈速览
@@ -62,7 +61,7 @@ Monorepo 两大件：
 | **iOS 发布、CLI 发布等 SOP** | [`mobile/docs/ios-publish.md`](mobile/docs/ios-publish.md)（本地 `scripts/publish-ios-local.sh` / 云端 `publish-ios.sh`）· [`docs/runbooks/cli-release.md`](docs/runbooks/cli-release.md) · [`docs/runbooks/README.md`](docs/runbooks/README.md) |
 | **`msctl serve` 跑挂了怎么查** | [`docs/runbooks/debugging.md`](docs/runbooks/debugging.md) — `msctl logs` 4 个故事 |
 | **PR 合并与 CI 强闸** | [`docs/runbooks/github-pr-merge-policy.md`](docs/runbooks/github-pr-merge-policy.md) |
-| **Git：worktree 开发、禁止在 main 检出上改代码** | [`.cursor/rules/git-worktree-development.mdc`](.cursor/rules/git-worktree-development.mdc) · [`docs/product-specs/SPEC-pr-workflow.md`](docs/product-specs/SPEC-pr-workflow.md) |
+| **Git：PR 工作流、禁止直接 push main** | [`docs/product-specs/SPEC-pr-workflow.md`](docs/product-specs/SPEC-pr-workflow.md) |
 | **UI 设计系统**（颜色、字号、间距） | [`mobile/docs/design.md`](mobile/docs/design.md) |
 | **RN UI 常见坑** | [`mobile/docs/rules/ui-pitfalls.md`](mobile/docs/rules/ui-pitfalls.md) |
 | **完整命令、env 表、UI checklist** | [`CLAUDE.md`](CLAUDE.md)（详细工程手册） |

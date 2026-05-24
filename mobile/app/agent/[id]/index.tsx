@@ -3,7 +3,9 @@ import React, { useCallback, useRef, useState } from 'react';
 import { AgentDetail } from '../../../src/features/agents/components/AgentDetail';
 import { fetchAgent } from '../../../src/features/agents/services/agentService';
 import {
+  abortConversation,
   createConversation,
+  deleteConversation,
   fetchConversations,
 } from '../../../src/features/chat/services/chatService';
 import { buildChatDetailPath } from '../../../src/features/chat/utils/chatRoutes';
@@ -16,6 +18,7 @@ export default function AgentDetailScreen() {
   const router = useRouter();
   const endpoints = useEndpointStore((s) => s.endpoints);
   const addConversation = useChatStore((s) => s.addConversation);
+  const removeConversation = useChatStore((s) => s.removeConversation);
 
   const [agent, setAgent] = useState<Agent | undefined>(undefined);
   const [recentConversations, setRecentConversations] = useState<Conversation[]>([]);
@@ -116,6 +119,23 @@ export default function AgentDetailScreen() {
     openConversation(seeded);
   };
 
+  const handleDeleteConversation = async (conversation: Conversation) => {
+    const ep_id = conversation.endpoint_id ?? endpoint_id ?? agent?.endpoint_id ?? '';
+    const ep = endpoints.find((e) => e.id === ep_id);
+    if (!ep) return;
+
+    try {
+      if (conversation.status === 'running' || conversation.status === 'awaiting_question') {
+        await abortConversation(ep.base_url, ep.token, conversation.id);
+      }
+      await deleteConversation(ep.base_url, ep.token, conversation.id);
+      setRecentConversations((current) => current.filter((conv) => conv.id !== conversation.id));
+      removeConversation(conversation.id);
+    } catch {
+      // Keep the row visible when the endpoint refuses or loses the delete request.
+    }
+  };
+
   return (
     <AgentDetail
       agent={agent}
@@ -127,6 +147,9 @@ export default function AgentDetailScreen() {
         void handleNewChat();
       }}
       onOpenConversation={openConversation}
+      onDeleteConversation={(conversation) => {
+        void handleDeleteConversation(conversation);
+      }}
     />
   );
 }

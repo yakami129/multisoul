@@ -5,23 +5,36 @@
 
 ## 前提
 
-- 日志位于 `~/.cache/msctl/serve.log.YYYY-MM-DD`（macOS 实为 `~/Library/Caches/msctl/`）
-- 每天一个文件，保留 7 天；`msctl logs` 自动读最新
-- 日志格式为 NDJSON；`msctl logs` 不带 `--json` 时渲染成人类可读文本 + 彩色
+- app 日志位于 `~/.cache/msctl/serve.log.YYYY-MM-DD`（macOS 实为 `~/Library/Caches/msctl/`）
+- service 日志位于 daemon/launchd 配置的 stdout/stderr 文件（默认 `~/.config/msctl/msctl.log`）
+- `msctl logs` 默认读取 app + service；用 `--source app` 或 `--source service` 可只看单一来源
+- app 日志格式为 NDJSON；`msctl logs --source app --json` 可输出原始 NDJSON 给 `jq`
 
 ## 常用参数速查
 
 ```bash
-msctl logs                          # 最后 50 条，人类可读
-msctl logs --tail 200               # 最后 200 条
-msctl logs -f                       # 实时流（tail -f）
-msctl logs --since 5m               # 最近 5 分钟
-msctl logs --since 2h               # 最近 2 小时
-msctl logs --conv cnv_abc           # 按会话过滤
-msctl logs --level warn             # 只看 WARN/ERROR
-msctl logs --grep 'push_'           # 正则过滤 message 字段
-msctl logs --json | jq .            # 管道给 jq
+msctl logs                          # 默认 source=all，每个来源最后 50 条/行
+msctl logs --source app             # 只看结构化 app 日志
+msctl logs --source service         # 只看 daemon/launchd 原始日志
+msctl logs --tail 200               # 每个来源最后 200 条/行
+msctl logs -f                       # 同时实时流 app + service
+msctl logs --since 5m               # app 最近 5 分钟
+msctl logs --since 2h               # app 最近 2 小时
+msctl logs --conv cnv_abc           # app 按会话过滤
+msctl logs --level warn             # app 只看 WARN/ERROR
+msctl logs --grep 'push_'           # app 匹配 message；service 匹配原始行
+msctl logs --source app --json | jq . # app NDJSON 管道给 jq
+msctl logs --source app --level debug --conv cnv_abc # 看 Agent stdout 原始行等 DEBUG 细节
 ```
+
+## 手机端 Release logs
+
+Settings → `DIAGNOSTICS` → `Release logs` 会通过受 Bearer 保护的
+`/ws/logs?token=<TOKEN>&tail=200&level=trace` 连接到选中的 endpoint。
+
+- WebSocket 帧是 **格式化文本行**，与 `msctl logs` 默认输出一致；不会给手机端推 NDJSON/JSON envelope。
+- 打开弹窗后先发送最近 `tail` 条日志，再实时追加新日志。
+- 弹窗会把这些 `msctl` 文本行和 iOS 本机 diagnostics 文本合并显示；`Clear iOS` 只清本机 diagnostics，不删除 `msctl` 日志文件。
 
 ## 场景 1：Agent 在 `ask_question` 后卡住
 
@@ -53,7 +66,7 @@ msctl logs --grep 'ws_' --conv <conv_id> --tail 10
 msctl logs --level warn --tail 30
 ```
 
-- 看到 `http_error status=401 path=/api/v1/healthz` → token 不对。对照 `msctl serve` 启动时打印的 Bearer token 修正 App 端。
+- 看到 `http_error GET /api/v1/agents status=401` → token 不对。对照 `msctl serve` 启动时打印的 Bearer token 修正 App 端。
 - 没有任何 `http_request` 记录 → 请求根本没到 `msctl serve`。检查：
   - Tailscale funnel 是否起来：`tailscale funnel status`
   - 端口是否被系统防火墙拦
@@ -82,14 +95,15 @@ msctl logs --grep 'push_' --since 30m
 msctl logs --grep 'task_status' --conv <conv_id>
 ```
 
-## 场景 4：Agent 进程崩溃
+## 场景 4：Agent 进程崩溃 / stderr 异常
 
 **症状**：对话停在某步，之后新消息也没响应。
 
 **定位**：
 
 ```bash
-msctl logs --since 10m --grep 'agent_' --conv <conv_id>
+msctl logs --source app --since 10m --grep 'agent_' --conv <conv_id>
+msctl logs --source service --tail 80
 ```
 
 关键事件：
@@ -97,32 +111,28 @@ msctl logs --since 10m --grep 'agent_' --conv <conv_id>
 | message | 字段 | 说明 |
 |---------|------|------|
 | `agent_spawn` | pid, runtime, resume | 进程启动 |
-| `agent_exit` | pid, exit_code, stderr_tail | 进程退出（非 0 = 异常） |
 | `agent_respawn` | attempt, reason | 自动重试（最多 3 次） |
 | `turn_failed_after_retries` | — | 3 次重试都失败，会话标记为 `failed` |
 
-常见退出码：
-
-- `exit_code=137` → SIGKILL（通常是 OOM）
-- `exit_code=1` → 通用错误，看 `stderr_tail`
-- `exit_code=127` → `claude`/`codex` 找不到可执行文件，PATH 问题
+Claude 子进程和 Plugin agent 的 stderr 继承到 service 日志，不写入 app NDJSON。若 app 侧只看到 `agent_spawn` 后无 `turn_end` / `turn_error`，继续看 `--source service` 中的 CLI stderr、PATH、崩溃输出。
 
 ## 进阶：和 `jq` 组合
 
 ```bash
 # 过去 1 小时所有 error
-msctl logs --since 1h --level error --json | jq '.fields.message'
+msctl logs --source app --since 1h --level error --json | jq '.fields.message'
 
 # 某 conv 的所有 span 名
-msctl logs --conv cnv_abc --json | jq '.span.name' | sort -u
+msctl logs --source app --conv cnv_abc --json | jq '.span.name' | sort -u
 
 # 统计每种事件发生次数
-msctl logs --tail 1000 --json | jq -r '.fields.message' | sort | uniq -c | sort -rn
+msctl logs --source app --tail 1000 --json | jq -r '.fields.message' | sort | uniq -c | sort -rn
 ```
 
 ## 日志本身出了问题
 
-- 看不到任何输出：检查 `~/.cache/msctl/` 是否存在；`ls -la` 看文件大小
+- 看不到任何 app 输出：检查 `~/.cache/msctl/` 是否存在；`ls -la` 看文件大小
+- 看不到任何 service 输出：检查 `msctl daemon status` 里的 Log 路径是否存在
 - `msctl serve` 没写盘：临时把日志级别调高验证，`msctl --log-level debug serve`
 - 磁盘满：`tracing-appender` 会静默丢弃，不影响服务；清掉旧文件 `rm ~/.cache/msctl/serve.log.*`（7 天自动轮转保留，手动清也安全）
 

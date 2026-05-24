@@ -8,6 +8,18 @@ jest.mock('react-native-safe-area-context', () => ({
   SafeAreaProvider: ({ children }: any) => children,
 }));
 
+jest.mock('react-native-gesture-handler', () => {
+  const { View } = require('react-native');
+  return {
+    Swipeable: ({ children, renderRightActions }: any) => (
+      <View>
+        {children}
+        {renderRightActions?.()}
+      </View>
+    ),
+  };
+});
+
 const agent: Agent = {
   id: 'a1',
   name: 'My Agent',
@@ -96,6 +108,7 @@ describe('AgentDetail', () => {
 
   it('opens a recent conversation when pressed', () => {
     const onOpenConversation = jest.fn();
+    const onDeleteConversation = jest.fn();
     const { getByText } = render(
       <AgentDetail
         agent={agent}
@@ -105,10 +118,76 @@ describe('AgentDetail', () => {
         onBack={() => {}}
         onNewChat={() => {}}
         onOpenConversation={onOpenConversation}
+        onDeleteConversation={onDeleteConversation}
       />,
     );
 
     fireEvent.press(getByText('Add a dark mode toggle'));
     expect(onOpenConversation).toHaveBeenCalledWith(recentConversation);
+    expect(onDeleteConversation).not.toHaveBeenCalled();
+  });
+
+  /// Recent chat swipe action: every Project Detail chat row exposes a DELETE affordance.
+  ///
+  /// Data construction:
+  ///   recentConversations = [recentConversation]
+  ///   mocked Swipeable    = immediately renders renderRightActions()
+  ///
+  /// Execution process:
+  ///   1. Render AgentDetail with one recent conversation.
+  ///   2. Read all visible DELETE labels from the mocked swipe action area.
+  ///
+  /// Expected result:
+  ///   - Positive: one DELETE action is visible for the single recent chat.
+  ///   - Negative: the empty Recent Chats state is not visible while a row exists.
+  it('renders a DELETE swipe action for a recent conversation', () => {
+    const { getAllByText, queryByText } = render(
+      <AgentDetail
+        agent={agent}
+        recentConversations={[recentConversation]}
+        isLoading={false}
+        isError={false}
+        onBack={() => {}}
+        onNewChat={() => {}}
+      />,
+    );
+
+    expect(getAllByText('DELETE')).toHaveLength(1);
+    expect(queryByText('No recent chats yet.')).toBeNull();
+  });
+
+  /// Recent chat deletion: tapping the revealed DELETE action reports the exact conversation.
+  ///
+  /// Data construction:
+  ///   conversation id = conv-1
+  ///   onDeleteConversation = jest spy
+  ///
+  /// Execution process:
+  ///   1. Render one recent conversation.
+  ///   2. Press DELETE from the mocked Swipeable right action.
+  ///
+  /// Expected result:
+  ///   - Positive: onDeleteConversation receives recentConversation.
+  ///   - Negative: onOpenConversation is not called by the delete action.
+  it('calls onDeleteConversation with the matching recent conversation', () => {
+    const onDeleteConversation = jest.fn();
+    const onOpenConversation = jest.fn();
+    const { getByText } = render(
+      <AgentDetail
+        agent={agent}
+        recentConversations={[recentConversation]}
+        isLoading={false}
+        isError={false}
+        onBack={() => {}}
+        onNewChat={() => {}}
+        onOpenConversation={onOpenConversation}
+        onDeleteConversation={onDeleteConversation}
+      />,
+    );
+
+    fireEvent.press(getByText('DELETE'));
+
+    expect(onDeleteConversation).toHaveBeenCalledWith(recentConversation);
+    expect(onOpenConversation).not.toHaveBeenCalled();
   });
 });

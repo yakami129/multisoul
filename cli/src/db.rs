@@ -75,6 +75,10 @@ fn init_schema(conn: &Connection) -> Result<()> {
             freeform        TEXT,
             PRIMARY KEY (conversation_id, ask_id)
         );
+        CREATE TABLE IF NOT EXISTS activity_reads (
+            conversation_id TEXT PRIMARY KEY REFERENCES conversations(id) ON DELETE CASCADE,
+            read_at         INTEGER NOT NULL
+        );
     "#,
     )?;
     // Migrate existing DBs: add claude_session_id if missing
@@ -162,6 +166,10 @@ mod tests {
         assert!(
             tables.contains(&"ask_answers".to_string()),
             "ask_answers table must exist"
+        );
+        assert!(
+            tables.contains(&"activity_reads".to_string()),
+            "activity_reads table must exist so Activity Done read state can persist in msctl"
         );
     }
 

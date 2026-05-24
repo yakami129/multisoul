@@ -6,6 +6,18 @@ import AgentListScreen from './index';
 const mockPush = jest.fn();
 const mockFetchAllAgents = jest.fn();
 
+jest.mock('expo-camera', () => ({
+  CameraView: () => null,
+  useCameraPermissions: () => [{ granted: false }, jest.fn()],
+}));
+
+jest.mock('../../src/api/endpointClient', () => ({
+  getEndpointClient: jest.fn(() => ({
+    get: jest.fn(),
+  })),
+  clearEndpointClients: jest.fn(),
+}));
+
 jest.mock('expo-router', () => ({
   useRouter: () => ({ push: mockPush }),
 }));
@@ -30,6 +42,7 @@ jest.mock('../../src/features/agents/services/agentService', () => ({
 
 jest.mock('react-native-safe-area-context', () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
+  SafeAreaView: ({ children }: any) => children,
 }));
 
 describe('AgentListScreen', () => {

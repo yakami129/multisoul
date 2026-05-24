@@ -211,8 +211,8 @@ msctl logs --source service -f
 - [ ] `msctl daemon install` 成功后的提示使用 `msctl logs --source service -f`。
 - [ ] README、runbook、CLI reference 不再推荐 `msctl daemon logs`。
 
-## 8. 待确认问题
+## 8. 已确认决策
 
-- `all` 模式下非 follow 输出的 source 顺序是否固定为 app 后 service。
-- `all` 模式下 service 缺失时是否静默跳过，还是打印 `[service] no service log yet`。
-- `--grep` 过滤后是否隐藏某个 source 的空结果提示。
+- `all` 模式下非 follow 输出按稳定顺序显示 app 后 service，不做跨 source 时间线排序。
+- `all` 模式下某个 source 缺失时静默跳过，避免默认命令在首轮排查时产生噪音。
+- `--grep` 过滤后不打印空结果提示；无匹配时保持空输出。

@@ -26,6 +26,38 @@ jest.mock('../api/endpointClient', () => ({
   clearEndpointClients: jest.fn(),
 }));
 
+class MockReleaseLogWebSocket {
+  static instances: MockReleaseLogWebSocket[] = [];
+  static OPEN = 1;
+  url: string;
+  readyState = MockReleaseLogWebSocket.OPEN;
+  onopen: (() => void) | null = null;
+  onmessage: ((event: { data: string }) => void) | null = null;
+  onerror: (() => void) | null = null;
+  onclose: ((event: { code?: number }) => void) | null = null;
+  close = jest.fn(() => {
+    this.readyState = 3;
+    this.onclose?.({ code: 1000 });
+  });
+
+  constructor(url: string) {
+    this.url = url;
+    MockReleaseLogWebSocket.instances.push(this);
+  }
+
+  emit(data: string) {
+    this.onmessage?.({ data });
+  }
+
+  emitErrorThenClose(code: number) {
+    this.onerror?.();
+    this.readyState = 3;
+    this.onclose?.({ code });
+  }
+}
+
+global.WebSocket = MockReleaseLogWebSocket as unknown as typeof WebSocket;
+
 /// Settings screen: renders endpoint list and add button
 ///
 /// Execution:
@@ -40,6 +72,7 @@ describe('SettingsScreen', () => {
   beforeEach(async () => {
     jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
     (Clipboard.setStringAsync as jest.Mock).mockClear();
+    MockReleaseLogWebSocket.instances = [];
     await clearDiagnosticsEntries();
     useEndpointStore.setState({
       endpoints: [
@@ -48,6 +81,13 @@ describe('SettingsScreen', () => {
           label: 'Home Server',
           base_url: 'http://192.168.1.1:8765',
           token: 'tok',
+          last_seen_at: null,
+        },
+        {
+          id: 'ep-2',
+          label: 'Mac Mini',
+          base_url: 'http://10.0.0.2:8765/',
+          token: 'tok two',
           last_seen_at: null,
         },
       ],
@@ -77,34 +117,129 @@ describe('SettingsScreen', () => {
     expect(screen.getByText('NO ENDPOINTS CONFIGURED')).toBeTruthy();
   });
 
-  /// Settings diagnostics: copy button exports release logs
+  /// Settings diagnostics: release logs modal streams formatted msctl text for the selected endpoint
   ///
   /// Data construction:
-  ///   diagnostics entry = warn / chat.image / "image load failed"
-  ///   endpoint count    = 1 existing endpoint
-  ///   copied payload    = formatted diagnostics text from diagnosticsLog
+  ///   endpoints         = Home Server + Mac Mini
+  ///   selected endpoint = Mac Mini（token 含空格，用于验证 query encode）
+  ///   websocket line    = "2026-05-24T10:00:00 INFO  [serve] http_request status=200"
   ///
   /// Execution:
-  ///   1. Seed one diagnostics event before rendering SettingsScreen
-  ///   2. Render SettingsScreen
-  ///   3. Press Copy logs
+  ///   1. Render SettingsScreen
+  ///   2. Press Release logs to open the modal
+  ///   3. Select Mac Mini
+  ///   4. Emit one plain text websocket message
   ///
   /// Expected:
-  ///   - positive assertion: DIAGNOSTICS section is visible in release UI
-  ///   - positive assertion: Clipboard receives the chat.image log
-  ///   - negative assertion: placeholder-only "No diagnostics yet." is not copied
-  it('copies diagnostics logs from settings', async () => {
-    recordDiagnosticsEvent('warn', 'chat.image', 'image load failed', { file_id: 'file-1.jpg' });
-
+  ///   - positive assertion: modal shows endpoint choices
+  ///   - positive assertion: websocket URL points at /ws/logs with encoded token
+  ///   - positive assertion: formatted msctl text appears as-is
+  ///   - negative assertion: rendered text is not JSON envelope content
+  it('opens release logs modal and streams selected endpoint text', async () => {
     render(<SettingsScreen />);
 
     expect(screen.getByText('DIAGNOSTICS')).toBeTruthy();
 
-    fireEvent.press(screen.getByTestId('diagnostics-copy-btn'));
+    fireEvent.press(screen.getByTestId('release-logs-open-btn'));
+    expect(screen.getAllByText('Release logs').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Mac Mini').length).toBeGreaterThan(0);
+
+    fireEvent.press(screen.getByTestId('release-logs-endpoint-ep-2'));
+
+    await waitFor(() => {
+      expect(MockReleaseLogWebSocket.instances.length).toBe(1);
+    });
+    expect(MockReleaseLogWebSocket.instances[0]?.url).toBe(
+      'ws://10.0.0.2:8765/ws/logs?token=tok%20two&tail=200&level=trace',
+    );
+
+    act(() => {
+      MockReleaseLogWebSocket.instances[0]?.emit(
+        '2026-05-24T10:00:00 INFO  [serve] http_request status=200',
+      );
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('release-logs-text').props.children).toContain('http_request');
+    });
+    expect(screen.getByTestId('release-logs-text').props.children).not.toContain('{"type":"log"');
+  });
+
+  /// Settings diagnostics: copy exports combined msctl and iOS release logs as plain text
+  ///
+  /// Data construction:
+  ///   diagnostics entry = warn / chat.image / "image load failed"
+  ///   websocket line    = "2026-05-24T10:00:01 WARN  [uploads] image_failed status=404"
+  ///   copied payload    = modal text buffer = iOS diagnostics + msctl websocket text
+  ///
+  /// Execution:
+  ///   1. Seed one iOS diagnostics event before rendering SettingsScreen
+  ///   2. Open Release logs modal and select Home Server
+  ///   3. Emit one formatted msctl text line
+  ///   4. Press Copy logs inside the modal
+  ///
+  /// Expected:
+  ///   - positive assertion: Clipboard receives iOS diagnostics text
+  ///   - positive assertion: Clipboard receives msctl formatted text
+  ///   - negative assertion: Clipboard does not receive JSON envelope text
+  ///   - negative assertion: placeholder-only "No diagnostics yet." is not copied
+  it('copies combined release logs as plain text', async () => {
+    recordDiagnosticsEvent('warn', 'chat.image', 'image load failed', { file_id: 'file-1.jpg' });
+
+    render(<SettingsScreen />);
+
+    fireEvent.press(screen.getByTestId('release-logs-open-btn'));
+    fireEvent.press(screen.getByTestId('release-logs-endpoint-ep-1'));
+
+    await waitFor(() => {
+      expect(MockReleaseLogWebSocket.instances.length).toBe(1);
+    });
+    act(() => {
+      MockReleaseLogWebSocket.instances[0]?.emit(
+        '2026-05-24T10:00:01 WARN  [uploads] image_failed status=404',
+      );
+    });
+
+    fireEvent.press(screen.getByTestId('release-logs-copy-btn'));
 
     await waitFor(() => {
       expect(Clipboard.setStringAsync).toHaveBeenCalledWith(expect.stringContaining('chat.image'));
     });
+    expect(Clipboard.setStringAsync).toHaveBeenCalledWith(expect.stringContaining('image_failed'));
+    expect(Clipboard.setStringAsync).not.toHaveBeenCalledWith(expect.stringContaining('{"type"'));
     expect(Clipboard.setStringAsync).not.toHaveBeenCalledWith('No diagnostics yet.');
+  });
+
+  /// Settings diagnostics: websocket error status is not overwritten by the close event
+  ///
+  /// Data construction:
+  ///   selected endpoint = Home Server
+  ///   websocket error   = synthetic error followed by close code 1006
+  ///   msctl lines       = 0 lines
+  ///
+  /// Execution:
+  ///   1. Open Release logs modal
+  ///   2. Select Home Server
+  ///   3. Emit websocket error, then close
+  ///
+  /// Expected:
+  ///   - positive assertion: status shows "Could not stream logs"
+  ///   - negative assertion: status is not overwritten by generic "Log stream closed."
+  it('keeps websocket error status when close follows error', async () => {
+    render(<SettingsScreen />);
+
+    fireEvent.press(screen.getByTestId('release-logs-open-btn'));
+    fireEvent.press(screen.getByTestId('release-logs-endpoint-ep-1'));
+
+    await waitFor(() => {
+      expect(MockReleaseLogWebSocket.instances.length).toBe(1);
+    });
+
+    act(() => {
+      MockReleaseLogWebSocket.instances[0]?.emitErrorThenClose(1006);
+    });
+
+    expect(screen.getByText('Could not stream logs from Home Server.')).toBeTruthy();
+    expect(screen.queryByText('Log stream closed.')).toBeNull();
   });
 });

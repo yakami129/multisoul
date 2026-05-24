@@ -23,6 +23,7 @@ interface Props {
   isFetching: boolean;
   onRefetch: () => void;
   onAgentPress: (id: string, endpoint_id: string, name: string) => void;
+  onAddEndpoint?: () => void;
 }
 
 type ProjectStatus = {
@@ -50,7 +51,15 @@ function projectStatus(conversations: Conversation[]): ProjectStatus {
   return { label: 'Idle', isActive: false, pendingCount: 0 };
 }
 
-export function AgentList({ agents, isLoading, isError, error, onRefetch, onAgentPress }: Props) {
+export function AgentList({
+  agents,
+  isLoading,
+  isError,
+  error,
+  onRefetch,
+  onAgentPress,
+  onAddEndpoint,
+}: Props) {
   const insets = useSafeAreaInsets();
   const [isRefreshing, setIsRefreshing] = React.useState(false);
   const [query, setQuery] = React.useState('');
@@ -120,11 +129,11 @@ export function AgentList({ agents, isLoading, isError, error, onRefetch, onAgen
     return (
       <View style={[s.root, { paddingTop: insets.top }]}>
         <View style={s.header}>
-          <Text style={s.headerTitle}>Projects</Text>
+          <Text style={s.headerTitle}>Agents</Text>
         </View>
         <View style={s.centered}>
           <ActivityIndicator size="large" color="#FF6B35" />
-          <Text style={s.loadingText}>Loading projects...</Text>
+          <Text style={s.loadingText}>Loading agents...</Text>
         </View>
       </View>
     );
@@ -134,7 +143,7 @@ export function AgentList({ agents, isLoading, isError, error, onRefetch, onAgen
     return (
       <View style={[s.root, { paddingTop: insets.top }]}>
         <View style={s.header}>
-          <Text style={s.headerTitle}>Projects</Text>
+          <Text style={s.headerTitle}>Agents</Text>
         </View>
         <View style={s.centered}>
           <View style={s.errorIconWrap}>
@@ -153,8 +162,16 @@ export function AgentList({ agents, isLoading, isError, error, onRefetch, onAgen
   return (
     <View testID="projects-root" style={[s.root, { paddingTop: insets.top }]}>
       <View style={s.header}>
-        <Text style={s.headerTitle}>Projects</Text>
-        <Plus size={24} color="#FF6B35" />
+        <Text style={s.headerTitle}>Agents</Text>
+        <TouchableOpacity
+          accessibilityLabel="Add endpoint"
+          accessibilityRole="button"
+          hitSlop={12}
+          onPress={onAddEndpoint}
+          style={s.addButton}
+        >
+          <Plus size={24} color="#FF6B35" />
+        </TouchableOpacity>
       </View>
 
       <View style={s.searchSection}>
@@ -163,7 +180,7 @@ export function AgentList({ agents, isLoading, isError, error, onRefetch, onAgen
           <TextInput
             value={query}
             onChangeText={setQuery}
-            placeholder="Search projects"
+            placeholder="Search agents"
             placeholderTextColor="#666666"
             style={s.searchInput}
             autoCapitalize="none"
@@ -199,8 +216,8 @@ export function AgentList({ agents, isLoading, isError, error, onRefetch, onAgen
               </>
             ) : (
               <>
-                <Text style={s.emptyTitle}>No projects found</Text>
-                <Text style={s.emptyDesc}>Try a different project name, path, or runtime.</Text>
+                <Text style={s.emptyTitle}>No agents found</Text>
+                <Text style={s.emptyDesc}>Try a different agent name, path, or runtime.</Text>
               </>
             )}
           </View>
@@ -216,10 +233,10 @@ export function AgentList({ agents, isLoading, isError, error, onRefetch, onAgen
                 ))}
               </>
             ) : null}
-            <Text style={s.sectionTitle}>All Projects</Text>
+            <Text style={s.sectionTitle}>All Agents</Text>
             <View testID="projects-group" style={s.projectGroup}>
               {allProjects.length === 0 ? (
-                <Text style={s.emptyGroupText}>No idle projects.</Text>
+                <Text style={s.emptyGroupText}>No idle agents.</Text>
               ) : (
                 allProjects.map((project, index) =>
                   renderProject(project, index, index < allProjects.length - 1, 'machine'),
@@ -244,6 +261,13 @@ const s = StyleSheet.create({
     paddingHorizontal: 20,
   },
   headerTitle: { fontFamily: 'Inter', fontSize: 34, fontWeight: '700', color: '#FFFFFF' },
+  addButton: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 12,
+  },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 16, padding: 24 },
   loadingText: { fontFamily: 'Inter', fontSize: 13, color: '#888888' },
   errorIconWrap: {
@@ -298,9 +322,12 @@ const s = StyleSheet.create({
     color: '#FFFFFF',
   },
   activeRow: {
+    marginHorizontal: 16,
+    borderRadius: 12,
     backgroundColor: '#0D1A0D',
     borderLeftWidth: 3,
     borderLeftColor: '#4CAF50',
+    overflow: 'hidden',
   },
   projectGroup: {
     marginHorizontal: 16,

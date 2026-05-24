@@ -1,6 +1,6 @@
 use crate::serve::state::AppState;
 use axum::{
-    extract::{Query, State},
+    extract::{Path, Query, State},
     http::StatusCode,
     Json,
 };
@@ -29,6 +29,8 @@ pub struct ActivityItem {
     pub tone: String,
     pub timestamp: i64,
     pub ask_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub read_at: Option<Option<i64>>,
 }
 
 pub async fn get_activity(
@@ -45,6 +47,83 @@ pub async fn get_activity(
     items.extend(load_running_items(&db, limit)?);
     items.extend(load_done_items(&db, limit)?);
     Ok(Json(ActivityResponse { items }))
+}
+
+pub async fn mark_done_read(
+    State(state): State<AppState>,
+    Path(conversation_id): Path<String>,
+) -> Result<StatusCode, StatusCode> {
+    let db = state
+        .db
+        .lock()
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    if !is_done_conversation(&db, &conversation_id)? {
+        return Err(StatusCode::NOT_FOUND);
+    }
+    db.execute(
+        "INSERT OR REPLACE INTO activity_reads (conversation_id, read_at)
+         VALUES (?1, ?2)",
+        rusqlite::params![conversation_id, crate::db::now_ms()],
+    )
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+pub async fn mark_all_done_read(State(state): State<AppState>) -> Result<StatusCode, StatusCode> {
+    let db = state
+        .db
+        .lock()
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let now = crate::db::now_ms();
+    db.execute(
+        "INSERT OR REPLACE INTO activity_reads (conversation_id, read_at)
+         SELECT c.id, ?1
+         FROM conversations c
+         WHERE c.status IN ('completed', 'failed')
+            OR (
+                c.status = 'idle'
+                AND EXISTS (
+                    SELECT 1
+                    FROM messages mt
+                    WHERE mt.conversation_id = c.id
+                      AND mt.role = 'task_status'
+                      AND json_extract(mt.payload, '$.status') IN ('completed', 'failed')
+                )
+            )",
+        rusqlite::params![now],
+    )
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+fn is_done_conversation(
+    db: &rusqlite::Connection,
+    conversation_id: &str,
+) -> Result<bool, StatusCode> {
+    db.query_row(
+        "SELECT EXISTS(
+            SELECT 1
+            FROM conversations c
+            WHERE c.id = ?1
+              AND (
+                c.status IN ('completed', 'failed')
+                OR (
+                    c.status = 'idle'
+                    AND EXISTS (
+                        SELECT 1
+                        FROM messages mt
+                        WHERE mt.conversation_id = c.id
+                          AND mt.role = 'task_status'
+                          AND json_extract(mt.payload, '$.status') IN ('completed', 'failed')
+                    )
+                )
+              )
+        )",
+        rusqlite::params![conversation_id],
+        |row| row.get::<_, i64>(0),
+    )
+    .map(|count| count != 0)
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)
 }
 
 fn load_attention_items(
@@ -186,9 +265,11 @@ fn load_done_items(db: &rusqlite::Connection, limit: i64) -> Result<Vec<Activity
                     ELSE 'done'
                 END AS tone,
                 c.last_message_at AS timestamp,
-                NULL AS ask_id
+                NULL AS ask_id,
+                ar.read_at AS read_at
              FROM conversations c
              JOIN agents a ON a.id = c.agent_id
+             LEFT JOIN activity_reads ar ON ar.conversation_id = c.id
              WHERE c.status IN ('completed', 'failed')
                 OR (
                     c.status = 'idle'
@@ -204,7 +285,7 @@ fn load_done_items(db: &rusqlite::Connection, limit: i64) -> Result<Vec<Activity
              LIMIT ?1",
         )
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-    map_items(stmt.query_map([limit], row_to_activity_item))
+    map_items(stmt.query_map([limit], row_to_done_activity_item))
 }
 
 type ActivityMappedRows<'stmt> =
@@ -231,6 +312,24 @@ fn row_to_activity_item(row: &rusqlite::Row<'_>) -> rusqlite::Result<ActivityIte
         tone: row.get(8)?,
         timestamp: row.get(9)?,
         ask_id: row.get(10)?,
+        read_at: None,
+    })
+}
+
+fn row_to_done_activity_item(row: &rusqlite::Row<'_>) -> rusqlite::Result<ActivityItem> {
+    Ok(ActivityItem {
+        id: row.get(0)?,
+        section: row.get(1)?,
+        conversation_id: row.get(2)?,
+        agent_id: row.get(3)?,
+        agent_name: row.get(4)?,
+        title: row.get(5)?,
+        subtitle: row.get(6)?,
+        status_label: row.get(7)?,
+        tone: row.get(8)?,
+        timestamp: row.get(9)?,
+        ask_id: row.get(10)?,
+        read_at: Some(row.get(11)?),
     })
 }
 

@@ -68,11 +68,11 @@ describe('AgentCard', () => {
   ///
   /// Data construction:
   ///   agent = one Claude Code project.
-  ///   index = 0 maps to the first pencli avatar color, #FF6B35.
+  ///   runtime = "claude-code" maps to the Claude pixel canvas, #252525.
   ///   Row target from pencli:
   ///     rowHeight = 68
   ///     row horizontal padding = 14
-  ///     avatarWidth = 40
+  ///     avatarWidth = 40, with the runtime-specific pixel icon inside.
   ///     body starts after avatar marginRight = 10
   ///     chevron separated by marginLeft = 10
   ///
@@ -120,8 +120,8 @@ describe('AgentCard', () => {
     expectEqualWithReason(avatarStyle.borderRadius, 9, 'avatar radius should match pencli');
     expectEqualWithReason(
       avatarStyle.backgroundColor,
-      '#FF6B35',
-      'first project avatar should use the user-provided pencli orange',
+      '#252525',
+      'Claude Code avatar should use the dark pixel canvas behind the orange face',
     );
     expectEqualWithReason(
       bodyStyle.flex,
@@ -138,5 +138,99 @@ describe('AgentCard', () => {
       14,
       'chevron wrapper should reserve icon width without shifting row text',
     );
+  });
+
+  /// Runtime pixel icons: each supported agent runtime uses the first generated mascot image.
+  ///
+  /// Data construction:
+  ///   claudeAgent.runtime = "claude-code", so the card should show the generated orange mascot.
+  ///   codexAgent.runtime  = "codex", so the card should show the generated robot mascot.
+  ///   cursorAgent.runtime = "cursor-cli", so the card should show the generated cursor mascot.
+  ///
+  /// Execution:
+  ///   1. Render one AgentCard for each runtime.
+  ///   2. Query the runtime-specific image by testID.
+  ///   3. Read each avatar background color.
+  ///
+  /// Expected:
+  ///   - Positive: each runtime icon is an Image with a static local source.
+  ///   - Positive: Codex, Claude Code, and Cursor keep their generated canvas colors.
+  ///   - Negative: The three rows must not collapse to the old hand-built View icon.
+  it('renders first-batch generated mascot images for Claude Code, Codex, and Cursor runtimes', () => {
+    const claudeRender = render(<AgentCard agent={agent} onPress={() => {}} index={0} />);
+    const claudeIcon = claudeRender.getByTestId('runtime-pixel-claude-code');
+    const claudeGenericIcon = claudeRender.queryByTestId('runtime-pixel-generic-cpu');
+    const claudeAvatarStyle = StyleSheet.flatten(
+      claudeRender.getByTestId('project-avatar').props.style,
+    );
+    const claudeIconSource = claudeIcon.props.source;
+    const claudeIconResizeMode = claudeIcon.props.resizeMode;
+    const claudeIconStyle = StyleSheet.flatten(claudeIcon.props.style);
+    claudeRender.unmount();
+
+    const codexRender = render(
+      <AgentCard agent={{ ...agent, runtime: 'codex' }} onPress={() => {}} index={0} />,
+    );
+    const codexIcon = codexRender.getByTestId('runtime-pixel-codex');
+    const codexGenericIcon = codexRender.queryByTestId('runtime-pixel-generic-cpu');
+    const codexAvatarStyle = StyleSheet.flatten(
+      codexRender.getByTestId('project-avatar').props.style,
+    );
+    const codexIconSource = codexIcon.props.source;
+    const codexIconResizeMode = codexIcon.props.resizeMode;
+    const codexIconStyle = StyleSheet.flatten(codexIcon.props.style);
+    codexRender.unmount();
+
+    const cursorRender = render(
+      <AgentCard agent={{ ...agent, runtime: 'cursor-cli' }} onPress={() => {}} index={0} />,
+    );
+    const cursorIcon = cursorRender.getByTestId('runtime-pixel-cursor-cli');
+    const cursorGenericIcon = cursorRender.queryByTestId('runtime-pixel-generic-cpu');
+    const cursorAvatarStyle = StyleSheet.flatten(
+      cursorRender.getByTestId('project-avatar').props.style,
+    );
+    const cursorIconSource = cursorIcon.props.source;
+    const cursorIconResizeMode = cursorIcon.props.resizeMode;
+    const cursorIconStyle = StyleSheet.flatten(cursorIcon.props.style);
+
+    expect(claudeIconSource).toBeTruthy();
+    expect(codexIconSource).toBeTruthy();
+    expect(cursorIconSource).toBeTruthy();
+    expectEqualWithReason(
+      claudeIconResizeMode,
+      'cover',
+      'Claude Code generated mascot should fill the 40px avatar frame',
+    );
+    expectEqualWithReason(
+      codexIconResizeMode,
+      'cover',
+      'Codex generated mascot should fill the 40px avatar frame',
+    );
+    expectEqualWithReason(
+      cursorIconResizeMode,
+      'cover',
+      'Cursor generated mascot should fill the 40px avatar frame',
+    );
+    expectEqualWithReason(claudeIconStyle.width, 40, 'Claude image width should match avatar');
+    expectEqualWithReason(codexIconStyle.width, 40, 'Codex image width should match avatar');
+    expectEqualWithReason(cursorIconStyle.width, 40, 'Cursor image width should match avatar');
+    expectEqualWithReason(
+      claudeAvatarStyle.backgroundColor,
+      '#252525',
+      'Claude Code should use a dark pixel canvas so the orange reference face is visible',
+    );
+    expectEqualWithReason(
+      codexAvatarStyle.backgroundColor,
+      '#FF6B35',
+      'Codex should keep the primary orange avatar canvas',
+    );
+    expectEqualWithReason(
+      cursorAvatarStyle.backgroundColor,
+      '#2563EB',
+      'Cursor should use the blue avatar canvas instead of the old index-based rotation',
+    );
+    expect(claudeGenericIcon).toBeNull();
+    expect(codexGenericIcon).toBeNull();
+    expect(cursorGenericIcon).toBeNull();
   });
 });

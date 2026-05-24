@@ -15,6 +15,7 @@ export interface ActivityApiItem {
   status_label: string;
   tone: ActivityTone;
   timestamp: number;
+  read_at?: number | null;
   ask_id?: string;
 }
 
@@ -37,6 +38,8 @@ export interface AggregatedActivityResult {
   failedEndpoints: ActivityEndpointFailure[];
 }
 
+const LEGACY_DONE_READ_AT = 1;
+
 interface ActivityApiResponse {
   items: ActivityApiItem[];
 }
@@ -49,8 +52,13 @@ function byNewest(a: AggregatedActivityItem, b: AggregatedActivityItem): number 
 }
 
 function withEndpointContext(item: ActivityApiItem, endpoint: Endpoint): AggregatedActivityItem {
+  const legacyReadState =
+    item.section === 'done' && !Object.prototype.hasOwnProperty.call(item, 'read_at')
+      ? { read_at: LEGACY_DONE_READ_AT }
+      : {};
   return {
     ...item,
+    ...legacyReadState,
     id: `${endpoint.id}:${item.id}`,
     source_id: item.id,
     endpoint_id: endpoint.id,
@@ -155,6 +163,7 @@ function legacyConversationToActivityItem(
       section: 'done',
       status_label: failed ? 'Failed' : 'Done',
       tone: failed ? 'failed' : 'done',
+      read_at: LEGACY_DONE_READ_AT,
     };
   }
 
@@ -166,6 +175,7 @@ function legacyConversationToActivityItem(
       section: 'done',
       status_label: 'Done',
       tone: 'done',
+      read_at: LEGACY_DONE_READ_AT,
     };
   }
 
@@ -186,6 +196,19 @@ export async function fetchEndpointActivity(
     if (!isNotFoundError(error)) throw error;
     return fetchLegacyEndpointActivity(endpoint, limitPerSection);
   }
+}
+
+export async function markDoneActivityRead(
+  endpoint: Endpoint,
+  conversationId: string,
+): Promise<void> {
+  const client = getEndpointClient(endpoint.base_url, endpoint.token);
+  await client.post(`/api/v1/activity/done/${conversationId}/read`, {});
+}
+
+export async function markAllDoneActivityRead(endpoint: Endpoint): Promise<void> {
+  const client = getEndpointClient(endpoint.base_url, endpoint.token);
+  await client.post('/api/v1/activity/done/read-all', {});
 }
 
 export async function aggregateActivity(

@@ -1,12 +1,16 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import React from 'react';
-import { AppState, RefreshControl } from 'react-native';
+import { AppState, RefreshControl, StyleSheet } from 'react-native';
 import { type AggregatedActivityResult } from '@/features/activity/services/activityService';
 import { type Endpoint } from '@/types';
 import ActivityTab from '../../app/(tabs)/activity';
 
 const mockPush = jest.fn();
 const mockAggregateActivity = jest.fn();
+const mockMarkDoneActivityRead = jest.fn();
+const mockMarkAllDoneActivityRead = jest.fn();
+const mockAbortConversation = jest.fn();
+const mockDeleteConversation = jest.fn();
 let mockEndpoints: Endpoint[] = [];
 let appStateHandler: ((state: string) => void) | null = null;
 const mockRemoveAppStateListener = jest.fn();
@@ -21,7 +25,26 @@ jest.mock('expo-router', () => ({
 
 jest.mock('@/features/activity/services/activityService', () => ({
   aggregateActivity: (...args: unknown[]) => mockAggregateActivity(...args),
+  markDoneActivityRead: (...args: unknown[]) => mockMarkDoneActivityRead(...args),
+  markAllDoneActivityRead: (...args: unknown[]) => mockMarkAllDoneActivityRead(...args),
 }));
+
+jest.mock('@/features/chat/services/chatService', () => ({
+  abortConversation: (...args: unknown[]) => mockAbortConversation(...args),
+  deleteConversation: (...args: unknown[]) => mockDeleteConversation(...args),
+}));
+
+jest.mock('react-native-gesture-handler', () => {
+  const { View } = require('react-native');
+  return {
+    Swipeable: ({ children, renderRightActions }: any) => (
+      <View>
+        {children}
+        {renderRightActions?.()}
+      </View>
+    ),
+  };
+});
 
 jest.mock('@/store/endpointStore', () => ({
   useEndpointStore: (selector: (state: { endpoints: Endpoint[] }) => unknown) =>
@@ -87,6 +110,7 @@ function activityResult(
         status_label: 'Done',
         tone: 'done',
         timestamp: 1000,
+        read_at: null,
         endpoint_id: 'ep-2',
         endpoint_label: 'Studio Mac',
       },
@@ -139,6 +163,10 @@ describe('ActivityTab DB-backed aggregation', () => {
     jest.clearAllMocks();
     mockEndpoints = configuredEndpoints();
     mockAggregateActivity.mockResolvedValue(activityResult());
+    mockMarkDoneActivityRead.mockResolvedValue(undefined);
+    mockMarkAllDoneActivityRead.mockResolvedValue(undefined);
+    mockAbortConversation.mockResolvedValue(undefined);
+    mockDeleteConversation.mockResolvedValue(undefined);
     appStateHandler = null;
     mockRemoveAppStateListener.mockReset();
     setAppState('active');
@@ -181,6 +209,276 @@ describe('ActivityTab DB-backed aggregation', () => {
     expect(screen.queryByText('Connect an endpoint')).toBeNull();
   });
 
+  /// Activity tabs: top filter exposes inventory counts and the Done unread marker.
+  ///
+  /// Data construction:
+  ///   needsAttention = 1 row
+  ///   running        = 1 row
+  ///   done           = 1 unread row (read_at = null)
+  ///   total          = 1 + 1 + 1 = 3
+  ///
+  /// Execution process:
+  ///   1. Render ActivityTab with one row per section.
+  ///   2. Wait for the DB-backed aggregate to render.
+  ///   3. Inspect top filter accessibility labels and Done unread marker.
+  ///
+  /// Expected result:
+  ///   - Positive: All tab announces 3 total items.
+  ///   - Positive: Pending, Running, and Done tabs announce their own counts.
+  ///   - Positive: Done unread marker renders because the Done row has read_at=null.
+  ///   - Negative: legacy section title "Needs Attention" is not shown in the All tab redesign.
+  it('shows Activity tab counts and a Done unread marker on first render', async () => {
+    await renderActivity();
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Show All activity, 3 items')).toBeTruthy();
+    });
+
+    expect(screen.getByLabelText('Show Pending activity, 1 item')).toBeTruthy();
+    expect(screen.getByLabelText('Show Running activity, 1 item')).toBeTruthy();
+    expect(screen.getByLabelText('Show Done activity, 1 item, 1 unread')).toBeTruthy();
+    expect(screen.getByTestId('activity-done-unread-dot')).toBeTruthy();
+    expect(screen.queryByText('Needs Attention')).toBeNull();
+  });
+
+  /// Activity tabs visual hierarchy: top filter uses the prototype's raised pill surface.
+  ///
+  /// Data construction:
+  ///   needsAttention = 1 row
+  ///   running        = 1 row
+  ///   done           = 1 unread row
+  ///   total          = 1 + 1 + 1 = 3
+  ///
+  /// Execution process:
+  ///   1. Render ActivityTab with the default All filter selected.
+  ///   2. Read the parent segmented-control style from the All tab button.
+  ///   3. Read the active All tab button style and inactive Pending label style.
+  ///
+  /// Expected result:
+  ///   - Positive: outer segmented control uses #1A1A1A, matching the prototype surface.
+  ///   - Positive: selected tab uses #2A2A2A so it remains visibly raised.
+  ///   - Positive: selected label is white.
+  ///   - Negative: inactive Pending label is not promoted to white.
+  it('uses the prototype color hierarchy for the Activity top filter', async () => {
+    await renderActivity();
+
+    const allTab = await screen.findByLabelText('Show All activity, 3 items');
+    const segmentStyle = StyleSheet.flatten(
+      screen.getByTestId('activity-filter-segment').props.style,
+    );
+    const allTabStyle = StyleSheet.flatten(allTab.props.style);
+    const allTextStyle = StyleSheet.flatten(screen.getByText('All 3').props.style);
+    const pendingTextStyle = StyleSheet.flatten(screen.getByText('Pending 1').props.style);
+
+    expect(segmentStyle.backgroundColor).toBe('#1A1A1A');
+    expect(allTabStyle.backgroundColor).toBe('#2A2A2A');
+    expect(allTextStyle.color).toBe('#FFFFFF');
+    expect(pendingTextStyle.color).toBe('#888888');
+  });
+
+  /// Done filter: Done-only view splits unread and read completion results.
+  ///
+  /// Data construction:
+  ///   done unread = ep-2 / conv-done / read_at null
+  ///   done read   = ep-1 / conv-read / read_at 1234
+  ///   counts      = Unread 1, Read 1
+  ///
+  /// Execution process:
+  ///   1. Render ActivityTab with one unread and one read Done item.
+  ///   2. Open the Done filter.
+  ///   3. Inspect Done-only segmented controls and visible rows.
+  ///
+  /// Expected result:
+  ///   - Positive: Unread 1 and Read 1 controls render only inside Done.
+  ///   - Positive: Mark All Read is visible while unread Done exists.
+  ///   - Positive: unread Done row is visible by default.
+  ///   - Negative: read Done row is hidden while the Unread sub-filter is active.
+  it('splits Done items into Unread and Read sub-filters', async () => {
+    mockAggregateActivity.mockResolvedValue(
+      activityResult({
+        needsAttention: [],
+        running: [],
+        done: [
+          {
+            id: 'ep-2:done:conv-done',
+            source_id: 'done:conv-done',
+            section: 'done',
+            conversation_id: 'conv-done',
+            agent_id: 'agent-3',
+            agent_name: 'Docs Project',
+            title: 'Unread result',
+            subtitle: 'Release notes are ready',
+            status_label: 'Done',
+            tone: 'done',
+            timestamp: 2000,
+            read_at: null,
+            endpoint_id: 'ep-2',
+            endpoint_label: 'Studio Mac',
+          },
+          {
+            id: 'ep-1:done:conv-read',
+            source_id: 'done:conv-read',
+            section: 'done',
+            conversation_id: 'conv-read',
+            agent_id: 'agent-1',
+            agent_name: 'Deploy Project',
+            title: 'Read result',
+            subtitle: 'Already reviewed',
+            status_label: 'Done',
+            tone: 'done',
+            timestamp: 1000,
+            read_at: 1234,
+            endpoint_id: 'ep-1',
+            endpoint_label: 'Office Mac',
+          },
+        ],
+      }),
+    );
+
+    await renderActivity();
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Show Done activity, 2 items, 1 unread')).toBeTruthy();
+    });
+    fireEvent.press(screen.getByLabelText('Show Done activity, 2 items, 1 unread'));
+
+    expect(screen.getByText('Unread 1')).toBeTruthy();
+    expect(screen.getByText('Read 1')).toBeTruthy();
+    expect(screen.getByLabelText('Mark all Done items read')).toBeTruthy();
+    expect(screen.getByText('Unread result')).toBeTruthy();
+    expect(screen.queryByText('Read result')).toBeNull();
+  });
+
+  /// Done filter interaction: Unread remains selectable even when the unread count is zero.
+  ///
+  /// Data construction:
+  ///   done unread = 0 rows
+  ///   done read   = 1 row (read_at = 1234)
+  ///   counts      = Unread 0, Read 1
+  ///
+  /// Execution process:
+  ///   1. Render ActivityTab with only read Done rows.
+  ///   2. Open the Done filter, which defaults to Read because unread count is zero.
+  ///   3. Press the Unread 0 segment.
+  ///
+  /// Expected result:
+  ///   - Positive: read row is visible when Done opens with zero unread rows.
+  ///   - Positive: pressing Unread 0 switches to the empty unread list.
+  ///   - Negative: Read row must not remain visible after the user explicitly selects Unread.
+  it('allows selecting Unread even when all Done items are already read', async () => {
+    mockAggregateActivity.mockResolvedValue(
+      activityResult({
+        needsAttention: [],
+        running: [],
+        done: [
+          {
+            id: 'ep-1:done:conv-read',
+            source_id: 'done:conv-read',
+            section: 'done',
+            conversation_id: 'conv-read',
+            agent_id: 'agent-1',
+            agent_name: 'Deploy Project',
+            title: 'Read only result',
+            subtitle: 'Already reviewed',
+            status_label: 'Done',
+            tone: 'done',
+            timestamp: 1000,
+            read_at: 1234,
+            endpoint_id: 'ep-1',
+            endpoint_label: 'Office Mac',
+          },
+        ],
+      }),
+    );
+
+    await renderActivity();
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Show Done activity, 1 item')).toBeTruthy();
+    });
+    fireEvent.press(screen.getByLabelText('Show Done activity, 1 item'));
+
+    expect(screen.getByText('Unread 0')).toBeTruthy();
+    expect(screen.getByText('Read 1')).toBeTruthy();
+    expect(screen.getByText('Read only result')).toBeTruthy();
+
+    fireEvent.press(screen.getByText('Unread 0'));
+
+    expect(screen.queryByText('Read only result')).toBeNull();
+    expect(screen.getByText('No recent results.')).toBeTruthy();
+  });
+
+  /// Done open behavior: opening an unread Done row marks it read optimistically and still navigates.
+  ///
+  /// Data construction:
+  ///   unread Done row = ep-2 / conv-done / agent-3 / read_at null
+  ///   endpoint ep-2   = http://studio.local:8765 / tok-studio
+  ///
+  /// Execution process:
+  ///   1. Render ActivityTab and switch to Done.
+  ///   2. Press the unread Done row.
+  ///   3. Inspect mark-read call and route navigation.
+  ///
+  /// Expected result:
+  ///   - Positive: markDoneActivityRead is called with ep-2 and conv-done.
+  ///   - Positive: navigation to the conversation still happens.
+  ///   - Negative: running/pending answer focus is not added to the Done route.
+  it('marks an unread Done item read when opening it and then navigates', async () => {
+    await renderActivity();
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Show Done activity, 1 item, 1 unread')).toBeTruthy();
+    });
+    fireEvent.press(screen.getByLabelText('Show Done activity, 1 item, 1 unread'));
+    fireEvent.press(screen.getByLabelText('Open Ship release notes'));
+
+    expect(mockMarkDoneActivityRead).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'ep-2', token: 'tok-studio' }),
+      'conv-done',
+    );
+    expect(mockPush).toHaveBeenCalledWith(
+      '/chat/conv-done?endpoint_id=ep-2&agent_id=agent-3&agent_name=Docs%20Project',
+    );
+    expect(mockPush).not.toHaveBeenCalledWith(expect.stringContaining('focus_ask_id='));
+  });
+
+  /// Mark all read: Done action sends one read-all request per endpoint that owns unread Done rows.
+  ///
+  /// Data construction:
+  ///   unread Done rows = ep-2 / conv-done only
+  ///   read Done rows   = none in ep-1
+  ///
+  /// Execution process:
+  ///   1. Render ActivityTab and switch to Done.
+  ///   2. Press Mark All Read.
+  ///   3. Inspect endpoint mutation calls.
+  ///
+  /// Expected result:
+  ///   - Positive: markAllDoneActivityRead is called once for ep-2.
+  ///   - Negative: ep-1 is not called because it has no unread Done row.
+  ///   - Negative: markDoneActivityRead is not used for the bulk action.
+  it('marks all unread Done items read for endpoints that have unread Done rows', async () => {
+    await renderActivity();
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Show Done activity, 1 item, 1 unread')).toBeTruthy();
+    });
+    fireEvent.press(screen.getByLabelText('Show Done activity, 1 item, 1 unread'));
+    await act(async () => {
+      fireEvent.press(screen.getByLabelText('Mark all Done items read'));
+      await Promise.resolve();
+    });
+
+    expect(mockMarkAllDoneActivityRead).toHaveBeenCalledTimes(1);
+    expect(mockMarkAllDoneActivityRead).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'ep-2', token: 'tok-studio' }),
+    );
+    expect(mockMarkAllDoneActivityRead).not.toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'ep-1' }),
+    );
+    expect(mockMarkDoneActivityRead).not.toHaveBeenCalled();
+  });
+
   /// Route construction: every Activity item opens the matching endpoint Chat detail route.
   /// Data construction:
   ///   pending item = ep-1 / agent-1 / conv-pending / ask-1
@@ -220,6 +518,231 @@ describe('ActivityTab DB-backed aggregation', () => {
     );
   });
 
+  /// Activity swipe actions: all visible Activity sections expose one DELETE action per row.
+  ///
+  /// Data construction:
+  ///   needsAttention = conv-pending
+  ///   running        = conv-running
+  ///   done           = conv-done
+  ///   mocked Swipeable renders renderRightActions immediately
+  ///
+  /// Execution process:
+  ///   1. Render ActivityTab with one item in each section.
+  ///   2. Query the visible DELETE labels.
+  ///
+  /// Expected result:
+  ///   - Positive: three DELETE buttons render, one per Activity row.
+  ///   - Negative: the empty Activity state is not shown while rows exist.
+  it('renders DELETE swipe actions for Activity items in every section', async () => {
+    await renderActivity();
+
+    await waitFor(() => {
+      expect(screen.getByText('Deploy now?')).toBeTruthy();
+    });
+
+    expect(screen.getAllByText('DELETE')).toHaveLength(3);
+    expect(screen.queryByText('All caught up')).toBeNull();
+  });
+
+  /// Activity pending deletion: attention rows must stop the conversation before deleting it.
+  ///
+  /// Data construction:
+  ///   DELETE target = attention conv-pending on ep-1
+  ///   endpoint ep-1 = http://office.local:8765 / tok-office
+  ///   refresh result after delete = no pending row, running + done remain
+  ///
+  /// Execution process:
+  ///   1. Render ActivityTab with pending/running/done rows.
+  ///   2. Press the first DELETE action, which belongs to the pending row.
+  ///   3. Wait for abort, delete, and refresh to complete.
+  ///
+  /// Expected result:
+  ///   - Positive: abortConversation is called before deleteConversation for conv-pending.
+  ///   - Positive: deleteConversation uses ep-1 credentials and conv-pending.
+  ///   - Positive: the pending row disappears after refresh.
+  ///   - Negative: delete is not attempted before abort.
+  it('aborts then deletes an attention Activity item and refreshes it away', async () => {
+    mockAggregateActivity
+      .mockResolvedValueOnce(activityResult())
+      .mockResolvedValueOnce(activityResult({ needsAttention: [] }));
+
+    await renderActivity();
+
+    await waitFor(() => {
+      expect(screen.getByText('Deploy now?')).toBeTruthy();
+    });
+
+    await act(async () => {
+      fireEvent.press(screen.getAllByText('DELETE')[0]);
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    await waitFor(() => {
+      expect(mockDeleteConversation).toHaveBeenCalledWith(
+        'http://office.local:8765',
+        'tok-office',
+        'conv-pending',
+      );
+    });
+
+    expect(mockAbortConversation).toHaveBeenCalledWith(
+      'http://office.local:8765',
+      'tok-office',
+      'conv-pending',
+    );
+    expect(mockAbortConversation.mock.invocationCallOrder[0]).toBeLessThan(
+      mockDeleteConversation.mock.invocationCallOrder[0],
+    );
+    await waitFor(() => {
+      expect(screen.queryByText('Deploy now?')).toBeNull();
+    });
+  });
+
+  /// Activity running deletion: running rows follow the same stop-before-delete policy.
+  ///
+  /// Data construction:
+  ///   DELETE target = running conv-running on ep-1
+  ///   refresh result after delete = pending + done remain, running removed
+  ///
+  /// Execution process:
+  ///   1. Render ActivityTab.
+  ///   2. Press the second DELETE action, which belongs to the running row.
+  ///   3. Inspect service calls and refreshed UI.
+  ///
+  /// Expected result:
+  ///   - Positive: abortConversation is called for conv-running.
+  ///   - Positive: deleteConversation is called for conv-running.
+  ///   - Positive: the running row disappears after refresh.
+  ///   - Negative: the pending row remains visible.
+  it('aborts then deletes a running Activity item', async () => {
+    mockAggregateActivity
+      .mockResolvedValueOnce(activityResult())
+      .mockResolvedValueOnce(activityResult({ running: [] }));
+
+    await renderActivity();
+
+    await waitFor(() => {
+      expect(screen.getByText('Tighten sign in states')).toBeTruthy();
+    });
+
+    await act(async () => {
+      fireEvent.press(screen.getAllByText('DELETE')[1]);
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    await waitFor(() => {
+      expect(mockDeleteConversation).toHaveBeenCalledWith(
+        'http://office.local:8765',
+        'tok-office',
+        'conv-running',
+      );
+    });
+
+    expect(mockAbortConversation).toHaveBeenCalledWith(
+      'http://office.local:8765',
+      'tok-office',
+      'conv-running',
+    );
+    await waitFor(() => {
+      expect(screen.queryByText('Tighten sign in states')).toBeNull();
+    });
+    expect(screen.getByText('Deploy now?')).toBeTruthy();
+  });
+
+  /// Activity done deletion: completed rows delete directly without aborting.
+  ///
+  /// Data construction:
+  ///   DELETE target = done conv-done on ep-2
+  ///   endpoint ep-2 = http://studio.local:8765 / tok-studio
+  ///   refresh result after delete = pending + running remain, done removed
+  ///
+  /// Execution process:
+  ///   1. Render ActivityTab with all sections.
+  ///   2. Press the third DELETE action, which belongs to the done row.
+  ///   3. Inspect service calls and refreshed UI.
+  ///
+  /// Expected result:
+  ///   - Positive: deleteConversation uses ep-2 credentials and conv-done.
+  ///   - Positive: the done row disappears after refresh.
+  ///   - Negative: abortConversation is not called for completed Activity.
+  it('deletes a done Activity item without aborting', async () => {
+    mockAggregateActivity
+      .mockResolvedValueOnce(activityResult())
+      .mockResolvedValueOnce(activityResult({ done: [] }));
+
+    await renderActivity();
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Open Ship release notes')).toBeTruthy();
+    });
+
+    await act(async () => {
+      fireEvent.press(screen.getAllByText('DELETE')[2]);
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    await waitFor(() => {
+      expect(mockDeleteConversation).toHaveBeenCalledWith(
+        'http://studio.local:8765',
+        'tok-studio',
+        'conv-done',
+      );
+    });
+
+    expect(mockAbortConversation).not.toHaveBeenCalled();
+    await waitFor(() => {
+      expect(screen.queryByLabelText('Open Ship release notes')).toBeNull();
+    });
+  });
+
+  /// Activity delete failure: failed delete calls must leave the Activity row visible.
+  ///
+  /// Data construction:
+  ///   DELETE target = done conv-done
+  ///   deleteConversation rejects with a network error
+  ///
+  /// Execution process:
+  ///   1. Render ActivityTab.
+  ///   2. Press the done row DELETE action.
+  ///   3. Let the rejected promise settle.
+  ///
+  /// Expected result:
+  ///   - Positive: deleteConversation is attempted for conv-done.
+  ///   - Positive: the done row remains visible after the failure.
+  ///   - Negative: no refresh request is made after a failed delete.
+  it('keeps an Activity item visible when delete fails', async () => {
+    mockDeleteConversation.mockRejectedValueOnce(new Error('delete failed'));
+
+    await renderActivity();
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Open Ship release notes')).toBeTruthy();
+    });
+
+    await act(async () => {
+      fireEvent.press(screen.getAllByText('DELETE')[2]);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    await waitFor(() => {
+      expect(mockDeleteConversation).toHaveBeenCalledWith(
+        'http://studio.local:8765',
+        'tok-studio',
+        'conv-done',
+      );
+    });
+
+    expect(screen.getByLabelText('Open Ship release notes')).toBeTruthy();
+    expect(mockAggregateActivity).toHaveBeenCalledTimes(1);
+  });
+
   /// Partial endpoint failure: successful endpoint rows remain visible with retry affordance.
   /// Data construction:
   ///   ep-1 = one running Activity item
@@ -250,7 +773,11 @@ describe('ActivityTab DB-backed aggregation', () => {
 
     expect(screen.getByText('Some endpoints failed: Studio Mac')).toBeTruthy();
     expect(screen.queryByText('Could not load activity')).toBeNull();
-    fireEvent.press(screen.getByLabelText('Retry failed endpoints'));
+    await act(async () => {
+      fireEvent.press(screen.getByLabelText('Retry failed endpoints'));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
     expect(mockAggregateActivity).toHaveBeenCalledTimes(2);
   });
 
@@ -319,7 +846,11 @@ describe('ActivityTab DB-backed aggregation', () => {
     });
 
     expect(screen.queryByText('Connect an endpoint')).toBeNull();
-    fireEvent.press(screen.getByLabelText('Retry activity'));
+    await act(async () => {
+      fireEvent.press(screen.getByLabelText('Retry activity'));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
     expect(mockAggregateActivity).toHaveBeenCalledTimes(2);
   });
 
@@ -368,6 +899,42 @@ describe('ActivityTab DB-backed aggregation', () => {
     });
 
     expect(mockAggregateActivity).toHaveBeenCalledTimes(2);
+  });
+
+  /// Focus refresh UI state: automatic Activity focus refresh must stay visually silent.
+  ///
+  /// Data construction:
+  ///   endpoints = ep-1 Office Mac + ep-2 Studio Mac
+  ///   request #1 = unresolved focus refresh promise
+  ///   refreshing flag should remain false because the user did not pull to refresh
+  ///
+  /// Execution process:
+  ///   1. Render ActivityTab while the tab is focused.
+  ///   2. Keep the aggregate request pending so any refresh spinner would remain visible.
+  ///   3. Inspect the ScrollView RefreshControl state.
+  ///
+  /// Expected result:
+  ///   - Positive: aggregateActivity is called once, so focus data refresh still runs.
+  ///   - Negative: RefreshControl.refreshing is false, so iOS does not show forced pull refresh UI.
+  it('keeps focus refresh visually silent while data is in flight', async () => {
+    const first = deferred<AggregatedActivityResult>();
+    mockAggregateActivity.mockReturnValueOnce(first.promise);
+
+    const view = await renderActivity();
+
+    expect(mockAggregateActivity).toHaveBeenCalledTimes(
+      1,
+      'focus refresh should still fetch Activity data on entry',
+    );
+    expect(view.UNSAFE_getByType(RefreshControl).props.refreshing).toBe(
+      false,
+      'focus refresh must not drive the pull-to-refresh spinner',
+    );
+
+    await act(async () => {
+      first.resolve(activityResult());
+      await first.promise;
+    });
   });
 
   /// Visible polling: focused foreground Activity refreshes every 15 seconds and stops on unmount.

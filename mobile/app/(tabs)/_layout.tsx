@@ -32,7 +32,7 @@ export const tabScreenOptions = {
   },
 };
 
-function ProjectsIcon({ color }: { color: string }) {
+function AgentsIcon({ color }: { color: string }) {
   return <LayoutGrid size={22} color={color} />;
 }
 function ActivityIcon({ color }: { color: string }) {
@@ -48,8 +48,8 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Projects',
-          tabBarIcon: ProjectsIcon,
+          title: 'Agents',
+          tabBarIcon: AgentsIcon,
         }}
       />
       <Tabs.Screen

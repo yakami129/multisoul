@@ -1,6 +1,6 @@
 import { render, fireEvent } from '@testing-library/react-native';
 import React from 'react';
-import { RefreshControl, ScrollView, StyleSheet, TextInput } from 'react-native';
+import { RefreshControl, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useChatStore } from '@/store/chatStore';
 import { type Agent } from '@/types';
 import { AgentList } from './AgentList';
@@ -40,8 +40,8 @@ describe('AgentList', () => {
     useChatStore.setState({ conversations: [], messages: {} });
   });
 
-  it('renders list of projects', () => {
-    const { getByText, UNSAFE_getByType } = render(
+  it('renders list of agents', () => {
+    const { getByText, queryByText, UNSAFE_getByType } = render(
       <AgentList
         agents={agents}
         isLoading={false}
@@ -54,15 +54,51 @@ describe('AgentList', () => {
     );
     expect(getByText('Alpha')).toBeTruthy();
     expect(getByText('Beta')).toBeTruthy();
-    expect(getByText('Projects')).toBeTruthy();
-    expect(UNSAFE_getByType(TextInput).props.placeholder).toBe('Search projects');
-    expect(getByText('All Projects')).toBeTruthy();
+    expect(getByText('Agents')).toBeTruthy();
+    expect(UNSAFE_getByType(TextInput).props.placeholder).toBe('Search agents');
+    expect(getByText('All Agents')).toBeTruthy();
+    expect(queryByText('Projects')).toBeNull();
+  });
+
+  /// Agents add affordance: tapping the header plus delegates endpoint creation to the route.
+  ///
+  /// Data construction:
+  ///   agents        = Alpha + Beta, so the Agents header renders in a normal loaded state.
+  ///   onAddEndpoint = jest.fn callback owned by the route layer.
+  ///
+  /// Execution:
+  ///   1. Render AgentList with onAddEndpoint.
+  ///   2. Press the "Add endpoint" accessibility target in the header.
+  ///
+  /// Expected:
+  ///   - Positive: onAddEndpoint is called once.
+  ///   - Negative: onAgentPress is not called, because this is not a project row tap.
+  it('calls onAddEndpoint when the Agents header plus is pressed', () => {
+    const onAddEndpoint = jest.fn();
+    const onAgentPress = jest.fn();
+    const { getByLabelText } = render(
+      <AgentList
+        agents={agents}
+        isLoading={false}
+        isError={false}
+        error={null}
+        isFetching={false}
+        onRefetch={() => {}}
+        onAgentPress={onAgentPress}
+        onAddEndpoint={onAddEndpoint}
+      />,
+    );
+
+    fireEvent.press(getByLabelText('Add endpoint'));
+
+    expect(onAddEndpoint).toHaveBeenCalledTimes(1);
+    expect(onAgentPress).not.toHaveBeenCalled();
   });
 
   /// Pencli Projects surface: root, search, and project group match the orange Projects mock.
   ///
   /// Data construction:
-  ///   agents = 2 idle projects, so Active Now is absent and All Projects renders one group.
+  ///   agents = 2 idle agents, so Active Now is absent and All Agents renders one group.
   ///   Target source = user-provided pencli Projects image:
   ///     root #0D0D0D, search/group #1A1A1A, search placeholder #666666
   ///     search radius 10, group radius 12
@@ -137,7 +173,7 @@ describe('AgentList', () => {
         onAgentPress={() => {}}
       />,
     );
-    expect(getByText('Loading projects...')).toBeTruthy();
+    expect(getByText('Loading agents...')).toBeTruthy();
   });
 
   it('shows error state when isError', () => {
@@ -290,7 +326,7 @@ describe('AgentList', () => {
     expect(getByText('Running')).toBeTruthy();
   });
 
-  /// All Projects section: active projects are duplicated below Active Now.
+  /// All Agents section: active agents are duplicated below Active Now.
   ///
   /// Data construction:
   ///   agents = Alpha + Beta.
@@ -301,9 +337,9 @@ describe('AgentList', () => {
   ///   2. Query all visible Alpha labels.
   ///
   /// Expected:
-  ///   - Positive: Alpha appears once in Active Now and once in All Projects, matching the mock.
-  ///   - Negative: All Projects is not reduced to idle-only projects.
-  it('keeps active projects in the All Projects section', () => {
+  ///   - Positive: Alpha appears once in Active Now and once in All Agents, matching the mock.
+  ///   - Negative: All Agents is not reduced to idle-only agents.
+  it('keeps active agents in the All Agents section', () => {
     useChatStore.setState({
       conversations: [
         {
@@ -334,7 +370,85 @@ describe('AgentList', () => {
 
     expect(getAllByText('Alpha').length).toBe(
       2,
-      'active Alpha should appear in Active Now and remain in All Projects',
+      'active Alpha should appear in Active Now and remain in All Agents',
+    );
+  });
+
+  /// Agents list width: Active Now rows and All Agents group share one horizontal frame.
+  ///
+  /// Data construction:
+  ///   agents = Alpha + Beta.
+  ///   conversations = one running conversation for Alpha, so Alpha renders in both sections.
+  ///   Width target from the user screenshot:
+  ///     content inset = 16px on both sides
+  ///     card radius = 12px for the visual project frame
+  ///
+  /// Execution:
+  ///   1. Render AgentList with Alpha active.
+  ///   2. Find the Active Now frame by its #0D1A0D active background.
+  ///   3. Read the All Agents group by testID.
+  ///   4. Compare resolved RN styles for their outer frame geometry.
+  ///
+  /// Expected:
+  ///   - Positive: Active Now uses the same 16px horizontal margin as All Agents.
+  ///   - Positive: Active Now uses the same 12px radius as All Agents.
+  ///   - Negative: Active Now must not remain full-bleed with no horizontal margin.
+  it('aligns Active Now rows with the All Agents group width', () => {
+    useChatStore.setState({
+      conversations: [
+        {
+          id: 'conv-1',
+          agent_id: 'a1',
+          title: 'Run checks',
+          created_at: 1,
+          last_message_at: 2,
+          status: 'running',
+          endpoint_id: 'ep-1',
+          agent_name: 'Alpha',
+        },
+      ],
+      messages: {},
+    });
+
+    const { getByTestId, UNSAFE_getAllByType } = render(
+      <AgentList
+        agents={agents}
+        isLoading={false}
+        isError={false}
+        error={null}
+        isFetching={false}
+        onRefetch={() => {}}
+        onAgentPress={() => {}}
+      />,
+    );
+
+    const activeFrame = UNSAFE_getAllByType(View).find((node) => {
+      const style = StyleSheet.flatten(node.props.style);
+      return style?.backgroundColor === '#0D1A0D';
+    });
+    expectEqualWithReason(
+      activeFrame === undefined,
+      false,
+      'Active Now frame with #0D1A0D background should render for the running project',
+    );
+
+    const activeStyle = StyleSheet.flatten(activeFrame?.props.style);
+    const groupStyle = StyleSheet.flatten(getByTestId('projects-group').props.style);
+
+    expectEqualWithReason(
+      activeStyle.marginHorizontal,
+      16,
+      'Active Now row should use the same 16px outer inset as All Agents',
+    );
+    expectEqualWithReason(
+      activeStyle.borderRadius,
+      groupStyle.borderRadius,
+      'Active Now row should use the same visual frame radius as All Agents',
+    );
+    expectEqualWithReason(
+      activeStyle.marginHorizontal === undefined,
+      false,
+      'Active Now row must not stay full-bleed without a horizontal margin',
     );
   });
 });

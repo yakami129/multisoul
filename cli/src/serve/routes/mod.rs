@@ -3,6 +3,7 @@ pub mod agents;
 pub mod conversations;
 pub mod files;
 pub mod healthz;
+pub mod logs;
 pub mod messages;
 pub mod push_tokens;
 pub mod uploads;

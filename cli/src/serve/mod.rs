@@ -33,7 +33,16 @@ pub async fn build_router(state: AppState) -> Router {
             "/api/v1/activity",
             axum::routing::get(activity::get_activity),
         )
+        .route(
+            "/api/v1/activity/done/read-all",
+            axum::routing::post(activity::mark_all_done_read),
+        )
+        .route(
+            "/api/v1/activity/done/:conversation_id/read",
+            axum::routing::post(activity::mark_done_read),
+        )
         .route("/api/v1/agents", axum::routing::get(agents::list_agents))
+        .route("/ws/logs", axum::routing::get(logs::logs_ws_handler))
         .route("/api/v1/agents/:id", axum::routing::get(agents::get_agent))
         .route(
             "/api/v1/agents/:id/conversations",
@@ -97,8 +106,16 @@ pub async fn run_server(state: AppState, addr: std::net::SocketAddr) -> Result<(
 mod http_trace {
     use axum::{extract::Request, http::StatusCode, middleware::Next, response::Response};
     use std::time::Instant;
-    use tracing::{info, warn, Instrument};
+    use tracing::{debug, warn, Instrument, Level};
     use uuid::Uuid;
+
+    pub(super) fn log_level_for_status(status: StatusCode) -> Level {
+        if status.is_client_error() || status == StatusCode::INTERNAL_SERVER_ERROR {
+            Level::WARN
+        } else {
+            Level::DEBUG
+        }
+    }
 
     pub async fn trace_request(req: Request, next: Next) -> Response {
         let request_id = Uuid::new_v4().to_string();
@@ -115,11 +132,10 @@ mod http_trace {
             let resp = next.run(req).await;
             let dur_ms = started.elapsed().as_millis() as u64;
             let status = resp.status().as_u16();
-            if resp.status().is_client_error() || resp.status() == StatusCode::INTERNAL_SERVER_ERROR
-            {
+            if log_level_for_status(resp.status()) == Level::WARN {
                 warn!(status, dur_ms, "http_error");
             } else {
-                info!(status, dur_ms, "http_request");
+                debug!(status, dur_ms, "http_request");
             }
             resp
         }
@@ -136,6 +152,7 @@ mod router_tests {
     use axum::http::{Request, StatusCode};
     use tempfile::tempdir;
     use tower::ServiceExt;
+    use tracing::Level;
 
     async fn test_state() -> AppState {
         let dir = tempdir().unwrap();
@@ -192,6 +209,137 @@ mod router_tests {
             resp.status(),
             StatusCode::UNAUTHORIZED,
             "agents should require auth"
+        );
+    }
+
+    /// Release logs websocket is protected by Bearer auth and is not a public endpoint.
+    ///
+    /// 数据构造（含关键数值的推导过程）：
+    ///   token      = ms_v2_tok（test_state 中配置的唯一合法 token）
+    ///   request    = GET /ws/logs，不带 Authorization header 和 token query
+    ///
+    /// 执行过程（逐步说明系统如何处理）：
+    ///   1. build_router(state) 将 /ws/logs 放入 authed_router
+    ///   2. 发送无 token 的 websocket upgrade 请求
+    ///   3. bearer_auth 在进入 handler 前拒绝请求
+    ///
+    /// 预期结果：
+    ///   - 断言 A：返回 401，说明 release logs 不会绕过 REST/WS Bearer 约束
+    ///   - 断言 B：不返回 101，说明未认证请求不会升级成 websocket
+    #[tokio::test]
+    async fn test_logs_ws_no_auth_returns_401() {
+        let state = test_state().await;
+        let app = build_router(state).await;
+        let resp = app
+            .oneshot(
+                Request::builder()
+                    .uri("/ws/logs")
+                    .header("Connection", "upgrade")
+                    .header("Upgrade", "websocket")
+                    .header("Host", "localhost")
+                    .header("Sec-WebSocket-Version", "13")
+                    .header("Sec-WebSocket-Key", "dGhlIHNhbXBsZSBub25jZQ==")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(
+            resp.status(),
+            StatusCode::UNAUTHORIZED,
+            "release logs websocket should require auth"
+        );
+        assert_ne!(
+            resp.status(),
+            StatusCode::SWITCHING_PROTOCOLS,
+            "unauthenticated release logs request must not upgrade to websocket"
+        );
+    }
+
+    /// Release logs websocket accepts query token auth and reaches the upgrade handler.
+    ///
+    /// 数据构造（含关键数值的推导过程）：
+    ///   token      = ms_v2_tok（test_state 中配置的合法 token）
+    ///   request    = GET /ws/logs?token=ms_v2_tok，带标准 websocket upgrade headers
+    ///
+    /// 执行过程（逐步说明系统如何处理）：
+    ///   1. bearer_auth 从 query string 读取 token
+    ///   2. logs_ws_handler 接收 WebSocketUpgrade
+    ///   3. 单元测试环境没有 hyper upgrade extension，因此 WebSocketUpgrade 返回 426
+    ///
+    /// 预期结果：
+    ///   - 断言 A：返回 426，说明请求已通过 auth 并到达 websocket upgrade extractor
+    ///   - 断言 B：不返回 401，说明合法 token 未被误拒
+    #[tokio::test]
+    async fn test_logs_ws_query_token_reaches_upgrade_handler() {
+        let state = test_state().await;
+        let app = build_router(state).await;
+        let resp = app
+            .oneshot(
+                Request::builder()
+                    .uri("/ws/logs?token=ms_v2_tok")
+                    .header("Connection", "upgrade")
+                    .header("Upgrade", "websocket")
+                    .header("Host", "localhost")
+                    .header("Sec-WebSocket-Version", "13")
+                    .header("Sec-WebSocket-Key", "dGhlIHNhbXBsZSBub25jZQ==")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(
+            resp.status(),
+            StatusCode::UPGRADE_REQUIRED,
+            "valid token should pass auth and reach websocket upgrade handling in tower test"
+        );
+        assert_ne!(
+            resp.status(),
+            StatusCode::UNAUTHORIZED,
+            "valid query token should not be rejected"
+        );
+    }
+
+    /// http_trace：成功请求降为 DEBUG，认证/服务错误仍保留 WARN。
+    ///
+    /// 数据构造（含关键数值的推导过程）：
+    ///   status_ok       = 200 OK（典型健康检查/轮询成功响应）
+    ///   status_redirect = 307 Temporary Redirect（非错误响应，不应污染 INFO）
+    ///   status_auth     = 401 Unauthorized（认证失败，需要默认可见）
+    ///   status_error    = 500 Internal Server Error（服务错误，需要默认可见）
+    ///
+    /// 执行过程（逐步说明系统如何处理）：
+    ///   1. 调用 http_trace::log_level_for_status(200)   → 期望 DEBUG
+    ///   2. 调用 http_trace::log_level_for_status(307)   → 期望 DEBUG
+    ///   3. 调用 http_trace::log_level_for_status(401)   → 期望 WARN
+    ///   4. 调用 http_trace::log_level_for_status(500)   → 期望 WARN
+    ///
+    /// 预期结果：
+    ///   - 断言 A：200 不再是 INFO/WARN，说明成功轮询不会进入默认 info 日志
+    ///   - 断言 B：307 不再是 INFO/WARN，说明非错误响应同样保持低噪声
+    ///   - 断言 C：401 是 WARN，说明认证问题仍会被默认 `msctl logs` 看见
+    ///   - 断言 D：500 是 WARN，说明服务端错误仍会被默认 `msctl logs` 看见
+    #[test]
+    fn test_http_trace_success_statuses_are_debug_errors_warn() {
+        assert_eq!(
+            http_trace::log_level_for_status(StatusCode::OK),
+            Level::DEBUG,
+            "200 OK http_request should be DEBUG so successful polling is hidden at default info"
+        );
+        assert_eq!(
+            http_trace::log_level_for_status(StatusCode::TEMPORARY_REDIRECT),
+            Level::DEBUG,
+            "307 redirect should remain DEBUG because it is not an HTTP error"
+        );
+        assert_eq!(
+            http_trace::log_level_for_status(StatusCode::UNAUTHORIZED),
+            Level::WARN,
+            "401 Unauthorized should stay WARN so auth failures remain visible"
+        );
+        assert_eq!(
+            http_trace::log_level_for_status(StatusCode::INTERNAL_SERVER_ERROR),
+            Level::WARN,
+            "500 Internal Server Error should stay WARN so server failures remain visible"
         );
     }
 }

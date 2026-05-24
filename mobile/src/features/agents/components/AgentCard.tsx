@@ -1,7 +1,10 @@
-import { ChevronRight, Cpu } from 'lucide-react-native';
+import { ChevronRight } from 'lucide-react-native';
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, type ImageSourcePropType, Pressable, StyleSheet, Text, View } from 'react-native';
 import { type Agent } from '@/types';
+import claudeCodeIcon from '../../../../assets/agent-icons/runtime-claude-code.png';
+import codexIcon from '../../../../assets/agent-icons/runtime-codex.png';
+import cursorCliIcon from '../../../../assets/agent-icons/runtime-cursor-cli.png';
 
 interface Props {
   agent: Agent;
@@ -13,7 +16,54 @@ interface Props {
   metaVariant?: 'status' | 'machine';
 }
 
-const avatarColors = ['#FF6B35', '#7C3AED', '#2563EB', '#059669'];
+type RuntimeMascotSpec = {
+  backgroundColor: string;
+  label: string;
+  source: ImageSourcePropType;
+};
+
+const ORANGE = '#FF6B35';
+const BLUE = '#2563EB';
+const SURFACE = '#252525';
+
+const fallbackAvatarColors = [ORANGE, '#7C3AED', BLUE, '#059669'];
+
+const runtimeMascots: Partial<Record<Agent['runtime'], RuntimeMascotSpec>> = {
+  'claude-code': {
+    backgroundColor: SURFACE,
+    label: 'Claude Code pixel mascot icon',
+    source: claudeCodeIcon,
+  },
+  codex: {
+    backgroundColor: ORANGE,
+    label: 'Codex pixel mascot icon',
+    source: codexIcon,
+  },
+  'cursor-cli': {
+    backgroundColor: BLUE,
+    label: 'Cursor pixel mascot icon',
+    source: cursorCliIcon,
+  },
+};
+
+function RuntimeMascotIcon({
+  runtime,
+  spec,
+}: {
+  runtime: Agent['runtime'];
+  spec: RuntimeMascotSpec;
+}) {
+  return (
+    <Image
+      testID={`runtime-pixel-${runtime}`}
+      accessibilityIgnoresInvertColors
+      accessibilityLabel={spec.label}
+      resizeMode="cover"
+      source={spec.source}
+      style={s.pixelImage}
+    />
+  );
+}
 
 function relativeAge(ts: number) {
   if (ts <= 0) {
@@ -38,7 +88,9 @@ export function AgentCard({
   pendingCount = 0,
   metaVariant = 'machine',
 }: Props) {
-  const avatarColor = avatarColors[index % avatarColors.length];
+  const mascot = runtimeMascots[agent.runtime];
+  const avatarColor =
+    mascot?.backgroundColor ?? fallbackAvatarColors[index % fallbackAvatarColors.length];
   const metaLabel =
     metaVariant === 'status'
       ? statusLabel
@@ -54,7 +106,7 @@ export function AgentCard({
       accessibilityLabel={`Open ${agent.name}`}
     >
       <View testID="project-avatar" style={[s.avatar, { backgroundColor: avatarColor }]}>
-        <Cpu size={18} color="#FFFFFF" />
+        {mascot ? <RuntimeMascotIcon runtime={agent.runtime} spec={mascot} /> : null}
       </View>
       <View testID="project-body" style={s.body}>
         <View style={s.titleRow}>
@@ -96,6 +148,11 @@ const s = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 10,
+  },
+  pixelImage: {
+    width: 40,
+    height: 40,
+    borderRadius: 9,
   },
   body: { flex: 1, minWidth: 0 },
   titleRow: { flexDirection: 'row', alignItems: 'center', minWidth: 0 },

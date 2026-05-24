@@ -16,9 +16,23 @@ jest.mock('../features/agents/services/agentService', () => ({
 }));
 
 jest.mock('../features/chat/services/chatService', () => ({
+  abortConversation: jest.fn(),
   createConversation: jest.fn(),
+  deleteConversation: jest.fn(),
   fetchConversations: jest.fn(),
 }));
+
+jest.mock('react-native-gesture-handler', () => {
+  const { View } = require('react-native');
+  return {
+    Swipeable: ({ children, renderRightActions }: any) => (
+      <View>
+        {children}
+        {renderRightActions?.()}
+      </View>
+    ),
+  };
+});
 
 jest.mock('expo-router', () => ({
   useLocalSearchParams: () => ({ id: 'uuid-1', endpoint_id: 'ep-1' }),
@@ -79,7 +93,9 @@ const mockAgent = {
 describe('AgentDetailScreen', () => {
   const { fetchAgent } = require('../features/agents/services/agentService');
   const {
+    abortConversation,
     createConversation,
+    deleteConversation,
     fetchConversations,
   } = require('../features/chat/services/chatService');
 
@@ -119,6 +135,8 @@ describe('AgentDetailScreen', () => {
       last_message_at: 1,
       status: 'idle',
     });
+    abortConversation.mockResolvedValue(undefined);
+    deleteConversation.mockResolvedValue(undefined);
   });
 
   afterEach(() => {
@@ -128,6 +146,8 @@ describe('AgentDetailScreen', () => {
     fetchAgent.mockReset();
     fetchConversations.mockReset();
     createConversation.mockReset();
+    abortConversation.mockReset();
+    deleteConversation.mockReset();
   });
 
   it('renders agent details', async () => {
@@ -193,6 +213,144 @@ describe('AgentDetailScreen', () => {
     expect(mockPush).toHaveBeenCalledWith(
       '/chat/conv-existing?endpoint_id=ep-1&agent_id=uuid-1&agent_name=Weather%20Agent',
     );
+  });
+
+  /// Project Detail delete: running recent chats must abort before being deleted.
+  ///
+  /// Data:
+  ///   recent chat = conv-existing, status running, endpoint ep-1
+  ///   endpoint    = http://localhost:8765 / tok
+  ///
+  /// Execution:
+  ///   1. Render AgentDetailScreen.
+  ///   2. Press the mocked Swipeable DELETE action for conv-existing.
+  ///   3. Wait for abort/delete calls and UI state update.
+  ///
+  /// Expected:
+  ///   - Positive: abortConversation is called before deleteConversation.
+  ///   - Positive: deleteConversation targets conv-existing with ep-1 credentials.
+  ///   - Positive: the deleted row disappears.
+  ///   - Negative: delete is not called before abort.
+  it('aborts then deletes a running recent chat from Project Detail', async () => {
+    render(<AgentDetailScreen />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Look for severe weather warnings')).toBeTruthy();
+    });
+
+    fireEvent.press(screen.getByText('DELETE'));
+
+    await waitFor(() => {
+      expect(deleteConversation).toHaveBeenCalledWith(
+        'http://localhost:8765',
+        'tok',
+        'conv-existing',
+      );
+    });
+
+    expect(abortConversation).toHaveBeenCalledWith('http://localhost:8765', 'tok', 'conv-existing');
+    expect(abortConversation.mock.invocationCallOrder[0]).toBeLessThan(
+      deleteConversation.mock.invocationCallOrder[0],
+    );
+    await waitFor(() => {
+      expect(screen.queryByText('Look for severe weather warnings')).toBeNull();
+    });
+  });
+
+  /// Project Detail delete: idle recent chats delete directly without abort.
+  ///
+  /// Data:
+  ///   recent chat = conv-idle, status idle, endpoint ep-1
+  ///
+  /// Execution:
+  ///   1. Render AgentDetailScreen with one idle recent chat.
+  ///   2. Press DELETE.
+  ///   3. Inspect service calls and rendered list.
+  ///
+  /// Expected:
+  ///   - Positive: deleteConversation targets conv-idle.
+  ///   - Positive: the idle row disappears after delete succeeds.
+  ///   - Negative: abortConversation is not called for idle conversations.
+  it('deletes an idle recent chat without aborting', async () => {
+    fetchConversations.mockResolvedValue([
+      {
+        id: 'conv-idle',
+        agent_id: 'uuid-1',
+        title: 'New Chat',
+        created_at: 1,
+        last_message_at: 2,
+        status: 'idle',
+        endpoint_id: 'ep-1',
+        agent_name: 'Weather Agent',
+        first_user_message: 'Summarize the forecast',
+        last_ai_reply: 'Forecast summary is ready',
+      },
+    ]);
+
+    render(<AgentDetailScreen />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Summarize the forecast')).toBeTruthy();
+    });
+
+    fireEvent.press(screen.getByText('DELETE'));
+
+    await waitFor(() => {
+      expect(deleteConversation).toHaveBeenCalledWith('http://localhost:8765', 'tok', 'conv-idle');
+    });
+
+    expect(abortConversation).not.toHaveBeenCalled();
+    await waitFor(() => {
+      expect(screen.queryByText('Summarize the forecast')).toBeNull();
+    });
+  });
+
+  /// Project Detail delete failure: failed endpoint deletes leave the row visible.
+  ///
+  /// Data:
+  ///   recent chat = conv-idle, status idle
+  ///   deleteConversation rejects with network error
+  ///
+  /// Execution:
+  ///   1. Render AgentDetailScreen.
+  ///   2. Press DELETE.
+  ///   3. Let the rejected delete promise settle.
+  ///
+  /// Expected:
+  ///   - Positive: deleteConversation is attempted.
+  ///   - Positive: the row remains visible after failure.
+  ///   - Negative: abortConversation is not called for idle failed deletion.
+  it('keeps a recent chat visible when delete fails', async () => {
+    fetchConversations.mockResolvedValue([
+      {
+        id: 'conv-idle',
+        agent_id: 'uuid-1',
+        title: 'New Chat',
+        created_at: 1,
+        last_message_at: 2,
+        status: 'idle',
+        endpoint_id: 'ep-1',
+        agent_name: 'Weather Agent',
+        first_user_message: 'Keep this row',
+        last_ai_reply: 'Still here',
+      },
+    ]);
+    deleteConversation.mockRejectedValueOnce(new Error('delete failed'));
+
+    render(<AgentDetailScreen />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Keep this row')).toBeTruthy();
+    });
+
+    fireEvent.press(screen.getByText('DELETE'));
+
+    await waitFor(() => {
+      expect(deleteConversation).toHaveBeenCalledWith('http://localhost:8765', 'tok', 'conv-idle');
+    });
+
+    expect(screen.getByText('Keep this row')).toBeTruthy();
+    expect(abortConversation).not.toHaveBeenCalled();
   });
 
   it('refocus silently refreshes data without returning to loading screen', async () => {

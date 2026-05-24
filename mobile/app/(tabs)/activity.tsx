@@ -5,10 +5,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import ActivityScreen, { type ActivityItem } from '@/features/activity/components/ActivityScreen';
 import {
   aggregateActivity,
+  markAllDoneActivityRead,
+  markDoneActivityRead,
   type AggregatedActivityItem,
   type AggregatedActivityResult,
 } from '@/features/activity/services/activityService';
+import { abortConversation, deleteConversation } from '@/features/chat/services/chatService';
 import { buildChatDetailPath } from '@/features/chat/utils/chatRoutes';
+import { useChatStore } from '@/store/chatStore';
 import { useEndpointStore } from '@/store/endpointStore';
 
 const POLL_INTERVAL_MS = 15_000;
@@ -38,11 +42,13 @@ function toScreenItem(item: AggregatedActivityItem): ActivityItem {
     agentId: item.agent_id,
     agentName: item.agent_name,
     askId: item.ask_id,
+    readAt: item.read_at ?? null,
   };
 }
 
 export default function ActivityTab() {
   const endpoints = useEndpointStore((s) => s.endpoints);
+  const removeConversation = useChatStore((s) => s.removeConversation);
   const router = useRouter();
   const [activity, setActivity] = useState<AggregatedActivityResult>(() => emptyActivity());
   const [refreshing, setRefreshing] = useState(false);
@@ -85,7 +91,7 @@ export default function ActivityTab() {
   useFocusEffect(
     useCallback(() => {
       setFocused(true);
-      void refreshActivity();
+      void refreshActivity(false);
       return () => {
         setFocused(false);
       };
@@ -127,7 +133,26 @@ export default function ActivityTab() {
     activity.failedEndpoints.length === endpoints.length &&
     needsAttention.length + running.length + done.length === 0;
 
+  const setDoneRead = (conversationIds: Set<string>, readAt: number) => {
+    setActivity((current) => ({
+      ...current,
+      done: current.done.map((doneItem) =>
+        conversationIds.has(doneItem.conversation_id) ? { ...doneItem, read_at: readAt } : doneItem,
+      ),
+    }));
+  };
+
   const handleOpenItem = (item: ActivityItem) => {
+    if (item.section === 'done' && item.readAt == null) {
+      const endpoint = endpoints.find((ep) => ep.id === item.endpointId);
+      setDoneRead(new Set([item.conversationId]), Date.now());
+      if (endpoint) {
+        void markDoneActivityRead(endpoint, item.conversationId).catch(() =>
+          refreshActivity(false),
+        );
+      }
+    }
+
     router.push(
       buildChatDetailPath({
         conversationId: item.conversationId,
@@ -137,6 +162,49 @@ export default function ActivityTab() {
         focusAskId: item.section === 'attention' ? item.askId : undefined,
       }),
     );
+  };
+
+  const handleMarkAllDoneRead = () => {
+    const unreadDone = activity.done.filter((item) => item.read_at == null);
+    if (unreadDone.length === 0) return;
+
+    const unreadEndpointIds = new Set(unreadDone.map((item) => item.endpoint_id));
+    const unreadConversationIds = new Set(unreadDone.map((item) => item.conversation_id));
+    setDoneRead(unreadConversationIds, Date.now());
+
+    endpoints
+      .filter((endpoint) => unreadEndpointIds.has(endpoint.id))
+      .forEach((endpoint) => {
+        void markAllDoneActivityRead(endpoint).catch(() => refreshActivity(false));
+      });
+  };
+
+  const removeActivityConversation = (conversationId: string) => {
+    setActivity((current) => ({
+      ...current,
+      needsAttention: current.needsAttention.filter(
+        (item) => item.conversation_id !== conversationId,
+      ),
+      running: current.running.filter((item) => item.conversation_id !== conversationId),
+      done: current.done.filter((item) => item.conversation_id !== conversationId),
+    }));
+  };
+
+  const handleDeleteItem = async (item: ActivityItem) => {
+    const endpoint = endpoints.find((ep) => ep.id === item.endpointId);
+    if (!endpoint) return;
+
+    try {
+      if (item.section === 'attention' || item.section === 'running') {
+        await abortConversation(endpoint.base_url, endpoint.token, item.conversationId);
+      }
+      await deleteConversation(endpoint.base_url, endpoint.token, item.conversationId);
+      removeActivityConversation(item.conversationId);
+      removeConversation(item.conversationId);
+      await refreshActivity(false);
+    } catch {
+      // Keep the Activity row visible when the endpoint refuses or loses the delete request.
+    }
   };
 
   return (
@@ -152,6 +220,10 @@ export default function ActivityTab() {
           void refreshActivity();
         }}
         onOpenItem={handleOpenItem}
+        onMarkAllDoneRead={handleMarkAllDoneRead}
+        onDeleteItem={(item) => {
+          void handleDeleteItem(item);
+        }}
         isRefreshing={refreshing}
         onRefresh={() => {
           void refreshActivity();

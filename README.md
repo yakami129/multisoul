@@ -131,7 +131,7 @@ Useful daemon commands:
 
 ```bash
 msctl daemon status
-msctl daemon logs -f
+msctl logs --source service -f
 msctl daemon restart
 msctl daemon stop
 ```

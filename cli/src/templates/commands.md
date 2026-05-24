@@ -5,7 +5,7 @@
 
 ```bash
 msctl serve                  # Start local server (default port 8765)
-msctl logs                   # Tail server logs
+msctl logs                   # Tail app + service logs
 msctl daemon quickstart      # Install and start as background service
 msctl daemon status          # Check service status
 msctl daemon restart         # Restart background service

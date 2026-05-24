@@ -1,11 +1,18 @@
 import { getEndpointClient } from '@/api/endpointClient';
 import { type Endpoint } from '@/types';
-import { aggregateActivity, type ActivityApiItem, fetchEndpointActivity } from './activityService';
+import {
+  aggregateActivity,
+  type ActivityApiItem,
+  fetchEndpointActivity,
+  markAllDoneActivityRead,
+  markDoneActivityRead,
+} from './activityService';
 
 const mockGet = jest.fn();
+const mockPost = jest.fn();
 
 jest.mock('@/api/endpointClient', () => ({
-  getEndpointClient: jest.fn(() => ({ get: mockGet })),
+  getEndpointClient: jest.fn(() => ({ get: mockGet, post: mockPost })),
 }));
 
 const endpoints: Endpoint[] = [
@@ -74,6 +81,7 @@ const doneItem: ActivityApiItem = {
   status_label: 'Done',
   tone: 'done',
   timestamp: 4000,
+  read_at: null,
 };
 
 describe('activityService', () => {
@@ -117,6 +125,69 @@ describe('activityService', () => {
       'attention:conv-1:ask-1',
       'global item id must not reuse the endpoint-local id directly',
     );
+  });
+
+  /// Done read state parsing: DB-backed Activity exposes read_at for Done rows and keeps endpoint context.
+  ///
+  /// Data construction:
+  ///   endpoint      = ep-1 / Office Mac
+  ///   done item     = done:conv-4 with read_at = null（fresh completion, unread）
+  ///   limit         = default 50
+  ///
+  /// Execution process:
+  ///   1. Mock GET /api/v1/activity with one Done item.
+  ///   2. Call fetchEndpointActivity(endpoint).
+  ///   3. Inspect the transformed Done row.
+  ///
+  /// Expected result:
+  ///   - Positive: read_at remains null, preserving unread state from CLI.
+  ///   - Positive: endpoint context is still attached to the row.
+  ///   - Negative: read_at is not replaced with a client timestamp during fetch.
+  it('preserves DB-backed Done read_at state while adding endpoint context', async () => {
+    mockGet.mockResolvedValueOnce({ data: { items: [doneItem] } });
+
+    const result = await fetchEndpointActivity(endpoints[0]);
+
+    expect(result[0]).toMatchObject({
+      id: 'ep-1:done:conv-4',
+      read_at: null,
+      endpoint_id: 'ep-1',
+      endpoint_label: 'Office Mac',
+    });
+    expect(result[0].read_at).not.toEqual(
+      expect.any(Number),
+      'fetching an unread done item must not invent a local read timestamp',
+    );
+  });
+
+  /// Legacy Activity compatibility: old /api/v1/activity Done rows may omit read_at entirely.
+  ///
+  /// Data construction:
+  ///   endpoint      = ep-1 / Office Mac
+  ///   done item     = done:conv-4 with no read_at key（older CLI response shape）
+  ///   limit         = default 50
+  ///
+  /// Execution process:
+  ///   1. Mock GET /api/v1/activity with one Done item that omits read_at.
+  ///   2. Call fetchEndpointActivity(endpoint).
+  ///   3. Inspect the normalized Done row.
+  ///
+  /// Expected result:
+  ///   - Positive: read_at becomes a number, treating legacy Done as already read.
+  ///   - Positive: explicit missing read_at differs from explicit null unread state.
+  ///   - Negative: old Activity endpoints do not create permanent unread dots.
+  it('treats legacy Activity Done rows without read_at as already read', async () => {
+    const legacyDoneItem: ActivityApiItem = { ...doneItem };
+    delete legacyDoneItem.read_at;
+    mockGet.mockResolvedValueOnce({ data: { items: [legacyDoneItem] } });
+
+    const result = await fetchEndpointActivity(endpoints[0]);
+
+    expect(result[0].read_at).toEqual(
+      expect.any(Number),
+      'legacy Activity Done rows without read_at should be normalized as read',
+    );
+    expect(result[0].read_at).not.toBeNull();
   });
 
   /// Multi-endpoint aggregation: sections merge independently and sort newest first.
@@ -319,8 +390,66 @@ describe('activityService', () => {
       title: 'Finish legacy task',
       subtitle: 'Finished',
       status_label: 'Done',
+      read_at: expect.any(Number),
     });
+    expect(result.done[0].read_at).toEqual(
+      expect.any(Number),
+      'legacy done rows should be treated as already read so old endpoints do not show unread dots forever',
+    );
     expect(result.done.find((item) => item.conversation_id === 'conv-idle-empty')).toBeUndefined();
     expect(result.failedEndpoints).toEqual([]);
+  });
+
+  /// Mark one Done Activity item read: mobile calls the new CLI endpoint for a conversation.
+  ///
+  /// Data construction:
+  ///   endpoint        = ep-2 / Studio Mac / token tok-studio
+  ///   conversation id = conv-done
+  ///
+  /// Execution process:
+  ///   1. Call markDoneActivityRead(endpoint, conv-done).
+  ///   2. Inspect endpoint client and POST path.
+  ///
+  /// Expected result:
+  ///   - Positive: endpoint client uses Studio Mac base URL and token.
+  ///   - Positive: POST path targets /api/v1/activity/done/conv-done/read.
+  ///   - Negative: no GET request is used for a write operation.
+  it('marks one Done Activity item read through the CLI endpoint', async () => {
+    mockPost.mockResolvedValueOnce({ data: undefined });
+
+    await markDoneActivityRead(endpoints[1], 'conv-done');
+
+    expect(getEndpointClient).toHaveBeenCalledWith('http://studio.local:8765', 'tok-studio');
+    expect(mockPost).toHaveBeenCalledWith('/api/v1/activity/done/conv-done/read', {});
+    expect(mockGet).not.toHaveBeenCalledWith(
+      '/api/v1/activity/done/conv-done/read',
+      expect.anything(),
+    );
+  });
+
+  /// Mark all Done Activity items read: mobile calls the endpoint-wide read-all mutation.
+  ///
+  /// Data construction:
+  ///   endpoint = ep-1 / Office Mac / token tok-office
+  ///
+  /// Execution process:
+  ///   1. Call markAllDoneActivityRead(endpoint).
+  ///   2. Inspect endpoint client and POST path.
+  ///
+  /// Expected result:
+  ///   - Positive: POST path is /api/v1/activity/done/read-all.
+  ///   - Positive: request body is an empty object, matching other mobile service writes.
+  ///   - Negative: conversation-specific endpoint is not used for read-all.
+  it('marks all Done Activity items read through the CLI endpoint', async () => {
+    mockPost.mockResolvedValueOnce({ data: undefined });
+
+    await markAllDoneActivityRead(endpoints[0]);
+
+    expect(getEndpointClient).toHaveBeenCalledWith('http://office.local:8765', 'tok-office');
+    expect(mockPost).toHaveBeenCalledWith('/api/v1/activity/done/read-all', {});
+    expect(mockPost).not.toHaveBeenCalledWith(
+      expect.stringContaining('/conv-done/read'),
+      expect.anything(),
+    );
   });
 });
