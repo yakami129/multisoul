@@ -34,6 +34,7 @@ pub async fn build_router(state: AppState) -> Router {
             axum::routing::get(activity::get_activity),
         )
         .route("/api/v1/agents", axum::routing::get(agents::list_agents))
+        .route("/ws/logs", axum::routing::get(logs::logs_ws_handler))
         .route("/api/v1/agents/:id", axum::routing::get(agents::get_agent))
         .route(
             "/api/v1/agents/:id/conversations",
@@ -192,6 +193,94 @@ mod router_tests {
             resp.status(),
             StatusCode::UNAUTHORIZED,
             "agents should require auth"
+        );
+    }
+
+    /// Release logs websocket is protected by Bearer auth and is not a public endpoint.
+    ///
+    /// 数据构造（含关键数值的推导过程）：
+    ///   token      = ms_v2_tok（test_state 中配置的唯一合法 token）
+    ///   request    = GET /ws/logs，不带 Authorization header 和 token query
+    ///
+    /// 执行过程（逐步说明系统如何处理）：
+    ///   1. build_router(state) 将 /ws/logs 放入 authed_router
+    ///   2. 发送无 token 的 websocket upgrade 请求
+    ///   3. bearer_auth 在进入 handler 前拒绝请求
+    ///
+    /// 预期结果：
+    ///   - 断言 A：返回 401，说明 release logs 不会绕过 REST/WS Bearer 约束
+    ///   - 断言 B：不返回 101，说明未认证请求不会升级成 websocket
+    #[tokio::test]
+    async fn test_logs_ws_no_auth_returns_401() {
+        let state = test_state().await;
+        let app = build_router(state).await;
+        let resp = app
+            .oneshot(
+                Request::builder()
+                    .uri("/ws/logs")
+                    .header("Connection", "upgrade")
+                    .header("Upgrade", "websocket")
+                    .header("Host", "localhost")
+                    .header("Sec-WebSocket-Version", "13")
+                    .header("Sec-WebSocket-Key", "dGhlIHNhbXBsZSBub25jZQ==")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(
+            resp.status(),
+            StatusCode::UNAUTHORIZED,
+            "release logs websocket should require auth"
+        );
+        assert_ne!(
+            resp.status(),
+            StatusCode::SWITCHING_PROTOCOLS,
+            "unauthenticated release logs request must not upgrade to websocket"
+        );
+    }
+
+    /// Release logs websocket accepts query token auth and reaches the upgrade handler.
+    ///
+    /// 数据构造（含关键数值的推导过程）：
+    ///   token      = ms_v2_tok（test_state 中配置的合法 token）
+    ///   request    = GET /ws/logs?token=ms_v2_tok，带标准 websocket upgrade headers
+    ///
+    /// 执行过程（逐步说明系统如何处理）：
+    ///   1. bearer_auth 从 query string 读取 token
+    ///   2. logs_ws_handler 接收 WebSocketUpgrade
+    ///   3. 单元测试环境没有 hyper upgrade extension，因此 WebSocketUpgrade 返回 426
+    ///
+    /// 预期结果：
+    ///   - 断言 A：返回 426，说明请求已通过 auth 并到达 websocket upgrade extractor
+    ///   - 断言 B：不返回 401，说明合法 token 未被误拒
+    #[tokio::test]
+    async fn test_logs_ws_query_token_reaches_upgrade_handler() {
+        let state = test_state().await;
+        let app = build_router(state).await;
+        let resp = app
+            .oneshot(
+                Request::builder()
+                    .uri("/ws/logs?token=ms_v2_tok")
+                    .header("Connection", "upgrade")
+                    .header("Upgrade", "websocket")
+                    .header("Host", "localhost")
+                    .header("Sec-WebSocket-Version", "13")
+                    .header("Sec-WebSocket-Key", "dGhlIHNhbXBsZSBub25jZQ==")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(
+            resp.status(),
+            StatusCode::UPGRADE_REQUIRED,
+            "valid token should pass auth and reach websocket upgrade handling in tower test"
+        );
+        assert_ne!(
+            resp.status(),
+            StatusCode::UNAUTHORIZED,
+            "valid query token should not be rejected"
         );
     }
 }

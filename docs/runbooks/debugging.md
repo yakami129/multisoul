@@ -23,6 +23,15 @@ msctl logs --grep 'push_'           # 正则过滤 message 字段
 msctl logs --json | jq .            # 管道给 jq
 ```
 
+## 手机端 Release logs
+
+Settings → `DIAGNOSTICS` → `Release logs` 会通过受 Bearer 保护的
+`/ws/logs?token=<TOKEN>&tail=200&level=trace` 连接到选中的 endpoint。
+
+- WebSocket 帧是 **格式化文本行**，与 `msctl logs` 默认输出一致；不会给手机端推 NDJSON/JSON envelope。
+- 打开弹窗后先发送最近 `tail` 条日志，再实时追加新日志。
+- 弹窗会把这些 `msctl` 文本行和 iOS 本机 diagnostics 文本合并显示；`Clear iOS` 只清本机 diagnostics，不删除 `msctl` 日志文件。
+
 ## 场景 1：Agent 在 `ask_question` 后卡住
 
 **症状**：手机上看不到 Agent 新输出，也没显示 AskUserQuestion 卡片。
