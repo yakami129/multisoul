@@ -13,7 +13,8 @@
     },
     {
       "file": "2026-05-24-chat-performance.md",
-      "title": "Chat Long History Performance Implementation Plan"
+      "title": "Chat Long History Performance Implementation Plan",
+      "lastCompletedCommit": "719b493859473bcac82f9a397920d240819f83b9"
     },
     {
       "file": "2026-05-23-activity-db-backed.md",
