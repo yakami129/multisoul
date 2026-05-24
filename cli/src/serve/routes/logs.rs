@@ -46,66 +46,86 @@ async fn handle_logs_socket(socket: WebSocket, tail: usize, level: String) {
         }
     }
 
-    let mut path = logging::current_log_path(&log_dir);
-    let mut reader = match open_or_wait(&path).await {
-        Some(file) => {
-            let mut file = file;
-            file.seek(SeekFrom::End(0)).ok();
-            Some(BufReader::new(file))
-        }
-        None => None,
-    };
+    let mut app_path = logging::current_log_path(&log_dir);
+    let mut app_reader = open_reader(&app_path, true);
+    let service_path = commands::logs::service_log_path();
+    let mut service_reader = open_reader(&service_path, true);
 
     loop {
         if *closed_rx.borrow() {
             break;
         }
 
-        if reader.is_none() {
-            path = logging::current_log_path(&log_dir);
-            reader = open_or_wait(&path).await.map(BufReader::new);
-            continue;
-        }
+        let mut idle = true;
 
-        let Some(active_reader) = reader.as_mut() else {
-            continue;
-        };
-        let mut line = String::new();
-        match active_reader.read_line(&mut line) {
-            Ok(0) => {
-                let latest = logging::current_log_path(&log_dir);
-                if latest != path && latest.exists() {
-                    path = latest;
-                    reader = open_or_wait(&path).await.map(BufReader::new);
-                    continue;
-                }
-                tokio::select! {
-                    _ = closed_rx.changed() => {}
-                    _ = tokio::time::sleep(Duration::from_millis(500)) => {}
-                }
-            }
-            Ok(_) => match commands::logs::format_log_line_for_stream(&line, &level) {
-                Ok(Some(rendered)) => {
-                    if sender.send(Message::Text(rendered)).await.is_err() {
-                        break;
+        if app_reader.is_none() {
+            app_path = logging::current_log_path(&log_dir);
+            app_reader = open_reader(&app_path, false);
+        }
+        if let Some(active_reader) = app_reader.as_mut() {
+            let mut line = String::new();
+            match active_reader.read_line(&mut line) {
+                Ok(0) => {
+                    let latest = logging::current_log_path(&log_dir);
+                    if latest != app_path && latest.exists() {
+                        app_path = latest;
+                        app_reader = open_reader(&app_path, false);
                     }
                 }
-                Ok(None) => {}
-                Err(_) => break,
-            },
-            Err(_) => {
-                tokio::time::sleep(Duration::from_millis(500)).await;
+                Ok(_) => {
+                    idle = false;
+                    match commands::logs::format_log_line_for_stream(&line, &level) {
+                        Ok(Some(rendered)) => {
+                            if sender.send(Message::Text(rendered)).await.is_err() {
+                                break;
+                            }
+                        }
+                        Ok(None) => {}
+                        Err(_) => break,
+                    }
+                }
+                Err(_) => {
+                    app_reader = None;
+                }
+            }
+        }
+
+        if service_reader.is_none() {
+            service_reader = open_reader(&service_path, false);
+        }
+        if let Some(active_reader) = service_reader.as_mut() {
+            let mut line = String::new();
+            match active_reader.read_line(&mut line) {
+                Ok(0) => {}
+                Ok(_) => {
+                    idle = false;
+                    if let Some(rendered) =
+                        commands::logs::format_service_log_line_for_stream(&line)
+                    {
+                        if sender.send(Message::Text(rendered)).await.is_err() {
+                            break;
+                        }
+                    }
+                }
+                Err(_) => {
+                    service_reader = None;
+                }
+            }
+        }
+
+        if idle {
+            tokio::select! {
+                _ = closed_rx.changed() => {}
+                _ = tokio::time::sleep(Duration::from_millis(500)) => {}
             }
         }
     }
 }
 
-async fn open_or_wait(path: &std::path::Path) -> Option<std::fs::File> {
-    for _ in 0..20 {
-        if let Ok(file) = std::fs::File::open(path) {
-            return Some(file);
-        }
-        tokio::time::sleep(Duration::from_millis(100)).await;
+fn open_reader(path: &std::path::Path, seek_end: bool) -> Option<BufReader<std::fs::File>> {
+    let mut file = std::fs::File::open(path).ok()?;
+    if seek_end {
+        file.seek(SeekFrom::End(0)).ok();
     }
-    None
+    Some(BufReader::new(file))
 }

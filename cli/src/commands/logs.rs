@@ -70,21 +70,44 @@ pub fn handle(args: LogsArgs) -> Result<()> {
     }
 }
 
-/// Return the same human-readable app log lines used by `msctl logs --source app`.
+/// Return the same human-readable lines used by `msctl logs --source all`.
 ///
 /// This is used by the mobile release logs websocket so the app and CLI do not
-/// drift into two different app-log formats.
+/// drift into two different all-log formats.
 pub fn formatted_tail_lines(
     log_dir: &std::path::Path,
     tail: usize,
     level: &str,
 ) -> Result<Vec<String>> {
-    logs_app::formatted_tail_lines(log_dir, tail, level)
+    formatted_tail_lines_with_service(log_dir, None, tail, level)
+}
+
+pub fn formatted_tail_lines_with_service(
+    log_dir: &std::path::Path,
+    service_log_file: Option<PathBuf>,
+    tail: usize,
+    level: &str,
+) -> Result<Vec<String>> {
+    let mut lines = logs_app::formatted_tail_lines(log_dir, tail, level)?
+        .into_iter()
+        .map(|line| format!("[app]     {line}"))
+        .collect::<Vec<_>>();
+    lines.extend(logs_service::formatted_tail_lines(service_log_file, tail)?);
+    Ok(lines)
 }
 
 /// Format one newly-appended app NDJSON log line as human-readable text.
 pub fn format_log_line_for_stream(line: &str, level: &str) -> Result<Option<String>> {
-    logs_app::format_log_line_for_stream(line, level)
+    Ok(logs_app::format_log_line_for_stream(line, level)?
+        .map(|rendered| format!("[app]     {rendered}")))
+}
+
+pub fn format_service_log_line_for_stream(line: &str) -> Option<String> {
+    logs_service::format_log_line_for_stream(line)
+}
+
+pub fn service_log_path() -> PathBuf {
+    logs_service::service_log_path(None)
 }
 
 fn handle_all(args: LogsArgs) -> Result<()> {
@@ -130,5 +153,64 @@ fn service_options(
         log_file: args.service_log_file.clone(),
         prefix,
         missing_ok,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Write;
+
+    /// Release logs 聚合：tail 同时返回 app 与 service 日志
+    ///
+    /// 数据构造（含关键数值的推导过程）：
+    ///   app_lines     = 1 条 NDJSON（message = agent_spawn）
+    ///   service_lines = 1 行原始文本（launchd stderr）
+    ///   tail          = 10，足够覆盖 app 1 条 + service 1 行
+    ///
+    /// 执行过程（逐步说明系统如何处理）：
+    ///   1. 写入 synthetic `serve.log.<today>` 到临时 app log dir
+    ///   2. 写入 synthetic service log 到临时文件
+    ///   3. 调用 `formatted_tail_lines_with_service(..., tail=10, level=trace)`
+    ///
+    /// 预期结果：
+    ///   - 断言 A：返回 `[app]` agent_spawn，说明 Release logs 包含结构化 app 日志
+    ///   - 断言 B：返回 `[service]` launchd stderr，说明 Release logs 包含 daemon/service 原始日志
+    ///   - 断言 C：不返回裸 JSON，说明手机端仍收到人类可读文本
+    #[test]
+    fn release_tail_lines_include_app_and_service_logs() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let log_dir = tmp.path().join("logs");
+        std::fs::create_dir_all(&log_dir).expect("create app log dir");
+        let today = chrono::Utc::now().format("%Y-%m-%d").to_string();
+        let app_log = log_dir.join(format!("serve.log.{today}"));
+        std::fs::write(
+            &app_log,
+            r#"{"timestamp":"2026-05-24T10:00:00Z","level":"INFO","target":"msctl::serve::runtime","fields":{"message":"agent_spawn","pid":123},"span":{"name":"session_worker","conv_id":"cnv_abc"}}"#,
+        )
+        .expect("write app log");
+
+        let service_log = tmp.path().join("service.log");
+        let mut service_file = std::fs::File::create(&service_log).expect("create service log");
+        writeln!(service_file, "launchd stderr: PATH missing").expect("write service log");
+
+        let lines = formatted_tail_lines_with_service(&log_dir, Some(service_log), 10, "trace")
+            .expect("format release logs");
+
+        assert!(
+            lines
+                .iter()
+                .any(|line| line.starts_with("[app]") && line.contains("agent_spawn")),
+            "release logs must include prefixed app log line, got: {lines:?}"
+        );
+        assert!(
+            lines.iter().any(|line| line.starts_with("[service]")
+                && line.contains("launchd stderr: PATH missing")),
+            "release logs must include prefixed service log line, got: {lines:?}"
+        );
+        assert!(
+            !lines.iter().any(|line| line.trim_start().starts_with('{')),
+            "release logs must be human-readable text instead of raw JSON, got: {lines:?}"
+        );
     }
 }

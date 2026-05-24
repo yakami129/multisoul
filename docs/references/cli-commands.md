@@ -78,7 +78,7 @@ Source: `cli/src/commands/serve.rs`
 | `tail` | `200` | 连接后先推送最近 N 条日志，最大 1000 |
 | `level` | `trace` | 最低日志级别：`trace` / `debug` / `info` / `warn` / `error` |
 
-每个 WebSocket message 都是一行格式化文本，格式与 `msctl logs --source app` 的人类可读输出一致，不是 JSON/NDJSON。
+每个 WebSocket message 都是一行格式化文本，格式与 `msctl logs` 默认输出一致，包含 app 与 service 来源前缀，不是 JSON/NDJSON。
 
 ---
 
