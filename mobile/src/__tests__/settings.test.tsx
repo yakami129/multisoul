@@ -86,7 +86,7 @@ describe('SettingsScreen', () => {
         {
           id: 'ep-2',
           label: 'Mac Mini',
-          base_url: 'http://10.0.0.2:8765',
+          base_url: 'http://10.0.0.2:8765/',
           token: 'tok two',
           last_seen_at: null,
         },

@@ -19,7 +19,10 @@ interface ReleaseLogsModalProps {
 }
 
 function buildLogsWsUrl(endpoint: Endpoint): string {
-  const wsBase = endpoint.base_url.replace(/^https/, 'wss').replace(/^http/, 'ws');
+  const wsBase = endpoint.base_url
+    .replace(/\/+$/, '')
+    .replace(/^https/, 'wss')
+    .replace(/^http/, 'ws');
   const token = encodeURIComponent(endpoint.token);
   return `${wsBase}/ws/logs?token=${token}&tail=${DEFAULT_TAIL}&level=${DEFAULT_LEVEL}`;
 }
