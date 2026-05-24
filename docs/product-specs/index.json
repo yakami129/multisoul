@@ -59,6 +59,10 @@
       "title": "PR-Based Development Workflow SPEC"
     },
     {
+      "file": "SPEC-runtime-model-switching.md",
+      "title": "Runtime Model Switching SPEC"
+    },
+    {
       "file": "SPEC-task-notification.md",
       "title": "Agent 任务完成通知 SPEC"
     },
