@@ -19,6 +19,7 @@ interface Props {
   onAnswerMulti: (ask_id: string, choice_ids: Record<string, string>) => void;
   imageUriForMessage: (msg: WsMessage) => string | undefined;
   onScroll: (event: NativeSyntheticEvent<NativeScrollEvent>) => void;
+  onScrollBeginDrag: (event: NativeSyntheticEvent<NativeScrollEvent>) => void;
   onContentSizeChange: () => void;
   onScrollToIndexFailed: (info: { index: number; averageItemLength: number }) => void;
 }
@@ -36,6 +37,7 @@ export default function ChatTranscriptList({
   onAnswerMulti,
   imageUriForMessage,
   onScroll,
+  onScrollBeginDrag,
   onContentSizeChange,
   onScrollToIndexFailed,
 }: Props) {
@@ -72,6 +74,7 @@ export default function ChatTranscriptList({
         ) : null
       }
       onScroll={onScroll}
+      onScrollBeginDrag={onScrollBeginDrag}
       scrollEventThrottle={16}
       onContentSizeChange={onContentSizeChange}
       onScrollToIndexFailed={onScrollToIndexFailed}

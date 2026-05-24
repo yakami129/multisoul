@@ -82,7 +82,15 @@ tailscale ip
 
 On iOS or Android, install Tailscale from the app store and sign in with the same account.
 
-Tailnet access is the default and recommended private setup. If you need a public HTTPS URL, enable Tailscale Funnel and start the service with `msctl serve --funnel`. See [Tailscale Funnel docs](https://tailscale.com/docs/features/tailscale-funnel).
+Tailnet access is the default and recommended private setup. If you need a public HTTPS URL, enable Tailscale Funnel and start the service with `msctl serve --funnel`.
+
+For the first public HTTPS/Funnel setup, grant Tailscale permission to serve HTTPS on port 443 and point it at the default MultiSoul port:
+
+```bash
+tailscale funnel --https=443 8765
+```
+
+If Tailscale opens a browser approval flow, approve it once, then stop the command with `Ctrl-C` and start MultiSoul with `msctl serve --funnel`. See [Tailscale Funnel docs](https://tailscale.com/docs/features/tailscale-funnel).
 
 ## Quick Start
 

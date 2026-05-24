@@ -316,6 +316,12 @@ msctl agent invoke <id> --message "..."   # 等价于建一个 thread + 发一�
 ```
 
 ### 7.2 新增 `msctl serve`
+首次使用公网 HTTPS/Funnel 前，需要先完成一次 Tailscale 授权：
+
+```bash
+tailscale funnel --https=443 8765        # 转发公网 443 HTTPS 到本机默认端口 8765
+```
+
 ```bash
 msctl serve                              # 监听 127.0.0.1:8765(仅本机)
 msctl serve --tailnet                    # 监听 tailnet 接口(仅 tailnet 内可达)

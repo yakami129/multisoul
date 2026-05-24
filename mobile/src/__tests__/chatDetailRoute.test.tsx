@@ -98,6 +98,19 @@ const historyMessages: WsMessage[] = [
   },
 ];
 
+function makeNumberedMessages(start: number, end: number): WsMessage[] {
+  return Array.from({ length: end - start + 1 }, (_, index) => {
+    const seq = start + index;
+    return {
+      type: 'message',
+      seq,
+      role: seq % 2 === 0 ? 'agent_text' : 'user_text',
+      payload: { text: `cached message ${seq}` },
+      created_at: seq,
+    };
+  });
+}
+
 beforeEach(() => {
   jest.clearAllMocks();
   (useWebSocket as jest.Mock).mockClear();
@@ -158,6 +171,114 @@ test('loads the initial chat history with the latest 15 message limit', async ()
     limit: 15,
   });
   expect(fetchMessages).not.toHaveBeenCalledWith('http://localhost:8080', 'token', 'conv-1');
+});
+
+/// Cached transcript windowing: reopening a conversation with a large store cache
+/// must render only the newest visible window before the REST latest page returns.
+///
+/// Data construction:
+///   cached store rows = seq 1..200, total 200 messages
+///   initial window    = latest 15 rows = 200 - 15 + 1 = seq 186..200
+///   REST request      = unresolved, so the assertion inspects the pre-REST first render
+///
+/// Execution process:
+///   1. Seed chatStore with 200 cached rows for conv-1.
+///   2. Render ChatDetailScreen while the initial latest-page request stays pending.
+///   3. Inspect the FlatList data used for the first visible transcript render.
+///
+/// Expected result:
+///   - Positive: FlatList data length is exactly 15.
+///   - Positive: first visible seq is 186 and newest seq 200 is present.
+///   - Negative: seq 1 is not present, so old cache is not rendered on open.
+test('renders only the latest visible window from cached store history on open', () => {
+  useChatStore.setState((state) => ({
+    ...state,
+    messages: { 'conv-1': makeNumberedMessages(1, 200) },
+  }));
+  (fetchMessages as jest.Mock).mockImplementation(() => new Promise(() => {}));
+
+  const { UNSAFE_getByType } = render(<ChatDetailScreen />);
+  const data = UNSAFE_getByType(FlatList).props.data as WsMessage[];
+
+  expect({
+    actual: data.length,
+    reason: 'cached long histories should expose only the latest 15 rows on initial open',
+  }).toEqual({ actual: 15, reason: expect.any(String) });
+  expect({
+    actual: data[0]?.seq,
+    reason: 'latest 15 from seq 1..200 should start at seq 186',
+  }).toEqual({ actual: 186, reason: expect.any(String) });
+  expect({
+    actual: data.some((message) => message.seq === 200),
+    reason: 'initial window must still include the newest cached message',
+  }).toEqual({ actual: true, reason: expect.any(String) });
+  expect({
+    actual: data.some((message) => message.seq === 1),
+    reason: 'initial window must not render the oldest cached message before user scrolls up',
+  }).toEqual({ actual: false, reason: expect.any(String) });
+});
+
+/// Initial scroll guard: FlatList can emit a top-position scroll during layout
+/// or programmatic settling, but that is not the user's upward history gesture.
+///
+/// Data construction:
+///   initial latest page = seq 11 only
+///   older page cursor   = before_seq 11
+///   top threshold       = y 0 < 80, but no user drag has begun
+///
+/// Execution process:
+///   1. Render ChatDetailScreen and wait for seq 11 latest page.
+///   2. Fire FlatList onScroll at y=0 without onScrollBeginDrag.
+///   3. Inspect fetchMessages calls for older pagination.
+///
+/// Expected result:
+///   - Positive: latest prompt renders from the initial page.
+///   - Negative: before_seq 11 is not requested without a user drag.
+test('does not load older history from initial top scroll before user drag', async () => {
+  (fetchMessages as jest.Mock).mockImplementation(
+    (_baseUrl: string, _token: string, _convId: string, options?: { before_seq?: number }) => {
+      if (options?.before_seq === 11) {
+        return Promise.resolve([
+          {
+            type: 'message',
+            seq: 10,
+            role: 'agent_text',
+            payload: { text: 'should not load from layout scroll' },
+            created_at: 10,
+          },
+        ]);
+      }
+      return Promise.resolve([
+        {
+          type: 'message',
+          seq: 11,
+          role: 'user_text',
+          payload: { text: 'latest prompt' },
+          created_at: 11,
+        },
+      ]);
+    },
+  );
+  const { UNSAFE_getByType, getByText } = render(<ChatDetailScreen />);
+
+  await waitFor(() => expect(getByText('latest prompt')).toBeTruthy());
+  await act(async () => {
+    UNSAFE_getByType(FlatList).props.onScroll({
+      nativeEvent: {
+        contentOffset: { y: 0 },
+        layoutMeasurement: { height: 400 },
+        contentSize: { height: 800 },
+      },
+    });
+  });
+
+  const beforeSeqCalls = (fetchMessages as jest.Mock).mock.calls.filter(
+    ([, , , options]) => options?.before_seq === 11,
+  );
+  expect({
+    actual: beforeSeqCalls.length,
+    reason: 'layout/programmatic top scroll must not request older history before user drag',
+  }).toEqual({ actual: 0, reason: expect.any(String) });
 });
 
 /// Initial history race: a live WebSocket message appended while the limited
@@ -291,6 +412,7 @@ test('loads older messages before the first loaded seq when scrolled near the to
 
   await waitFor(() => expect(getByText('latest prompt')).toBeTruthy());
   await act(async () => {
+    UNSAFE_getByType(FlatList).props.onScrollBeginDrag?.({ nativeEvent: {} });
     UNSAFE_getByType(FlatList).props.onScroll({
       nativeEvent: {
         contentOffset: { y: 0 },
@@ -336,6 +458,7 @@ test('does not repeatedly fetch the same older page when the first seq is unchan
 
   await waitFor(() => expect(getByText('latest prompt')).toBeTruthy());
   await act(async () => {
+    UNSAFE_getByType(FlatList).props.onScrollBeginDrag?.({ nativeEvent: {} });
     UNSAFE_getByType(FlatList).props.onScroll({
       nativeEvent: {
         contentOffset: { y: 0 },
@@ -409,6 +532,7 @@ test('retries the same older page after a transient fetch failure', async () => 
 
   await waitFor(() => expect(getByText('latest prompt')).toBeTruthy());
   await act(async () => {
+    UNSAFE_getByType(FlatList).props.onScrollBeginDrag?.({ nativeEvent: {} });
     UNSAFE_getByType(FlatList).props.onScroll({
       nativeEvent: {
         contentOffset: { y: 0 },
@@ -489,6 +613,7 @@ test('allows older pagination after a stale older request completes', async () =
 
   await waitFor(() => expect(getByText('latest prompt')).toBeTruthy());
   await act(async () => {
+    UNSAFE_getByType(FlatList).props.onScrollBeginDrag?.({ nativeEvent: {} });
     UNSAFE_getByType(FlatList).props.onScroll({
       nativeEvent: {
         contentOffset: { y: 0 },
@@ -519,6 +644,7 @@ test('allows older pagination after a stale older request completes', async () =
     ]);
   });
   await act(async () => {
+    UNSAFE_getByType(FlatList).props.onScrollBeginDrag?.({ nativeEvent: {} });
     UNSAFE_getByType(FlatList).props.onScroll({
       nativeEvent: {
         contentOffset: { y: 0 },

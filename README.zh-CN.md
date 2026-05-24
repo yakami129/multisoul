@@ -82,7 +82,15 @@ tailscale ip
 
 iOS 或 Android 直接从应用商店安装 Tailscale，并登录同一个账号。
 
-默认推荐使用 Tailnet 私有访问。如果你需要公网 HTTPS 地址，可以开启 Tailscale Funnel，并用 `msctl serve --funnel` 启动服务。参考：[Tailscale Funnel docs](https://tailscale.com/docs/features/tailscale-funnel)。
+默认推荐使用 Tailnet 私有访问。如果你需要公网 HTTPS 地址，可以开启 Tailscale Funnel，并用 `msctl serve --funnel` 启动服务。
+
+首次配置公网 HTTPS/Funnel 时，先授权 Tailscale 在 443 端口提供 HTTPS，并转发到 MultiSoul 默认端口：
+
+```bash
+tailscale funnel --https=443 8765
+```
+
+如果 Tailscale 打开浏览器授权页，完成一次授权后按 `Ctrl-C` 停止该命令，再运行 `msctl serve --funnel`。参考：[Tailscale Funnel docs](https://tailscale.com/docs/features/tailscale-funnel)。
 
 ## 快速开始
 

@@ -68,6 +68,14 @@ Source: `cli/src/commands/serve.rs`
 | `--funnel` | false | 通过 Tailscale Funnel 暴露到公网 |
 | `--tailnet` | false | 绑定 `0.0.0.0`（供 Tailnet 访问） |
 
+首次使用公网 HTTPS/Funnel 前，需要先让 Tailscale 为本机打开 443 HTTPS 入口，并转发到 MultiSoul 默认端口：
+
+```bash
+tailscale funnel --https=443 8765
+```
+
+如果 Tailscale 要求浏览器授权，授权一次后按 `Ctrl-C` 停止该命令，再运行 `msctl serve --funnel`。
+
 ### `serve` 日志 WebSocket
 
 手机端 Release logs 使用 `GET /ws/logs?token=<TOKEN>&tail=200&level=trace`。
