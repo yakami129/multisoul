@@ -64,8 +64,21 @@ export default function MultiAskQuestionCard({
   const answeredCount = questions.filter((q) => {
     const ans = answers[q.id];
     if (!ans) return false;
-    if (ans === CUSTOM_ID) return (committedCustomTexts[q.id]?.length ?? 0) > 0;
-    return true;
+
+    if (ans instanceof Set) {
+      // 多选：至少选一个，且如果选了 CUSTOM_ID 则必须有自定义文本
+      if (ans.size === 0) return false;
+      if (ans.has(CUSTOM_ID)) {
+        return (committedCustomTexts[q.id]?.length ?? 0) > 0;
+      }
+      return true;
+    } else {
+      // 单选：有选项，且如果是 CUSTOM_ID 则必须有自定义文本
+      if (ans === CUSTOM_ID) {
+        return (committedCustomTexts[q.id]?.length ?? 0) > 0;
+      }
+      return true;
+    }
   }).length;
   const allAnswered = answeredCount >= total;
   const progressWidth = total > 0 ? (answeredCount / total) * 100 : 0;
