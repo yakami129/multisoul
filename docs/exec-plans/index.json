@@ -8,6 +8,10 @@
       "lastCompletedCommit": "0f0257743b377b436b9a7341cae0c52891bb5f81"
     },
     {
+      "file": "2026-05-24-runtime-model-switching.md",
+      "title": "Runtime Model Switching Implementation Plan"
+    },
+    {
       "file": "2026-05-24-cli-logs-visibility.md",
       "title": "CLI Logs Visibility Implementation Plan"
     },
