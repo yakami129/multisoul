@@ -5,22 +5,25 @@
 
 ## 前提
 
-- 日志位于 `~/.cache/msctl/serve.log.YYYY-MM-DD`（macOS 实为 `~/Library/Caches/msctl/`）
-- 每天一个文件，保留 7 天；`msctl logs` 自动读最新
-- 日志格式为 NDJSON；`msctl logs` 不带 `--json` 时渲染成人类可读文本 + 彩色
+- app 日志位于 `~/.cache/msctl/serve.log.YYYY-MM-DD`（macOS 实为 `~/Library/Caches/msctl/`）
+- service 日志位于 daemon/launchd 配置的 stdout/stderr 文件（默认 `~/.config/msctl/msctl.log`）
+- `msctl logs` 默认读取 app + service；用 `--source app` 或 `--source service` 可只看单一来源
+- app 日志格式为 NDJSON；`msctl logs --source app --json` 可输出原始 NDJSON 给 `jq`
 
 ## 常用参数速查
 
 ```bash
-msctl logs                          # 最后 50 条，人类可读
-msctl logs --tail 200               # 最后 200 条
-msctl logs -f                       # 实时流（tail -f）
-msctl logs --since 5m               # 最近 5 分钟
-msctl logs --since 2h               # 最近 2 小时
-msctl logs --conv cnv_abc           # 按会话过滤
-msctl logs --level warn             # 只看 WARN/ERROR
-msctl logs --grep 'push_'           # 正则过滤 message 字段
-msctl logs --json | jq .            # 管道给 jq
+msctl logs                          # 默认 source=all，每个来源最后 50 条/行
+msctl logs --source app             # 只看结构化 app 日志
+msctl logs --source service         # 只看 daemon/launchd 原始日志
+msctl logs --tail 200               # 每个来源最后 200 条/行
+msctl logs -f                       # 同时实时流 app + service
+msctl logs --since 5m               # app 最近 5 分钟
+msctl logs --since 2h               # app 最近 2 小时
+msctl logs --conv cnv_abc           # app 按会话过滤
+msctl logs --level warn             # app 只看 WARN/ERROR
+msctl logs --grep 'push_'           # app 匹配 message；service 匹配原始行
+msctl logs --source app --json | jq . # app NDJSON 管道给 jq
 ```
 
 ## 手机端 Release logs
@@ -120,18 +123,19 @@ msctl logs --since 10m --grep 'agent_' --conv <conv_id>
 
 ```bash
 # 过去 1 小时所有 error
-msctl logs --since 1h --level error --json | jq '.fields.message'
+msctl logs --source app --since 1h --level error --json | jq '.fields.message'
 
 # 某 conv 的所有 span 名
-msctl logs --conv cnv_abc --json | jq '.span.name' | sort -u
+msctl logs --source app --conv cnv_abc --json | jq '.span.name' | sort -u
 
 # 统计每种事件发生次数
-msctl logs --tail 1000 --json | jq -r '.fields.message' | sort | uniq -c | sort -rn
+msctl logs --source app --tail 1000 --json | jq -r '.fields.message' | sort | uniq -c | sort -rn
 ```
 
 ## 日志本身出了问题
 
-- 看不到任何输出：检查 `~/.cache/msctl/` 是否存在；`ls -la` 看文件大小
+- 看不到任何 app 输出：检查 `~/.cache/msctl/` 是否存在；`ls -la` 看文件大小
+- 看不到任何 service 输出：检查 `msctl daemon status` 里的 Log 路径是否存在
 - `msctl serve` 没写盘：临时把日志级别调高验证，`msctl --log-level debug serve`
 - 磁盘满：`tracing-appender` 会静默丢弃，不影响服务；清掉旧文件 `rm ~/.cache/msctl/serve.log.*`（7 天自动轮转保留，手动清也安全）
 

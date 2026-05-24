@@ -4,4 +4,6 @@ pub mod auth;
 pub mod daemon;
 pub mod inject;
 pub mod logs;
+pub mod logs_app;
+pub mod logs_service;
 pub mod serve;
