@@ -111,9 +111,13 @@ jobs:
     needs: build-binaries
     runs-on: ubuntu-latest
     steps:
+      # Only CLI binary uploads (see build-binaries upload name: msctl-<target>).
+      # Without pattern, GitHub exposes every artifact in this run—including Docker Buildx
+      # GHA cache blobs—causing flaky downloads / wrong files under dist/* on release attach.
       - name: Download package artifacts
         uses: actions/download-artifact@v4
         with:
+          pattern: msctl-*
           path: dist
           merge-multiple: true
 
@@ -179,6 +183,7 @@ jobs:
       - name: Download package artifacts
         uses: actions/download-artifact@v4
         with:
+          pattern: msctl-*
           path: cli/npm/artifacts
           merge-multiple: true
 
