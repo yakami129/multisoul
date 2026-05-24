@@ -25,7 +25,7 @@ cd mobile
 
 仓库 workflow **`Release iOS`**（`.github/workflows/release-ios.yml`）在推送 tag **`ios-v*.*.*`** 或手动 **Run workflow** 时运行：先复用全量 CI，再执行 EAS Build + Submit。实际 `CFBundleShortVersionString` / build number 仍以 **`mobile/app.json`** 与 **`eas.json`** 为准；建议在打 tag 前将 `expo.version` 与 tag 中的 semver 对齐（例如 tag `ios-v1.2.0` 对应 `expo.version` `1.2.0`）。
 
-> **与 CLI 解耦：** CLI 发布使用 **`msctl-v*.*.*`** tag（见 `docs/runbooks/cli-release.md`）。裸 `v*.*.*` tag **不会**再触发任一云端发版 workflow。
+> **与 CLI 解耦：** CLI 发布使用 **`v*.*.*`** tag（见 `docs/runbooks/cli-release.md`）；iOS 使用 **`ios-v*.*.*`**。二者互不触发对方 workflow。
 
 ### 前提条件
 

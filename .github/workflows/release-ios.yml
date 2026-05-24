@@ -1,7 +1,7 @@
 name: Release iOS
 
 # Tag push uses the `ios-v*` prefix so TestFlight release does not run when only
-# releasing the CLI (`msctl-v*` → release-cli.yml). App marketing version in
+# releasing the CLI (`v*` → release-cli.yml). App marketing version in
 # `app.json` should match the semver in the tag (e.g. ios-v1.2.3 → 1.2.3).
 on:
   push:

@@ -11,7 +11,7 @@ MultiSoul monorepo 包含 Rust CLI（`msctl`）和 React Native iOS App。目标
 ### 2.1 In Scope
 
 - PR CI 检查（lint、format、typecheck、test、mechanized constraints）
-- **`msctl-v*.*.*` tag**（或手动触发 **`Release CLI`**）发布 CLI：npm `@yakami129/msctl`、GitHub Release、GHCR
+- **`v*.*.*` tag**（或手动触发 **`Release CLI`**）发布 CLI：npm `@yakami129/msctl`、GitHub Release、GHCR
 - **`ios-v*.*.*` tag**（或手动触发 **`Release iOS`**）走 EAS Build + TestFlight（版本以 `app.json` / `eas.json` 为准）
 - GitHub Release 自动创建（附带多平台二进制）
 - Secrets 配置指引
@@ -87,7 +87,7 @@ pnpm test -- --watchAll=false --ci
 
 ## 5. release-cli.yml — CLI 发布
 
-**触发条件：** `push` tag `msctl-v*.*.*`，或 `workflow_dispatch`（参数为完整 tag，如 `msctl-v0.1.0`）
+**触发条件：** `push` tag `v*.*.*`，或 `workflow_dispatch`（参数为完整 tag，如 `v0.1.0`）
 
 **前置：** 通过 `workflow_call` 调用 `ci.yml`，全部通过后才进入构建。
 
@@ -116,7 +116,7 @@ pnpm test -- --watchAll=false --ci
 
 1. 下载全部 4 个 artifacts
 2. 将二进制放入 `cli/npm/vendor/<target>/msctl[.exe]`
-3. 从 tag 名去掉 `msctl-` 与 `v` 前缀得到 semver，覆盖 `cli/npm/package.json` 的 `version`
+3. 从 tag 名去掉 `v` 前缀得到 semver，覆盖 `cli/npm/package.json` 的 `version`
 4. `npm publish --access public`（使用 `NPM_TOKEN`）
 
 #### `create-release`（depends on `build-binaries`）
@@ -163,8 +163,8 @@ pnpm test -- --watchAll=false --ci
 
 ## 8. 版本号同步策略
 
-- 打 **`msctl-v*`** tag 前手动确保 `cli/Cargo.toml` 和 `cli/npm/package.json` 的 `version` 字段一致
-- `release-cli.yml` 中从 tag 名（`msctl-v1.2.3` → `1.2.3`）覆盖 `cli/npm/package.json` 的 `version`，确保 npm 包版本与 Cargo 一致
+- 打 **`v*`** tag 前手动确保 `cli/Cargo.toml` 和 `cli/npm/package.json` 的 `version` 字段一致
+- `release-cli.yml` 中从 tag 名（`v1.2.3` → `1.2.3`）覆盖 `cli/npm/package.json` 的 `version`，确保 npm 包版本与 Cargo 一致
 - `Cargo.toml` 版本不在 CI 中修改
 
 ---
@@ -175,7 +175,7 @@ pnpm test -- --watchAll=false --ci
 - [ ] `check-no-secrets` 能检测到硬编码 token 并阻断 PR
 - [ ] `check-mobile-colors` 能检测到非 allowlist 颜色并阻断 PR
 - [ ] `check-agents-md-size` 能检测到 AGENTS.md 超限并阻断 PR
-- [ ] 打 `msctl-v0.1.2` tag 后，npm 出现 `@yakami129/msctl@0.1.2`，包含 4 平台二进制
-- [ ] 打 `msctl-v*` tag 后，GitHub Releases 出现对应 release，附带各平台二进制下载
+- [ ] 打 `v0.1.2` tag 后，npm 出现 `@yakami129/msctl@0.1.2`，包含 4 平台二进制
+- [ ] 打 `v*` tag 后，GitHub Releases 出现对应 release，附带各平台二进制下载
 - [ ] 打 `ios-v*` tag（且 `app.json` / EAS 配置正确）后，TestFlight 出现新构建
 - [ ] CI 任一 job 失败时，发布 job 不执行
