@@ -34,10 +34,10 @@ class MockReleaseLogWebSocket {
   onopen: (() => void) | null = null;
   onmessage: ((event: { data: string }) => void) | null = null;
   onerror: (() => void) | null = null;
-  onclose: (() => void) | null = null;
+  onclose: ((event: { code?: number }) => void) | null = null;
   close = jest.fn(() => {
     this.readyState = 3;
-    this.onclose?.();
+    this.onclose?.({ code: 1000 });
   });
 
   constructor(url: string) {
@@ -47,6 +47,12 @@ class MockReleaseLogWebSocket {
 
   emit(data: string) {
     this.onmessage?.({ data });
+  }
+
+  emitErrorThenClose(code: number) {
+    this.onerror?.();
+    this.readyState = 3;
+    this.onclose?.({ code });
   }
 }
 
@@ -202,5 +208,38 @@ describe('SettingsScreen', () => {
     expect(Clipboard.setStringAsync).toHaveBeenCalledWith(expect.stringContaining('image_failed'));
     expect(Clipboard.setStringAsync).not.toHaveBeenCalledWith(expect.stringContaining('{"type"'));
     expect(Clipboard.setStringAsync).not.toHaveBeenCalledWith('No diagnostics yet.');
+  });
+
+  /// Settings diagnostics: websocket error status is not overwritten by the close event
+  ///
+  /// Data construction:
+  ///   selected endpoint = Home Server
+  ///   websocket error   = synthetic error followed by close code 1006
+  ///   msctl lines       = 0 lines
+  ///
+  /// Execution:
+  ///   1. Open Release logs modal
+  ///   2. Select Home Server
+  ///   3. Emit websocket error, then close
+  ///
+  /// Expected:
+  ///   - positive assertion: status shows "Could not stream logs"
+  ///   - negative assertion: status is not overwritten by generic "Log stream closed."
+  it('keeps websocket error status when close follows error', async () => {
+    render(<SettingsScreen />);
+
+    fireEvent.press(screen.getByTestId('release-logs-open-btn'));
+    fireEvent.press(screen.getByTestId('release-logs-endpoint-ep-1'));
+
+    await waitFor(() => {
+      expect(MockReleaseLogWebSocket.instances.length).toBe(1);
+    });
+
+    act(() => {
+      MockReleaseLogWebSocket.instances[0]?.emitErrorThenClose(1006);
+    });
+
+    expect(screen.getByText('Could not stream logs from Home Server.')).toBeTruthy();
+    expect(screen.queryByText('Log stream closed.')).toBeNull();
   });
 });

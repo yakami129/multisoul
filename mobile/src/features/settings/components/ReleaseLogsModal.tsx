@@ -37,6 +37,7 @@ export function ReleaseLogsModal({ visible, endpoints, onClose }: ReleaseLogsMod
   const [msctlLines, setMsctlLines] = useState<string[]>([]);
   const [status, setStatus] = useState('Select an endpoint to start live logs.');
   const socketRef = useRef<WebSocket | null>(null);
+  const streamHadErrorRef = useRef(false);
 
   const selectedEndpoint = useMemo(
     () => endpoints.find((endpoint) => endpoint.id === selectedEndpointId) ?? null,
@@ -67,6 +68,7 @@ export function ReleaseLogsModal({ visible, endpoints, onClose }: ReleaseLogsMod
 
     const ws = new WebSocket(buildLogsWsUrl(selectedEndpoint));
     socketRef.current = ws;
+    streamHadErrorRef.current = false;
     setStatus(`Connecting to ${selectedEndpoint.label}...`);
 
     ws.onopen = () => {
@@ -77,11 +79,14 @@ export function ReleaseLogsModal({ visible, endpoints, onClose }: ReleaseLogsMod
       setMsctlLines((prev) => [...prev, line].slice(-MAX_LOG_LINES));
     };
     ws.onerror = () => {
+      streamHadErrorRef.current = true;
       setStatus(`Could not stream logs from ${selectedEndpoint.label}.`);
     };
-    ws.onclose = () => {
-      if (socketRef.current === ws) {
-        setStatus('Log stream closed.');
+    ws.onclose = (event) => {
+      if (socketRef.current === ws && !streamHadErrorRef.current) {
+        const code =
+          typeof event.code === 'number' && event.code !== 1000 ? ` (${event.code})` : '';
+        setStatus(`Log stream closed${code}.`);
       }
     };
 
