@@ -180,6 +180,93 @@ test('answered state shows typed text for Other selection after ack', () => {
   }).toEqual({ actual: true, reason: expect.any(String) });
 });
 
+describe('MultiAskQuestionCard - Multi-select support', () => {
+  it('should render checkbox for multi-select question', () => {
+    const questions = [
+      {
+        id: '0',
+        text: 'Select frameworks',
+        options: [
+          { id: '0', label: 'React' },
+          { id: '1', label: 'Vue' },
+          { id: '2', label: 'Angular' },
+        ],
+        multi_select: true,
+      },
+    ];
+
+    const { getByText } = render(
+      <MultiAskQuestionCard questions={questions} onCancel={jest.fn()} onConfirm={jest.fn()} />,
+    );
+
+    expect(getByText('Select frameworks')).toBeTruthy();
+    expect(getByText('React')).toBeTruthy();
+  });
+
+  it('should toggle options in multi-select question', () => {
+    const questions = [
+      {
+        id: '0',
+        text: 'Select frameworks',
+        options: [
+          { id: '0', label: 'React' },
+          { id: '1', label: 'Vue' },
+        ],
+        multi_select: true,
+      },
+    ];
+
+    const onConfirm = jest.fn();
+    const { getByText, getByRole } = render(
+      <MultiAskQuestionCard questions={questions} onCancel={jest.fn()} onConfirm={onConfirm} />,
+    );
+
+    // Select React
+    fireEvent.press(getByText('React'));
+
+    // Select Vue
+    fireEvent.press(getByText('Vue'));
+
+    // Confirm
+    fireEvent.press(getByRole('button', { name: /confirm/i }));
+
+    expect(onConfirm).toHaveBeenCalledWith({ '0': '0,1' });
+  });
+
+  it('should deselect option when clicked again in multi-select', () => {
+    const questions = [
+      {
+        id: '0',
+        text: 'Select frameworks',
+        options: [
+          { id: '0', label: 'React' },
+          { id: '1', label: 'Vue' },
+        ],
+        multi_select: true,
+      },
+    ];
+
+    const onConfirm = jest.fn();
+    const { getByText, getByRole } = render(
+      <MultiAskQuestionCard questions={questions} onCancel={jest.fn()} onConfirm={onConfirm} />,
+    );
+
+    // Select React
+    fireEvent.press(getByText('React'));
+
+    // Select Vue
+    fireEvent.press(getByText('Vue'));
+
+    // Deselect React
+    fireEvent.press(getByText('React'));
+
+    // Confirm
+    fireEvent.press(getByRole('button', { name: /confirm/i }));
+
+    expect(onConfirm).toHaveBeenCalledWith({ '0': '1' });
+  });
+});
+
 test('unsubmitted multi-question answers can be edited before final confirm', () => {
   const onConfirm = jest.fn();
   const { getByLabelText, getByPlaceholderText } = render(
