@@ -218,4 +218,109 @@ describe('activityService', () => {
     expect(result.failedEndpoints).toEqual([{ endpoint_id: 'ep-2', endpoint_label: 'Studio Mac' }]);
     expect(result.needsAttention).toEqual([]);
   });
+
+  /// Legacy endpoint fallback: old msctl instances do not expose /api/v1/activity but still expose agents and conversations.
+  ///
+  /// Data construction:
+  ///   ep-1 /api/v1/activity = 404（旧 endpoint）
+  ///   ep-1 agents           = agent-legacy
+  ///   ep-1 conversations    = one running + one completed + one idle with reply + one idle without reply
+  ///
+  /// Execution process:
+  ///   1. aggregateActivity([ep-1]) first requests /api/v1/activity.
+  ///   2. The 404 response triggers legacy fallback.
+  ///   3. Fallback requests /api/v1/agents and /api/v1/agents/:id/conversations.
+  ///
+  /// Expected result:
+  ///   - Positive: legacy running conversation appears in Running.
+  ///   - Positive: legacy completed conversation appears in Done.
+  ///   - Positive: legacy idle conversation with a reply appears in Done.
+  ///   - Negative: legacy idle conversation without a reply is ignored.
+  ///   - Negative: ep-1 is not reported as failed when fallback succeeds.
+  it('falls back to legacy agents and conversations when activity endpoint is missing', async () => {
+    mockGet
+      .mockRejectedValueOnce({ response: { status: 404 } })
+      .mockResolvedValueOnce({
+        data: [
+          {
+            id: 'agent-legacy',
+            name: 'Legacy Project',
+            project_path: '/repo',
+            runtime: 'claude-code',
+            created_at: 1,
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        data: [
+          {
+            id: 'conv-running-legacy',
+            agent_id: 'agent-legacy',
+            title: 'Legacy running',
+            created_at: 10,
+            last_message_at: 30,
+            status: 'running',
+            first_user_message: 'Run legacy task',
+            last_ai_reply: 'Still checking',
+          },
+          {
+            id: 'conv-done-legacy',
+            agent_id: 'agent-legacy',
+            title: 'Legacy done',
+            created_at: 40,
+            last_message_at: 60,
+            status: 'completed',
+            first_user_message: 'Finish legacy task',
+            last_ai_reply: 'Finished',
+          },
+          {
+            id: 'conv-idle-with-reply',
+            agent_id: 'agent-legacy',
+            title: 'Legacy idle result',
+            created_at: 70,
+            last_message_at: 90,
+            status: 'idle',
+            first_user_message: 'Old idle request',
+            last_ai_reply: 'Old idle reply',
+          },
+          {
+            id: 'conv-idle-empty',
+            agent_id: 'agent-legacy',
+            title: 'Legacy idle empty',
+            created_at: 100,
+            last_message_at: 110,
+            status: 'idle',
+            first_user_message: 'Old idle request without reply',
+          },
+        ],
+      });
+
+    const result = await aggregateActivity([endpoints[0]]);
+
+    expect(mockGet).toHaveBeenCalledWith('/api/v1/activity', {
+      params: { limit_per_section: 50 },
+    });
+    expect(mockGet).toHaveBeenCalledWith('/api/v1/agents');
+    expect(mockGet).toHaveBeenCalledWith('/api/v1/agents/agent-legacy/conversations');
+    expect(result.running[0]).toMatchObject({
+      id: 'ep-1:legacy-running:conv-running-legacy',
+      title: 'Run legacy task',
+      subtitle: 'Still checking',
+      endpoint_label: 'Office Mac',
+    });
+    expect(result.done[0]).toMatchObject({
+      id: 'ep-1:legacy-done:conv-idle-with-reply',
+      title: 'Old idle request',
+      subtitle: 'Old idle reply',
+      status_label: 'Done',
+    });
+    expect(result.done[1]).toMatchObject({
+      id: 'ep-1:legacy-done:conv-done-legacy',
+      title: 'Finish legacy task',
+      subtitle: 'Finished',
+      status_label: 'Done',
+    });
+    expect(result.done.find((item) => item.conversation_id === 'conv-idle-empty')).toBeUndefined();
+    expect(result.failedEndpoints).toEqual([]);
+  });
 });
