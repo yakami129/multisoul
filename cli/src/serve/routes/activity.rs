@@ -159,13 +159,47 @@ fn load_done_items(db: &rusqlite::Connection, limit: i64) -> Result<Vec<Activity
                      ORDER BY ma.seq DESC LIMIT 1),
                     c.title
                 ) AS subtitle,
-                CASE WHEN c.status = 'failed' THEN 'Failed' ELSE 'Done' END AS status_label,
-                CASE WHEN c.status = 'failed' THEN 'failed' ELSE 'done' END AS tone,
+                CASE
+                    WHEN c.status = 'failed'
+                      OR (
+                        SELECT json_extract(mt.payload, '$.status')
+                        FROM messages mt
+                        WHERE mt.conversation_id = c.id
+                          AND mt.role = 'task_status'
+                          AND json_extract(mt.payload, '$.status') IN ('completed', 'failed')
+                        ORDER BY mt.seq DESC LIMIT 1
+                      ) = 'failed'
+                    THEN 'Failed'
+                    ELSE 'Done'
+                END AS status_label,
+                CASE
+                    WHEN c.status = 'failed'
+                      OR (
+                        SELECT json_extract(mt.payload, '$.status')
+                        FROM messages mt
+                        WHERE mt.conversation_id = c.id
+                          AND mt.role = 'task_status'
+                          AND json_extract(mt.payload, '$.status') IN ('completed', 'failed')
+                        ORDER BY mt.seq DESC LIMIT 1
+                      ) = 'failed'
+                    THEN 'failed'
+                    ELSE 'done'
+                END AS tone,
                 c.last_message_at AS timestamp,
                 NULL AS ask_id
              FROM conversations c
              JOIN agents a ON a.id = c.agent_id
              WHERE c.status IN ('completed', 'failed')
+                OR (
+                    c.status = 'idle'
+                    AND EXISTS (
+                        SELECT 1
+                        FROM messages mt
+                        WHERE mt.conversation_id = c.id
+                          AND mt.role = 'task_status'
+                          AND json_extract(mt.payload, '$.status') IN ('completed', 'failed')
+                    )
+                )
              ORDER BY c.last_message_at DESC
              LIMIT ?1",
         )

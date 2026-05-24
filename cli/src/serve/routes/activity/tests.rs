@@ -111,6 +111,40 @@ fn seed_activity_rows(conn: &rusqlite::Connection) {
         610,
         1,
     );
+
+    insert_conversation(conn, "conv-idle-with-result", "idle", 700, 990);
+    insert_message(
+        conn,
+        "msg-idle-user",
+        "conv-idle-with-result",
+        "user_text",
+        &serde_json::json!({"text":"Summarize old thread"}),
+        710,
+        1,
+    );
+    insert_message(
+        conn,
+        "msg-idle-agent",
+        "conv-idle-with-result",
+        "agent_text",
+        &serde_json::json!({"text":"Old thread summary is ready"}),
+        980,
+        2,
+    );
+    insert_message(
+        conn,
+        "msg-idle-task-status",
+        "conv-idle-with-result",
+        "task_status",
+        &serde_json::json!({
+            "task_id":"conv-idle-with-result",
+            "status":"completed",
+            "importance":"normal",
+            "summary":"Old result summary"
+        }),
+        990,
+        3,
+    );
 }
 
 fn insert_conversation(
@@ -330,6 +364,46 @@ async fn activity_running_and_done_reflect_conversation_status() {
     assert!(
         find_item(&json, "running:conv-completed").is_none(),
         "completed conversation must not be returned as a running item"
+    );
+}
+
+/// Activity treats legacy idle conversations with terminal task_status as completed results.
+///
+/// 数据构造（含关键数值的推导过程）：
+///   conv-idle-with-result.status = idle（旧 DB/旧 runtime 遗留状态）
+///   msg-idle-user seq=1          = 有用户输入，说明不是空会话
+///   msg-idle-agent seq=2         = 有 agent 回复
+///   task_status seq=3            = status completed, summary "Old result summary"
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. GET /api/v1/activity?limit_per_section=50
+///   2. handler 查询 done section 时兼容 legacy idle + terminal task_status
+///   3. 使用 task_status summary 作为 Done subtitle
+///
+/// 预期结果：
+///   - 断言 A：done:conv-idle-with-result 存在，说明旧 idle 结果不会被过滤为空
+///   - 断言 B：status_label == Done，说明 completed task_status 被映射为完成态
+///   - 断言 C：subtitle == Old result summary，说明摘要来自 terminal task_status
+///   - 断言 D：running:conv-idle-with-result 不存在，说明 terminal idle 不会混入 Running
+#[tokio::test]
+async fn activity_done_includes_legacy_idle_conversations_with_terminal_task_status() {
+    let json = get_activity_json("/api/v1/activity?limit_per_section=50").await;
+
+    let idle_done = find_item(&json, "done:conv-idle-with-result")
+        .expect("legacy idle conversation with completed task_status should appear in done");
+    assert_eq!(
+        idle_done["status_label"].as_str(),
+        Some("Done"),
+        "completed task_status on idle conversation should map to Done"
+    );
+    assert_eq!(
+        idle_done["subtitle"].as_str(),
+        Some("Old result summary"),
+        "legacy idle done item should use the terminal task_status summary"
+    );
+    assert!(
+        find_item(&json, "running:conv-idle-with-result").is_none(),
+        "legacy idle conversation with terminal status must not also appear in running"
     );
 }
 

@@ -1,5 +1,5 @@
 import { getEndpointClient } from '@/api/endpointClient';
-import { type Endpoint } from '@/types';
+import { type Agent, type Conversation, type Endpoint } from '@/types';
 
 export type ActivitySection = 'attention' | 'running' | 'done';
 export type ActivityTone = 'attention' | 'running' | 'done' | 'failed';
@@ -41,6 +41,9 @@ interface ActivityApiResponse {
   items: ActivityApiItem[];
 }
 
+type LegacyAgent = Omit<Agent, 'endpoint_id' | 'endpoint_label'>;
+type LegacyConversation = Omit<Conversation, 'endpoint_id' | 'agent_name'>;
+
 function byNewest(a: AggregatedActivityItem, b: AggregatedActivityItem): number {
   return b.timestamp - a.timestamp;
 }
@@ -55,15 +58,134 @@ function withEndpointContext(item: ActivityApiItem, endpoint: Endpoint): Aggrega
   };
 }
 
+function isNotFoundError(error: unknown): boolean {
+  return (
+    error != null &&
+    typeof error === 'object' &&
+    (error as { response?: { status?: number } }).response?.status === 404
+  );
+}
+
+function cleanText(value: string | undefined): string | undefined {
+  const text = value?.trim();
+  return text ? text : undefined;
+}
+
+function legacyConversationTitle(conversation: LegacyConversation): string {
+  return cleanText(conversation.first_user_message) ?? conversation.title;
+}
+
+function legacyConversationSubtitle(conversation: LegacyConversation): string {
+  return (
+    cleanText(conversation.last_ai_reply) ??
+    cleanText(conversation.first_user_message) ??
+    conversation.title
+  );
+}
+
+async function fetchLegacyEndpointActivity(
+  endpoint: Endpoint,
+  limitPerSection: number,
+): Promise<AggregatedActivityItem[]> {
+  const client = getEndpointClient(endpoint.base_url, endpoint.token);
+  const agentsRes = await client.get<LegacyAgent[]>('/api/v1/agents');
+  const nested = await Promise.all(
+    agentsRes.data.map(async (agent) => {
+      const conversationsRes = await client.get<LegacyConversation[]>(
+        `/api/v1/agents/${agent.id}/conversations`,
+      );
+      return conversationsRes.data.map((conversation) =>
+        legacyConversationToActivityItem(endpoint, agent, conversation),
+      );
+    }),
+  );
+  const items = nested.flat().filter((item): item is AggregatedActivityItem => item != null);
+  const perSection = (section: ActivitySection) =>
+    items
+      .filter((item) => item.section === section)
+      .sort(byNewest)
+      .slice(0, limitPerSection);
+  return [...perSection('attention'), ...perSection('running'), ...perSection('done')];
+}
+
+function legacyConversationToActivityItem(
+  endpoint: Endpoint,
+  agent: LegacyAgent,
+  conversation: LegacyConversation,
+): AggregatedActivityItem | null {
+  const base = {
+    conversation_id: conversation.id,
+    agent_id: agent.id,
+    agent_name: agent.name,
+    title: legacyConversationTitle(conversation),
+    subtitle: legacyConversationSubtitle(conversation),
+    timestamp: conversation.last_message_at,
+    endpoint_id: endpoint.id,
+    endpoint_label: endpoint.label,
+  };
+
+  if (conversation.status === 'awaiting_question') {
+    return {
+      ...base,
+      id: `${endpoint.id}:legacy-attention:${conversation.id}`,
+      source_id: `legacy-attention:${conversation.id}`,
+      section: 'attention',
+      status_label: 'Pending',
+      tone: 'attention',
+    };
+  }
+
+  if (conversation.status === 'running') {
+    return {
+      ...base,
+      id: `${endpoint.id}:legacy-running:${conversation.id}`,
+      source_id: `legacy-running:${conversation.id}`,
+      section: 'running',
+      status_label: 'Running',
+      tone: 'running',
+    };
+  }
+
+  if (conversation.status === 'completed' || conversation.status === 'failed') {
+    const failed = conversation.status === 'failed';
+    return {
+      ...base,
+      id: `${endpoint.id}:legacy-done:${conversation.id}`,
+      source_id: `legacy-done:${conversation.id}`,
+      section: 'done',
+      status_label: failed ? 'Failed' : 'Done',
+      tone: failed ? 'failed' : 'done',
+    };
+  }
+
+  if (conversation.status === 'idle' && cleanText(conversation.last_ai_reply)) {
+    return {
+      ...base,
+      id: `${endpoint.id}:legacy-done:${conversation.id}`,
+      source_id: `legacy-done:${conversation.id}`,
+      section: 'done',
+      status_label: 'Done',
+      tone: 'done',
+    };
+  }
+
+  return null;
+}
+
 export async function fetchEndpointActivity(
   endpoint: Endpoint,
   limitPerSection = 50,
 ): Promise<AggregatedActivityItem[]> {
   const client = getEndpointClient(endpoint.base_url, endpoint.token);
-  const res = await client.get<ActivityApiResponse>('/api/v1/activity', {
-    params: { limit_per_section: limitPerSection },
-  });
-  return res.data.items.map((item) => withEndpointContext(item, endpoint));
+  try {
+    const res = await client.get<ActivityApiResponse>('/api/v1/activity', {
+      params: { limit_per_section: limitPerSection },
+    });
+    return res.data.items.map((item) => withEndpointContext(item, endpoint));
+  } catch (error) {
+    if (!isNotFoundError(error)) throw error;
+    return fetchLegacyEndpointActivity(endpoint, limitPerSection);
+  }
 }
 
 export async function aggregateActivity(
