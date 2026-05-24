@@ -31,6 +31,8 @@ interface UseWebSocketOptions {
   endpoint_id: string;
   agent_id: string;
   agent_name?: string;
+  enableCatchUp?: boolean;
+  catchUpAfterSeq?: number;
 }
 
 interface UseWebSocketReturn {
@@ -48,6 +50,8 @@ export function useWebSocket({
   endpoint_id,
   agent_id,
   agent_name,
+  enableCatchUp = true,
+  catchUpAfterSeq,
 }: UseWebSocketOptions): UseWebSocketReturn {
   const [status, setStatus] = useState<WsStatus>('connecting');
   const wsRef = useRef<WebSocket | null>(null);
@@ -90,6 +94,11 @@ export function useWebSocket({
     removeAnsweredAskRef.current = removeAnsweredAsk;
   }, [removeAnsweredAsk]);
 
+  const enableCatchUpRef = useRef(enableCatchUp);
+  useEffect(() => {
+    enableCatchUpRef.current = enableCatchUp;
+  }, [enableCatchUp]);
+
   const handleAnswerAcknowledgement = useCallback(
     (ack: AnswerAcknowledgement) => {
       const pending = pendingAnswersRef.current.get(ack.ask_id);
@@ -113,10 +122,60 @@ export function useWebSocket({
 
   // Track the highest seq we've seen so we can catch up on reconnect
   const lastSeqRef = useRef(0);
+  const convIdRef = useRef(conv_id);
+  const inFlightCatchUpRef = useRef<{ sinceSeq: number } | null>(null);
   // Tracks whether the current connect() invocation is still the active one.
   // Set to false in the useEffect cleanup so a stale socket's onclose won't
   // trigger a reconnect after the effect has been torn down.
   const isCurrentRef = useRef(true);
+
+  useEffect(() => {
+    if (convIdRef.current !== conv_id) {
+      convIdRef.current = conv_id;
+      lastSeqRef.current = catchUpAfterSeq ?? 0;
+      inFlightCatchUpRef.current = null;
+      return;
+    }
+    if (catchUpAfterSeq != null && catchUpAfterSeq > lastSeqRef.current) {
+      lastSeqRef.current = catchUpAfterSeq;
+    }
+  }, [conv_id, catchUpAfterSeq]);
+
+  const runCatchUp = useCallback(() => {
+    const sinceSeq = lastSeqRef.current;
+    if (inFlightCatchUpRef.current?.sinceSeq === sinceSeq) return;
+    const request = { sinceSeq };
+    inFlightCatchUpRef.current = request;
+    fetchMessages(base_url, token, conv_id, sinceSeq)
+      .then(async (msgs) => {
+        if (msgs.length > 0) {
+          msgs.forEach((m) => {
+            appendMessageRef.current(conv_id, m);
+            if (m.seq > lastSeqRef.current) lastSeqRef.current = m.seq;
+          });
+          const answeredMap = await loadAnsweredAsks(conv_id);
+          const merged = msgs.map((m) => {
+            if (m.role !== 'ask_question') return m;
+            const ask_id = (m.payload as AskQuestionPayload | null)?.ask_id ?? '';
+            return answeredMap.has(ask_id) ? { ...m, answered: true } : m;
+          });
+          void mirrorAskQuestionsToInbox({
+            messages: merged,
+            endpoint_id,
+            agent_id,
+            agent_name,
+            conversation_id: conv_id,
+            addItem: addInboxItemRef.current,
+          });
+        }
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (inFlightCatchUpRef.current === request) {
+          inFlightCatchUpRef.current = null;
+        }
+      });
+  }, [base_url, token, conv_id, endpoint_id, agent_id, agent_name]);
 
   const connect = useCallback(() => {
     if (!base_url) return;
@@ -130,33 +189,8 @@ export function useWebSocket({
       setStatus('open');
       backoffRef.current = 1000;
 
-      // Catch up on any messages broadcast while we were disconnected
-      fetchMessages(base_url, token, conv_id, lastSeqRef.current)
-        .then(async (msgs) => {
-          if (msgs.length > 0) {
-            msgs.forEach((m) => {
-              appendMessageRef.current(conv_id, m);
-              if (m.seq > lastSeqRef.current) lastSeqRef.current = m.seq;
-            });
-            // Cross-reference answered_asks so already-answered questions are
-            // not re-added to inbox when the component remounts (lastSeqRef=0).
-            const answeredMap = await loadAnsweredAsks(conv_id);
-            const merged = msgs.map((m) => {
-              if (m.role !== 'ask_question') return m;
-              const ask_id = (m.payload as AskQuestionPayload | null)?.ask_id ?? '';
-              return answeredMap.has(ask_id) ? { ...m, answered: true } : m;
-            });
-            void mirrorAskQuestionsToInbox({
-              messages: merged,
-              endpoint_id,
-              agent_id,
-              agent_name,
-              conversation_id: conv_id,
-              addItem: addInboxItemRef.current,
-            });
-          }
-        })
-        .catch(() => {});
+      // Catch up on any messages broadcast while we were disconnected.
+      if (enableCatchUpRef.current) runCatchUp();
 
       const hb = setInterval(() => {
         if (ws.readyState === WebSocket.OPEN) {
@@ -166,6 +200,7 @@ export function useWebSocket({
 
       ws.onclose = () => {
         clearInterval(hb);
+        inFlightCatchUpRef.current = null;
         setStatus('closed');
         // Only reconnect if this effect instance is still active.
         // If the effect was cleaned up (conv_id changed, component unmounted),
@@ -228,7 +263,21 @@ export function useWebSocket({
     ws.onerror = () => {
       ws.close();
     };
-  }, [base_url, token, conv_id, endpoint_id, agent_id, agent_name, handleAnswerAcknowledgement]);
+  }, [
+    base_url,
+    token,
+    conv_id,
+    endpoint_id,
+    agent_id,
+    agent_name,
+    runCatchUp,
+    handleAnswerAcknowledgement,
+  ]);
+
+  useEffect(() => {
+    if (!enableCatchUp || wsRef.current?.readyState !== WebSocket.OPEN) return;
+    runCatchUp();
+  }, [enableCatchUp, catchUpAfterSeq, runCatchUp]);
 
   useEffect(() => {
     isCurrentRef.current = true;

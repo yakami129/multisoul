@@ -2,9 +2,10 @@ import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import * as ImageManipulator from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
 import React from 'react';
-import { Alert, ScrollView } from 'react-native';
+import { Alert, FlatList } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { fetchMessages, postMessage, uploadImage } from '@/features/chat/services/chatService';
+import { useWebSocket } from '@/hooks/useWebSocket';
 import { useChatStore } from '@/store/chatStore';
 import { useEndpointStore } from '@/store/endpointStore';
 import { useInboxStore } from '@/store/inboxStore';
@@ -22,11 +23,11 @@ jest.mock('expo-router', () => ({
 }));
 
 jest.mock('@/hooks/useWebSocket', () => ({
-  useWebSocket: () => ({
+  useWebSocket: jest.fn(() => ({
     status: 'open',
     sendAnswer: jest.fn(),
     sendAnswerMulti: jest.fn(),
-  }),
+  })),
 }));
 
 jest.mock('@/features/chat/services/chatService', () => ({
@@ -98,6 +99,8 @@ const historyMessages: WsMessage[] = [
 ];
 
 beforeEach(() => {
+  jest.clearAllMocks();
+  (useWebSocket as jest.Mock).mockClear();
   mockSearchParams = { id: 'conv-1', endpoint_id: 'endpoint-1' };
   useChatStore.setState({
     conversations: [
@@ -144,6 +147,392 @@ test('renders fetched historical agent text without typewriter replay', async ()
   await waitFor(() => expect(getByText('historical response')).toBeTruthy());
 
   expect(queryByText('historical response [typewriter]')).toBeNull();
+});
+
+test('loads the initial chat history with the latest 15 message limit', async () => {
+  const { getByText } = render(<ChatDetailScreen />);
+
+  await waitFor(() => expect(getByText('historical response')).toBeTruthy());
+
+  expect(fetchMessages).toHaveBeenCalledWith('http://localhost:8080', 'token', 'conv-1', {
+    limit: 15,
+  });
+  expect(fetchMessages).not.toHaveBeenCalledWith('http://localhost:8080', 'token', 'conv-1');
+});
+
+/// Initial history race: a live WebSocket message appended while the limited
+/// REST history request is in flight must not be erased by the history commit.
+///
+/// Data construction:
+///   REST latest page returns seq 1 and seq 2 after a delayed promise resolves.
+///   Live WebSocket/store append inserts seq 101 before that promise resolves.
+///   responseMax = 2, currentMax = 101, so reset would drop the newer row.
+///
+/// Execution process:
+///   1. Render ChatDetailScreen and keep the initial fetch unresolved.
+///   2. Append seq 101 to chatStore to simulate a live WebSocket message.
+///   3. Resolve the initial fetch with only seq 1 and seq 2.
+///
+/// Expected result:
+///   - Positive assertion: "live response" still renders after history resolves.
+///   - Positive assertion: historical seq 2 renders, proving REST history still committed.
+///   - Negative assertion: the conversation message list must not shrink to only seq 1 and seq 2.
+test('preserves live messages appended before initial history resolves', async () => {
+  let resolveInitial: ((messages: WsMessage[]) => void) | undefined;
+  (fetchMessages as jest.Mock).mockImplementation(
+    (_baseUrl: string, _token: string, _convId: string, options?: { limit?: number }) => {
+      if (options?.limit === 15) {
+        return new Promise((resolve) => {
+          resolveInitial = resolve;
+        });
+      }
+      return Promise.resolve([]);
+    },
+  );
+  const { getByText } = render(<ChatDetailScreen />);
+
+  await waitFor(() =>
+    expect({
+      actual: typeof resolveInitial,
+      reason: 'initial limited history request should be pending before live append',
+    }).toEqual({ actual: 'function', reason: expect.any(String) }),
+  );
+  act(() => {
+    useChatStore.getState().appendMessage('conv-1', {
+      type: 'message',
+      seq: 101,
+      role: 'agent_text',
+      payload: { text: 'live response' },
+      created_at: 101,
+    });
+  });
+  await act(async () => {
+    resolveInitial?.(historyMessages);
+  });
+
+  await waitFor(() => expect(getByText(/live response/)).toBeTruthy());
+  expect({
+    actual: getByText('historical response') != null,
+    reason: 'initial REST history should still be merged into the transcript',
+  }).toEqual({ actual: true, reason: expect.any(String) });
+  expect({
+    actual: useChatStore.getState().messages['conv-1'].map((msg) => msg.seq),
+    reason: 'initial history commit must preserve newer live seq 101',
+  }).not.toEqual({ actual: [1, 2], reason: expect.any(String) });
+});
+
+/// WebSocket catch-up cursor: ChatDetail must not ask the socket hook to fetch
+/// legacy full history before the limited initial page has established a cursor.
+///
+/// Data construction:
+///   Initial REST page returns seq 1 and seq 2.
+///   Missing cursor would be represented by catchUpAfterSeq = 0.
+///   Correct cursor after initial load is max(1, 2) = 2.
+///
+/// Execution process:
+///   1. Render ChatDetailScreen.
+///   2. Inspect the first useWebSocket options before initial history resolves.
+///   3. Wait for initial history to render and inspect later options.
+///
+/// Expected result:
+///   - Positive assertion: first hook call disables catch-up while cursor is unknown.
+///   - Positive assertion: later hook call enables catch-up after seq 2.
+///   - Negative assertion: no hook call passes catchUpAfterSeq = 0.
+test('seeds websocket catch-up only after initial history establishes a cursor', async () => {
+  const { getByText } = render(<ChatDetailScreen />);
+
+  expect({
+    actual: (useWebSocket as jest.Mock).mock.calls[0]?.[0]?.enableCatchUp,
+    reason: 'first ChatDetail mount must not enable catch-up before initial history cursor exists',
+  }).toEqual({ actual: false, reason: expect.any(String) });
+
+  await waitFor(() => expect(getByText('historical response')).toBeTruthy());
+
+  expect({
+    actual: (useWebSocket as jest.Mock).mock.calls.some(
+      ([options]) => options.catchUpAfterSeq === 2,
+    ),
+    reason: 'ChatDetail should seed WebSocket catch-up from the max seq in the initial page',
+  }).toEqual({ actual: true, reason: expect.any(String) });
+  expect({
+    actual: (useWebSocket as jest.Mock).mock.calls.some(
+      ([options]) => options.catchUpAfterSeq === 0,
+    ),
+    reason: 'catchUpAfterSeq=0 would request legacy full history on first socket open',
+  }).toEqual({ actual: false, reason: expect.any(String) });
+});
+
+test('loads older messages before the first loaded seq when scrolled near the top', async () => {
+  (fetchMessages as jest.Mock).mockImplementation(
+    (_baseUrl: string, _token: string, _convId: string, options?: { before_seq?: number }) => {
+      if (options?.before_seq === 11) {
+        return Promise.resolve([
+          {
+            type: 'message',
+            seq: 10,
+            role: 'agent_text',
+            payload: { text: 'older response' },
+            created_at: 10,
+          },
+        ]);
+      }
+      return Promise.resolve([
+        {
+          type: 'message',
+          seq: 11,
+          role: 'user_text',
+          payload: { text: 'latest prompt' },
+          created_at: 11,
+        },
+      ]);
+    },
+  );
+  const { UNSAFE_getByType, getByText } = render(<ChatDetailScreen />);
+
+  await waitFor(() => expect(getByText('latest prompt')).toBeTruthy());
+  await act(async () => {
+    UNSAFE_getByType(FlatList).props.onScroll({
+      nativeEvent: {
+        contentOffset: { y: 0 },
+        layoutMeasurement: { height: 400 },
+        contentSize: { height: 800 },
+      },
+    });
+  });
+
+  await waitFor(() => expect(getByText('older response')).toBeTruthy());
+  expect(fetchMessages).toHaveBeenCalledWith('http://localhost:8080', 'token', 'conv-1', {
+    before_seq: 11,
+    limit: 50,
+  });
+});
+
+test('does not repeatedly fetch the same older page when the first seq is unchanged', async () => {
+  (fetchMessages as jest.Mock).mockImplementation(
+    (_baseUrl: string, _token: string, _convId: string, options?: { before_seq?: number }) => {
+      if (options?.before_seq === 11) {
+        return Promise.resolve([
+          {
+            type: 'message',
+            seq: 11,
+            role: 'user_text',
+            payload: { text: 'latest prompt' },
+            created_at: 11,
+          },
+        ]);
+      }
+      return Promise.resolve([
+        {
+          type: 'message',
+          seq: 11,
+          role: 'user_text',
+          payload: { text: 'latest prompt' },
+          created_at: 11,
+        },
+      ]);
+    },
+  );
+  const { UNSAFE_getByType, getByText } = render(<ChatDetailScreen />);
+
+  await waitFor(() => expect(getByText('latest prompt')).toBeTruthy());
+  await act(async () => {
+    UNSAFE_getByType(FlatList).props.onScroll({
+      nativeEvent: {
+        contentOffset: { y: 0 },
+        layoutMeasurement: { height: 400 },
+        contentSize: { height: 800 },
+      },
+    });
+  });
+  await act(async () => {
+    UNSAFE_getByType(FlatList).props.onScroll({
+      nativeEvent: {
+        contentOffset: { y: 0 },
+        layoutMeasurement: { height: 400 },
+        contentSize: { height: 800 },
+      },
+    });
+  });
+
+  const duplicateBeforeSeqCalls = (fetchMessages as jest.Mock).mock.calls.filter(
+    ([, , , options]) => options?.before_seq === 11,
+  );
+  expect(duplicateBeforeSeqCalls).toHaveLength(1);
+});
+
+/// Older pagination retry: a failed page request should not consume its
+/// before_seq guard.
+///
+/// Data construction:
+///   Latest page first seq = 11.
+///   First older request before_seq = 11 rejects with a temporary error.
+///   Second older request before_seq = 11 returns seq 10.
+///
+/// Execution process:
+///   1. Render the latest page containing seq 11.
+///   2. Trigger top scroll once -> older fetch rejects.
+///   3. Trigger top scroll again -> same before_seq is allowed to retry.
+///
+/// Expected result:
+///   - Positive assertion: "retried older response" renders after retry.
+///   - Positive assertion: fetchMessages is called twice with before_seq 11.
+///   - Negative assertion: the duplicate guard must not permanently block retry.
+test('retries the same older page after a transient fetch failure', async () => {
+  let olderAttempts = 0;
+  (fetchMessages as jest.Mock).mockImplementation(
+    (_baseUrl: string, _token: string, _convId: string, options?: { before_seq?: number }) => {
+      if (options?.before_seq === 11) {
+        olderAttempts += 1;
+        if (olderAttempts === 1) return Promise.reject(new Error('temporary older page failure'));
+        return Promise.resolve([
+          {
+            type: 'message',
+            seq: 10,
+            role: 'agent_text',
+            payload: { text: 'retried older response' },
+            created_at: 10,
+          },
+        ]);
+      }
+      return Promise.resolve([
+        {
+          type: 'message',
+          seq: 11,
+          role: 'user_text',
+          payload: { text: 'latest prompt' },
+          created_at: 11,
+        },
+      ]);
+    },
+  );
+  const { UNSAFE_getByType, getByText } = render(<ChatDetailScreen />);
+
+  await waitFor(() => expect(getByText('latest prompt')).toBeTruthy());
+  await act(async () => {
+    UNSAFE_getByType(FlatList).props.onScroll({
+      nativeEvent: {
+        contentOffset: { y: 0 },
+        layoutMeasurement: { height: 400 },
+        contentSize: { height: 800 },
+      },
+    });
+  });
+  await act(async () => {
+    UNSAFE_getByType(FlatList).props.onScroll({
+      nativeEvent: {
+        contentOffset: { y: 0 },
+        layoutMeasurement: { height: 400 },
+        contentSize: { height: 800 },
+      },
+    });
+  });
+
+  await waitFor(() => expect(getByText('retried older response')).toBeTruthy());
+  const retryCalls = (fetchMessages as jest.Mock).mock.calls.filter(
+    ([, , , options]) => options?.before_seq === 11,
+  );
+  expect(retryCalls).toHaveLength(2);
+});
+
+/// Older pagination stale completion: ignored older results must still release
+/// the loader so the current route generation can fetch older pages again.
+///
+/// Data construction:
+///   Latest page first seq = 11.
+///   First older request before_seq = 11 remains pending.
+///   Route agent_name changes, which starts a new history generation.
+///   Stale older request resolves with seq 9 and must be ignored.
+///   Later older request before_seq = 11 returns seq 10 for the current generation.
+///
+/// Execution process:
+///   1. Render latest page, then trigger a top scroll to start older request #1.
+///   2. Change route agent_name and rerender to invalidate the older request generation.
+///   3. Resolve stale older request #1, then trigger top scroll again.
+///
+/// Expected result:
+///   - Positive assertion: "fresh older after stale" renders after the second top scroll.
+///   - Positive assertion: before_seq 11 is requested twice.
+///   - Negative assertion: "stale older ignored" does not render.
+test('allows older pagination after a stale older request completes', async () => {
+  let olderAttempts = 0;
+  let resolveStaleOlder: ((messages: WsMessage[]) => void) | undefined;
+  (fetchMessages as jest.Mock).mockImplementation(
+    (_baseUrl: string, _token: string, _convId: string, options?: { before_seq?: number }) => {
+      if (options?.before_seq === 11) {
+        olderAttempts += 1;
+        if (olderAttempts === 1)
+          return new Promise((resolve) => {
+            resolveStaleOlder = resolve;
+          });
+        return Promise.resolve([
+          {
+            type: 'message',
+            seq: 10,
+            role: 'agent_text',
+            payload: { text: 'fresh older after stale' },
+            created_at: 10,
+          },
+        ]);
+      }
+      return Promise.resolve([
+        {
+          type: 'message',
+          seq: 11,
+          role: 'user_text',
+          payload: { text: 'latest prompt' },
+          created_at: 11,
+        },
+      ]);
+    },
+  );
+  const { UNSAFE_getByType, getByText, queryByText, rerender } = render(<ChatDetailScreen />);
+
+  await waitFor(() => expect(getByText('latest prompt')).toBeTruthy());
+  await act(async () => {
+    UNSAFE_getByType(FlatList).props.onScroll({
+      nativeEvent: {
+        contentOffset: { y: 0 },
+        layoutMeasurement: { height: 400 },
+        contentSize: { height: 800 },
+      },
+    });
+  });
+  await waitFor(() => expect(olderAttempts).toBe(1));
+
+  mockSearchParams = { id: 'conv-1', endpoint_id: 'endpoint-1', agent_name: 'Renamed Agent' };
+  rerender(<ChatDetailScreen />);
+  await waitFor(() =>
+    expect(
+      (fetchMessages as jest.Mock).mock.calls.filter(([, , , options]) => options?.limit === 15),
+    ).toHaveLength(2),
+  );
+
+  await act(async () => {
+    resolveStaleOlder?.([
+      {
+        type: 'message',
+        seq: 9,
+        role: 'agent_text',
+        payload: { text: 'stale older ignored' },
+        created_at: 9,
+      },
+    ]);
+  });
+  await act(async () => {
+    UNSAFE_getByType(FlatList).props.onScroll({
+      nativeEvent: {
+        contentOffset: { y: 0 },
+        layoutMeasurement: { height: 400 },
+        contentSize: { height: 800 },
+      },
+    });
+  });
+
+  await waitFor(() => expect(getByText('fresh older after stale')).toBeTruthy());
+  expect(
+    (fetchMessages as jest.Mock).mock.calls.filter(([, , , options]) => options?.before_seq === 11),
+  ).toHaveLength(2);
+  expect(queryByText('stale older ignored')).toBeNull();
 });
 
 test('shows the current agent name in the header', async () => {
@@ -281,31 +670,12 @@ test('mirrors unanswered historical ask_question messages to inbox', async () =>
   );
 });
 
-/// Focus ask routing: Chat Detail must keep `focus_ask_id` behavior for
-/// Activity and notification entries that deep-link to a pending decision.
-///
-/// Data construction:
-///   route id = 'conv-1'
-///   route focus_ask_id = 'ask-focus'
-///   ask layout y = 240 px
-///   scroll offset = max(240 - 12, 0) = 228 px
-///
-/// Execution process:
-///   1. Render ChatDetailScreen with focus_ask_id in route params.
-///   2. Load history containing one ask_question with ask_id='ask-focus'.
-///   3. Fire the ask row layout event with y=240.
-///
-/// Expected result:
-///   - Positive: focused ask wrapper exists, so the route id matched a Chat card.
-///   - Positive: ScrollView.scrollTo is called with y=228, proving focus scroll remains wired.
-///   - Negative: scroll y is not 240, because the implementation intentionally applies 12 px top padding.
-test('scrolls to focus_ask_id after focused ask row lays out', async () => {
+test('fetches an around_ask_id window when focus_ask_id is outside the latest page', async () => {
   mockSearchParams = {
     id: 'conv-1',
     endpoint_id: 'endpoint-1',
     focus_ask_id: 'ask-focus',
   };
-  const scrollToSpy = jest.spyOn(ScrollView.prototype, 'scrollTo').mockImplementation(jest.fn());
   const askMessage: WsMessage = {
     type: 'message',
     seq: 3,
@@ -317,30 +687,135 @@ test('scrolls to focus_ask_id after focused ask row lays out', async () => {
     },
     created_at: 3,
   };
-  (fetchMessages as jest.Mock).mockResolvedValue([askMessage]);
-
-  const { getByTestId } = render(<ChatDetailScreen />);
-
-  await waitFor(() =>
-    expect({
-      actual: getByTestId('chat-ask-ask-focus') != null,
-      reason: 'focused ask wrapper should render for the route focus_ask_id',
-    }).toEqual({ actual: true, reason: expect.any(String) }),
+  (fetchMessages as jest.Mock).mockImplementation(
+    (_baseUrl: string, _token: string, _convId: string, options?: { around_ask_id?: string }) => {
+      if (options?.around_ask_id === 'ask-focus') return Promise.resolve([askMessage]);
+      return Promise.resolve([
+        {
+          type: 'message',
+          seq: 50,
+          role: 'agent_text',
+          payload: { text: 'latest page only' },
+          created_at: 50,
+        },
+      ]);
+    },
   );
-  fireEvent(getByTestId('chat-ask-ask-focus'), 'layout', {
-    nativeEvent: { layout: { y: 240 } },
+
+  const { getByTestId, getByText } = render(<ChatDetailScreen />);
+
+  await waitFor(() => expect(getByText('latest page only')).toBeTruthy());
+  await waitFor(() => expect(getByTestId('chat-ask-ask-focus')).toBeTruthy());
+  expect(fetchMessages).toHaveBeenCalledWith('http://localhost:8080', 'token', 'conv-1', {
+    around_ask_id: 'ask-focus',
+    limit: 100,
   });
+});
 
-  expect({
-    actual: scrollToSpy.mock.calls.some(([args]) => args.y === 228 && args.animated === true),
-    reason: 'focus_ask_id should scroll to ask y minus the 12 px top offset',
-  }).toEqual({ actual: true, reason: expect.any(String) });
-  expect({
-    actual: scrollToSpy.mock.calls.some(([args]) => args.y === 240 && args.animated === true),
-    reason: 'focus_ask_id should not scroll to the raw layout y without top offset',
-  }).toEqual({ actual: false, reason: expect.any(String) });
+/// Focus ask routing: Chat Detail must keep `focus_ask_id` behavior for
+/// Activity and notification entries that deep-link to a pending decision.
+///
+/// Data construction:
+///   route id = 'conv-1'
+///   route focus_ask_id = 'ask-focus'
+///   loaded ask seq = 3, index = 0 in FlatList data
+///
+/// Execution process:
+///   1. Render ChatDetailScreen with focus_ask_id in route params.
+///   2. Load history containing one ask_question with ask_id='ask-focus'.
+///   3. Wait for the focused ask wrapper to render.
+///
+/// Expected result:
+///   - Positive: focused ask wrapper exists, so the route id matched a Chat card.
+///   - Positive: FlatList.scrollToIndex is called with index=0, proving focus scroll remains wired.
+///   - Negative: no around_ask_id fetch is needed because the target is already in the latest page.
+test('scrolls to focus_ask_id after focused ask row lays out', async () => {
+  mockSearchParams = {
+    id: 'conv-1',
+    endpoint_id: 'endpoint-1',
+    focus_ask_id: 'ask-focus',
+  };
+  const flatListPrototype = FlatList.prototype as unknown as {
+    scrollToIndex: (params: { index: number; animated?: boolean }) => void;
+    scrollToEnd: (params?: { animated?: boolean }) => void;
+    scrollToOffset: (params: { offset: number; animated?: boolean }) => void;
+  };
+  const scrollToIndexSpy = jest.spyOn(flatListPrototype, 'scrollToIndex').mockImplementation();
+  const scrollToEndSpy = jest.spyOn(flatListPrototype, 'scrollToEnd').mockImplementation();
+  const scrollToOffsetSpy = jest.spyOn(flatListPrototype, 'scrollToOffset').mockImplementation();
+  try {
+    const askMessage: WsMessage = {
+      type: 'message',
+      seq: 3,
+      role: 'ask_question',
+      payload: {
+        ask_id: 'ask-focus',
+        allow_freeform: false,
+        questions: [{ id: '0', text: 'Deploy now?', options: [{ id: 'yes', label: 'Yes' }] }],
+      },
+      created_at: 3,
+    };
+    (fetchMessages as jest.Mock).mockResolvedValue([
+      { type: 'message', seq: 1, role: 'agent_text', payload: { text: 'first' }, created_at: 1 },
+      { type: 'message', seq: 2, role: 'user_text', payload: { text: 'second' }, created_at: 2 },
+      askMessage,
+    ]);
 
-  scrollToSpy.mockRestore();
+    const { UNSAFE_getByType, getByTestId } = render(<ChatDetailScreen />);
+
+    await waitFor(() =>
+      expect({
+        actual: getByTestId('chat-ask-ask-focus') != null,
+        reason: 'focused ask wrapper should render for the route focus_ask_id',
+      }).toEqual({ actual: true, reason: expect.any(String) }),
+    );
+
+    expect({
+      actual: scrollToIndexSpy.mock.calls.some(
+        ([args]) => args.index === 2 && args.animated === true,
+      ),
+      reason: 'focus_ask_id should scroll to the matching FlatList item index',
+    }).toEqual({ actual: true, reason: expect.any(String) });
+    expect({
+      actual: (fetchMessages as jest.Mock).mock.calls.some(
+        ([, , , options]) => options?.around_ask_id === 'ask-focus',
+      ),
+      reason: 'focus_ask_id already in the latest page should not request a focus window',
+    }).toEqual({ actual: false, reason: expect.any(String) });
+
+    act(() => {
+      UNSAFE_getByType(FlatList).props.onContentSizeChange(320, 640);
+    });
+    expect({
+      actual: scrollToEndSpy.mock.calls.length,
+      reason: 'focus_ask_id scroll must not be overridden by same-pass scrollToEnd',
+    }).toEqual({ actual: 0, reason: expect.any(String) });
+
+    const callsBeforeFailedRetry = scrollToIndexSpy.mock.calls.length;
+    jest.useFakeTimers();
+    act(() => {
+      UNSAFE_getByType(FlatList).props.onScrollToIndexFailed({
+        index: 2,
+        averageItemLength: 72,
+      });
+      jest.runOnlyPendingTimers();
+    });
+    jest.useRealTimers();
+    expect({
+      actual: scrollToEndSpy.mock.calls.length,
+      reason: 'focus_ask_id failed index scroll must retry focus instead of scrolling to end',
+    }).toEqual({ actual: 0, reason: expect.any(String) });
+    expect(scrollToOffsetSpy).toHaveBeenCalledWith({ offset: 144, animated: false });
+    expect({
+      actual: scrollToIndexSpy.mock.calls.length > callsBeforeFailedRetry,
+      reason: 'focus_ask_id failed index scroll should retry scrollToIndex for the target',
+    }).toEqual({ actual: true, reason: expect.any(String) });
+  } finally {
+    scrollToIndexSpy.mockRestore();
+    scrollToEndSpy.mockRestore();
+    scrollToOffsetSpy.mockRestore();
+    jest.useRealTimers();
+  }
 });
 
 test('renders image picker button in chat list detail composer', () => {

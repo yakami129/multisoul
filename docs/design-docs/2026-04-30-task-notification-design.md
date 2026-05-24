@@ -15,6 +15,8 @@ When an agent task completes, the app notifies the user:
 
 Notification ownership is centralized in the CLI to avoid duplicate local + remote notifications. Mobile WebSocket handlers update chat and inbox state only; they do not schedule a second local notification for `task_status`. When an answer is sent from Chat, `useWebSocket` waits for CLI `answer_status(ok=true)` before marking the ask answered locally; failures leave the ask pending so Activity and Chat do not hide an unanswered decision.
 
+2026-05-24 chat performance update: `useWebSocket` now accepts a bounded catch-up cursor from the Chat screen so reconnects fetch only messages newer than the loaded window instead of replaying full history. This keeps the notification ownership rule unchanged: the hook still mirrors state and inbox items only, and does not schedule mobile-side completion notifications.
+
 ---
 
 ## Architecture

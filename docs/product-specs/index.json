@@ -27,6 +27,10 @@
       "title": "Chat 图片上传 SPEC"
     },
     {
+      "file": "SPEC-chat-performance.md",
+      "title": "Chat 长对话性能优化 SPEC"
+    },
+    {
       "file": "SPEC-cli-logs-visibility.md",
       "title": "CLI Logs 可见性 SPEC"
     },

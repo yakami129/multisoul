@@ -72,8 +72,10 @@ class MockWebSocket {
 }
 
 let mockWs: MockWebSocket;
+let mockWsInstances: MockWebSocket[] = [];
 const MockWebSocketConstructor = jest.fn().mockImplementation(() => {
   mockWs = new MockWebSocket();
+  mockWsInstances.push(mockWs);
   return mockWs;
 });
 MockWebSocketConstructor.OPEN = MockWebSocket.OPEN;
@@ -123,8 +125,60 @@ describe('buildAskQuestionInboxItem', () => {
 describe('useWebSocket ask_question inbox mirroring', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockWsInstances = [];
     (fetchMessages as jest.Mock).mockResolvedValue([]);
     (loadAnsweredAsks as jest.Mock).mockResolvedValue(new Map());
+  });
+
+  it('skips reconnect catch-up while initial history has not established a cursor', async () => {
+    /// Initial cursor coordination：ChatDetail may open the WebSocket before
+    /// its limited REST history request has resolved, so catch-up must be
+    /// explicitly disabled until a non-legacy cursor exists.
+    ///
+    /// Data construction:
+    ///   enableCatchUp = false.
+    ///   catchUpAfterSeq is absent, so default lastSeqRef would otherwise be 0.
+    ///   Legacy full-history request would be fetchMessages(..., 0).
+    ///
+    /// Execution process:
+    ///   1. Mount useWebSocket with enableCatchUp=false.
+    ///   2. Fire ws.onopen to simulate the first socket connection.
+    ///   3. Flush one async tick for any accidental catch-up promise scheduling.
+    ///
+    /// Expected result:
+    ///   - Positive assertion: WebSocket status reaches open through the normal path.
+    ///   - Negative assertion: fetchMessages is not called with since_seq 0.
+    ///   - Negative assertion: fetchMessages is not called at all during disabled catch-up.
+    const { result, unmount } = renderHook(() =>
+      useWebSocket({
+        base_url: 'http://localhost:8080',
+        token: 'tok',
+        conv_id: 'conv-1',
+        endpoint_id: 'ep-1',
+        agent_id: 'agent-1',
+        agent_name: 'Deploy Bot',
+        enableCatchUp: false,
+      } as Parameters<typeof useWebSocket>[0] & { enableCatchUp: boolean }),
+    );
+
+    await act(async () => {
+      mockWs.onopen?.();
+      await Promise.resolve();
+    });
+
+    expect({
+      actual: result.current.status,
+      reason: 'socket should still transition to open when catch-up is disabled',
+    }).toEqual({ actual: 'open', reason: expect.any(String) });
+    expect({
+      actual: (fetchMessages as jest.Mock).mock.calls.some(([, , , sinceSeq]) => sinceSeq === 0),
+      reason: 'disabled initial catch-up must not request legacy full history from seq 0',
+    }).toEqual({ actual: false, reason: expect.any(String) });
+    expect({
+      actual: (fetchMessages as jest.Mock).mock.calls.length,
+      reason: 'disabled initial catch-up should not fetch messages on first open',
+    }).toEqual({ actual: 0, reason: expect.any(String) });
+    unmount();
   });
 
   it('updates conversation status when task_status arrives over websocket', async () => {
@@ -213,6 +267,218 @@ describe('useWebSocket ask_question inbox mirroring', () => {
       ),
     );
     unmount();
+  });
+
+  it('resets catch-up cursor when hook rerenders for a different conversation', async () => {
+    /// Conversation switch catch-up：同一个 hook instance 从高 seq conversation
+    /// 切到低 seq conversation 时，catch-up cursor 必须按新 conversation 重置。
+    ///
+    /// 数据构造（关键数值推导）：
+    ///   conv-a catchUpAfterSeq = 1000，表示历史窗口已覆盖到 1000。
+    ///   conv-b catchUpAfterSeq = 5，表示新 conversation 只应从 5 之后补齐。
+    ///   如果沿用 conv-a cursor，则 conv-b 会请求 since_seq=1000，漏掉 6..1000。
+    ///
+    /// 执行过程：
+    ///   1. Mount conv-a，打开 socket → catch-up 请求 conv-a since_seq=1000。
+    ///   2. Rerender 到 conv-b，打开新 socket → 应重置 cursor 和去重 guard。
+    ///   3. 检查所有 fetchMessages 调用，确认 conv-b 使用自己的低 cursor。
+    ///
+    /// 预期结果：
+    ///   - 正断言：conv-a 首次 catch-up 使用 1000，证明测试先建立高 cursor。
+    ///   - 正断言：conv-b catch-up 使用 5，证明 conversation 切换已重置 cursor。
+    ///   - 负断言：conv-b 不使用 1000，否则会漏掉低 seq conversation 的消息。
+    const { rerender, unmount } = renderHook(
+      ({ conv_id, catchUpAfterSeq }: { conv_id: string; catchUpAfterSeq: number }) =>
+        useWebSocket({
+          base_url: 'http://localhost:8080',
+          token: 'tok',
+          conv_id,
+          endpoint_id: 'ep-1',
+          agent_id: 'agent-1',
+          agent_name: 'Deploy Bot',
+          catchUpAfterSeq,
+        }),
+      { initialProps: { conv_id: 'conv-a', catchUpAfterSeq: 1000 } },
+    );
+
+    await act(async () => {
+      mockWsInstances[0]?.onopen?.();
+      await Promise.resolve();
+    });
+
+    expect({
+      actual: (fetchMessages as jest.Mock).mock.calls.some(
+        ([, , convId, sinceSeq]) => convId === 'conv-a' && sinceSeq === 1000,
+      ),
+      reason: 'conv-a should establish the initial high catch-up cursor',
+    }).toEqual({ actual: true, reason: expect.any(String) });
+
+    rerender({ conv_id: 'conv-b', catchUpAfterSeq: 5 });
+
+    await act(async () => {
+      mockWsInstances[1]?.onopen?.();
+      await Promise.resolve();
+    });
+
+    expect({
+      actual: (fetchMessages as jest.Mock).mock.calls.some(
+        ([, , convId, sinceSeq]) => convId === 'conv-b' && sinceSeq === 5,
+      ),
+      reason: 'conv-b should catch up from its own lower history cursor',
+    }).toEqual({ actual: true, reason: expect.any(String) });
+    expect({
+      actual: (fetchMessages as jest.Mock).mock.calls.some(
+        ([, , convId, sinceSeq]) => convId === 'conv-b' && sinceSeq === 1000,
+      ),
+      reason: 'conv-b must not inherit conv-a high cursor or it can miss messages',
+    }).toEqual({ actual: false, reason: expect.any(String) });
+    unmount();
+  });
+
+  it('retries same-cursor catch-up after reconnect when earlier catch-up returned no messages', async () => {
+    /// Reconnect same-cursor catch-up：同一个 since_seq 的空 catch-up 不能永久去重，
+    /// 因为断线期间同一 cursor 后面可能新增消息。
+    ///
+    /// 数据构造（关键数值推导）：
+    ///   catchUpAfterSeq = 100，表示本地已覆盖到 100。
+    ///   第一次 fetchMessages(..., 100) 返回 []，lastSeq 仍为 100。
+    ///   socket close 后重连，仍应 fetchMessages(..., 100) 再查一次断线窗口。
+    ///
+    /// 执行过程：
+    ///   1. Mount 并打开第一个 socket → fetchMessages(..., 100) 返回空。
+    ///   2. 关闭 socket，触发 reconnect timer。
+    ///   3. 打开重连 socket → 同一 since_seq=100 必须再次发起 catch-up。
+    ///
+    /// 预期结果：
+    ///   - 正断言：第一次 catch-up 使用 since_seq=100。
+    ///   - 正断言：重连后第二次 catch-up 也使用 since_seq=100。
+    ///   - 负断言：同一 cursor 只调用一次是不允许的，会丢失断线期间消息。
+    jest.useFakeTimers();
+    (fetchMessages as jest.Mock).mockResolvedValue([]);
+
+    const { unmount } = renderHook(() =>
+      useWebSocket({
+        base_url: 'http://localhost:8080',
+        token: 'tok',
+        conv_id: 'conv-1',
+        endpoint_id: 'ep-1',
+        agent_id: 'agent-1',
+        agent_name: 'Deploy Bot',
+        catchUpAfterSeq: 100,
+      }),
+    );
+
+    await act(async () => {
+      mockWsInstances[0]?.onopen?.();
+      await Promise.resolve();
+    });
+
+    expect({
+      actual: (fetchMessages as jest.Mock).mock.calls.filter(([, , , sinceSeq]) => sinceSeq === 100)
+        .length,
+      reason: 'first connection should catch up from the provided cursor',
+    }).toEqual({ actual: 1, reason: expect.any(String) });
+
+    act(() => {
+      mockWsInstances[0]?.onclose?.();
+      jest.advanceTimersByTime(1000);
+    });
+
+    await act(async () => {
+      mockWsInstances[1]?.onopen?.();
+      await Promise.resolve();
+    });
+
+    expect({
+      actual: (fetchMessages as jest.Mock).mock.calls.filter(([, , , sinceSeq]) => sinceSeq === 100)
+        .length,
+      reason: 'reconnect should retry catch-up at the same cursor after the previous empty result',
+    }).toEqual({ actual: 2, reason: expect.any(String) });
+    expect({
+      actual:
+        (fetchMessages as jest.Mock).mock.calls.filter(([, , , sinceSeq]) => sinceSeq === 100)
+          .length === 1,
+      reason: 'same-cursor dedupe must not suppress reconnect recovery',
+    }).toEqual({ actual: false, reason: expect.any(String) });
+    unmount();
+    jest.useRealTimers();
+  });
+
+  /// Reconnect pending catch-up race：断线时旧 catch-up 仍 pending，重连不能被
+  /// 同一 since_seq 的 in-flight guard 永久压住。
+  ///
+  /// 数据构造（关键数值推导）：
+  ///   catchUpAfterSeq = 100，表示本地已覆盖到 seq 100。
+  ///   第一次 fetchMessages(..., 100) 返回 pending Promise，不解析。
+  ///   socket close 后重连，lastSeq 仍是 100，因此新 socket 也必须请求 since_seq=100。
+  ///
+  /// 执行过程：
+  ///   1. 打开第一个 socket → 发起第 1 次 fetchMessages(..., 100)，保持 pending。
+  ///   2. 关闭第一个 socket，推进 reconnect backoff 1000ms。
+  ///   3. 打开第二个 socket → 必须在第 1 个 Promise resolve 前再次 fetchMessages(..., 100)。
+  ///
+  /// 预期结果：
+  ///   - 正断言：第一个 socket 已发起一次 since_seq=100 catch-up。
+  ///   - 正断言：重连 socket 在旧请求未完成前发起第二次 since_seq=100 catch-up。
+  ///   - 负断言：调用次数不能停在 1，否则旧 pending 请求会遮蔽断线后的补齐窗口。
+  it('starts same-cursor catch-up on reconnect while previous catch-up is still pending', async () => {
+    jest.useFakeTimers();
+    let resolveFirstCatchUp: (messages: []) => void = () => {};
+    const firstCatchUp = new Promise<[]>((resolve) => {
+      resolveFirstCatchUp = resolve;
+    });
+    (fetchMessages as jest.Mock).mockImplementationOnce(() => firstCatchUp).mockResolvedValue([]);
+
+    const { unmount } = renderHook(() =>
+      useWebSocket({
+        base_url: 'http://localhost:8080',
+        token: 'tok',
+        conv_id: 'conv-1',
+        endpoint_id: 'ep-1',
+        agent_id: 'agent-1',
+        agent_name: 'Deploy Bot',
+        catchUpAfterSeq: 100,
+      }),
+    );
+
+    await act(async () => {
+      mockWsInstances[0]?.onopen?.();
+      await Promise.resolve();
+    });
+
+    const callsAtSeq100 = () =>
+      (fetchMessages as jest.Mock).mock.calls.filter(([, , , sinceSeq]) => sinceSeq === 100).length;
+
+    expect({
+      actual: callsAtSeq100(),
+      reason: 'first socket should start catch-up from the provided cursor',
+    }).toEqual({ actual: 1, reason: expect.any(String) });
+
+    act(() => {
+      mockWsInstances[0]?.onclose?.();
+      jest.advanceTimersByTime(1000);
+    });
+
+    await act(async () => {
+      mockWsInstances[1]?.onopen?.();
+      await Promise.resolve();
+    });
+
+    expect({
+      actual: callsAtSeq100(),
+      reason: 'reconnect should start a fresh same-cursor catch-up before old request resolves',
+    }).toEqual({ actual: 2, reason: expect.any(String) });
+    expect({
+      actual: callsAtSeq100() === 1,
+      reason: 'pending old catch-up must not suppress reconnect recovery at the same cursor',
+    }).toEqual({ actual: false, reason: expect.any(String) });
+
+    resolveFirstCatchUp([]);
+    await act(async () => {
+      await firstCatchUp;
+    });
+    unmount();
+    jest.useRealTimers();
   });
 
   it('does NOT re-add ask_question to inbox when it was already answered (catch-up regression)', async () => {

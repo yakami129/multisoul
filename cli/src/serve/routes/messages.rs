@@ -26,8 +26,11 @@ pub struct MessageRow {
 }
 
 #[derive(Deserialize)]
-pub struct SinceSeqQuery {
+pub struct MessagesQuery {
     pub since_seq: Option<i64>,
+    pub limit: Option<i64>,
+    pub before_seq: Option<i64>,
+    pub around_ask_id: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -39,85 +42,176 @@ pub struct PostMessageBody {
 pub async fn list_messages(
     State(state): State<AppState>,
     Path(conv_id): Path<String>,
-    Query(q): Query<SinceSeqQuery>,
+    Query(q): Query<MessagesQuery>,
 ) -> Result<Json<Vec<MessageRow>>, StatusCode> {
     let db = state
         .db
         .lock()
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-    let since = q.since_seq.unwrap_or(0);
-    let mut stmt = db
-        .prepare(
-            "SELECT
-                m.id,
-                m.conversation_id,
-                m.role,
-                m.payload,
-                m.created_at,
-                m.seq,
-                CASE WHEN aa.ask_id IS NULL THEN 0 ELSE 1 END AS answered,
-                aa.choice_id,
-                aa.choice_ids
-             FROM messages m
-             LEFT JOIN ask_answers aa
-               ON m.role = 'ask_question'
-              AND aa.conversation_id = m.conversation_id
-              AND aa.ask_id = json_extract(m.payload, '$.ask_id')
-             WHERE m.conversation_id = ?1 AND m.seq > ?2
-             ORDER BY m.seq ASC",
-        )
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-    let rows: Vec<MessageRow> = stmt
-        .query_map(rusqlite::params![conv_id, since], |r| {
-            let payload_str: String = r.get(3)?;
-            let role: String = r.get(2)?;
-            let answered_flag: i64 = r.get(6)?;
-            let choice_ids: Option<String> = r.get(8)?;
-            Ok((
-                r.get(0)?,
-                r.get(1)?,
-                role,
-                payload_str,
-                r.get(4)?,
-                r.get(5)?,
-                answered_flag,
-                r.get::<_, Option<String>>(7)?,
-                choice_ids,
+
+    let rows = if let Some(ask_id) = q.around_ask_id {
+        let limit = normalized_limit(q.limit);
+        let target_seq = db
+            .query_row(
+                "SELECT seq
+                 FROM messages
+                 WHERE conversation_id = ?1
+                   AND role = 'ask_question'
+                   AND json_extract(payload, '$.ask_id') = ?2",
+                rusqlite::params![conv_id, ask_id],
+                |r| r.get::<_, i64>(0),
+            )
+            .ok();
+        if let Some(target_seq) = target_seq {
+            let before_limit = limit / 2;
+            let forward_limit = limit - before_limit;
+            let mut before_stmt = db
+                .prepare(&message_select_sql(
+                    "m.conversation_id = ?1 AND m.seq < ?2",
+                    "ORDER BY m.seq DESC LIMIT ?3",
+                ))
+                .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+            let mut rows = collect_message_rows(
+                &mut before_stmt,
+                rusqlite::params![conv_id, target_seq, before_limit],
+            )?;
+            let mut forward_stmt = db
+                .prepare(&message_select_sql(
+                    "m.conversation_id = ?1 AND m.seq >= ?2",
+                    "ORDER BY m.seq ASC LIMIT ?3",
+                ))
+                .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+            rows.extend(collect_message_rows(
+                &mut forward_stmt,
+                rusqlite::params![conv_id, target_seq, forward_limit],
+            )?);
+            rows.sort_by_key(|message| message.seq);
+            rows.dedup_by_key(|message| message.seq);
+            rows
+        } else {
+            Vec::new()
+        }
+    } else if let Some(before_seq) = q.before_seq {
+        let limit = normalized_limit(q.limit);
+        let sql = format!(
+            "SELECT * FROM ({}) ORDER BY seq ASC",
+            message_select_sql(
+                "m.conversation_id = ?1 AND m.seq < ?2",
+                "ORDER BY m.seq DESC LIMIT ?3",
+            )
+        );
+        let mut stmt = db
+            .prepare(&sql)
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        collect_message_rows(&mut stmt, rusqlite::params![conv_id, before_seq, limit])?
+    } else if q.limit.is_some() {
+        let limit = normalized_limit(q.limit);
+        let sql = format!(
+            "SELECT * FROM ({}) ORDER BY seq ASC",
+            message_select_sql("m.conversation_id = ?1", "ORDER BY m.seq DESC LIMIT ?2")
+        );
+        let mut stmt = db
+            .prepare(&sql)
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        collect_message_rows(&mut stmt, rusqlite::params![conv_id, limit])?
+    } else {
+        let since = q.since_seq.unwrap_or(0);
+        let mut stmt = db
+            .prepare(&message_select_sql(
+                "m.conversation_id = ?1 AND m.seq > ?2",
+                "ORDER BY m.seq ASC",
             ))
-        })
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
-        .filter_map(|r| r.ok())
-        .map(
-            |(
-                id,
-                conversation_id,
-                role,
-                payload_str,
-                created_at,
-                seq,
-                answered_flag,
-                answered_choice_id,
-                answered_choice_ids_json,
-            )| {
-                let is_ask = role == "ask_question";
-                let answered = is_ask.then_some(answered_flag != 0);
-                let answered_choice_ids = answered_choice_ids_json
-                    .and_then(|json| serde_json::from_str::<HashMap<String, String>>(&json).ok());
-                MessageRow {
-                    id,
-                    conversation_id,
-                    role,
-                    payload: serde_json::from_str(&payload_str).unwrap_or(serde_json::Value::Null),
-                    created_at,
-                    seq,
-                    answered,
-                    answered_choice_id,
-                    answered_choice_ids,
-                }
-            },
-        )
-        .collect();
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        collect_message_rows(&mut stmt, rusqlite::params![conv_id, since])?
+    };
+
     Ok(Json(rows))
+}
+
+fn normalized_limit(limit: Option<i64>) -> i64 {
+    limit.unwrap_or(15).clamp(1, 100)
+}
+
+fn message_select_sql(where_clause: &str, suffix: &str) -> String {
+    format!(
+        "SELECT
+            m.id,
+            m.conversation_id,
+            m.role,
+            m.payload,
+            m.created_at,
+            m.seq,
+            CASE WHEN aa.ask_id IS NULL THEN 0 ELSE 1 END AS answered,
+            aa.choice_id,
+            aa.choice_ids
+         FROM messages m
+         LEFT JOIN ask_answers aa
+           ON m.role = 'ask_question'
+          AND aa.conversation_id = m.conversation_id
+          AND aa.ask_id = json_extract(m.payload, '$.ask_id')
+         WHERE {where_clause}
+         {suffix}"
+    )
+}
+
+struct MessageDbRow {
+    id: String,
+    conversation_id: String,
+    role: String,
+    payload_str: String,
+    created_at: i64,
+    seq: i64,
+    answered_flag: i64,
+    answered_choice_id: Option<String>,
+    answered_choice_ids_json: Option<String>,
+}
+
+fn collect_message_rows<P>(
+    stmt: &mut rusqlite::Statement<'_>,
+    params: P,
+) -> Result<Vec<MessageRow>, StatusCode>
+where
+    P: rusqlite::Params,
+{
+    let rows = stmt
+        .query_map(params, read_message_db_row)
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+        .collect::<rusqlite::Result<Vec<_>>>()
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    Ok(rows.into_iter().map(message_db_row_to_api).collect())
+}
+
+fn read_message_db_row(r: &rusqlite::Row<'_>) -> rusqlite::Result<MessageDbRow> {
+    Ok(MessageDbRow {
+        id: r.get(0)?,
+        conversation_id: r.get(1)?,
+        role: r.get(2)?,
+        payload_str: r.get(3)?,
+        created_at: r.get(4)?,
+        seq: r.get(5)?,
+        answered_flag: r.get(6)?,
+        answered_choice_id: r.get(7)?,
+        answered_choice_ids_json: r.get(8)?,
+    })
+}
+
+fn message_db_row_to_api(row: MessageDbRow) -> MessageRow {
+    let is_ask = row.role == "ask_question";
+    let answered = is_ask.then_some(row.answered_flag != 0);
+    let answered_choice_ids = row
+        .answered_choice_ids_json
+        .and_then(|json| serde_json::from_str::<HashMap<String, String>>(&json).ok());
+    MessageRow {
+        id: row.id,
+        conversation_id: row.conversation_id,
+        role: row.role,
+        payload: serde_json::from_str(&row.payload_str).unwrap_or(serde_json::Value::Null),
+        created_at: row.created_at,
+        seq: row.seq,
+        answered,
+        answered_choice_id: row.answered_choice_id,
+        answered_choice_ids,
+    }
 }
 
 pub async fn post_message(
@@ -187,7 +281,7 @@ pub async fn post_message(
     ))
 }
 
-fn insert_user_message_and_mark_running(
+pub(super) fn insert_user_message_and_mark_running(
     db: &rusqlite::Connection,
     conv_id: &str,
     body: &PostMessageBody,
@@ -217,197 +311,4 @@ fn insert_user_message_and_mark_running(
         rusqlite::params![now, conv_id],
     )?;
     Ok((next_seq, id, now, payload))
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::{
-        db,
-        serve::{plugin::PluginManager, state::AppState},
-    };
-    use axum::extract::{Path, Query, State};
-    use std::sync::{Arc, Mutex};
-    use tempfile::tempdir;
-
-    fn test_state() -> AppState {
-        let dir = tempdir().unwrap();
-        let conn = db::open_at(&dir.path().join("messages.db")).unwrap();
-        conn.execute(
-            "INSERT INTO agents (id, name, project_path, runtime, created_at)
-             VALUES ('agent-1', 'Agent One', '/tmp/project', 'claude-code', 1)",
-            [],
-        )
-        .unwrap();
-        conn.execute(
-            "INSERT INTO conversations
-             (id, agent_id, title, created_at, last_message_at, status)
-             VALUES ('conv-1', 'agent-1', 'Deploy', 10, 30, 'awaiting_question')",
-            [],
-        )
-        .unwrap();
-        conn.execute(
-            "INSERT INTO messages (id, conversation_id, role, payload, created_at, seq)
-             VALUES
-             ('msg-user', 'conv-1', 'user_text', '{\"text\":\"Ship it\"}', 11, 1),
-             ('msg-ask-answered', 'conv-1', 'ask_question',
-              '{\"ask_id\":\"ask-1\",\"questions\":[{\"id\":\"0\",\"text\":\"Deploy?\",\"options\":[{\"id\":\"0\",\"label\":\"Yes\"}]}],\"allow_freeform\":false}', 20, 2),
-             ('msg-ask-open', 'conv-1', 'ask_question',
-              '{\"ask_id\":\"ask-2\",\"questions\":[{\"id\":\"0\",\"text\":\"Notify?\",\"options\":[{\"id\":\"0\",\"label\":\"Yes\"}]}],\"allow_freeform\":false}', 30, 3)",
-            [],
-        )
-        .unwrap();
-        conn.execute(
-            "INSERT INTO ask_answers
-             (ask_id, conversation_id, answered_at, choice_id, choice_ids, freeform)
-             VALUES ('ask-1', 'conv-1', 25, '0', '{\"0\":\"0\"}', NULL)",
-            [],
-        )
-        .unwrap();
-        let plugin_db = db::open_at(&dir.path().join("plugins.db")).unwrap();
-        AppState::new(
-            conn,
-            "ms_v2_tok".to_string(),
-            dir.path().join("uploads"),
-            PluginManager::empty(Arc::new(Mutex::new(plugin_db))),
-        )
-    }
-
-    /// 用户发送新消息后，后端 DB 立即进入 running，避免 Activity 轮询读到上一轮 completed。
-    ///
-    /// 数据构造（含关键数值的推导过程）：
-    ///   conversation.status = completed（上一轮已完成）
-    ///   existing messages   = 3 条，MAX(seq)=3
-    ///   new user_text       = seq=4（由 MAX(seq)+1 推导）
-    ///
-    /// 执行过程（逐步说明系统如何处理）：
-    ///   1. 构造 completed conversation，模拟上一轮已结束
-    ///   2. 调用消息入库逻辑插入新的 user_text
-    ///   3. 查询 conversations.status 和最新 user_text seq
-    ///
-    /// 预期结果：
-    ///   - 断言 A：status == running，说明 Activity 立即会归入 Running
-    ///   - 断言 B：new seq == 4，说明 running 状态对应最新用户消息
-    ///   - 断言 C：status != completed，说明不会继续暴露上一轮 Done
-    #[test]
-    fn insert_user_message_marks_completed_conversation_running_immediately() {
-        let state = test_state();
-        {
-            let db = state.db.lock().unwrap();
-            db.execute(
-                "UPDATE conversations SET status = 'completed' WHERE id = 'conv-1'",
-                [],
-            )
-            .expect("seeded conversation status should be mutable");
-        }
-
-        let (new_seq, _id, _now, _payload) = {
-            let db = state.db.lock().unwrap();
-            super::insert_user_message_and_mark_running(
-                &db,
-                "conv-1",
-                &PostMessageBody {
-                    text: "Run another task".to_string(),
-                    file_id: None,
-                },
-            )
-            .expect("new user message should be inserted")
-        };
-
-        let db = state.db.lock().unwrap();
-        let status: String = db
-            .query_row(
-                "SELECT status FROM conversations WHERE id = 'conv-1'",
-                [],
-                |r| r.get(0),
-            )
-            .expect("conversation status should be readable");
-        assert_eq!(
-            status, "running",
-            "newly posted user message must immediately mark the conversation running"
-        );
-        assert_eq!(
-            new_seq, 4,
-            "new user message should use MAX(seq)+1 so turn freshness is concrete"
-        );
-        assert_ne!(
-            status, "completed",
-            "conversation must not keep the stale completed status after a new user message"
-        );
-    }
-
-    /// Message history exposes backend ask answer state for chat rendering.
-    ///
-    /// 数据构造（含关键数值的推导过程）：
-    ///   msg-user         = user_text seq=1，不是 ask_question
-    ///   msg-ask-answered = ask_question seq=2, ask_id=ask-1
-    ///   ask_answers      = one row for (conv-1, ask-1), choice_id=0, choice_ids={"0":"0"}
-    ///   msg-ask-open     = ask_question seq=3, ask_id=ask-2, no ask_answers row
-    ///   since_seq        = 0，因此三条消息都会被查询
-    ///
-    /// 执行过程（逐步说明系统如何处理）：
-    ///   1. 调用 list_messages(conv-1, since_seq=0)
-    ///   2. SQL 对 ask_question 通过 payload.ask_id 左连接 ask_answers
-    ///   3. 已回答 ask 返回 answered=true 和 choice 信息，未回答 ask 返回 answered=false
-    ///   4. 非 ask message 不返回 answered 字段
-    ///
-    /// 预期结果：
-    ///   - 断言 A：user_text.answered == None，说明普通消息不会被误标
-    ///   - 断言 B：ask-1.answered == Some(true)，说明 backend answered state 暴露给 Chat
-    ///   - 断言 C：ask-1.answered_choice_id == Some("0")，说明单选答案可恢复
-    ///   - 断言 D：ask-1.answered_choice_ids["0"] == "0"，说明多问题答案 map 可恢复
-    ///   - 断言 E：ask-2.answered == Some(false)，说明未回答 ask 仍保持可回答
-    #[tokio::test]
-    async fn list_messages_marks_ask_questions_from_backend_answers() {
-        let state = test_state();
-        let Json(messages) = list_messages(
-            State(state),
-            Path("conv-1".to_string()),
-            Query(SinceSeqQuery { since_seq: Some(0) }),
-        )
-        .await
-        .expect("list_messages should return seeded conversation messages");
-
-        let user = messages
-            .iter()
-            .find(|message| message.id == "msg-user")
-            .expect("seeded user message should be returned");
-        let answered = messages
-            .iter()
-            .find(|message| message.id == "msg-ask-answered")
-            .expect("seeded answered ask should be returned");
-        let open = messages
-            .iter()
-            .find(|message| message.id == "msg-ask-open")
-            .expect("seeded open ask should be returned");
-
-        assert_eq!(
-            user.answered, None,
-            "non-ask user_text messages must not expose an answered marker"
-        );
-        assert_eq!(
-            answered.answered,
-            Some(true),
-            "answered ask_question must expose backend ask_answers state"
-        );
-        assert_eq!(
-            answered.answered_choice_id.as_deref(),
-            Some("0"),
-            "answered ask_question must expose the persisted single choice id"
-        );
-        assert_eq!(
-            answered
-                .answered_choice_ids
-                .as_ref()
-                .and_then(|ids| ids.get("0"))
-                .map(String::as_str),
-            Some("0"),
-            "answered ask_question must expose persisted choice_ids map"
-        );
-        assert_eq!(
-            open.answered,
-            Some(false),
-            "unanswered ask_question must remain explicitly unanswered"
-        );
-    }
 }

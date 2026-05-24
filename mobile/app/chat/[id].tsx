@@ -1,30 +1,30 @@
-import * as ImageManipulator from 'expo-image-manipulator';
-import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { ChevronLeft } from 'lucide-react-native';
 import React, { useEffect, useRef, useState } from 'react';
 import {
-  Alert,
-  Linking,
-  ScrollView,
-  View,
-  Text,
-  TouchableOpacity,
   KeyboardAvoidingView,
   Platform,
+  type FlatList,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { EMPTY_MESSAGES, STATUS_BADGE, WAITING_MESSAGE } from '@/features/chat/chatDetailConstants';
+import { EMPTY_MESSAGES, STATUS_BADGE } from '@/features/chat/chatDetailConstants';
 import ChatInputBar from '@/features/chat/components/ChatInputBar';
 import CommandPopup from '@/features/chat/components/CommandPopup';
-import { MessageBubble } from '@/features/chat/components/MessageBubble';
 import {
   postMessage,
   fetchMessages,
-  uploadImage,
   abortConversation,
   resolveUserMessageImageUri,
 } from '@/features/chat/services/chatService';
+import {
+  getAskId,
+  getMaxMessageSeq,
+  hasAskId,
+  hydrateAnswered,
+  shouldMergeInitialHistory,
+} from '@/features/chat/utils/chatMessageWindows';
 import {
   getLatestAgentActivitySeq,
   getLatestAgentTextSeq,
@@ -38,13 +38,16 @@ import { useChatStore } from '@/store/chatStore';
 import { useEndpointStore } from '@/store/endpointStore';
 import { useInboxStore } from '@/store/inboxStore';
 import { type WsMessage } from '@/types';
+import ChatHeader from './ChatHeader';
+import ChatTranscriptList from './ChatTranscriptList';
 import { s } from './styles';
+import { usePendingImageUploads } from './usePendingImageUploads';
 
-interface PendingImage {
-  localUri: string;
-  fileId: string | null;
-  status: 'uploading' | 'uploaded' | 'failed';
-}
+const INITIAL_MESSAGE_LIMIT = 15,
+  OLDER_MESSAGE_LIMIT = 50,
+  FOCUS_MESSAGE_LIMIT = 100;
+const TOP_LOAD_THRESHOLD = 80,
+  BOTTOM_STICKY_THRESHOLD = 120;
 
 export default function ChatDetailScreen() {
   const {
@@ -64,26 +67,37 @@ export default function ChatDetailScreen() {
   const [input, setInput] = useState('');
   const [isAwaitingResponse, setIsAwaitingResponse] = useState(false);
   const [typewriterSeq, setTypewriterSeq] = useState<number | null>(null);
-  const [pendingImages, setPendingImages] = useState<PendingImage[]>([]);
   const [commandPopupVisible, setCommandPopupVisible] = useState(false);
   const imageMapRef = useRef<Map<string, string>>(new Map());
-  const scrollRef = useRef<ScrollView>(null);
+  const listRef = useRef<FlatList<WsMessage>>(null);
   const prevMessageCountRef = useRef(0);
-  const askMessageYRef = useRef<Map<string, number>>(new Map());
   const didScrollToFocusRef = useRef(false);
+  const isLoadingOlderRef = useRef(false);
+  const hasOlderMessagesRef = useRef(true);
+  const isNearBottomRef = useRef(true);
+  const lastOlderRequestBeforeSeqRef = useRef<number | null>(null),
+    historyRequestGenerationRef = useRef(0),
+    olderLoadRequestIdRef = useRef(0);
 
   const endpoint = useEndpointStore((s) => s.endpoints.find((e) => e.id === endpoint_id));
   const conversations = useChatStore((s) => s.conversations);
   const messagesMap = useChatStore((s) => s.messages);
   const messages = messagesMap[conv_id] ?? EMPTY_MESSAGES;
+  const [catchUpAfterSeq, setCatchUpAfterSeq] = useState<number | null>(() =>
+    messages.length > 0 ? getMaxMessageSeq(messages) : null,
+  );
   const transcriptMessages = React.useMemo(
     () => messages.filter(isRenderableInChatTranscript),
     [messages],
   );
-  const setMessages = useChatStore((s) => s.setMessages);
+  const resetMessages = useChatStore((s) => s.resetMessages);
+  const mergeMessages = useChatStore((s) => s.mergeMessages);
+  const prependMessages = useChatStore((s) => s.prependMessages);
   const updateConversation = useChatStore((s) => s.updateConversation);
   const addInboxItem = useInboxStore((s) => s.addItem);
   const conversation = conversations.find((c) => c.id === conv_id);
+  const { pendingImages, pickImage, removePendingImage, clearPendingImages } =
+    usePendingImageUploads({ endpoint, endpoint_id, imageMapRef });
   const inboxMirrorStableKey = `${conversation?.agent_id ?? agent_id ?? ''}:${conversation?.agent_name ?? agent_name ?? ''}`;
   const navTitle = conversation?.agent_name ?? agent_name ?? conversation?.title ?? 'CHAT';
   const latestAgentActivitySeq = getLatestAgentActivitySeq(messages);
@@ -100,7 +114,6 @@ export default function ChatDetailScreen() {
       ? latestAgentSeq
       : null;
   const activeTypewriterSeq = incomingAgentTextSeq ?? typewriterSeq;
-  // Memoize the imageUri callback so MessageBubble memo can bail out reliably
   const imageUriForMessage = React.useCallback(
     (msg: WsMessage) => {
       if (!endpoint) return undefined;
@@ -111,8 +124,6 @@ export default function ChatDetailScreen() {
         imageMapRef.current,
       );
     },
-    // imageMapRef.current mutates in place — we intentionally omit it; the
-    // function reference is stable, and Map lookups are always up-to-date.
     [endpoint],
   );
 
@@ -125,49 +136,71 @@ export default function ChatDetailScreen() {
           endpoint_id: endpoint_id ?? '',
           agent_id: conversation?.agent_id ?? agent_id ?? '',
           agent_name: conversation?.agent_name ?? agent_name ?? '',
+          enableCatchUp: catchUpAfterSeq != null,
+          catchUpAfterSeq: catchUpAfterSeq ?? undefined,
         }
-      : { base_url: '', token: '', conv_id, endpoint_id: '', agent_id: '', agent_name: '' },
+      : {
+          base_url: '',
+          token: '',
+          conv_id,
+          endpoint_id: '',
+          agent_id: '',
+          agent_name: '',
+          enableCatchUp: false,
+        },
   );
 
-  const scrollToFocusedAsk = React.useCallback(() => {
-    if (!focus_ask_id || didScrollToFocusRef.current) return;
-    const y = askMessageYRef.current.get(focus_ask_id);
-    if (y == null) return;
-    scrollRef.current?.scrollTo({ y: Math.max(y - 12, 0), animated: true });
-    didScrollToFocusRef.current = true;
-  }, [focus_ask_id]);
+  const scrollToFocusedAsk = React.useCallback(
+    (items: WsMessage[]) => {
+      if (!focus_ask_id || didScrollToFocusRef.current) return;
+      const index = items.findIndex((msg) => getAskId(msg) === focus_ask_id);
+      if (index < 0 || !listRef.current) return;
+      try {
+        listRef.current.scrollToIndex({ index, animated: true, viewPosition: 0.1 });
+      } catch {
+        return;
+      }
+      didScrollToFocusRef.current = true;
+    },
+    [focus_ask_id],
+  );
+
+  useEffect(() => {
+    scrollToFocusedAsk(transcriptMessages);
+  }, [transcriptMessages, scrollToFocusedAsk]);
 
   useEffect(() => {
     didScrollToFocusRef.current = false;
-    askMessageYRef.current.clear();
+    hasOlderMessagesRef.current = true;
+    isLoadingOlderRef.current = false;
+    lastOlderRequestBeforeSeqRef.current = null;
+    isNearBottomRef.current = true;
+    prevMessageCountRef.current = 0;
+    olderLoadRequestIdRef.current += 1;
+    const current = useChatStore.getState().messages[conv_id] ?? EMPTY_MESSAGES;
+    setCatchUpAfterSeq(current.length > 0 ? getMaxMessageSeq(current) : null);
   }, [conv_id, focus_ask_id]);
 
-  // History load runs when routing/endpoint/agent identity changes, not when only `conversation.status`
-  // changes (`handleSend` sets optimistic `running` — refetch must not squash Analyzing… / composer state).
-  // `useChatStore.getState()` in `.then()` supplies fresh agent ids at promise resolve time.
   useEffect(() => {
     if (!endpoint) return;
+    const requestId = ++historyRequestGenerationRef.current;
+    let cancelled = false;
+    const isStale = () => cancelled || historyRequestGenerationRef.current !== requestId;
     Promise.all([
-      fetchMessages(endpoint.base_url, endpoint.token, conv_id),
+      fetchMessages(endpoint.base_url, endpoint.token, conv_id, { limit: INITIAL_MESSAGE_LIMIT }),
       loadAnsweredAsks(conv_id),
     ])
       .then(([msgs, answeredMap]) => {
+        if (isStale()) return undefined;
         lastSeenAgentActivitySeqRef.current = getLatestAgentActivitySeq(msgs);
         lastAnimatedAgentTextSeqRef.current = getLatestAgentTextSeq(msgs);
         hasLoadedInitialMessagesRef.current = true;
-        const merged = msgs.map((m) => {
-          if (m.role !== 'ask_question') return m;
-          const ask_id = (m.payload as { ask_id?: string }).ask_id ?? '';
-          const record = answeredMap.get(ask_id);
-          if (!record) return m;
-          return {
-            ...m,
-            answered: true,
-            answeredChoiceId: record.choice_id,
-            answeredChoiceIds: record.choice_ids,
-          };
-        });
-        setMessages(conv_id, merged);
+        const merged = hydrateAnswered(msgs, answeredMap);
+        const current = useChatStore.getState().messages[conv_id] ?? EMPTY_MESSAGES;
+        if (shouldMergeInitialHistory(current, merged)) mergeMessages(conv_id, merged);
+        else resetMessages(conv_id, merged);
+        const storedMessages = useChatStore.getState().messages[conv_id] ?? merged;
+        setCatchUpAfterSeq(getMaxMessageSeq(storedMessages));
         const storeConv = useChatStore.getState().conversations.find((c) => c.id === conv_id);
         void mirrorAskQuestionsToInbox({
           messages: merged,
@@ -177,9 +210,26 @@ export default function ChatDetailScreen() {
           conversation_id: conv_id,
           addItem: addInboxItem,
         });
-        setTimeout(scrollToFocusedAsk, 100);
+        if (!focus_ask_id || hasAskId(merged, focus_ask_id)) return undefined;
+        return fetchMessages(endpoint.base_url, endpoint.token, conv_id, {
+          around_ask_id: focus_ask_id,
+          limit: FOCUS_MESSAGE_LIMIT,
+        }).then((focusMsgs) => {
+          if (isStale()) return;
+          const focusMerged = hydrateAnswered(focusMsgs, answeredMap);
+          mergeMessages(conv_id, focusMerged);
+          void mirrorAskQuestionsToInbox({
+            messages: focusMerged,
+            endpoint_id: endpoint_id ?? '',
+            agent_id: storeConv?.agent_id ?? agent_id ?? '',
+            agent_name: storeConv?.agent_name ?? agent_name,
+            conversation_id: conv_id,
+            addItem: addInboxItem,
+          });
+        });
       })
       .catch((error: unknown) => {
+        if (isStale()) return;
         recordDiagnosticsEvent('error', 'chat.history', 'failed to load chat history', {
           conv_id,
           endpoint_id,
@@ -187,6 +237,10 @@ export default function ChatDetailScreen() {
         });
         hasLoadedInitialMessagesRef.current = true;
       });
+    return () => {
+      cancelled = true;
+      historyRequestGenerationRef.current += 1;
+    };
   }, [
     conv_id,
     endpoint,
@@ -194,76 +248,57 @@ export default function ChatDetailScreen() {
     agent_id,
     agent_name,
     inboxMirrorStableKey,
-    setMessages,
+    resetMessages,
+    mergeMessages,
     addInboxItem,
-    scrollToFocusedAsk,
+    focus_ask_id,
   ]);
 
-  async function pickImage() {
-    if (pendingImages.length >= 5) {
-      Alert.alert('最多选择 5 张图片');
+  async function loadOlderMessages() {
+    if (!endpoint || isLoadingOlderRef.current || !hasOlderMessagesRef.current) return;
+    const firstLoadedSeq = messages[0]?.seq;
+    if (firstLoadedSeq == null || firstLoadedSeq <= 1) {
+      hasOlderMessagesRef.current = false;
       return;
     }
-
-    const doLaunch = async (launcher: () => Promise<ImagePicker.ImagePickerResult>) => {
-      const result = await launcher();
-      if (result.canceled || !result.assets?.[0]) return;
-      const asset = result.assets[0];
-      const compressed = await ImageManipulator.manipulateAsync(asset.uri, [], {
-        compress: 0.8,
-        format: ImageManipulator.SaveFormat.JPEG,
+    if (lastOlderRequestBeforeSeqRef.current === firstLoadedSeq) return;
+    lastOlderRequestBeforeSeqRef.current = firstLoadedSeq;
+    isLoadingOlderRef.current = true;
+    const olderRequestId = ++olderLoadRequestIdRef.current;
+    const requestGeneration = historyRequestGenerationRef.current;
+    const isStale = () => historyRequestGenerationRef.current !== requestGeneration;
+    try {
+      const older = await fetchMessages(endpoint.base_url, endpoint.token, conv_id, {
+        before_seq: firstLoadedSeq,
+        limit: OLDER_MESSAGE_LIMIT,
       });
-      const localUri = compressed.uri;
-      setPendingImages((prev) => [...prev, { localUri, fileId: null, status: 'uploading' }]);
-      if (!endpoint) return;
-      try {
-        const res = await uploadImage(endpoint.base_url, endpoint.token, localUri);
-        imageMapRef.current.set(res.file_id, localUri);
-        setPendingImages((prev) =>
-          prev.map((img) =>
-            img.localUri === localUri && img.status === 'uploading'
-              ? { ...img, fileId: res.file_id, status: 'uploaded' }
-              : img,
-          ),
-        );
-      } catch (error: unknown) {
-        recordDiagnosticsEvent('error', 'chat.image', 'image upload failed', {
-          endpoint_id,
-          error,
-        });
-        setPendingImages((prev) =>
-          prev.map((img) =>
-            img.localUri === localUri && img.status === 'uploading'
-              ? { ...img, status: 'failed' }
-              : img,
-          ),
-        );
+      if (isStale()) return;
+      if (older.length === 0 || older[0]?.seq <= 1) {
+        hasOlderMessagesRef.current = false;
       }
-    };
-
-    const requestAndLaunch = async (
-      permFn: () => Promise<ImagePicker.PermissionResponse>,
-      launcher: () => Promise<ImagePicker.ImagePickerResult>,
-    ) => {
-      const { status: permStatus } = await permFn();
-      if (permStatus !== 'granted') {
-        Alert.alert('需要权限', '请在设置中开启相册/相机权限', [
-          { text: '取消', style: 'cancel' },
-          {
-            text: '去设置',
-            onPress: () => {
-              void Linking.openSettings();
-            },
-          },
-        ]);
-        return;
+      lastSeenAgentActivitySeqRef.current = Math.max(
+        lastSeenAgentActivitySeqRef.current,
+        getLatestAgentActivitySeq(older),
+      );
+      lastAnimatedAgentTextSeqRef.current = Math.max(
+        lastAnimatedAgentTextSeqRef.current,
+        getLatestAgentTextSeq(older),
+      );
+      prependMessages(conv_id, older);
+    } catch (error: unknown) {
+      if (isStale()) return;
+      lastOlderRequestBeforeSeqRef.current = null;
+      recordDiagnosticsEvent('error', 'chat.history', 'failed to load older chat history', {
+        conv_id,
+        endpoint_id,
+        error,
+      });
+    } finally {
+      if (olderLoadRequestIdRef.current === olderRequestId) {
+        isLoadingOlderRef.current = false;
+        if (isStale()) lastOlderRequestBeforeSeqRef.current = null;
       }
-      await doLaunch(launcher);
-    };
-
-    await requestAndLaunch(ImagePicker.requestMediaLibraryPermissionsAsync, () =>
-      ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 1 }),
-    );
+    }
   }
 
   const handleInputChange = (text: string) => {
@@ -290,7 +325,7 @@ export default function ChatDetailScreen() {
     hasLoadedInitialMessagesRef.current = true;
     updateConversation(conv_id, { status: 'running' });
     setInput('');
-    setPendingImages([]);
+    clearPendingImages();
     setIsAwaitingResponse(true);
     setTypewriterSeq(null);
 
@@ -304,7 +339,7 @@ export default function ChatDetailScreen() {
       } else {
         await postMessage(endpoint.base_url, endpoint.token, conv_id, text);
       }
-      setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
+      setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
     } catch (error: unknown) {
       recordDiagnosticsEvent('error', 'chat.send', 'failed to send message', {
         conv_id,
@@ -316,16 +351,32 @@ export default function ChatDetailScreen() {
     }
   };
 
+  const handleStop = () => {
+    if (!endpoint) {
+      recordDiagnosticsEvent('warn', 'chat.abort', 'abort skipped without endpoint', {
+        conv_id,
+        endpoint_id,
+      });
+      console.warn('abort: no endpoint available');
+      return;
+    }
+    void abortConversation(endpoint.base_url, endpoint.token, conv_id)
+      .then(() => {
+        setIsAwaitingResponse(false);
+        updateConversation(conv_id, { status: 'idle' });
+      })
+      .catch((e: unknown) => {
+        recordDiagnosticsEvent('warn', 'chat.abort', 'abort request failed', {
+          conv_id,
+          endpoint_id,
+          error: e,
+        });
+        console.warn('abort failed', e);
+      });
+  };
+
   const isOffline = !endpoint || status === 'closed';
-  // Agent is "running" if we are waiting for the first response (optimistic) OR
-  // if the server has explicitly set the conversation status to 'running'.
-  // Using conversation.status as the authoritative source prevents the race
-  // where isAwaitingResponse was reset as soon as the first agent message
-  // arrived, causing the stop button to disappear mid-run.
   const conversationStatus = conversation?.status ?? 'idle';
-  // Synchronously-computed forceComplete flag — avoids setState async race.
-  // true when: last message is a tool_call (AI text phase ended), or task completed/failed.
-  // Intentionally excludes 'idle' (initial state) to avoid mis-killing typewriter on page load.
   const lastMsg = messages.at(-1);
   const shouldForceComplete =
     lastMsg?.role === 'tool_call' ||
@@ -336,9 +387,6 @@ export default function ChatDetailScreen() {
 
   useEffect(() => {
     if (isAwaitingResponse && latestAgentActivitySeq > lastSeenAgentActivitySeqRef.current) {
-      // First agent activity arrived — the optimistic "awaiting" phase is over.
-      // We can clear the local flag; visibility of the stop button is now
-      // driven by conversation.status (set by the WebSocket hook).
       setIsAwaitingResponse(false);
       lastSeenAgentActivitySeqRef.current = latestAgentActivitySeq;
     } else if (
@@ -356,19 +404,40 @@ export default function ChatDetailScreen() {
     }
   }, [isAwaitingResponse, latestAgentActivitySeq, latestAgentSeq]);
 
-  // Sync local isAwaitingResponse with conversation.status.
-  // If the server reports the conversation is no longer running (idle/completed/failed),
-  // clear the local optimistic flag so the stop button disappears correctly.
-  // Guard: only clear when the conversation actually exists in the store.
-  // If it doesn't exist yet (e.g. navigation from agent screen before the store
-  // is seeded), updateConversation('running') is a no-op and conversationStatus
-  // stays 'idle' — without the guard that would immediately cancel the optimistic
-  // waiting state and the Analyzing… bubble would never appear.
   useEffect(() => {
     if (isAwaitingResponse && conversation && conversationStatus !== 'running') {
       setIsAwaitingResponse(false);
     }
   }, [conversationStatus, isAwaitingResponse, conversation]);
+
+  function handleTranscriptScroll(event: NativeSyntheticEvent<NativeScrollEvent>) {
+    const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
+    const distanceFromBottom = contentSize.height - (contentOffset.y + layoutMeasurement.height);
+    isNearBottomRef.current = distanceFromBottom < BOTTOM_STICKY_THRESHOLD;
+    if (contentOffset.y < TOP_LOAD_THRESHOLD) void loadOlderMessages();
+  }
+
+  function handleContentSizeChange() {
+    scrollToFocusedAsk(transcriptMessages);
+    if (focus_ask_id && hasAskId(transcriptMessages, focus_ask_id)) return;
+    const currentCount = transcriptMessages.length + (isAgentRunning ? 1 : 0);
+    if (currentCount > prevMessageCountRef.current) {
+      prevMessageCountRef.current = currentCount;
+      if (isNearBottomRef.current) {
+        listRef.current?.scrollToEnd({ animated: true });
+      }
+    }
+  }
+
+  function handleScrollToIndexFailed(info: { index: number; averageItemLength: number }) {
+    if (!focus_ask_id || !hasAskId(transcriptMessages, focus_ask_id)) return;
+    didScrollToFocusRef.current = false;
+    listRef.current?.scrollToOffset({
+      offset: Math.max(info.averageItemLength * info.index, 0),
+      animated: false,
+    });
+    setTimeout(() => scrollToFocusedAsk(transcriptMessages), 50);
+  }
 
   const badge = isOffline
     ? { label: 'OFFLINE', bg: '#1A1A1A', dot: '#FF4444' }
@@ -380,69 +449,24 @@ export default function ChatDetailScreen() {
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <View style={s.nav}>
-          <TouchableOpacity onPress={() => router.back()}>
-            <ChevronLeft size={24} color="#FFFFFF" />
-          </TouchableOpacity>
-          <Text style={s.navTitle}>{navTitle}</Text>
-          <View style={[s.statusBadge, { backgroundColor: badge.bg }]}>
-            <View style={[s.statusDot, { backgroundColor: badge.dot }]} />
-            <Text testID="status-badge-text" style={s.statusBadgeText}>
-              {badge.label}
-            </Text>
-          </View>
-        </View>
+        <ChatHeader title={navTitle} badge={badge} onBack={() => router.back()} />
 
-        <ScrollView
-          ref={scrollRef}
-          style={s.scroll}
-          contentContainerStyle={s.scrollContent}
-          onContentSizeChange={(_w, _h) => {
-            if (focus_ask_id && !didScrollToFocusRef.current) {
-              scrollToFocusedAsk();
-              return;
-            }
-            // Only auto-scroll when a new message is appended (count increases).
-            // Avoids triggering on every streaming text update while a message
-            // is already visible, which causes janky re-layout on long histories.
-            const currentCount = transcriptMessages.length + (isAgentRunning ? 1 : 0);
-            if (currentCount > prevMessageCountRef.current) {
-              prevMessageCountRef.current = currentCount;
-              scrollRef.current?.scrollToEnd({ animated: true });
-            }
-          }}
-        >
-          {transcriptMessages.map((msg) => {
-            const askId =
-              msg.role === 'ask_question' ? (msg.payload as { ask_id?: string }).ask_id : undefined;
-            return (
-              <View
-                key={`${msg.seq}`}
-                testID={askId ? `chat-ask-${askId}` : undefined}
-                onLayout={(event) => {
-                  if (!askId) return;
-                  askMessageYRef.current.set(askId, event.nativeEvent.layout.y);
-                  scrollToFocusedAsk();
-                }}
-              >
-                <MessageBubble
-                  msg={msg}
-                  typewriter={msg.seq === activeTypewriterSeq}
-                  forceComplete={msg.seq === activeTypewriterSeq && shouldForceComplete}
-                  onAnswer={sendAnswer}
-                  onAnswerMulti={sendAnswerMulti}
-                  imageUri={imageUriForMessage(msg)}
-                  waiting={false}
-                  serverUrl={endpoint?.base_url ?? ''}
-                  token={endpoint?.token ?? ''}
-                />
-              </View>
-            );
-          })}
-          {isAgentRunning && incomingAgentActivitySeq === null && (
-            <MessageBubble msg={WAITING_MESSAGE} waiting />
-          )}
-        </ScrollView>
+        <ChatTranscriptList
+          listRef={listRef}
+          messages={transcriptMessages}
+          isAgentRunning={isAgentRunning}
+          incomingAgentActivitySeq={incomingAgentActivitySeq}
+          activeTypewriterSeq={activeTypewriterSeq}
+          shouldForceComplete={shouldForceComplete}
+          serverUrl={endpoint?.base_url ?? ''}
+          token={endpoint?.token ?? ''}
+          onAnswer={sendAnswer}
+          onAnswerMulti={sendAnswerMulti}
+          imageUriForMessage={imageUriForMessage}
+          onScroll={handleTranscriptScroll}
+          onContentSizeChange={handleContentSizeChange}
+          onScrollToIndexFailed={handleScrollToIndexFailed}
+        />
 
         <CommandPopup
           visible={commandPopupVisible}
@@ -453,42 +477,15 @@ export default function ChatDetailScreen() {
           <ChatInputBar
             value={input}
             onChangeText={handleInputChange}
-            onSend={() => {
-              void handleSend();
-            }}
-            onPickImage={() => {
-              void pickImage();
-            }}
+            onSend={() => void handleSend()}
+            onPickImage={() => void pickImage()}
             onOpenCommands={() => setCommandPopupVisible(true)}
             disabled={composerDisabled}
             isAgentRunning={isAgentRunning}
-            onStop={() => {
-              if (endpoint) {
-                void abortConversation(endpoint.base_url, endpoint.token, conv_id)
-                  .then(() => {
-                    setIsAwaitingResponse(false);
-                    // Server sets SQLite status to idle; keep Zustand in sync so composer/stop UI recovers immediately.
-                    updateConversation(conv_id, { status: 'idle' });
-                  })
-                  .catch((e: unknown) => {
-                    recordDiagnosticsEvent('warn', 'chat.abort', 'abort request failed', {
-                      conv_id,
-                      endpoint_id,
-                      error: e,
-                    });
-                    console.warn('abort failed', e);
-                  });
-              } else {
-                recordDiagnosticsEvent('warn', 'chat.abort', 'abort skipped without endpoint', {
-                  conv_id,
-                  endpoint_id,
-                });
-                console.warn('abort: no endpoint available');
-              }
-            }}
+            onStop={handleStop}
             placeholder={isOffline ? 'Agent offline...' : 'Message...'}
             pendingImages={pendingImages}
-            onRemoveImage={(idx) => setPendingImages((prev) => prev.filter((_, i) => i !== idx))}
+            onRemoveImage={removePendingImage}
           />
         </View>
       </KeyboardAvoidingView>

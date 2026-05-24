@@ -1,5 +1,6 @@
 import type { WsMessage } from '@/types';
 import {
+  fetchMessages,
   postMessage,
   abortConversation,
   deleteConversation,
@@ -14,6 +15,129 @@ jest.mock('@/api/endpointClient', () => ({
 describe('chatService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+  });
+
+  describe('fetchMessages', () => {
+    /// Message pagination: limit-only fetch requests a bounded newest page.
+    ///
+    /// Data construction:
+    ///   base_url = http://localhost:8080
+    ///   token    = tok
+    ///   conv_id  = conv-1
+    ///   options  = { limit: 15 }
+    ///
+    /// Execution process:
+    ///   1. Mock endpoint client with a get spy returning an empty message list.
+    ///   2. Call fetchMessages(base_url, token, conv_id, options).
+    ///   3. Inspect the GET path and params passed to endpointClient.
+    ///
+    /// Expected result:
+    ///   - Positive: params includes limit=15 so the server returns a bounded page.
+    ///   - Negative: params does not include since_seq because this is not an incremental sync.
+    it('sends limit without since_seq when fetch options request a bounded page', async () => {
+      const mockGet = jest.fn().mockResolvedValue({ data: [] });
+      const { getEndpointClient } = require('@/api/endpointClient');
+      getEndpointClient.mockReturnValue({ get: mockGet });
+
+      await fetchMessages('http://localhost:8080', 'tok', 'conv-1', { limit: 15 });
+
+      expect(mockGet).toHaveBeenCalledWith('/api/v1/conversations/conv-1/messages', {
+        params: { limit: 15 },
+      });
+      expect(mockGet.mock.calls[0][1].params).not.toHaveProperty('since_seq');
+    });
+
+    /// Older history pagination: before_seq and limit request messages before a known sequence.
+    ///
+    /// Data construction:
+    ///   base_url   = http://localhost:8080
+    ///   token      = tok
+    ///   conv_id    = conv-1
+    ///   before_seq = 101 (first visible message seq; page should load earlier rows)
+    ///   limit      = 50  (bounded page size)
+    ///
+    /// Execution process:
+    ///   1. Mock endpoint client with a get spy returning an empty message list.
+    ///   2. Call fetchMessages(base_url, token, conv_id, { before_seq: 101, limit: 50 }).
+    ///   3. Inspect params passed to endpointClient.
+    ///
+    /// Expected result:
+    ///   - Positive: params includes before_seq=101 and limit=50 for older-history paging.
+    ///   - Negative: params does not include around_ask_id because no focus anchor is requested.
+    it('sends before_seq and limit without around_ask_id for older-history pages', async () => {
+      const mockGet = jest.fn().mockResolvedValue({ data: [] });
+      const { getEndpointClient } = require('@/api/endpointClient');
+      getEndpointClient.mockReturnValue({ get: mockGet });
+
+      await fetchMessages('http://localhost:8080', 'tok', 'conv-1', { before_seq: 101, limit: 50 });
+
+      expect(mockGet).toHaveBeenCalledWith('/api/v1/conversations/conv-1/messages', {
+        params: { before_seq: 101, limit: 50 },
+      });
+      expect(mockGet.mock.calls[0][1].params).not.toHaveProperty('around_ask_id');
+    });
+
+    /// Ask-focus pagination: around_ask_id and limit request a window around one decision.
+    ///
+    /// Data construction:
+    ///   base_url      = http://localhost:8080
+    ///   token         = tok
+    ///   conv_id       = conv-1
+    ///   around_ask_id = ask-focus (decision anchor to center)
+    ///   limit         = 100       (window size requested by the focused view)
+    ///
+    /// Execution process:
+    ///   1. Mock endpoint client with a get spy returning an empty message list.
+    ///   2. Call fetchMessages(base_url, token, conv_id, { around_ask_id: 'ask-focus', limit: 100 }).
+    ///   3. Inspect params passed to endpointClient.
+    ///
+    /// Expected result:
+    ///   - Positive: params includes around_ask_id='ask-focus' and limit=100.
+    ///   - Negative: params does not include before_seq because this is not older-history paging.
+    it('sends around_ask_id and limit without before_seq for ask-focused pages', async () => {
+      const mockGet = jest.fn().mockResolvedValue({ data: [] });
+      const { getEndpointClient } = require('@/api/endpointClient');
+      getEndpointClient.mockReturnValue({ get: mockGet });
+
+      await fetchMessages('http://localhost:8080', 'tok', 'conv-1', {
+        around_ask_id: 'ask-focus',
+        limit: 100,
+      });
+
+      expect(mockGet).toHaveBeenCalledWith('/api/v1/conversations/conv-1/messages', {
+        params: { around_ask_id: 'ask-focus', limit: 100 },
+      });
+      expect(mockGet.mock.calls[0][1].params).not.toHaveProperty('before_seq');
+    });
+
+    /// Legacy incremental sync: numeric fourth argument remains since_seq.
+    ///
+    /// Data construction:
+    ///   base_url = http://localhost:8080
+    ///   token    = tok
+    ///   conv_id  = conv-1
+    ///   options  = 42 (legacy since_seq value used by useWebSocket)
+    ///
+    /// Execution process:
+    ///   1. Mock endpoint client with a get spy returning an empty message list.
+    ///   2. Call fetchMessages(base_url, token, conv_id, 42).
+    ///   3. Inspect params passed to endpointClient.
+    ///
+    /// Expected result:
+    ///   - Positive: params includes since_seq=42, preserving the old mobile WebSocket caller.
+    ///   - Negative: params does not include limit because the numeric form is not pagination options.
+    it('preserves numeric since_seq as the fourth argument for legacy callers', async () => {
+      const mockGet = jest.fn().mockResolvedValue({ data: [] });
+      const { getEndpointClient } = require('@/api/endpointClient');
+      getEndpointClient.mockReturnValue({ get: mockGet });
+
+      await fetchMessages('http://localhost:8080', 'tok', 'conv-1', 42);
+
+      expect(mockGet).toHaveBeenCalledWith('/api/v1/conversations/conv-1/messages', {
+        params: { since_seq: 42 },
+      });
+      expect(mockGet.mock.calls[0][1].params).not.toHaveProperty('limit');
+    });
   });
 
   describe('postMessage', () => {

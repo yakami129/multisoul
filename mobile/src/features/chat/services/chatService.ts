@@ -10,6 +10,13 @@ export interface AnswerAcknowledgement {
   freeform?: string;
 }
 
+export interface FetchMessagesOptions {
+  since_seq?: number;
+  limit?: number;
+  before_seq?: number;
+  around_ask_id?: string;
+}
+
 function buildConversationWsUrl(base_url: string, token: string, conv_id: string): string {
   const wsUrl = base_url.replace(/^https/, 'wss').replace(/^http/, 'ws');
   return `${wsUrl}/ws/conversations/${conv_id}?token=${token}`;
@@ -100,10 +107,18 @@ export async function fetchMessages(
   base_url: string,
   token: string,
   conv_id: string,
-  since_seq?: number,
+  options?: number | FetchMessagesOptions,
 ): Promise<WsMessage[]> {
   const client = getEndpointClient(base_url, token);
-  const params = since_seq != null ? { since_seq } : {};
+  const params: FetchMessagesOptions = {};
+  if (typeof options === 'number') {
+    params.since_seq = options;
+  } else if (options) {
+    if (options.since_seq != null) params.since_seq = options.since_seq;
+    if (options.limit != null) params.limit = options.limit;
+    if (options.before_seq != null) params.before_seq = options.before_seq;
+    if (options.around_ask_id) params.around_ask_id = options.around_ask_id;
+  }
   const res = await client.get<WsMessage[]>(`/api/v1/conversations/${conv_id}/messages`, {
     params,
   });

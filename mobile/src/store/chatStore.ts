@@ -16,12 +16,42 @@ interface ChatState {
   restoreConversation: (conv: Conversation, index: number) => void;
   appendMessage: (conv_id: string, msg: WsMessage) => void;
   setMessages: (conv_id: string, msgs: WsMessage[]) => void;
+  mergeMessages: (conv_id: string, msgs: WsMessage[]) => void;
+  prependMessages: (conv_id: string, msgs: WsMessage[]) => void;
+  resetMessages: (conv_id: string, msgs: WsMessage[]) => void;
   markAnswered: (
     conv_id: string,
     ask_id: string,
     choice_id?: string,
     choice_ids?: Record<string, string>,
   ) => void;
+}
+
+function dedupeAndSortMessages(messages: WsMessage[]): WsMessage[] {
+  const bySeq = new Map<number, WsMessage>();
+  for (const message of messages) {
+    if (!bySeq.has(message.seq)) {
+      bySeq.set(message.seq, message);
+    }
+  }
+  return [...bySeq.values()].sort((a, b) => a.seq - b.seq);
+}
+
+function applyMessageHistory(conversation: Conversation, messages: WsMessage[]): Conversation {
+  const fromMsgs = resolveConversationStatusFromMessageHistory(messages);
+  const fromWindow = applyConversationPreviewMessages(
+    { ...conversation, first_user_message: undefined, last_ai_reply: undefined },
+    messages,
+  );
+  let next = {
+    ...fromWindow,
+    first_user_message: fromWindow.first_user_message ?? conversation.first_user_message,
+    last_ai_reply: fromWindow.last_ai_reply ?? conversation.last_ai_reply,
+  };
+  if (fromMsgs != null) {
+    next = { ...next, status: fromMsgs };
+  }
+  return next;
 }
 
 export const useChatStore = create<ChatState>((set) => ({
@@ -66,17 +96,46 @@ export const useChatStore = create<ChatState>((set) => ({
     }),
   setMessages: (conv_id, msgs) =>
     set((s) => {
-      const fromMsgs = resolveConversationStatusFromMessageHistory(msgs);
+      const nextMessages = dedupeAndSortMessages(msgs);
       return {
         conversations: s.conversations.map((conv) => {
           if (conv.id !== conv_id) return conv;
-          let next = applyConversationPreviewMessages(conv, msgs);
-          if (fromMsgs != null) {
-            next = { ...next, status: fromMsgs };
-          }
-          return next;
+          return applyMessageHistory(conv, nextMessages);
         }),
-        messages: { ...s.messages, [conv_id]: msgs },
+        messages: { ...s.messages, [conv_id]: nextMessages },
+      };
+    }),
+  mergeMessages: (conv_id, msgs) =>
+    set((s) => {
+      const nextMessages = dedupeAndSortMessages([...(s.messages[conv_id] ?? []), ...msgs]);
+      return {
+        conversations: s.conversations.map((conv) => {
+          if (conv.id !== conv_id) return conv;
+          return applyMessageHistory(conv, nextMessages);
+        }),
+        messages: { ...s.messages, [conv_id]: nextMessages },
+      };
+    }),
+  prependMessages: (conv_id, msgs) =>
+    set((s) => {
+      const nextMessages = dedupeAndSortMessages([...(s.messages[conv_id] ?? []), ...msgs]);
+      return {
+        conversations: s.conversations.map((conv) => {
+          if (conv.id !== conv_id) return conv;
+          return applyMessageHistory(conv, nextMessages);
+        }),
+        messages: { ...s.messages, [conv_id]: nextMessages },
+      };
+    }),
+  resetMessages: (conv_id, msgs) =>
+    set((s) => {
+      const nextMessages = dedupeAndSortMessages(msgs);
+      return {
+        conversations: s.conversations.map((conv) => {
+          if (conv.id !== conv_id) return conv;
+          return applyMessageHistory(conv, nextMessages);
+        }),
+        messages: { ...s.messages, [conv_id]: nextMessages },
       };
     }),
   markAnswered: (conv_id, ask_id, choice_id, choice_ids) =>

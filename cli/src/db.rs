@@ -51,6 +51,8 @@ fn init_schema(conn: &Connection) -> Result<()> {
             created_at      INTEGER NOT NULL,
             seq             INTEGER NOT NULL
         );
+        CREATE INDEX IF NOT EXISTS idx_messages_conversation_seq
+            ON messages(conversation_id, seq);
         CREATE TABLE IF NOT EXISTS tasks (
             id              TEXT PRIMARY KEY,
             conversation_id TEXT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
@@ -75,6 +77,8 @@ fn init_schema(conn: &Connection) -> Result<()> {
             freeform        TEXT,
             PRIMARY KEY (conversation_id, ask_id)
         );
+        CREATE INDEX IF NOT EXISTS idx_ask_answers_conversation_ask
+            ON ask_answers(conversation_id, ask_id);
         CREATE TABLE IF NOT EXISTS activity_reads (
             conversation_id TEXT PRIMARY KEY REFERENCES conversations(id) ON DELETE CASCADE,
             read_at         INTEGER NOT NULL
