@@ -386,6 +386,8 @@ Codex 使用 `codex exec` / `codex exec resume <thread_id>` 命令；`full-auto`
 > **2026-05-23**：Cursor runtime 为满足单文件行数上限，将 session 持久化、message insert、broadcast、complete/failed turn 状态更新 helper 拆到相邻 `cursor_db.rs`；`cursor.rs` 仍保留 runtime worker、process turn 和 CLI 参数构造。
 >
 > **2026-05-24**：`cli/src/db.rs` 新增 `activity_reads` 表（conversation_id → read_at），供 Activity Done 已读状态持久化；与 runtime 接入无关，本文 §Step 5 纪律不变。
+>
+> **2026-05-24（chat performance）**：`GET /api/v1/conversations/:id/messages` 新增可选 query `limit` / `before_seq` / `around_ask_id`，用于有界历史分页；仅传 `since_seq` 时行为与原先一致。`cli/src/db.rs` 在 `init_schema` 中为 `messages(conversation_id, seq)` 与 `ask_answers(conversation_id, ask_id)` 增加索引以加速上述查询。`POST` 路径仍经 `serve/runtime/mod.rs` 分发，本文 §2 架构图与 Step 1–4 正文无需改动。
 
 完成实现后，按 `CLAUDE.md §5` 跑：
 

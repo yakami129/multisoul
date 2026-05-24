@@ -33,7 +33,7 @@
         },
         {
           "path": "cli/src/serve/routes/messages.rs",
-          "sha256": "78fc9473f98122791933362f1e1897b58eb13556c4def1ea6976da07db6b6faf",
+          "sha256": "523e1b426ca4ad5ec4f8c02e6ce18e974d73f579c42aedff42d4b480859c1c83",
           "reason": "HTTP message route 调用 runtime 分发；文档架构图与入口流程依赖该行为。"
         },
         {
@@ -53,7 +53,7 @@
         },
         {
           "path": "cli/src/db.rs",
-          "sha256": "2aefb88dd0e085618a0b2fec2062035862e6038d3e883b8834f1ea4060de5916",
+          "sha256": "b4290dcf292a94ba043b666b266b1735e0a6b03d19c23693b044e895cc7a18cb",
           "reason": "文档说明 runtime 持久化字段和 migration 纪律；DB schema 演进会影响该章节。"
         },
         {

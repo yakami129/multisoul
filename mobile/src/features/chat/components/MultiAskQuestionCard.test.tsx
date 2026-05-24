@@ -181,6 +181,66 @@ test('answered state shows typed text for Other selection after ack', () => {
 });
 
 describe('MultiAskQuestionCard - Multi-select support', () => {
+  /// Multi-select navigation: a multi-select answer needs an explicit Next action
+  /// before moving to the next question, because option taps only toggle selection.
+  ///
+  /// Data construction:
+  ///   q0 = multi-select with React(id 0) and Vue(id 1)
+  ///   q1 = single-select with Ship(id 0)
+  ///   answered prop = false
+  ///
+  /// Execution process:
+  ///   1. Render q0 as active; q1 is present only as a collapsed header.
+  ///   2. Select React and Vue, creating a valid multi-select answer "0,1".
+  ///   3. Press Next to advance from q0 to the next unanswered question.
+  ///
+  /// Expected result:
+  ///   - Positive: Next appears after q0 has at least one selected option.
+  ///   - Positive: Ship appears after Next, proving q1 became active.
+  ///   - Negative: React option button disappears after Next, proving q0 collapsed.
+  it('shows Next for answered multi-select questions and advances to the next question', () => {
+    const questions = [
+      {
+        id: '0',
+        text: 'Select frameworks',
+        options: [
+          { id: '0', label: 'React' },
+          { id: '1', label: 'Vue' },
+        ],
+        multi_select: true,
+      },
+      {
+        id: '1',
+        text: 'Choose action',
+        options: [{ id: '0', label: 'Ship' }],
+        multi_select: false,
+      },
+    ];
+
+    const { getByLabelText, getByText, queryByLabelText } = render(
+      <MultiAskQuestionCard questions={questions} onCancel={jest.fn()} onConfirm={jest.fn()} />,
+    );
+
+    fireEvent.press(getByLabelText('React'));
+    fireEvent.press(getByLabelText('Vue'));
+
+    expect({
+      actual: getByLabelText('Next') != null,
+      reason: 'Next should appear after q0 has a valid multi-select answer',
+    }).toEqual({ actual: true, reason: expect.any(String) });
+
+    fireEvent.press(getByLabelText('Next'));
+
+    expect({
+      actual: getByText('Ship') != null,
+      reason: 'q1 option should render after pressing Next from the multi-select q0',
+    }).toEqual({ actual: true, reason: expect.any(String) });
+    expect({
+      actual: queryByLabelText('React'),
+      reason: 'q0 option buttons should collapse after Next moves focus to q1',
+    }).toEqual({ actual: null, reason: expect.any(String) });
+  });
+
   it('should render checkbox for multi-select question', () => {
     const questions = [
       {

@@ -62,38 +62,51 @@ export default function MultiAskQuestionCard({
   const [activeIndex, setActiveIndex] = useState(0);
   const answered = answeredProp;
 
-  const total = questions.length;
-  const answeredCount = questions.filter((q) => {
-    const ans = answers[q.id];
+  const isQuestionAnswered = (
+    question: QuestionItem,
+    nextAnswers: Record<string, string | Set<string>>,
+  ) => {
+    const ans = nextAnswers[question.id];
     if (!ans) return false;
 
     if (ans instanceof Set) {
-      // 多选：至少选一个，且如果选了 CUSTOM_ID 则必须有自定义文本
       if (ans.size === 0) return false;
       if (ans.has(CUSTOM_ID)) {
-        return (committedCustomTexts[q.id]?.length ?? 0) > 0;
-      }
-      return true;
-    } else {
-      // 单选：有选项，且如果是 CUSTOM_ID 则必须有自定义文本
-      if (ans === CUSTOM_ID) {
-        return (committedCustomTexts[q.id]?.length ?? 0) > 0;
+        return (committedCustomTexts[question.id]?.length ?? 0) > 0;
       }
       return true;
     }
-  }).length;
+
+    if (ans === CUSTOM_ID) {
+      return (committedCustomTexts[question.id]?.length ?? 0) > 0;
+    }
+    return true;
+  };
+
+  const total = questions.length;
+  const answeredCount = questions.filter((q) => isQuestionAnswered(q, answers)).length;
   const allAnswered = answeredCount >= total;
   const progressWidth = total > 0 ? (answeredCount / total) * 100 : 0;
+  const activeQuestion = questions[activeIndex];
+  const activeQuestionAnswered = activeQuestion
+    ? isQuestionAnswered(activeQuestion, answers)
+    : false;
+  const showNext =
+    !answered &&
+    !!activeQuestion?.multi_select &&
+    activeQuestionAnswered &&
+    !allAnswered &&
+    activeIndex < questions.length;
 
   const getNextOpenIndex = (
     nextAnswers: Record<string, string | Set<string>>,
     startIndex: number,
   ) => {
     for (let i = startIndex; i < questions.length; i += 1) {
-      if (!nextAnswers[questions[i].id]) return i;
+      if (!isQuestionAnswered(questions[i], nextAnswers)) return i;
     }
     for (let i = 0; i < startIndex; i += 1) {
-      if (!nextAnswers[questions[i].id]) return i;
+      if (!isQuestionAnswered(questions[i], nextAnswers)) return i;
     }
     return questions.length;
   };
@@ -203,6 +216,11 @@ export default function MultiAskQuestionCard({
     onCancel();
   };
 
+  const handleNext = () => {
+    if (!showNext) return;
+    setActiveIndex(getNextOpenIndex(answers, activeIndex + 1));
+  };
+
   return (
     <View style={s.card}>
       {/* Header */}
@@ -228,10 +246,7 @@ export default function MultiAskQuestionCard({
       <View style={s.body}>
         {questions.map((q, idx) => {
           const selectedOptId = answers[q.id];
-          const hasAnswer =
-            selectedOptId === CUSTOM_ID
-              ? (committedCustomTexts[q.id]?.length ?? 0) > 0
-              : selectedOptId != null;
+          const hasAnswer = isQuestionAnswered(q, answers);
           const isActive = !answered && idx === activeIndex;
           const isDone = hasAnswer && !isActive;
           const opacity = answered ? 0.6 : isActive ? 1 : isDone ? 0.7 : 0.4;
@@ -272,6 +287,18 @@ export default function MultiAskQuestionCard({
                       />
                     );
                   })}
+                </View>
+              )}
+
+              {isActive && q.multi_select && showNext && (
+                <View style={s.nextRow}>
+                  <TouchableOpacity
+                    accessibilityLabel="Next"
+                    style={s.nextBtn}
+                    onPress={handleNext}
+                  >
+                    <Text style={s.nextText}>Next</Text>
+                  </TouchableOpacity>
                 </View>
               )}
 
@@ -399,6 +426,22 @@ const s = StyleSheet.create({
   },
   qText: { fontFamily: 'Inter', fontSize: 14, fontWeight: '600', color: '#FFFFFF', flex: 1 },
   opts: { paddingHorizontal: 14, paddingBottom: 12, paddingTop: 8, gap: 6 },
+  nextRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    paddingHorizontal: 14,
+    paddingBottom: 12,
+  },
+  nextBtn: {
+    height: 36,
+    minWidth: 96,
+    borderRadius: 10,
+    backgroundColor: '#FF6B35',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 16,
+  },
+  nextText: { fontFamily: 'Inter', fontSize: 14, fontWeight: '600', color: '#FFFFFF' },
   actions: {
     flexDirection: 'row',
     gap: 10,
