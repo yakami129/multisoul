@@ -67,6 +67,10 @@
       "title": "Projects-First Navigation Refactor SPEC"
     },
     {
+      "file": "SPEC-unified-cli-logs.md",
+      "title": "Unified CLI Logs SPEC"
+    },
+    {
       "file": "SPEC.md",
       "title": "MultiSoul — 个人 AI Agent 随身控制台 SPEC"
     }

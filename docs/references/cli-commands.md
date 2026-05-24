@@ -16,6 +16,7 @@ msctl <COMMAND>
 | `agent` | Agent 注册与管理 |
 | `serve` | 启动本地 HTTP/WS 服务器 |
 | `daemon` | 后台服务管理 |
+| `logs` | 查看 app/service 日志 |
 
 ---
 
@@ -69,6 +70,25 @@ Source: `cli/src/commands/serve.rs`
 
 ---
 
+## `msctl logs`
+
+Source: `cli/src/commands/logs.rs`
+
+统一查看本机日志。默认 `--source all`，同时读取结构化 app 日志与 daemon/launchd service 原始日志。
+
+| 参数 | 默认值 | 说明 |
+|------|--------|------|
+| `--source <all\|app\|service>` | `all` | 日志来源 |
+| `--tail <N>` | `50` | 每个来源最多显示 N 条/行 |
+| `-f/--follow` | false | 实时 follow |
+| `--since <DURATION>` | — | app 日志时间过滤，如 `5m` / `2h` |
+| `--conv <ID>` | — | app 日志会话过滤 |
+| `--level <LEVEL>` | `trace` | app 日志最低级别 |
+| `--grep <REGEX>` | — | app 匹配 `fields.message`；service 匹配原始行 |
+| `--json` | false | 仅允许与 `--source app` 一起使用，输出 app NDJSON |
+
+---
+
 ## `msctl daemon`
 
 Source: `cli/src/commands/daemon.rs`
@@ -84,7 +104,6 @@ Source: `cli/src/commands/daemon.rs`
 | `daemon stop` | — | 停止服务 |
 | `daemon restart` | — | 重启服务 |
 | `daemon status` | — | 查看服务运行状态 |
-| `daemon logs` | `-f/--follow` `-n/--lines <N>`（默认 100） | 查看服务日志 |
 
 ### `daemon quickstart` 参数说明
 

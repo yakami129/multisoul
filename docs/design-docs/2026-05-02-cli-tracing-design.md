@@ -14,7 +14,7 @@
 ### 1.2 目标
 
 - 为 `msctl serve` 添加结构化日志，所有关键事件写入本地文件
-- 加 `msctl logs` 子命令，提供 `tail / follow / since / conv / level / json / grep` 多维查询
+- 加 `msctl logs` 子命令，提供 `source / tail / follow / since / conv / level / json / grep` 多维查询
 - 为后续更多 Harness 工作（record/replay、doc-gardening 的崩溃 alert）提供统一观察层
 
 ### 1.3 非目标
@@ -128,22 +128,30 @@
 msctl logs [options]
 
 Options:
+  --source <all|app|service>
+                       日志来源；默认 all。app 为结构化 tracing 日志，service 为 daemon stdout/stderr 原始日志
   --tail <N>           只看最后 N 条（默认 50）
   -f, --follow         实时 tail，类 tail -f；支持 rotation 切换
   --since <duration>   最近 N 分/时/天（5m / 2h / 1d）
   --conv <conv_id>     按 conversation 过滤
   --level <level>      最低级别（trace/debug/info/warn/error）
-  --json               直接输出 NDJSON（方便 jq 管道）
-  --grep <regex>       对 message 字段正则过滤
+  --json               仅允许 --source app，直接输出 app NDJSON（方便 jq 管道）
+  --grep <regex>       app 对 message 字段正则过滤；service 对原始文本行过滤
 ```
 
 行为：
 
-- **不带参数** → `--tail 50` + 渲染为彩色人类可读格式
+- **不带参数** → `--source all --tail 50`，分别读取 app + service，并渲染为人类可读格式
+- **source 语义**：
+  - `all`：默认；app 与 service 各取最多 N 条/行，输出来源前缀，不做跨 source 时间线排序
+  - `app`：结构化 `msctl serve` tracing 日志；支持 `--conv / --level / --since / --json`
+  - `service`：daemon/launchd stdout/stderr 原始日志；支持 `--tail / --follow / --grep`
 - **人类可读格式**：`2026-05-02T11:32:14 INFO  [session_worker conv=cnv_ab12] agent_spawn pid=84221 runtime=claude`
   - 时间戳截断到秒
   - level 用 ANSI 色：ERROR 红 / WARN 黄 / INFO 绿 / DEBUG 灰
   - 当 stdout 非 tty 时自动关彩色（`is-terminal` crate 或 `std::io::IsTerminal`）
+- **all 模式来源前缀**：`[app] ...` / `[service] ...`
+- **JSON 模式**：只允许 `msctl logs --source app --json`，避免 service 原始文本破坏 NDJSON 管道
 - **rotation handle**（`--follow`）：每隔 1s 检查当日文件是否变更；跨日切换时自动切文件句柄
 - **性能**：NDJSON 按行 streaming 解析，不全部载入内存；`--grep` 在 `message` 字段上，不扫描 `fields` 内容
 

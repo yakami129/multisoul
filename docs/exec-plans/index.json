@@ -3,6 +3,10 @@
   "version": 1,
   "documents": [
     {
+      "file": "2026-05-24-unified-cli-logs.md",
+      "title": "Unified CLI Logs Implementation Plan"
+    },
+    {
       "file": "2026-05-23-activity-db-backed.md",
       "title": "DB-backed Activity Aggregation Implementation Plan",
       "lastCompletedCommit": "063d02b6c729ba45c1a6791c7f80ce7bebd99e48"

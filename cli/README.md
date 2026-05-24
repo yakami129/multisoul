@@ -70,7 +70,7 @@ cargo run -- serve --token test --tailnet
 
 ```bash
 cargo run -- daemon status
-cargo run -- daemon logs -f
+cargo run -- logs --source service -f
 cargo run -- daemon restart
 cargo run -- daemon stop
 cargo run -- daemon uninstall
@@ -83,4 +83,3 @@ cargo run -- daemon uninstall
 - `src/serve/*`：HTTP/WS 服务与运行时桥接
 - `src/db.rs`：SQLite schema 与连接
 - `src/config.rs`：本地配置读写（`~/.config/msctl/config.toml`）
-

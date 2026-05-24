@@ -9,8 +9,16 @@ use std::fs::{self, File};
 use std::io::Write;
 use std::process::Command;
 
-/// Run `msctl logs <args...>` with a synthetic log dir.
 fn run_logs(args: &[&str], lines: &[&str]) -> (String, String, bool) {
+    run_logs_with_service(args, lines, &[])
+}
+
+/// Run `msctl logs <args...>` with synthetic app and service log files.
+fn run_logs_with_service(
+    args: &[&str],
+    app_lines: &[&str],
+    service_lines: &[&str],
+) -> (String, String, bool) {
     let tmp = tempfile::tempdir().expect("tempdir");
     let log_dir = tmp.path().join("logs");
     fs::create_dir_all(&log_dir).unwrap();
@@ -18,8 +26,14 @@ fn run_logs(args: &[&str], lines: &[&str]) -> (String, String, bool) {
     let today = chrono::Utc::now().format("%Y-%m-%d").to_string();
     let path = log_dir.join(format!("serve.log.{today}"));
     let mut f = File::create(&path).unwrap();
-    for line in lines {
+    for line in app_lines {
         writeln!(f, "{line}").unwrap();
+    }
+
+    let service_log = tmp.path().join("service.log");
+    let mut service = File::create(&service_log).unwrap();
+    for line in service_lines {
+        writeln!(service, "{line}").unwrap();
     }
 
     let bin = env!("CARGO_BIN_EXE_msctl");
@@ -27,6 +41,8 @@ fn run_logs(args: &[&str], lines: &[&str]) -> (String, String, bool) {
         .args(args)
         .arg("--log-dir")
         .arg(&log_dir)
+        .arg("--service-log-file")
+        .arg(&service_log)
         .output()
         .expect("run msctl logs");
     let stdout = String::from_utf8_lossy(&output.stdout).to_string();
@@ -184,11 +200,156 @@ fn scenario_agent_crash_timeline() {
     }
 }
 
+/// 默认 logs：同时展示 app 与 service，并用来源前缀区分
+///
+/// 数据构造（含关键数值的推导过程）：
+///   app_lines     = 1 条 NDJSON（message = agent_spawn）
+///   service_lines = 1 行原始文本（Listening on http://127.0.0.1:8765）
+///   tail 默认值   = 50，足够包含两个 source 的全部数据
+///
+/// 执行过程：
+///   1. 写入 synthetic app log 与 service log
+///   2. 执行 `msctl logs`，不指定 `--source`
+///   3. 默认 source=all，分别读取 app 与 service
+///
+/// 预期结果：
+///   - 断言 A：app 行存在且带 `[app]` 前缀
+///   - 断言 B：service 行存在且带 `[service]` 前缀
+///   - 断言 C：未输出 JSON 原文，说明默认是人类可读 all 模式
+#[test]
+fn default_logs_reads_app_and_service_with_prefixes() {
+    let line = ndjson("INFO", "agent_spawn", Some("cnv_all"), r#""pid":111"#);
+    let (stdout, stderr, ok) =
+        run_logs_with_service(&["logs"], &[&line], &["Listening on http://127.0.0.1:8765"]);
+    assert!(ok, "default msctl logs should exit ok, stderr:\n{stderr}");
+    assert!(
+        stdout.contains("[app]") && stdout.contains("agent_spawn"),
+        "default output must include prefixed app log, got:\n{stdout}"
+    );
+    assert!(
+        stdout.contains("[service]") && stdout.contains("Listening on http://127.0.0.1:8765"),
+        "default output must include prefixed service log, got:\n{stdout}"
+    );
+    assert!(
+        !stdout.contains(r#""fields""#),
+        "default all output should be human-readable, not raw NDJSON, got:\n{stdout}"
+    );
+}
+
+/// service source：读取 daemon 原始日志，并按原始文本应用 grep
+///
+/// 数据构造（含关键数值的推导过程）：
+///   service line 1 = "old boot noise"
+///   service line 2 = "panic: missing PATH"
+///   app_lines      = 1 条 push_send NDJSON，用于证明 source=service 不读 app
+///   tail 参数      = 10，足够包含 service 两行；grep 后只剩 panic 行
+///
+/// 执行过程：
+///   1. 写入 synthetic app log 与 service log
+///   2. 执行 `msctl logs --source service --grep panic --tail 10`
+///   3. service reader 对原始文本行执行 regex
+///
+/// 预期结果：
+///   - 断言 A：panic 行存在
+///   - 断言 B：非匹配 service 行不存在
+///   - 断言 C：app 事件不存在
+#[test]
+fn service_source_reads_plain_text_and_applies_grep() {
+    let app = ndjson("INFO", "push_send", None, r#""token_hash":"abcd1234""#);
+    let (stdout, stderr, ok) = run_logs_with_service(
+        &[
+            "logs", "--source", "service", "--grep", "panic", "--tail", "10",
+        ],
+        &[&app],
+        &["old boot noise", "panic: missing PATH"],
+    );
+    assert!(ok, "service source should exit ok, stderr:\n{stderr}");
+    assert!(
+        stdout.contains("panic: missing PATH"),
+        "service source must show matching raw line, got:\n{stdout}"
+    );
+    assert!(
+        !stdout.contains("old boot noise"),
+        "service source must filter non-matching service line, got:\n{stdout}"
+    );
+    assert!(
+        !stdout.contains("push_send"),
+        "service source must not include app logs, got:\n{stdout}"
+    );
+}
+
+/// JSON 模式：必须显式选择 app source，避免 all/service 混入非 JSON 文本
+///
+/// 数据构造（含关键数值的推导过程）：
+///   app_lines     = 1 条可解析 NDJSON
+///   service_lines = 1 行原始文本
+///   source 默认值 = all
+///
+/// 执行过程：
+///   1. 执行 `msctl logs --json`
+///   2. CLI 发现 `--json` 与默认 source=all 冲突
+///
+/// 预期结果：
+///   - 断言 A：命令失败
+///   - 断言 B：stderr 提示 `--json` 只支持 `--source app`
+///   - 断言 C：stdout 为空，避免输出半截可解析内容
+#[test]
+fn json_requires_explicit_app_source() {
+    let app = ndjson("INFO", "agent_spawn", Some("cnv_j"), r#""pid":111"#);
+    let (stdout, stderr, ok) =
+        run_logs_with_service(&["logs", "--json"], &[&app], &["service text"]);
+    assert!(
+        !ok,
+        "`msctl logs --json` should fail when source defaults to all"
+    );
+    assert!(
+        stderr.contains("--json is only supported with --source app"),
+        "stderr must explain json source requirement, got:\n{stderr}"
+    );
+    assert!(
+        stdout.trim().is_empty(),
+        "json validation failure should not emit stdout, got:\n{stdout}"
+    );
+}
+
+/// daemon logs：旧入口被删除，不提供兼容 alias
+///
+/// 数据构造（含关键数值的推导过程）：
+///   无需日志文件；只验证 CLI 子命令树
+///
+/// 执行过程：
+///   1. 执行 `msctl daemon logs`
+///   2. clap 在 daemon 子命令下找不到 `logs`
+///
+/// 预期结果：
+///   - 断言 A：命令失败
+///   - 断言 B：stderr 包含 unknown/unrecognized subcommand 语义
+///   - 断言 C：stdout 为空
+#[test]
+fn daemon_logs_subcommand_is_removed() {
+    let bin = env!("CARGO_BIN_EXE_msctl");
+    let output = Command::new(bin).args(["daemon", "logs"]).output().unwrap();
+    let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+    let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+    assert!(
+        !output.status.success(),
+        "`msctl daemon logs` should fail after removing the subcommand"
+    );
+    assert!(
+        stderr.contains("unrecognized subcommand") || stderr.contains("unexpected argument"),
+        "stderr should come from clap unknown command handling, got:\n{stderr}"
+    );
+    assert!(
+        stdout.trim().is_empty(),
+        "removed daemon logs command should not print stdout, got:\n{stdout}"
+    );
+}
+
 /// JSON mode preserves NDJSON so that jq / other tools can parse.
 #[test]
 fn json_mode_emits_ndjson() {
     let line = ndjson("INFO", "agent_spawn", Some("cnv_j"), r#""pid":111"#);
-    let (stdout, _stderr, ok) = run_logs(&["logs", "--json"], &[&line]);
+    let (stdout, _stderr, ok) = run_logs(&["logs", "--source", "app", "--json"], &[&line]);
     assert!(ok);
     let first = stdout.lines().next().unwrap_or("");
     let v: serde_json::Value = serde_json::from_str(first).expect("line should parse as JSON");
