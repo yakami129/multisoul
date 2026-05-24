@@ -85,7 +85,7 @@ export default function ActivityTab() {
   useFocusEffect(
     useCallback(() => {
       setFocused(true);
-      void refreshActivity();
+      void refreshActivity(false);
       return () => {
         setFocused(false);
       };

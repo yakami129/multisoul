@@ -98,8 +98,16 @@ pub async fn run_server(state: AppState, addr: std::net::SocketAddr) -> Result<(
 mod http_trace {
     use axum::{extract::Request, http::StatusCode, middleware::Next, response::Response};
     use std::time::Instant;
-    use tracing::{info, warn, Instrument};
+    use tracing::{debug, warn, Instrument, Level};
     use uuid::Uuid;
+
+    pub(super) fn log_level_for_status(status: StatusCode) -> Level {
+        if status.is_client_error() || status == StatusCode::INTERNAL_SERVER_ERROR {
+            Level::WARN
+        } else {
+            Level::DEBUG
+        }
+    }
 
     pub async fn trace_request(req: Request, next: Next) -> Response {
         let request_id = Uuid::new_v4().to_string();
@@ -116,11 +124,10 @@ mod http_trace {
             let resp = next.run(req).await;
             let dur_ms = started.elapsed().as_millis() as u64;
             let status = resp.status().as_u16();
-            if resp.status().is_client_error() || resp.status() == StatusCode::INTERNAL_SERVER_ERROR
-            {
+            if log_level_for_status(resp.status()) == Level::WARN {
                 warn!(status, dur_ms, "http_error");
             } else {
-                info!(status, dur_ms, "http_request");
+                debug!(status, dur_ms, "http_request");
             }
             resp
         }
@@ -137,6 +144,7 @@ mod router_tests {
     use axum::http::{Request, StatusCode};
     use tempfile::tempdir;
     use tower::ServiceExt;
+    use tracing::Level;
 
     async fn test_state() -> AppState {
         let dir = tempdir().unwrap();
@@ -281,6 +289,49 @@ mod router_tests {
             resp.status(),
             StatusCode::UNAUTHORIZED,
             "valid query token should not be rejected"
+        );
+    }
+
+    /// http_trace：成功请求降为 DEBUG，认证/服务错误仍保留 WARN。
+    ///
+    /// 数据构造（含关键数值的推导过程）：
+    ///   status_ok       = 200 OK（典型健康检查/轮询成功响应）
+    ///   status_redirect = 307 Temporary Redirect（非错误响应，不应污染 INFO）
+    ///   status_auth     = 401 Unauthorized（认证失败，需要默认可见）
+    ///   status_error    = 500 Internal Server Error（服务错误，需要默认可见）
+    ///
+    /// 执行过程（逐步说明系统如何处理）：
+    ///   1. 调用 http_trace::log_level_for_status(200)   → 期望 DEBUG
+    ///   2. 调用 http_trace::log_level_for_status(307)   → 期望 DEBUG
+    ///   3. 调用 http_trace::log_level_for_status(401)   → 期望 WARN
+    ///   4. 调用 http_trace::log_level_for_status(500)   → 期望 WARN
+    ///
+    /// 预期结果：
+    ///   - 断言 A：200 不再是 INFO/WARN，说明成功轮询不会进入默认 info 日志
+    ///   - 断言 B：307 不再是 INFO/WARN，说明非错误响应同样保持低噪声
+    ///   - 断言 C：401 是 WARN，说明认证问题仍会被默认 `msctl logs` 看见
+    ///   - 断言 D：500 是 WARN，说明服务端错误仍会被默认 `msctl logs` 看见
+    #[test]
+    fn test_http_trace_success_statuses_are_debug_errors_warn() {
+        assert_eq!(
+            http_trace::log_level_for_status(StatusCode::OK),
+            Level::DEBUG,
+            "200 OK http_request should be DEBUG so successful polling is hidden at default info"
+        );
+        assert_eq!(
+            http_trace::log_level_for_status(StatusCode::TEMPORARY_REDIRECT),
+            Level::DEBUG,
+            "307 redirect should remain DEBUG because it is not an HTTP error"
+        );
+        assert_eq!(
+            http_trace::log_level_for_status(StatusCode::UNAUTHORIZED),
+            Level::WARN,
+            "401 Unauthorized should stay WARN so auth failures remain visible"
+        );
+        assert_eq!(
+            http_trace::log_level_for_status(StatusCode::INTERNAL_SERVER_ERROR),
+            Level::WARN,
+            "500 Internal Server Error should stay WARN so server failures remain visible"
         );
     }
 }

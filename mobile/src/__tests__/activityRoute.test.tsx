@@ -370,6 +370,42 @@ describe('ActivityTab DB-backed aggregation', () => {
     expect(mockAggregateActivity).toHaveBeenCalledTimes(2);
   });
 
+  /// Focus refresh UI state: automatic Activity focus refresh must stay visually silent.
+  ///
+  /// Data construction:
+  ///   endpoints = ep-1 Office Mac + ep-2 Studio Mac
+  ///   request #1 = unresolved focus refresh promise
+  ///   refreshing flag should remain false because the user did not pull to refresh
+  ///
+  /// Execution process:
+  ///   1. Render ActivityTab while the tab is focused.
+  ///   2. Keep the aggregate request pending so any refresh spinner would remain visible.
+  ///   3. Inspect the ScrollView RefreshControl state.
+  ///
+  /// Expected result:
+  ///   - Positive: aggregateActivity is called once, so focus data refresh still runs.
+  ///   - Negative: RefreshControl.refreshing is false, so iOS does not show forced pull refresh UI.
+  it('keeps focus refresh visually silent while data is in flight', async () => {
+    const first = deferred<AggregatedActivityResult>();
+    mockAggregateActivity.mockReturnValueOnce(first.promise);
+
+    const view = await renderActivity();
+
+    expect(mockAggregateActivity).toHaveBeenCalledTimes(
+      1,
+      'focus refresh should still fetch Activity data on entry',
+    );
+    expect(view.UNSAFE_getByType(RefreshControl).props.refreshing).toBe(
+      false,
+      'focus refresh must not drive the pull-to-refresh spinner',
+    );
+
+    await act(async () => {
+      first.resolve(activityResult());
+      await first.promise;
+    });
+  });
+
   /// Visible polling: focused foreground Activity refreshes every 15 seconds and stops on unmount.
   /// Data construction:
   ///   interval = 15_000ms
