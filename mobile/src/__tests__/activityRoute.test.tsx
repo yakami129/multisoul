@@ -1,6 +1,6 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import React from 'react';
-import { AppState, RefreshControl } from 'react-native';
+import { AppState, RefreshControl, StyleSheet } from 'react-native';
 import { type AggregatedActivityResult } from '@/features/activity/services/activityService';
 import { type Endpoint } from '@/types';
 import ActivityTab from '../../app/(tabs)/activity';
@@ -239,6 +239,41 @@ describe('ActivityTab DB-backed aggregation', () => {
     expect(screen.getByLabelText('Show Done activity, 1 item, 1 unread')).toBeTruthy();
     expect(screen.getByTestId('activity-done-unread-dot')).toBeTruthy();
     expect(screen.queryByText('Needs Attention')).toBeNull();
+  });
+
+  /// Activity tabs visual hierarchy: top filter uses the prototype's raised pill surface.
+  ///
+  /// Data construction:
+  ///   needsAttention = 1 row
+  ///   running        = 1 row
+  ///   done           = 1 unread row
+  ///   total          = 1 + 1 + 1 = 3
+  ///
+  /// Execution process:
+  ///   1. Render ActivityTab with the default All filter selected.
+  ///   2. Read the parent segmented-control style from the All tab button.
+  ///   3. Read the active All tab button style and inactive Pending label style.
+  ///
+  /// Expected result:
+  ///   - Positive: outer segmented control uses #1A1A1A, matching the prototype surface.
+  ///   - Positive: selected tab uses #2A2A2A so it remains visibly raised.
+  ///   - Positive: selected label is white.
+  ///   - Negative: inactive Pending label is not promoted to white.
+  it('uses the prototype color hierarchy for the Activity top filter', async () => {
+    await renderActivity();
+
+    const allTab = await screen.findByLabelText('Show All activity, 3 items');
+    const segmentStyle = StyleSheet.flatten(
+      screen.getByTestId('activity-filter-segment').props.style,
+    );
+    const allTabStyle = StyleSheet.flatten(allTab.props.style);
+    const allTextStyle = StyleSheet.flatten(screen.getByText('All 3').props.style);
+    const pendingTextStyle = StyleSheet.flatten(screen.getByText('Pending 1').props.style);
+
+    expect(segmentStyle.backgroundColor).toBe('#1A1A1A');
+    expect(allTabStyle.backgroundColor).toBe('#2A2A2A');
+    expect(allTextStyle.color).toBe('#FFFFFF');
+    expect(pendingTextStyle.color).toBe('#888888');
   });
 
   /// Done filter: Done-only view splits unread and read completion results.

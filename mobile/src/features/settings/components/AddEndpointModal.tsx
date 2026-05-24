@@ -1,7 +1,7 @@
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as Clipboard from 'expo-clipboard';
 import { ChevronLeft, Copy, Info, Terminal, X } from 'lucide-react-native';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Modal, View, Text, TouchableOpacity, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { getEndpointClient } from '@/api/endpointClient';
@@ -54,6 +54,7 @@ export function AddEndpointModal({ visible, onClose, onAdd }: Props) {
   const [helpVisible, setHelpVisible] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [permission, requestPermission] = useCameraPermissions();
+  const scanInFlightRef = useRef(false);
 
   useEffect(() => {
     if (!visible) return;
@@ -67,6 +68,7 @@ export function AddEndpointModal({ visible, onClose, onAdd }: Props) {
   }, [copiedId]);
 
   const reset = () => {
+    scanInFlightRef.current = false;
     setStatus('idle');
     setScanned(false);
     setHelpVisible(false);
@@ -131,6 +133,7 @@ export function AddEndpointModal({ visible, onClose, onAdd }: Props) {
         const err3 = e3 as { message?: string };
         console.error('[AddEndpoint] public HTTPS also failed:', err3?.message);
       }
+      scanInFlightRef.current = false;
       setScanned(false);
       setStatus('connection_err');
     }
@@ -138,22 +141,26 @@ export function AddEndpointModal({ visible, onClose, onAdd }: Props) {
 
   // Parse multisoul://pair?url=...&token=...
   const handleBarCodeScanned = ({ data }: { data: string }) => {
-    if (scanned) return;
+    if (scanInFlightRef.current || scanned) return;
+    scanInFlightRef.current = true;
     setScanned(true);
     try {
       const parsed = new URL(data);
       if (parsed.protocol !== 'multisoul:') {
+        scanInFlightRef.current = false;
         setStatus('invalid_qr');
         return;
       }
       const scannedUrl = parsed.searchParams.get('url') ?? '';
       const scannedToken = parsed.searchParams.get('token') ?? '';
       if (!scannedUrl || !scannedToken) {
+        scanInFlightRef.current = false;
         setStatus('invalid_qr');
         return;
       }
       void handleAdd(scannedUrl, scannedToken);
     } catch {
+      scanInFlightRef.current = false;
       setStatus('invalid_qr');
     }
   };

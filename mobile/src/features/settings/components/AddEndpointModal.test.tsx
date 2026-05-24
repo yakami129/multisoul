@@ -110,6 +110,50 @@ it('adds the scanned endpoint with the URL hostname as its label', async () => {
   );
 });
 
+/// QR scan duplicate guard: repeated camera callbacks for the same QR must add only one endpoint.
+///
+/// Data construction:
+///   QR URL parameter = "https://mac-home.tailnet.ts.net:8765".
+///   QR token         = "test-token".
+///   Duplicate scans  = 2 callbacks fired in the same React render tick before state can re-render.
+///
+/// Execution:
+///   1. Enable camera permission so CameraView mounts.
+///   2. Render AddEndpointModal in QR mode.
+///   3. Invoke CameraView.onBarcodeScanned twice with the same valid QR payload in one act block.
+///   4. Wait for the health check path to complete.
+///
+/// Expected:
+///   - Positive: onAdd receives the parsed endpoint once.
+///   - Positive: onClose is called once after the single successful registration.
+///   - Negative: onAdd is not called twice for the same QR payload.
+///   - Negative: onClose is not called twice by duplicate scan events.
+it('ignores duplicate camera callbacks while one QR registration is already in flight', async () => {
+  mockPermissionGranted = true;
+  const onAdd = jest.fn();
+  const onClose = jest.fn();
+  const payload =
+    'multisoul://pair?url=https%3A%2F%2Fmac-home.tailnet.ts.net%3A8765&token=test-token';
+  render(<AddEndpointModal visible onClose={onClose} onAdd={onAdd} initialTab="qr" />);
+
+  act(() => {
+    mockCameraProps?.onBarcodeScanned?.({ data: payload });
+    mockCameraProps?.onBarcodeScanned?.({ data: payload });
+  });
+
+  await waitFor(() => {
+    expect(onAdd).toHaveBeenCalledWith(
+      'mac-home.tailnet.ts.net',
+      'https://mac-home.tailnet.ts.net:8765',
+      'test-token',
+    );
+  });
+  expect(onAdd).toHaveBeenCalledTimes(1);
+  expect(onAdd).not.toHaveBeenCalledTimes(2);
+  expect(onClose).toHaveBeenCalledTimes(1);
+  expect(onClose).not.toHaveBeenCalledTimes(2);
+});
+
 /// QR scan connection failure: a valid pairing QR must not be reported as an invalid QR code.
 ///
 /// Data construction:

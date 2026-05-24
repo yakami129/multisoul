@@ -243,7 +243,7 @@ export default function ActivityScreen({
           <Text style={s.title}>Activity</Text>
           <SlidersHorizontal size={22} color="#888888" />
         </View>
-        <View style={s.segment}>
+        <View style={s.segment} testID="activity-filter-segment">
           {FILTERS.map((filter) => {
             const selected = activeFilter === filter.key;
             const count = tabCount(filter.key);

@@ -7,7 +7,7 @@ export const activityScreenStyles = StyleSheet.create({
   title: { fontFamily: 'Inter', fontSize: 34, fontWeight: '700', color: '#FFFFFF' },
   segment: {
     flexDirection: 'row',
-    backgroundColor: '#111111',
+    backgroundColor: '#1A1A1A',
     borderRadius: 8,
     padding: 3,
     gap: 3,
