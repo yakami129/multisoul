@@ -28,4 +28,5 @@ cli/npm/vendor/
 
 # Local Claude Code / tooling (large; machine-specific)
 .claude/
+.codex-output/
 tmp
