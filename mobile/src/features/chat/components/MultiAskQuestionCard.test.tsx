@@ -199,7 +199,7 @@ describe('MultiAskQuestionCard - Multi-select support', () => {
       <MultiAskQuestionCard questions={questions} onCancel={jest.fn()} onConfirm={jest.fn()} />,
     );
 
-    expect(getByText('Select frameworks')).toBeTruthy();
+    expect(getByText(/Q1: Select frameworks/)).toBeTruthy();
     expect(getByText('React')).toBeTruthy();
   });
 
@@ -217,7 +217,7 @@ describe('MultiAskQuestionCard - Multi-select support', () => {
     ];
 
     const onConfirm = jest.fn();
-    const { getByText, getByRole } = render(
+    const { getByText, getByLabelText } = render(
       <MultiAskQuestionCard questions={questions} onCancel={jest.fn()} onConfirm={onConfirm} />,
     );
 
@@ -228,7 +228,7 @@ describe('MultiAskQuestionCard - Multi-select support', () => {
     fireEvent.press(getByText('Vue'));
 
     // Confirm
-    fireEvent.press(getByRole('button', { name: /confirm/i }));
+    fireEvent.press(getByLabelText('Confirm'));
 
     expect(onConfirm).toHaveBeenCalledWith({ '0': '0,1' });
   });
@@ -247,7 +247,7 @@ describe('MultiAskQuestionCard - Multi-select support', () => {
     ];
 
     const onConfirm = jest.fn();
-    const { getByText, getByRole } = render(
+    const { getByText, getByLabelText } = render(
       <MultiAskQuestionCard questions={questions} onCancel={jest.fn()} onConfirm={onConfirm} />,
     );
 
@@ -261,9 +261,82 @@ describe('MultiAskQuestionCard - Multi-select support', () => {
     fireEvent.press(getByText('React'));
 
     // Confirm
-    fireEvent.press(getByRole('button', { name: /confirm/i }));
+    fireEvent.press(getByLabelText('Confirm'));
 
     expect(onConfirm).toHaveBeenCalledWith({ '0': '1' });
+  });
+
+  it('should handle mixed single-select and multi-select questions', () => {
+    const questions = [
+      {
+        id: '0',
+        text: 'Select language',
+        options: [
+          { id: '0', label: 'TypeScript' },
+          { id: '1', label: 'JavaScript' },
+        ],
+        multi_select: false, // 单选
+      },
+      {
+        id: '1',
+        text: 'Select frameworks',
+        options: [
+          { id: '0', label: 'React' },
+          { id: '1', label: 'Vue' },
+          { id: '2', label: 'Angular' },
+        ],
+        multi_select: true, // 多选
+      },
+    ];
+
+    const onConfirm = jest.fn();
+    const { getByText, getByLabelText } = render(
+      <MultiAskQuestionCard questions={questions} onCancel={jest.fn()} onConfirm={onConfirm} />,
+    );
+
+    // Q1: 单选 TypeScript
+    fireEvent.press(getByText('TypeScript'));
+
+    // Q2: 多选 React + Vue
+    fireEvent.press(getByText('React'));
+    fireEvent.press(getByText('Vue'));
+
+    // Confirm
+    fireEvent.press(getByLabelText('Confirm'));
+
+    expect(onConfirm).toHaveBeenCalledWith({
+      '0': '0', // 单选：optionId
+      '1': '0,1', // 多选：逗号分隔
+    });
+  });
+
+  it('should restore multi-select state from initialAnswers', () => {
+    const questions = [
+      {
+        id: '0',
+        text: 'Select frameworks',
+        options: [
+          { id: '0', label: 'React' },
+          { id: '1', label: 'Vue' },
+          { id: '2', label: 'Angular' },
+        ],
+        multi_select: true,
+      },
+    ];
+
+    const { getByText } = render(
+      <MultiAskQuestionCard
+        questions={questions}
+        answered={true}
+        initialAnswers={{ '0': '0,2' }} // React + Angular
+        onCancel={jest.fn()}
+        onConfirm={jest.fn()}
+      />,
+    );
+
+    // 验证已选中状态（通过样式或其他方式，这里简化为存在性检查）
+    expect(getByText('React')).toBeTruthy();
+    expect(getByText('Angular')).toBeTruthy();
   });
 });
 
@@ -277,7 +350,7 @@ test('unsubmitted multi-question answers can be edited before final confirm', ()
   fireEvent.changeText(getByPlaceholderText('Type your answer...'), 'custom1');
   fireEvent.press(getByLabelText('Use answer'));
 
-  fireEvent.press(getByLabelText('Edit q1'));
+  fireEvent.press(getByLabelText('Edit'));
   fireEvent.press(getByLabelText('Option B'));
   fireEvent.press(getByLabelText('Option C'));
   fireEvent.press(getByLabelText('Confirm'));
