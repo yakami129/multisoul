@@ -174,19 +174,25 @@ export default function MultiAskQuestionCard({
 
   const handleConfirm = () => {
     if (!allAnswered || answered) return;
+
     const resolved: Record<string, string> = {};
     for (const q of questions) {
       const raw = answers[q.id];
-      if (raw === CUSTOM_ID) {
-        resolved[q.id] = committedCustomTexts[q.id] ?? '';
-      } else if (raw instanceof Set) {
+
+      if (raw instanceof Set) {
         // 多选：Set → 逗号分隔字符串
-        resolved[q.id] = Array.from(raw).join(',');
+        const ids = Array.from(raw)
+          .filter((id) => id !== CUSTOM_ID)
+          .sort();
+        const customText = raw.has(CUSTOM_ID) ? committedCustomTexts[q.id] : undefined;
+        const parts = customText ? [...ids, customText] : ids;
+        resolved[q.id] = parts.join(',');
       } else {
-        // 单选：直接使用字符串
-        resolved[q.id] = raw;
+        // 单选：直接使用或替换为自定义文本
+        resolved[q.id] = raw === CUSTOM_ID ? (committedCustomTexts[q.id] ?? '') : raw;
       }
     }
+
     onConfirm(resolved);
   };
 
