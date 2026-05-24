@@ -114,15 +114,19 @@ cd cli
 cargo run -- daemon quickstart --token test --port 8765 --tailnet true
 ```
 
-This command saves the token, installs and starts the background service, binds it for Tailnet access, and prints a QR code.
+This command saves the token, installs and starts the background service, binds it for Tailnet access, and prints a QR code plus a connection string.
 
-In the mobile app, open:
+On iOS or Android, open the mobile app and add the machine:
 
 ```text
-Settings -> Add Endpoint -> Scan QR
+Agents -> Tap + -> Scan QR
 ```
 
-Scan the QR code to register this computer as a MultiSoul endpoint on your phone.
+Scan the QR code printed by `msctl daemon quickstart` to register this computer as a MultiSoul endpoint on your phone. If camera access is unavailable, tap **Paste connection string** and paste the connection string printed next to the QR code.
+
+<p align="center">
+  <img src="docs/assets/multisoul-add-endpoint.png" alt="MultiSoul Add Endpoint flow: tap plus on Agents, then scan QR or paste connection string" width="520" />
+</p>
 
 For real personal use, replace `test` with your own long token.
 

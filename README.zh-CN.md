@@ -114,15 +114,19 @@ cd cli
 cargo run -- daemon quickstart --token test --port 8765 --tailnet true
 ```
 
-这个命令会保存 token，安装并启动后台服务，监听 Tailnet 可访问地址，并在终端生成一个二维码。
+这个命令会保存 token，安装并启动后台服务，监听 Tailnet 可访问地址，并在终端生成二维码和 connection string。
 
-在手机 App 中打开：
+在 iOS 或 Android 手机 App 中添加这台机器：
 
 ```text
-Settings -> Add Endpoint -> Scan QR
+Agents -> Tap + -> Scan QR
 ```
 
-扫描终端里的二维码，即可把这台电脑注册为手机上的 MultiSoul 节点。
+扫描 `msctl daemon quickstart` 打印的二维码，即可把这台电脑注册为手机上的 MultiSoul 节点。如果当前不方便使用摄像头，点击 **Paste connection string**，粘贴二维码旁边打印的 connection string。
+
+<p align="center">
+  <img src="docs/assets/multisoul-add-endpoint.png" alt="MultiSoul Add Endpoint 流程：在 Agents 点击加号，然后扫描二维码或粘贴 connection string" width="520" />
+</p>
 
 个人真实使用时，请把 `test` 换成自己的长 token。
 
