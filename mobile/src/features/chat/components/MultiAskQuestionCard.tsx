@@ -1,6 +1,8 @@
 import { Bot, Info } from 'lucide-react-native';
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, TextInput, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import QuestionOption from './QuestionOption';
+import SelectedOption from './SelectedOption';
 
 const CUSTOM_ID = '__custom__';
 
@@ -250,46 +252,24 @@ export default function MultiAskQuestionCard({
               {isActive && (
                 <View style={s.opts}>
                   {[...q.options, { id: CUSTOM_ID, label: 'Other' }].map((opt, optIndex) => {
-                    const selected = selectedOptId === opt.id;
-                    const isCustomRow = opt.id === CUSTOM_ID;
+                    const ans = answers[q.id];
+                    const isMulti = q.multi_select ?? false;
+                    const selected = isMulti
+                      ? ans instanceof Set && ans.has(opt.id)
+                      : ans === opt.id;
                     return (
-                      <TouchableOpacity
+                      <QuestionOption
                         key={`${q.id}-${opt.id}-${optIndex}`}
-                        accessibilityLabel={opt.label}
-                        style={[s.opt, selected && s.optSelected]}
-                        onPress={() => handleSelect(q.id, opt.id)}
-                        activeOpacity={0.7}
-                      >
-                        <View style={[s.radio, selected && s.radioSelected]} />
-                        {isCustomRow && selected ? (
-                          <View style={s.customEditor}>
-                            <TextInput
-                              style={s.customInput}
-                              placeholder="Type your answer..."
-                              placeholderTextColor="#555555"
-                              value={customTexts[q.id] ?? ''}
-                              onChangeText={(text) => handleCustomText(q.id, text)}
-                              maxLength={200}
-                              autoFocus
-                            />
-                            <TouchableOpacity
-                              accessibilityLabel="Use answer"
-                              accessibilityState={{
-                                disabled: (customTexts[q.id]?.trim().length ?? 0) === 0,
-                              }}
-                              style={[
-                                s.useAnswerBtn,
-                                (customTexts[q.id]?.trim().length ?? 0) === 0 && s.useAnswerBtnOff,
-                              ]}
-                              onPress={() => handleCommitCustomText(q.id)}
-                            >
-                              <Text style={s.useAnswerText}>Use</Text>
-                            </TouchableOpacity>
-                          </View>
-                        ) : (
-                          <Text style={s.optLabel}>{opt.label}</Text>
-                        )}
-                      </TouchableOpacity>
+                        option={opt}
+                        questionId={q.id}
+                        isMulti={isMulti}
+                        selected={selected}
+                        answered={false}
+                        customText={customTexts[q.id] ?? ''}
+                        onSelect={handleSelect}
+                        onCustomTextChange={handleCustomText}
+                        onCommitCustomText={handleCommitCustomText}
+                      />
                     );
                   })}
                 </View>
@@ -297,42 +277,66 @@ export default function MultiAskQuestionCard({
 
               {isDone && selectedOptId != null && (
                 <View style={s.opts}>
-                  {selectedOptId === CUSTOM_ID ? (
-                    <View style={[s.opt, s.optSelected]}>
-                      <View style={[s.radio, s.radioSelected]} />
-                      <Text style={s.optLabel}>{committedCustomTexts[q.id] ?? 'Other'}</Text>
-                      {!answered && (
-                        <TouchableOpacity
-                          accessibilityLabel={`Edit ${q.id}`}
-                          style={s.editBtn}
-                          onPress={() => handleEdit(idx)}
-                        >
-                          <Text style={s.editText}>Edit</Text>
-                        </TouchableOpacity>
-                      )}
-                    </View>
-                  ) : (
-                    q.options
+                  {(() => {
+                    const ans = answers[q.id];
+                    const isMulti = q.multi_select ?? false;
+
+                    if (isMulti && ans instanceof Set) {
+                      // Multi-select: show all selected options
+                      const selectedIds = Array.from(ans);
+                      return selectedIds.map((optId, optIndex) => {
+                        if (optId === CUSTOM_ID) {
+                          return (
+                            <SelectedOption
+                              key={`${q.id}-${optId}-${optIndex}`}
+                              label={committedCustomTexts[q.id] ?? 'Other'}
+                              isMulti={true}
+                              answered={answered}
+                              showEdit={true}
+                              onEdit={() => handleEdit(idx)}
+                            />
+                          );
+                        }
+                        const opt = q.options.find((o) => o.id === optId);
+                        if (!opt) return null;
+                        return (
+                          <SelectedOption
+                            key={`${q.id}-${opt.id}-${optIndex}`}
+                            label={opt.label}
+                            isMulti={true}
+                            answered={answered}
+                            showEdit={optIndex === selectedIds.length - 1}
+                            onEdit={() => handleEdit(idx)}
+                          />
+                        );
+                      });
+                    }
+
+                    // Single-select: show the one selected option
+                    if (selectedOptId === CUSTOM_ID) {
+                      return (
+                        <SelectedOption
+                          label={committedCustomTexts[q.id] ?? 'Other'}
+                          isMulti={false}
+                          answered={answered}
+                          showEdit={true}
+                          onEdit={() => handleEdit(idx)}
+                        />
+                      );
+                    }
+                    return q.options
                       .filter((opt) => opt.id === selectedOptId)
                       .map((opt, optIndex) => (
-                        <View
+                        <SelectedOption
                           key={`${q.id}-${opt.id}-selected-${optIndex}`}
-                          style={[s.opt, s.optSelected]}
-                        >
-                          <View style={[s.radio, s.radioSelected]} />
-                          <Text style={s.optLabel}>{opt.label}</Text>
-                          {!answered && (
-                            <TouchableOpacity
-                              accessibilityLabel={`Edit ${q.id}`}
-                              style={s.editBtn}
-                              onPress={() => handleEdit(idx)}
-                            >
-                              <Text style={s.editText}>Edit</Text>
-                            </TouchableOpacity>
-                          )}
-                        </View>
-                      ))
-                  )}
+                          label={opt.label}
+                          isMulti={false}
+                          answered={answered}
+                          showEdit={true}
+                          onEdit={() => handleEdit(idx)}
+                        />
+                      ));
+                  })()}
                 </View>
               )}
             </View>
@@ -395,49 +399,6 @@ const s = StyleSheet.create({
   },
   qText: { fontFamily: 'Inter', fontSize: 14, fontWeight: '600', color: '#FFFFFF', flex: 1 },
   opts: { paddingHorizontal: 14, paddingBottom: 12, paddingTop: 8, gap: 6 },
-  opt: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    height: 40,
-    borderRadius: 8,
-    backgroundColor: '#252525',
-    paddingHorizontal: 12,
-    gap: 10,
-  },
-  optSelected: { borderWidth: 1, borderColor: '#4CAF50', backgroundColor: '#1F2A1F' },
-  radio: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    borderWidth: 1.5,
-    borderColor: '#555555',
-    backgroundColor: '#252525',
-  },
-  radioSelected: { borderColor: '#4CAF50', backgroundColor: '#4CAF50' },
-  optLabel: { fontFamily: 'Inter', fontSize: 14, color: '#DDDDDD' },
-  customEditor: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 },
-  customInput: { flex: 1, fontFamily: 'Inter', fontSize: 13, color: '#FFFFFF', paddingVertical: 0 },
-  useAnswerBtn: {
-    height: 26,
-    borderRadius: 6,
-    backgroundColor: '#FF6B35',
-    paddingHorizontal: 9,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  useAnswerBtnOff: { opacity: 0.4 },
-  useAnswerText: { fontFamily: 'Inter', fontSize: 11, fontWeight: '600', color: '#FFFFFF' },
-  editBtn: {
-    marginLeft: 'auto',
-    height: 26,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: '#555555',
-    paddingHorizontal: 9,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  editText: { fontFamily: 'Inter', fontSize: 11, fontWeight: '600', color: '#888888' },
   actions: {
     flexDirection: 'row',
     gap: 10,
