@@ -5,6 +5,52 @@ use std::{
 };
 use tempfile::tempdir;
 
+/// build_cursor_args: Cursor Agent 会话应使用 conversation 级 model_id，而不是环境变量作为权威。
+///
+/// 数据构造（含关键数值推导）：
+///   prompt       = "hello"（-p 参数值）
+///   project_path = "/repo"（--workspace 参数值）
+///   mode         = "plan" → 应生成 --plan
+///   resume       = Some("sid-1") → 应生成 --resume sid-1
+///   model_id     = Some("cursor-fast") → 应生成 --model cursor-fast
+///   default      = None → 不生成 --model，由 Cursor CLI 自身默认处理
+///
+/// 执行过程：
+///   1. 调用 build_cursor_args(..., model_id=Some("cursor-fast"))
+///   2. 检查 selected argv 中存在 workspace、plan、resume、model
+///   3. 调用 build_cursor_args(..., model_id=None)
+///
+/// 预期结果：
+///   - selected argv 包含 `--model cursor-fast`
+///   - selected argv 包含 `--resume sid-1`
+///   - default argv 不包含 `--model`
+#[test]
+fn test_build_cursor_args_includes_selected_model() {
+    let selected = build_cursor_args("hello", "/repo", "plan", Some("sid-1"), Some("cursor-fast"));
+    let default = build_cursor_args("hello", "/repo", "plan", Some("sid-1"), None);
+
+    assert!(
+        selected
+            .windows(2)
+            .any(|window| window == ["--model", "cursor-fast"]),
+        "Cursor args should include the selected concrete model"
+    );
+    assert!(
+        selected
+            .windows(2)
+            .any(|window| window == ["--resume", "sid-1"]),
+        "Cursor args should include the resume session id"
+    );
+    assert!(
+        selected.iter().any(|arg| arg == "--plan"),
+        "Cursor plan mode should still include --plan when model_id is selected"
+    );
+    assert!(
+        !default.iter().any(|arg| arg == "--model"),
+        "Cursor args for Default/None should not include --model"
+    );
+}
+
 /// abort API: 正在阻塞于 Cursor process_turn stdout 读取的 fake agent 子进程会被终止。
 ///
 /// 数据构造（含关键数值推导）：
@@ -59,6 +105,7 @@ fn abort_kills_child_blocking_inside_cursor_process_turn() {
                 project_path: project_path.to_str().unwrap(),
                 mode: "full-auto",
                 resume: None,
+                model_id: None,
             },
             &handle_for_turn,
         )

@@ -42,6 +42,10 @@ pub async fn build_router(state: AppState) -> Router {
             axum::routing::post(activity::mark_done_read),
         )
         .route("/api/v1/agents", axum::routing::get(agents::list_agents))
+        .route(
+            "/api/v1/runtime-models",
+            axum::routing::get(runtime_models::list_runtime_models),
+        )
         .route("/ws/logs", axum::routing::get(logs::logs_ws_handler))
         .route("/api/v1/agents/:id", axum::routing::get(agents::get_agent))
         .route(
@@ -52,6 +56,10 @@ pub async fn build_router(state: AppState) -> Router {
         .route(
             "/api/v1/conversations/:id",
             axum::routing::delete(conversations::delete_conversation),
+        )
+        .route(
+            "/api/v1/conversations/:id/model",
+            axum::routing::patch(conversations::patch_conversation_model),
         )
         .route(
             "/api/v1/conversations/:id/abort",

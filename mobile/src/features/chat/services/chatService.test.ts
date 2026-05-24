@@ -1,11 +1,13 @@
 import type { WsMessage } from '@/types';
 import {
+  fetchRuntimeModels,
   fetchMessages,
   postMessage,
   abortConversation,
   deleteConversation,
   buildUploadedImageUrl,
   resolveUserMessageImageUri,
+  switchConversationModel,
 } from './chatService';
 
 jest.mock('@/api/endpointClient', () => ({
@@ -15,6 +17,154 @@ jest.mock('@/api/endpointClient', () => ({
 describe('chatService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+  });
+
+  describe('runtime models', () => {
+    /// Runtime model listing: Codex model picker loads the server models for one runtime.
+    ///
+    /// Data construction:
+    ///   base_url = http://localhost:8080
+    ///   token    = tok
+    ///   runtime  = codex
+    ///   mocked response = [Default], where Default is the virtual model id used by the picker.
+    ///
+    /// Execution process:
+    ///   1. Mock endpoint client with a get spy returning the Default model.
+    ///   2. Call fetchRuntimeModels(base_url, token, 'codex').
+    ///   3. Inspect the GET path, params, and returned model list.
+    ///
+    /// Expected result:
+    ///   - Positive: GET /api/v1/runtime-models is called with runtime=codex.
+    ///   - Positive: returned first id is "default".
+    ///   - Negative: request path does not use an agent-scoped endpoint.
+    it('fetchRuntimeModels calls the runtime models endpoint with runtime param', async () => {
+      const mockGet = jest.fn().mockResolvedValue({
+        data: [
+          {
+            id: 'default',
+            label: 'Default',
+            is_default: true,
+            source: 'builtin',
+            available: true,
+          },
+        ],
+      });
+      const { getEndpointClient } = require('@/api/endpointClient');
+      getEndpointClient.mockReturnValue({ get: mockGet });
+
+      const models = await fetchRuntimeModels('http://localhost:8080', 'tok', 'codex');
+
+      expect(mockGet).toHaveBeenCalledWith('/api/v1/runtime-models', {
+        params: { runtime: 'codex' },
+      });
+      expect(models[0]?.id).toBe('default');
+      expect(mockGet.mock.calls[0][0]).not.toBe(
+        '/api/v1/agents/codex/runtime-models',
+        'runtime model listing should use the global runtime-models endpoint',
+      );
+    });
+
+    /// Default model switching: mobile sends null and reinjects local conversation metadata.
+    ///
+    /// Data construction:
+    ///   conv_id     = conv-1
+    ///   model_id    = null (database NULL is the Default model)
+    ///   endpoint_id = ep-1 (mobile-only field, absent from CLI row)
+    ///   agent_name  = Codex (mobile-only field, absent from CLI row)
+    ///   mocked backend row has model_id=null and intentionally omits endpoint_id/agent_name.
+    ///
+    /// Execution process:
+    ///   1. Mock endpoint client with a patch spy returning the raw backend conversation row.
+    ///   2. Call switchConversationModel with endpoint_id and agent_name.
+    ///   3. Inspect the PATCH path/body and returned conversation metadata.
+    ///
+    /// Expected result:
+    ///   - Positive: PATCH body sends { model_id: null }.
+    ///   - Positive: returned model_id is null and mobile metadata is injected.
+    ///   - Negative: returned conversation does not leave endpoint_id undefined.
+    it('switchConversationModel sends null for Default', async () => {
+      const mockPatch = jest.fn().mockResolvedValue({
+        data: {
+          id: 'conv-1',
+          agent_id: 'agent-1',
+          title: 'Chat',
+          created_at: 1,
+          last_message_at: 2,
+          status: 'completed',
+          model_id: null,
+        },
+      });
+      const { getEndpointClient } = require('@/api/endpointClient');
+      getEndpointClient.mockReturnValue({ patch: mockPatch });
+
+      const conv = await switchConversationModel(
+        'http://localhost:8080',
+        'tok',
+        'conv-1',
+        'ep-1',
+        'Codex',
+        null,
+      );
+
+      expect(mockPatch).toHaveBeenCalledWith('/api/v1/conversations/conv-1/model', {
+        model_id: null,
+      });
+      expect(conv.model_id).toBeNull();
+      expect(conv.endpoint_id).toBe('ep-1');
+      expect(conv.agent_name).toBe('Codex');
+      expect(conv.endpoint_id).not.toBeUndefined();
+    });
+
+    /// Concrete model switching: mobile sends the selected model id and preserves injected metadata.
+    ///
+    /// Data construction:
+    ///   conv_id     = conv-1
+    ///   model_id    = gpt-5.3-codex (concrete Codex model)
+    ///   endpoint_id = ep-1 (mobile-only field)
+    ///   agent_name  = Codex (mobile-only field)
+    ///   mocked backend row has model_id=gpt-5.3-codex and intentionally omits endpoint_id/agent_name.
+    ///
+    /// Execution process:
+    ///   1. Mock endpoint client with a patch spy returning the raw backend conversation row.
+    ///   2. Call switchConversationModel with a concrete model id.
+    ///   3. Inspect the PATCH body and returned conversation model metadata.
+    ///
+    /// Expected result:
+    ///   - Positive: PATCH body sends { model_id: 'gpt-5.3-codex' }.
+    ///   - Positive: returned model_id is "gpt-5.3-codex".
+    ///   - Negative: returned model_id is not null, proving the concrete selection survived.
+    it('switchConversationModel sends a concrete model id', async () => {
+      const mockPatch = jest.fn().mockResolvedValue({
+        data: {
+          id: 'conv-1',
+          agent_id: 'agent-1',
+          title: 'Chat',
+          created_at: 1,
+          last_message_at: 2,
+          status: 'completed',
+          model_id: 'gpt-5.3-codex',
+        },
+      });
+      const { getEndpointClient } = require('@/api/endpointClient');
+      getEndpointClient.mockReturnValue({ patch: mockPatch });
+
+      const conv = await switchConversationModel(
+        'http://localhost:8080',
+        'tok',
+        'conv-1',
+        'ep-1',
+        'Codex',
+        'gpt-5.3-codex',
+      );
+
+      expect(mockPatch).toHaveBeenCalledWith('/api/v1/conversations/conv-1/model', {
+        model_id: 'gpt-5.3-codex',
+      });
+      expect(conv.model_id).toBe('gpt-5.3-codex');
+      expect(conv.model_id).not.toBeNull();
+      expect(conv.endpoint_id).toBe('ep-1');
+      expect(conv.agent_name).toBe('Codex');
+    });
   });
 
   describe('fetchMessages', () => {

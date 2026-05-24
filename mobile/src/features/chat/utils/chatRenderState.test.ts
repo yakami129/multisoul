@@ -5,6 +5,11 @@ import {
   isRenderableInChatTranscript,
 } from './chatRenderState';
 
+function assertEqual<T>(actual: T, expected: T, message: string) {
+  if (!Object.is(actual, expected)) throw new Error(message);
+  expect(actual).toBe(expected);
+}
+
 function message(seq: number, role: WsMessage['role']): WsMessage {
   return {
     type: 'message',
@@ -52,4 +57,51 @@ test('agent text sequence only tracks text responses', () => {
   ];
 
   expect(getLatestAgentTextSeq(messages)).toBe(3);
+});
+
+/// System event render state: model changes appear in transcript but do not drive AI activity.
+///
+/// Data setup:
+///   system_event seq = 3
+///   payload.event = "model_changed"
+///   labels = "Default" -> "Codex 5.3"
+///
+/// Execution:
+///   1. Check transcript visibility for the event.
+///   2. Check latest agent activity/text sequence using only this event.
+///
+/// Expected result:
+///   - Positive: isRenderableInChatTranscript returns true.
+///   - Negative: getLatestAgentActivitySeq returns 0, so typewriter/waiting state is not cleared.
+///   - Negative: getLatestAgentTextSeq returns 0, so system events do not animate as text.
+test('system_event messages render in chat transcript but do not count as agent activity', () => {
+  const msg: WsMessage = {
+    type: 'message',
+    seq: 3,
+    role: 'system_event',
+    payload: {
+      event: 'model_changed',
+      from_model_id: null,
+      to_model_id: 'gpt-5.3-codex',
+      from_label: 'Default',
+      to_label: 'Codex 5.3',
+    },
+    created_at: 10,
+  };
+
+  assertEqual(
+    isRenderableInChatTranscript(msg),
+    true,
+    'system_event should remain visible in the chat transcript',
+  );
+  assertEqual(
+    getLatestAgentActivitySeq([msg]),
+    0,
+    'system_event must not advance latest agent activity sequence',
+  );
+  assertEqual(
+    getLatestAgentTextSeq([msg]),
+    0,
+    'system_event must not advance latest agent text sequence',
+  );
 });

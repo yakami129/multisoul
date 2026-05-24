@@ -29,11 +29,20 @@ export interface Conversation {
   created_at: number;
   last_message_at: number;
   status: 'idle' | 'running' | 'awaiting_question' | 'completed' | 'failed';
+  model_id: string | null;
   // Injected:
   endpoint_id: string;
   agent_name: string;
   first_user_message?: string;
   last_ai_reply?: string;
+}
+
+export interface RuntimeModel {
+  id: string;
+  label: string;
+  is_default: boolean;
+  source: 'builtin' | 'dynamic';
+  available: boolean;
 }
 
 // ── Messages (§6.2 role schema) ───────────────────────────────────────────────
@@ -43,7 +52,8 @@ export type MessageRole =
   | 'tool_call'
   | 'tool_result'
   | 'ask_question'
-  | 'task_status';
+  | 'task_status'
+  | 'system_event';
 
 export interface WsMessage {
   type: 'message';
@@ -62,7 +72,8 @@ export type MessagePayload =
   | ToolCallPayload
   | ToolResultPayload
   | AskQuestionPayload
-  | TaskStatusPayload;
+  | TaskStatusPayload
+  | SystemEventPayload;
 
 export interface UserTextPayload {
   text: string;
@@ -96,6 +107,13 @@ export interface TaskStatusPayload {
   status: 'running' | 'completed' | 'failed';
   importance: 'normal' | 'complex';
   summary: string;
+}
+export interface SystemEventPayload {
+  event: 'model_changed';
+  from_model_id: string | null;
+  to_model_id: string | null;
+  from_label: string;
+  to_label: string;
 }
 
 // ── Inbox (§5.2) ──────────────────────────────────────────────────────────────

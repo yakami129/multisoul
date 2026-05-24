@@ -4,7 +4,13 @@ import * as ImagePicker from 'expo-image-picker';
 import React from 'react';
 import { Alert, FlatList } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { fetchMessages, postMessage, uploadImage } from '@/features/chat/services/chatService';
+import { fetchAgent } from '@/features/agents';
+import {
+  fetchMessages,
+  fetchRuntimeModels,
+  postMessage,
+  uploadImage,
+} from '@/features/chat/services/chatService';
 import { useWebSocket } from '@/hooks/useWebSocket';
 import { useChatStore } from '@/store/chatStore';
 import { useEndpointStore } from '@/store/endpointStore';
@@ -30,9 +36,15 @@ jest.mock('@/hooks/useWebSocket', () => ({
   })),
 }));
 
+jest.mock('@/features/agents', () => ({
+  fetchAgent: jest.fn(),
+}));
+
 jest.mock('@/features/chat/services/chatService', () => ({
   fetchMessages: jest.fn(),
+  fetchRuntimeModels: jest.fn(),
   postMessage: jest.fn(),
+  switchConversationModel: jest.fn(),
   uploadImage: jest.fn(),
   abortConversation: jest.fn().mockResolvedValue(undefined),
   resolveUserMessageImageUri: (
@@ -130,6 +142,24 @@ beforeEach(() => {
   });
   useInboxStore.setState({ items: [] });
   (fetchMessages as jest.Mock).mockResolvedValue(historyMessages);
+  (fetchAgent as jest.Mock).mockResolvedValue({
+    id: 'agent-1',
+    name: 'Agent',
+    project_path: '/tmp/project',
+    runtime: 'codex',
+    created_at: 0,
+    endpoint_id: 'endpoint-1',
+    endpoint_label: 'Local',
+  });
+  (fetchRuntimeModels as jest.Mock).mockResolvedValue([
+    {
+      id: 'default',
+      label: 'Default',
+      is_default: true,
+      source: 'builtin',
+      available: true,
+    },
+  ]);
   (postMessage as jest.Mock).mockResolvedValue(undefined);
   (uploadImage as jest.Mock).mockResolvedValue({ file_id: 'file-1' });
   (ImagePicker.launchImageLibraryAsync as jest.Mock).mockResolvedValue({

@@ -15,6 +15,7 @@ use tracing::{info, warn};
 pub struct SessionMessage {
     pub user_text: String,
     pub file_id: Option<String>,
+    pub model_id: Option<String>,
     pub seq: i64,
 }
 
@@ -338,15 +339,28 @@ mod tests {
         );
     }
 
-    /// SessionMessage carries both user_text and file_id.
+    /// SessionMessage carries user_text, file_id, model_id, and seq.
+    ///
+    /// 数据构造（含关键数值的推导过程）：
+    ///   user_text = "hello"（用户输入）
+    ///   file_id   = Some("abc.jpg")（上传图片 id）
+    ///   model_id  = Some("sonnet")（conversation 级模型选择）
+    ///   seq       = 1（用户消息入库后的消息序号）
+    ///
+    /// 执行过程：
+    ///   1. 构造带图片和模型的 SessionMessage
+    ///   2. 构造纯文本 Default 模型的 SessionMessage
     ///
     /// 预期结果：
-    ///   - text 和 file_id 都能正确读取
+    ///   - user_text/file_id/model_id/seq 都能正确读取
+    ///   - text_only.model_id 为 None，说明 Default 不会被编码成字符串
+    ///
     #[test]
     fn test_session_message_fields() {
         let msg = SessionMessage {
             user_text: "hello".to_string(),
             file_id: Some("abc.jpg".to_string()),
+            model_id: Some("sonnet".to_string()),
             seq: 1,
         };
         assert_eq!(msg.user_text, "hello", "user_text should match");
@@ -355,15 +369,25 @@ mod tests {
             Some("abc.jpg"),
             "file_id should match"
         );
+        assert_eq!(
+            msg.model_id.as_deref(),
+            Some("sonnet"),
+            "model_id should match the selected runtime model"
+        );
 
         let text_only = SessionMessage {
             user_text: "text only".to_string(),
             file_id: None,
+            model_id: None,
             seq: 2,
         };
         assert!(
             text_only.file_id.is_none(),
             "file_id should be None for text-only"
+        );
+        assert!(
+            text_only.model_id.is_none(),
+            "model_id should be None for Default model selection"
         );
         assert_eq!(
             text_only.seq, 2,

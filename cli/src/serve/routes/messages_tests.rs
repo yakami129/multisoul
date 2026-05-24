@@ -5,6 +5,7 @@ use crate::{
 };
 use axum::{
     extract::{Path, Query, State},
+    http::StatusCode,
     Json,
 };
 use std::sync::{Arc, Mutex};
@@ -336,6 +337,82 @@ fn insert_user_message_marks_completed_conversation_running_immediately() {
     assert_ne!(
         status, "completed",
         "conversation must not keep the stale completed status after a new user message"
+    );
+}
+
+/// post_message: conversation.model_id 必须随用户消息进入运行时队列。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   agent.runtime = "codex"（使用已有 session 避免真实 spawn）
+///   conversation.model_id = "gpt-5.3-codex"（具体模型选择）
+///   existing messages = 0 条，因此新 user_text seq = COALESCE(MAX(seq),0)+1 = 1
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 将 agent runtime 改为 codex，并设置 conversations.model_id
+///   2. 手动插入 SessionHandle 到 state.sessions["conv-1"]
+///   3. 调用 post_message，handler 入库 user_text 后查询 a.project_path/a.runtime/a.mode/c.model_id
+///   4. Codex existing-session 分支把 DispatchMessage 写入 channel
+///
+/// 预期结果：
+///   - 断言 A：HTTP 返回 201，说明消息创建成功
+///   - 断言 B：queued.model_id == Some("gpt-5.3-codex")
+///   - 断言 C：queued.model_id != None，防止 handler 查询时漏掉 c.model_id
+#[tokio::test]
+async fn post_message_passes_conversation_model_id_to_runtime_queue() {
+    let state = empty_test_state();
+    {
+        let db = state.db.lock().unwrap();
+        db.execute(
+            "UPDATE agents SET runtime = 'codex', mode = 'full-auto' WHERE id = 'agent-1'",
+            [],
+        )
+        .expect("seeded agent runtime and mode should be mutable");
+        db.execute(
+            "UPDATE conversations SET model_id = 'gpt-5.3-codex' WHERE id = 'conv-1'",
+            [],
+        )
+        .expect("seeded conversation model_id should be mutable");
+    }
+
+    let (tx, rx) = std::sync::mpsc::channel();
+    let handle = crate::serve::state::SessionHandle::new(tx);
+    state
+        .sessions
+        .lock()
+        .unwrap()
+        .insert("conv-1".to_string(), handle);
+
+    let (status, Json(row)) = post_message(
+        State(state),
+        Path("conv-1".to_string()),
+        Json(PostMessageBody {
+            text: "Use selected model".to_string(),
+            file_id: None,
+        }),
+    )
+    .await
+    .expect("post_message should create the user_text row");
+
+    assert_eq!(
+        status,
+        StatusCode::CREATED,
+        "post_message should return 201 before checking runtime dispatch"
+    );
+    assert_eq!(
+        row.seq, 1,
+        "first message in an empty conversation should use seq=1"
+    );
+    let queued = rx
+        .recv_timeout(std::time::Duration::from_millis(100))
+        .expect("existing runtime session should receive queued message");
+    assert_eq!(
+        queued.model_id.as_deref(),
+        Some("gpt-5.3-codex"),
+        "post_message should pass conversations.model_id into DispatchMessage"
+    );
+    assert!(
+        queued.model_id.is_some(),
+        "queued model_id must not be None when conversation has a selected concrete model"
     );
 }
 

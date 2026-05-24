@@ -1,6 +1,7 @@
 mod claude;
 pub mod codex;
 mod cursor;
+pub mod models;
 
 use crate::serve::state::AppState;
 
@@ -10,6 +11,7 @@ use crate::serve::state::AppState;
 pub struct DispatchMessage<'a> {
     pub text: &'a str,
     pub file_id: Option<&'a str>,
+    pub model_id: Option<&'a str>,
     pub seq: i64,
 }
 
@@ -23,38 +25,22 @@ pub fn send_to_session(
 ) {
     match runtime {
         "codex" => {
-            codex::send_to_session(
-                state,
-                conv_id,
-                message.text,
-                message.file_id,
-                message.seq,
-                project_path,
-                mode,
-            );
+            codex::send_to_session(state, conv_id, message, project_path, mode);
         }
         "cursor-cli" => {
             let effective_text = match message.file_id {
                 Some(fid) => inject_image_prefix(message.text, fid, &state.uploads_dir),
                 None => message.text.to_string(),
             };
-            cursor::send_to_session(
-                state,
-                conv_id,
-                &effective_text,
-                message.seq,
-                project_path,
-                mode,
-            );
+            let cursor_message = DispatchMessage {
+                text: &effective_text,
+                file_id: None,
+                model_id: message.model_id,
+                seq: message.seq,
+            };
+            cursor::send_to_session(state, conv_id, cursor_message, project_path, mode);
         }
-        _ => claude::send_to_session(
-            state,
-            conv_id,
-            message.text,
-            message.file_id,
-            message.seq,
-            project_path,
-        ),
+        _ => claude::send_to_session(state, conv_id, message, project_path),
     }
 }
 

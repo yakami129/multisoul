@@ -1,24 +1,28 @@
 use super::super::{build_codex_args, send_to_session};
+use crate::serve::runtime::DispatchMessage;
 use crate::serve::state::AppState;
 use std::{path::Path, time::Duration};
 
-/// send_to_session: 已存在的 Codex session 必须把 file_id 放进队列消息。
+/// send_to_session: 已存在的 Codex session 必须把 file_id 和 model_id 放进队列消息。
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   conv_id     = "conv-1"（已有 session key）
 ///   user_text   = "请看图"
 ///   file_id     = "img-1.jpg"（上传接口返回的文件名）
+///   model_id    = "gpt-5.3-codex"（conversation 级运行时模型选择）
 ///   uploads_dir = /tmp/uploads（本测试不 spawn Codex，因此不读取文件）
 ///
 /// 执行过程：
 ///   1. 手动创建 SessionHandle 并插入 state.sessions["conv-1"]
-///   2. 调用 codex::send_to_session(..., Some("img-1.jpg"), ...)
+///   2. 调用 codex::send_to_session(..., DispatchMessage { file_id, model_id, ... }, ...)
 ///   3. 从 session channel 接收消息
 ///
 /// 预期结果：
 ///   - 正断言：queued.user_text == "请看图"，说明文本未丢
 ///   - 正断言：queued.file_id == Some("img-1.jpg")，说明图片 id 没在 Codex 分支丢失
+///   - 正断言：queued.model_id == Some("gpt-5.3-codex")，说明模型选择进入 worker 队列
 ///   - 负断言：queued.file_id != None，防止退回旧实现的纯文本队列
+///   - 负断言：queued.model_id != None，防止后续 spawn 回落默认模型
 #[test]
 fn test_send_to_existing_codex_session_preserves_file_id() {
     let conn = rusqlite::Connection::open_in_memory().unwrap();
@@ -41,9 +45,12 @@ fn test_send_to_existing_codex_session_preserves_file_id() {
     send_to_session(
         &state,
         "conv-1",
-        "请看图",
-        Some("img-1.jpg"),
-        1,
+        DispatchMessage {
+            text: "请看图",
+            file_id: Some("img-1.jpg"),
+            model_id: Some("gpt-5.3-codex"),
+            seq: 1,
+        },
         "/repo",
         "full-auto",
     );
@@ -63,6 +70,15 @@ fn test_send_to_existing_codex_session_preserves_file_id() {
     assert!(
         queued.file_id.is_some(),
         "Codex queued message must not drop file_id back to None"
+    );
+    assert_eq!(
+        queued.model_id.as_deref(),
+        Some("gpt-5.3-codex"),
+        "Codex queued message should preserve the selected model_id for per-turn dispatch"
+    );
+    assert!(
+        queued.model_id.is_some(),
+        "Codex queued message must not drop model_id back to None"
     );
     assert_eq!(
         queued.seq, 1,
@@ -94,6 +110,7 @@ fn test_build_codex_args_fresh_with_image_places_image_after_stdin_marker() {
         None,
         "full-auto",
         Some(Path::new("/tmp/uploads/img-1.jpg")),
+        None,
     );
 
     assert_eq!(
@@ -156,6 +173,7 @@ fn test_build_codex_args_resume_with_image_places_image_after_stdin_marker() {
         Some("thread-1"),
         "suggest",
         Some(Path::new("/tmp/uploads/img-2.png")),
+        None,
     );
 
     assert_eq!(
@@ -187,5 +205,52 @@ fn test_build_codex_args_resume_with_image_places_image_after_stdin_marker() {
     assert!(
         !args.iter().any(|arg| arg == "--cd"),
         "resume Codex args should not include --cd when a thread id is provided"
+    );
+}
+
+/// build_codex_args: 新建和恢复 Codex 会话都应在选中模型时追加 `--model <id>`。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   selected_model = "gpt-5.3-codex"（conversation.model_id 的具体值）
+///   default_model  = None（Default/未选择模型，不能生成 CLI 参数）
+///   fresh thread   = None → `exec --cd /repo -`
+///   resume thread  = Some("thread-1") → `exec resume thread-1 --json -`
+///
+/// 执行过程：
+///   1. 调用 build_codex_args(..., model_id=Some("gpt-5.3-codex"))
+///   2. 分别检查 fresh/resume argv 是否包含 `--model gpt-5.3-codex`
+///   3. 再调用 model_id=None 的 fresh argv
+///
+/// 预期结果：
+///   - 正断言：fresh argv 包含 `--model gpt-5.3-codex`
+///   - 正断言：resume argv 包含 `--model gpt-5.3-codex`
+///   - 负断言：None argv 不包含 `--model`
+#[test]
+fn test_build_codex_args_includes_selected_model() {
+    let fresh = build_codex_args("/repo", None, "full-auto", None, Some("gpt-5.3-codex"));
+    let resume = build_codex_args(
+        "/repo",
+        Some("thread-1"),
+        "suggest",
+        None,
+        Some("gpt-5.3-codex"),
+    );
+    let default = build_codex_args("/repo", None, "full-auto", None, None);
+
+    assert!(
+        fresh
+            .windows(2)
+            .any(|window| window == ["--model", "gpt-5.3-codex"]),
+        "fresh Codex args should include the selected concrete model"
+    );
+    assert!(
+        resume
+            .windows(2)
+            .any(|window| window == ["--model", "gpt-5.3-codex"]),
+        "resume Codex args should include the selected concrete model"
+    );
+    assert!(
+        !default.iter().any(|arg| arg == "--model"),
+        "Codex args for Default/None should not include --model"
     );
 }

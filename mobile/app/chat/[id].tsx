@@ -12,10 +12,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { EMPTY_MESSAGES, STATUS_BADGE } from '@/features/chat/chatDetailConstants';
 import ChatInputBar from '@/features/chat/components/ChatInputBar';
 import CommandPopup from '@/features/chat/components/CommandPopup';
+import { ModelSelector, useChatModelSelector } from '@/features/chat/components/ModelSelector';
 import {
-  postMessage,
-  fetchMessages,
   abortConversation,
+  fetchMessages,
+  postMessage,
   resolveUserMessageImageUri,
 } from '@/features/chat/services/chatService';
 import {
@@ -384,6 +385,16 @@ export default function ChatDetailScreen() {
     conversationStatus === 'failed';
   const isAgentRunning = isAwaitingResponse || conversationStatus === 'running';
   const composerDisabled = isOffline || isAgentRunning;
+  const modelSelector = useChatModelSelector({
+    endpoint,
+    endpointId: endpoint_id,
+    convId: conv_id,
+    agentId: agent_id,
+    agentName: agent_name,
+    conversation,
+    isAwaitingResponse,
+    updateConversation,
+  });
 
   useEffect(() => {
     if (isAwaitingResponse && latestAgentActivitySeq > lastSeenAgentActivitySeqRef.current) {
@@ -449,7 +460,22 @@ export default function ChatDetailScreen() {
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <ChatHeader title={navTitle} badge={badge} onBack={() => router.back()} />
+        <ChatHeader
+          title={navTitle}
+          badge={badge}
+          modelLabel={modelSelector.currentModelLabel}
+          modelDisabled={modelSelector.modelHeaderDisabled}
+          onPressModel={modelSelector.open}
+          onBack={() => router.back()}
+        />
+        <ModelSelector
+          visible={modelSelector.visible}
+          models={modelSelector.runtimeModels}
+          currentModelId={conversation?.model_id ?? null}
+          disabled={modelSelector.modelSwitchDisabled}
+          onClose={() => modelSelector.setVisible(false)}
+          onSelect={(id) => void modelSelector.select(id)}
+        />
 
         <ChatTranscriptList
           listRef={listRef}

@@ -1,5 +1,11 @@
 import { getEndpointClient } from '@/api/endpointClient';
-import { type Conversation, type UserTextPayload, type WsMessage } from '@/types';
+import {
+  type Agent,
+  type Conversation,
+  type RuntimeModel,
+  type UserTextPayload,
+  type WsMessage,
+} from '@/types';
 
 export interface AnswerAcknowledgement {
   ask_id: string;
@@ -76,6 +82,18 @@ export function parseAnswerAcknowledgement(value: unknown): AnswerAcknowledgemen
   };
 }
 
+export async function fetchRuntimeModels(
+  base_url: string,
+  token: string,
+  runtime: Agent['runtime'],
+): Promise<RuntimeModel[]> {
+  const client = getEndpointClient(base_url, token);
+  const res = await client.get<RuntimeModel[]>('/api/v1/runtime-models', {
+    params: { runtime },
+  });
+  return res.data;
+}
+
 export async function fetchConversations(
   base_url: string,
   token: string,
@@ -101,6 +119,24 @@ export async function createConversation(
     title,
   });
   return res.data;
+}
+
+export async function switchConversationModel(
+  base_url: string,
+  token: string,
+  conv_id: string,
+  endpoint_id: string,
+  agent_name: string,
+  model_id: string | null,
+): Promise<Conversation> {
+  const client = getEndpointClient(base_url, token);
+  const res = await client.patch<Omit<Conversation, 'endpoint_id' | 'agent_name'>>(
+    `/api/v1/conversations/${conv_id}/model`,
+    {
+      model_id,
+    },
+  );
+  return { ...res.data, endpoint_id, agent_name };
 }
 
 export async function fetchMessages(

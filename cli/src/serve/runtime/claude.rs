@@ -3,6 +3,7 @@
 //! Messages are sent via std::sync::mpsc channel from the HTTP handler.
 
 use crate::logging;
+use crate::serve::runtime::DispatchMessage;
 use crate::serve::state::{start_new_process_group, AppState, SessionHandle};
 use serde_json::Value;
 use std::io::{BufRead, BufReader};
@@ -27,9 +28,7 @@ use claude_stream::process_turn;
 pub fn send_to_session(
     state: &AppState,
     conv_id: &str,
-    user_text: &str,
-    file_id: Option<&str>,
-    user_seq: i64,
+    message: DispatchMessage<'_>,
     project_path: &str,
 ) {
     let mut sessions = state.sessions.lock().unwrap();
@@ -38,9 +37,10 @@ pub fn send_to_session(
         if session
             .tx
             .send(crate::serve::state::SessionMessage {
-                user_text: user_text.to_string(),
-                file_id: file_id.map(str::to_string),
-                seq: user_seq,
+                user_text: message.text.to_string(),
+                file_id: message.file_id.map(str::to_string),
+                model_id: normalize_model_id(message.model_id),
+                seq: message.seq,
             })
             .is_ok()
         {
@@ -59,17 +59,26 @@ pub fn send_to_session(
 
     // Enqueue the first message
     let _ = tx.send(crate::serve::state::SessionMessage {
-        user_text: user_text.to_string(),
-        file_id: file_id.map(str::to_string),
-        seq: user_seq,
+        user_text: message.text.to_string(),
+        file_id: message.file_id.map(str::to_string),
+        model_id: normalize_model_id(message.model_id),
+        seq: message.seq,
     });
 
     // Spawn the session worker in a blocking thread
     let state2 = state.clone();
     let conv_id2 = conv_id.to_string();
     let project_path = project_path.to_string();
+    let initial_model_id = normalize_model_id(message.model_id);
     tokio::task::spawn_blocking(move || {
-        session_worker(state2, conv_id2, project_path, rx, session_handle);
+        session_worker(
+            state2,
+            conv_id2,
+            project_path,
+            initial_model_id,
+            rx,
+            session_handle,
+        );
     });
 }
 
@@ -79,6 +88,7 @@ fn session_worker(
     state: AppState,
     conv_id: String,
     project_path: String,
+    initial_model_id: Option<String>,
     rx: std::sync::mpsc::Receiver<crate::serve::state::SessionMessage>,
     session_handle: SessionHandle,
 ) {
@@ -93,7 +103,12 @@ fn session_worker(
     let mut session_id: Option<String> = load_session_id(&state, &conv_id);
 
     // Spawn the initial claude process
-    let (mut child, mut stdin) = match spawn_claude(&project_path, session_id.as_deref()) {
+    let mut active_child_model = initial_model_id;
+    let (mut child, mut stdin) = match spawn_claude(
+        &project_path,
+        session_id.as_deref(),
+        active_child_model.as_deref(),
+    ) {
         Some(pair) => pair,
         None => {
             mark_failed(&state, &conv_id);
@@ -110,13 +125,14 @@ fn session_worker(
         session_id = None;
         let _ = child.kill();
         let _ = child.wait();
-        let (fresh_child, fresh_stdin) = match spawn_claude(&project_path, None) {
-            Some(pair) => pair,
-            None => {
-                mark_failed(&state, &conv_id);
-                return;
-            }
-        };
+        let (fresh_child, fresh_stdin) =
+            match spawn_claude(&project_path, None, active_child_model.as_deref()) {
+                Some(pair) => pair,
+                None => {
+                    mark_failed(&state, &conv_id);
+                    return;
+                }
+            };
         child = fresh_child;
         stdin = fresh_stdin;
         reader = BufReader::new(child.stdout.take().expect("no stdout"));
@@ -137,7 +153,51 @@ fn session_worker(
         };
         let user_text = msg.user_text;
         let file_id = msg.file_id;
+        let msg_model_id = msg.model_id;
         let user_seq = msg.seq;
+        if msg_model_id != active_child_model {
+            let old_pid = child.id();
+            let _ = child.kill();
+            session_handle.clear_current_pid(old_pid);
+            let _ = child.wait();
+            match spawn_claude(
+                &project_path,
+                session_id.as_deref(),
+                msg_model_id.as_deref(),
+            ) {
+                Some((c, s)) => {
+                    child = c;
+                    session_handle.set_current_pid(child.id());
+                    stdin = s;
+                    active_child_model = msg_model_id.clone();
+                    reader = BufReader::new(child.stdout.take().expect("no stdout"));
+                    if read_system_event(&mut reader, &state, &conv_id, &mut session_id) {
+                        warn!("agent_stale_session_on_model_change");
+                        clear_session_id(&state, &conv_id);
+                        session_id = None;
+                        let stale_pid = child.id();
+                        let _ = child.kill();
+                        session_handle.clear_current_pid(stale_pid);
+                        let _ = child.wait();
+                        let Some((fresh_child, fresh_stdin)) =
+                            spawn_claude(&project_path, None, active_child_model.as_deref())
+                        else {
+                            mark_failed(&state, &conv_id);
+                            continue;
+                        };
+                        child = fresh_child;
+                        session_handle.set_current_pid(child.id());
+                        stdin = fresh_stdin;
+                        reader = BufReader::new(child.stdout.take().expect("no stdout"));
+                        let _ = read_system_event(&mut reader, &state, &conv_id, &mut session_id);
+                    }
+                }
+                None => {
+                    mark_failed(&state, &conv_id);
+                    continue;
+                }
+            }
+        }
         session_handle.set_current_pid(child.id());
         let text_preview = logging::truncate(&user_text, 200);
         info!(
@@ -182,7 +242,11 @@ fn session_worker(
                     let _ = child.kill();
                     session_handle.clear_current_pid(child.id());
                     let _ = child.wait();
-                    match spawn_claude(&project_path, session_id.as_deref()) {
+                    match spawn_claude(
+                        &project_path,
+                        session_id.as_deref(),
+                        active_child_model.as_deref(),
+                    ) {
                         Some((c, s)) => {
                             warn!(attempt, reason = "turn_error", "agent_respawn");
                             child = c;
@@ -197,7 +261,7 @@ fn session_worker(
                                 session_handle.clear_current_pid(child.id());
                                 let _ = child.wait();
                                 if let Some((fresh_child, fresh_stdin)) =
-                                    spawn_claude(&project_path, None)
+                                    spawn_claude(&project_path, None, active_child_model.as_deref())
                                 {
                                     child = fresh_child;
                                     session_handle.set_current_pid(child.id());
@@ -231,24 +295,12 @@ fn session_worker(
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
-fn spawn_claude(project_path: &str, session_id: Option<&str>) -> Option<(Child, ChildStdin)> {
-    let mut args = vec![
-        "--output-format",
-        "stream-json",
-        "--input-format",
-        "stream-json",
-        "--permission-prompt-tool",
-        "stdio",
-        "--dangerously-skip-permissions",
-        "--verbose",
-    ];
-    // resume_owned must live as long as args
-    let resume_owned;
-    if let Some(sid) = session_id.filter(|s| !s.is_empty()) {
-        resume_owned = sid.to_string();
-        args.push("--resume");
-        args.push(&resume_owned);
-    }
+fn spawn_claude(
+    project_path: &str,
+    session_id: Option<&str>,
+    model_id: Option<&str>,
+) -> Option<(Child, ChildStdin)> {
+    let args = build_claude_args(session_id, model_id);
 
     let mut command = Command::new("claude");
     command
@@ -265,6 +317,35 @@ fn spawn_claude(project_path: &str, session_id: Option<&str>) -> Option<(Child, 
 
     let stdin = child.stdin.take()?;
     Some((child, stdin))
+}
+
+fn build_claude_args(session_id: Option<&str>, model_id: Option<&str>) -> Vec<String> {
+    let mut args = vec![
+        "--output-format".to_string(),
+        "stream-json".to_string(),
+        "--input-format".to_string(),
+        "stream-json".to_string(),
+        "--permission-prompt-tool".to_string(),
+        "stdio".to_string(),
+        "--dangerously-skip-permissions".to_string(),
+        "--verbose".to_string(),
+    ];
+    if let Some(sid) = session_id.filter(|s| !s.is_empty()) {
+        args.push("--resume".to_string());
+        args.push(sid.to_string());
+    }
+    if let Some(model_id) = model_id.filter(|s| !s.trim().is_empty()) {
+        args.push("--model".to_string());
+        args.push(model_id.to_string());
+    }
+    args
+}
+
+fn normalize_model_id(model_id: Option<&str>) -> Option<String> {
+    model_id
+        .map(str::trim)
+        .filter(|model_id| !model_id.is_empty())
+        .map(ToString::to_string)
 }
 
 #[path = "claude_io.rs"]
@@ -330,6 +411,10 @@ fn is_stale_session_error(raw: &Value) -> bool {
 #[cfg(test)]
 #[path = "claude_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "claude_model_tests.rs"]
+mod model_tests;
 
 #[cfg(test)]
 #[path = "claude_ask_tests.rs"]

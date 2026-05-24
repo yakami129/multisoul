@@ -8,6 +8,7 @@ pub mod messages;
 #[cfg(test)]
 mod messages_tests;
 pub mod push_tokens;
+pub mod runtime_models;
 pub mod uploads;
 pub mod webhook;
 pub mod ws;

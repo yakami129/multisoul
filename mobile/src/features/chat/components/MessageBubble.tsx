@@ -8,6 +8,7 @@ import {
   type AgentTextPayload,
   type UserTextPayload,
   type ToolCallPayload,
+  type SystemEventPayload,
 } from '@/types';
 import AskQuestionCard from './AskQuestionCard';
 import { MarkdownMessage } from './MarkdownMessage';
@@ -323,6 +324,18 @@ export const MessageBubble = memo(function MessageBubble({
       );
     }
 
+    case 'system_event': {
+      const payload = msg.payload as SystemEventPayload;
+      if (payload.event !== 'model_changed') return null;
+      return (
+        <View style={s.systemEventWrap}>
+          <Text style={s.systemEventText}>
+            {`Model changed: ${payload.from_label} -> ${payload.to_label}`}
+          </Text>
+        </View>
+      );
+    }
+
     // case 'task_status': {
     //   const p = msg.payload as any;
     //   const color = p.status === 'completed' ? '#33FF33' : '#FFB000';
@@ -421,4 +434,14 @@ const s = StyleSheet.create({
   statusRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8 },
   statusLine: { flex: 1, height: 1 },
   statusText: { fontFamily: 'Inter', fontSize: 11, letterSpacing: 1 },
+  systemEventWrap: { width: '100%', alignItems: 'center', paddingVertical: 4 },
+  systemEventText: {
+    fontFamily: 'Inter',
+    fontSize: 12,
+    color: '#888888',
+    backgroundColor: '#252525',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
 });
