@@ -8,6 +8,7 @@ interface QuestionItem {
   id: string;
   text: string;
   options: { id: string; label: string }[];
+  multi_select?: boolean;
 }
 
 interface Props {
@@ -26,18 +27,33 @@ export default function MultiAskQuestionCard({
   onConfirm,
 }: Props) {
   const initialCustomTexts: Record<string, string> = {};
-  const normalizedInitialAnswers = Object.fromEntries(
-    Object.entries(initialAnswers ?? {}).map(([questionId, answer]) => {
-      const question = questions.find((q) => q.id === questionId);
-      const isKnownOption = question?.options.some((option) => option.id === answer) ?? false;
-      if (!isKnownOption) {
-        initialCustomTexts[questionId] = answer;
-        return [questionId, CUSTOM_ID];
-      }
-      return [questionId, answer];
-    }),
+  const normalizedInitialAnswers: Record<string, string | Set<string>> = Object.fromEntries(
+    Object.entries(initialAnswers ?? {}).map(
+      ([questionId, answer]): [string, string | Set<string>] => {
+        const question = questions.find((q) => q.id === questionId);
+        const isMulti = question?.multi_select ?? false;
+
+        if (isMulti) {
+          // 多选：逗号分隔字符串 → Set
+          const ids = answer
+            .split(',')
+            .map((s) => s.trim())
+            .filter(Boolean);
+          return [questionId, new Set(ids)];
+        } else {
+          // 单选：保持字符串
+          const isKnownOption = question?.options.some((option) => option.id === answer) ?? false;
+          if (!isKnownOption) {
+            initialCustomTexts[questionId] = answer;
+            return [questionId, CUSTOM_ID];
+          }
+          return [questionId, answer];
+        }
+      },
+    ),
   );
-  const [answers, setAnswers] = useState<Record<string, string>>(normalizedInitialAnswers);
+  const [answers, setAnswers] =
+    useState<Record<string, string | Set<string>>>(normalizedInitialAnswers);
   const [customTexts, setCustomTexts] = useState<Record<string, string>>(initialCustomTexts);
   const [committedCustomTexts, setCommittedCustomTexts] =
     useState<Record<string, string>>(initialCustomTexts);
@@ -54,7 +70,10 @@ export default function MultiAskQuestionCard({
   const allAnswered = answeredCount >= total;
   const progressWidth = total > 0 ? (answeredCount / total) * 100 : 0;
 
-  const getNextOpenIndex = (nextAnswers: Record<string, string>, startIndex: number) => {
+  const getNextOpenIndex = (
+    nextAnswers: Record<string, string | Set<string>>,
+    startIndex: number,
+  ) => {
     for (let i = startIndex; i < questions.length; i += 1) {
       if (!nextAnswers[questions[i].id]) return i;
     }
@@ -66,14 +85,43 @@ export default function MultiAskQuestionCard({
 
   const handleSelect = (questionId: string, optionId: string) => {
     if (answered) return;
+
+    const question = questions.find((q) => q.id === questionId);
+    const isMulti = question?.multi_select ?? false;
+
     if (optionId === CUSTOM_ID) {
-      setAnswers((prev) => ({ ...prev, [questionId]: CUSTOM_ID }));
+      // Custom 选项：清空已提交的自定义文本
+      setAnswers((prev) => ({
+        ...prev,
+        [questionId]: isMulti ? new Set([CUSTOM_ID]) : CUSTOM_ID,
+      }));
       setCommittedCustomTexts((prev) => {
         const next = { ...prev };
         delete next[questionId];
         return next;
       });
+    } else if (isMulti) {
+      // 多选：toggle 选项
+      setAnswers((prev) => {
+        const current = prev[questionId];
+        const currentSet = current instanceof Set ? current : new Set<string>();
+        const next = new Set(currentSet);
+
+        if (next.has(optionId)) {
+          next.delete(optionId);
+        } else {
+          next.add(optionId);
+        }
+
+        // 如果选了其他选项，移除 CUSTOM_ID
+        if (next.size > 0 && next.has(CUSTOM_ID) && optionId !== CUSTOM_ID) {
+          next.delete(CUSTOM_ID);
+        }
+
+        return { ...prev, [questionId]: next };
+      });
     } else {
+      // 单选：替换选项，自动跳转下一题
       setAnswers((prev) => {
         const next = { ...prev, [questionId]: optionId };
         setActiveIndex(getNextOpenIndex(next, activeIndex + 1));
@@ -95,8 +143,12 @@ export default function MultiAskQuestionCard({
     const text = customTexts[questionId]?.trim() ?? '';
     if (!text) return;
     setCommittedCustomTexts((prev) => ({ ...prev, [questionId]: text }));
+
+    const question = questions.find((q) => q.id === questionId);
+    const isMulti = question?.multi_select ?? false;
+
     setAnswers((prev) => {
-      const next = { ...prev, [questionId]: CUSTOM_ID };
+      const next = { ...prev, [questionId]: isMulti ? new Set([CUSTOM_ID]) : CUSTOM_ID };
       setActiveIndex(getNextOpenIndex(next, activeIndex + 1));
       return next;
     });
@@ -112,7 +164,15 @@ export default function MultiAskQuestionCard({
     const resolved: Record<string, string> = {};
     for (const q of questions) {
       const raw = answers[q.id];
-      resolved[q.id] = raw === CUSTOM_ID ? (committedCustomTexts[q.id] ?? '') : raw;
+      if (raw === CUSTOM_ID) {
+        resolved[q.id] = committedCustomTexts[q.id] ?? '';
+      } else if (raw instanceof Set) {
+        // 多选：Set → 逗号分隔字符串
+        resolved[q.id] = Array.from(raw).join(',');
+      } else {
+        // 单选：直接使用字符串
+        resolved[q.id] = raw;
+      }
     }
     onConfirm(resolved);
   };
