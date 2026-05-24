@@ -1,15 +1,14 @@
 name: Release CLI
 
-# Tag push uses the `msctl-v*` prefix so this workflow does not run when only
-# releasing the iOS app (`ios-v*` → release-ios.yml).
+# CLI releases use semver tags `v*.*.*`. iOS uses `ios-v*` (release-ios.yml).
 on:
   push:
     tags:
-      - "msctl-v*.*.*"
+      - "v*.*.*"
   workflow_dispatch:
     inputs:
       version:
-        description: "Full git tag for this release, e.g. msctl-v0.1.0"
+        description: "Full git tag for this release, e.g. v0.1.0"
         required: true
         type: string
 
@@ -86,7 +85,7 @@ jobs:
             ref_version="${{ inputs.version }}"
           fi
           version="${ref_version#msctl-}"
-          version="${version#v}"
+          version="${version#v}" # supports legacy msctl-v* tags on workflow_dispatch only
           package="${CLI_NAME}-${version}-${{ matrix.target }}"
           mkdir -p "dist/${package}"
           cp "target/${{ matrix.target }}/release/${{ matrix.binary }}" "dist/${package}/"

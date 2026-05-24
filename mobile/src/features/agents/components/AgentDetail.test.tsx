@@ -76,6 +76,36 @@ describe('AgentDetail', () => {
     expect(queryByText('INVOKE')).toBeNull();
   });
 
+  /// Agent hero workspace path: the detail header exposes the full project path.
+  ///
+  /// Data construction:
+  ///   agent.name         = "My Agent"
+  ///   agent.project_path = "/home/user/project"
+  ///   status label       = derived from running conversation + endpoint/runtime
+  ///
+  /// Execution process:
+  ///   1. Render AgentDetail with one running recent conversation.
+  ///   2. Read the hero text nodes above the New Chat button.
+  ///
+  /// Expected result:
+  ///   - Positive: the exact full workspace path is visible.
+  ///   - Negative: the path is not collapsed to only the final workspace name.
+  it('renders the full workspace path in the project hero', () => {
+    const { getByText, queryByText } = render(
+      <AgentDetail
+        agent={agent}
+        recentConversations={[recentConversation]}
+        isLoading={false}
+        isError={false}
+        onBack={() => {}}
+        onNewChat={() => {}}
+      />,
+    );
+
+    expect(getByText('/home/user/project')).toBeTruthy();
+    expect(queryByText('project')).toBeNull();
+  });
+
   it('calls onBack when GO BACK pressed in error state', () => {
     const onBack = jest.fn();
     const { getByText } = render(

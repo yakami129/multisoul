@@ -146,6 +146,9 @@ export function AgentDetail({
           <Text style={s.projectName} numberOfLines={2}>
             {agent.name}
           </Text>
+          <Text style={s.workspacePath} selectable>
+            {agent.project_path}
+          </Text>
           <View style={s.statusPill}>
             <View
               style={[
@@ -247,6 +250,12 @@ const s = StyleSheet.create({
   scroll: { paddingBottom: 110 },
   hero: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 14, gap: 8 },
   projectName: { fontFamily: 'Inter', fontSize: 34, fontWeight: '700', color: '#FFFFFF' },
+  workspacePath: {
+    fontFamily: 'Inter',
+    fontSize: 13,
+    lineHeight: 18,
+    color: '#888888',
+  },
   statusPill: {
     alignSelf: 'flex-start',
     borderRadius: 8,
