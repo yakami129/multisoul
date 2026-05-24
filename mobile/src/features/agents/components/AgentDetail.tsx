@@ -76,10 +76,10 @@ function Header({ onBack }: { onBack: () => void }) {
         onPress={onBack}
         style={s.backLink}
         accessibilityRole="button"
-        accessibilityLabel="Back to Projects"
+        accessibilityLabel="Back to Agents"
       >
         <ChevronLeft size={20} color="#FF6B35" />
-        <Text style={s.backText}>Projects</Text>
+        <Text style={s.backText}>Agents</Text>
       </TouchableOpacity>
     </View>
   );

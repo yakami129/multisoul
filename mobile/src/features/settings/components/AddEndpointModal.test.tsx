@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-
 import * as Clipboard from 'expo-clipboard';
 import React from 'react';
 import { StyleSheet } from 'react-native';
+import { getEndpointClient } from '@/api/endpointClient';
 import { AddEndpointModal } from './AddEndpointModal';
 
 jest.mock('@/api/endpointClient', () => ({
@@ -28,6 +29,9 @@ beforeEach(() => {
   mockCameraProps = null;
   mockPermissionGranted = false;
   mockRequestPermission.mockClear();
+  (getEndpointClient as jest.Mock).mockReturnValue({
+    get: jest.fn(),
+  });
 });
 
 /// Add endpoint QR entry: initialTab="qr" opens the full-screen scan flow, not the old centered card.
@@ -47,8 +51,8 @@ beforeEach(() => {
 ///   - Positive: "Scan setup QR" exists above the scanner area.
 ///   - Positive: "Show setup commands" help control exists next to SCAN QR.
 ///   - Negative: "MANUAL" is absent because Add Endpoint is QR-only.
-///   - Negative: legacy "ADD ENDPOINT" centered-card heading is not shown for Projects QR entry.
-it('opens the Projects QR entry as the full-screen scan flow with setup help', () => {
+///   - Negative: legacy "ADD ENDPOINT" centered-card heading is not shown for Agents QR entry.
+it('opens the Agents QR entry as the full-screen scan flow with setup help', () => {
   render(<AddEndpointModal visible onClose={() => {}} onAdd={() => {}} initialTab="qr" />);
 
   expect(screen.getByText('Connect a machine')).toBeTruthy();
@@ -106,16 +110,69 @@ it('adds the scanned endpoint with the URL hostname as its label', async () => {
   );
 });
 
+/// QR scan connection failure: a valid pairing QR must not be reported as an invalid QR code.
+///
+/// Data construction:
+///   QR URL parameter = "https://mac-home.tailnet.ts.net:8765", so parsing and hostname naming are valid.
+///   QR token         = "test-token".
+///   healthz result   = rejected promise, simulating a machine that is offline or unreachable.
+///   fallback fetch   = rejected promise, so the connection path fails after the QR has parsed.
+///
+/// Execution:
+///   1. Enable camera permission so CameraView mounts.
+///   2. Mock endpoint healthz and fallback fetch to fail.
+///   3. Scan a syntactically valid multisoul pairing QR.
+///   4. Wait for the connection failure message.
+///
+/// Expected:
+///   - Positive: the UI reports that the endpoint cannot be reached.
+///   - Positive: onAdd is not called because the health check failed.
+///   - Negative: the UI does not show "INVALID QR CODE" for a valid but unreachable QR target.
+///   - Negative: the modal does not close after a failed connection attempt.
+it('shows connection failure instead of invalid QR when a valid QR target is unreachable', async () => {
+  mockPermissionGranted = true;
+  const onAdd = jest.fn();
+  const onClose = jest.fn();
+  (getEndpointClient as jest.Mock).mockReturnValue({
+    get: jest.fn().mockRejectedValue(new Error('offline')),
+  });
+  const originalFetch = global.fetch;
+  global.fetch = jest.fn().mockRejectedValue(new Error('offline')) as unknown as typeof fetch;
+  const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
+  const consoleWarn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+  try {
+    render(<AddEndpointModal visible onClose={onClose} onAdd={onAdd} initialTab="qr" />);
+
+    act(() => {
+      mockCameraProps?.onBarcodeScanned?.({
+        data: 'multisoul://pair?url=https%3A%2F%2Fmac-home.tailnet.ts.net%3A8765&token=test-token',
+      });
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('CANNOT REACH ENDPOINT')).toBeTruthy();
+    });
+    expect(onAdd).not.toHaveBeenCalled();
+    expect(screen.queryByText('INVALID QR CODE')).toBeNull();
+    expect(onClose).not.toHaveBeenCalled();
+  } finally {
+    global.fetch = originalFetch;
+    consoleError.mockRestore();
+    consoleWarn.mockRestore();
+  }
+});
+
 /// Add endpoint QR back affordance: Connect a machine must expose an obvious return button.
 ///
 /// Data construction:
 ///   visible    = true, so the full-screen modal is mounted.
-///   initialTab = "qr", so this is the Projects Add Endpoint route.
+///   initialTab = "qr", so this is the Agents Add Endpoint route.
 ///   onClose    = jest.fn(), so pressing back can be observed exactly once.
 ///
 /// Execution:
 ///   1. Render AddEndpointModal with initialTab="qr".
-///   2. Locate the "Back to Projects" control in the top navigation.
+///   2. Locate the "Back to Agents" control in the top navigation.
 ///   3. Flatten its style to verify the button has a visible surface and border.
 ///   4. Press the control and observe close behavior.
 ///
@@ -124,11 +181,11 @@ it('adds the scanned endpoint with the URL hostname as its label', async () => {
 ///   - Positive: the back control has a border, so it reads as tappable against the nav bar.
 ///   - Positive: pressing it calls onClose once.
 ///   - Negative: pressing it does not leave onClose uncalled.
-it('renders a visually framed Projects back button that closes the full-screen flow', () => {
+it('renders a visually framed Agents back button that closes the full-screen flow', () => {
   const onClose = jest.fn();
   render(<AddEndpointModal visible onClose={onClose} onAdd={() => {}} initialTab="qr" />);
 
-  const backButton = screen.getByLabelText('Back to Projects');
+  const backButton = screen.getByLabelText('Back to Agents');
   const buttonStyle = StyleSheet.flatten(backButton.props.style);
 
   expect(buttonStyle.backgroundColor).toBe('#1A1A1A');

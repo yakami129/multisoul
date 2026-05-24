@@ -79,7 +79,7 @@ function wrapper({ children }: { children: React.ReactNode }) {
 ///   4. Wait for data to load
 ///
 /// Expected:
-///   - All three project names visible with their source casing
+///   - All three agent names visible with their source casing
 describe('AgentListScreen', () => {
   const { fetchAllAgents } = require('../../src/features/agents/services/agentService');
 
@@ -125,7 +125,7 @@ describe('AgentListScreen', () => {
     fetchAllAgents.mockImplementation(() => new Promise(() => {}));
 
     render(<AgentListScreen />, { wrapper });
-    expect(screen.getByText('Loading projects...')).toBeTruthy();
+    expect(screen.getByText('Loading agents...')).toBeTruthy();
   });
 
   it('shows empty state when no projects', async () => {
@@ -137,10 +137,10 @@ describe('AgentListScreen', () => {
     });
   });
 
-  /// Projects route add endpoint: header plus opens Add Endpoint directly on QR mode.
+  /// Agents route add endpoint: header plus opens Add Endpoint directly on QR mode.
   ///
   /// Data construction:
-  ///   endpointStore = one configured endpoint, so Projects route renders loaded list state.
+  ///   endpointStore = one configured endpoint, so Agents route renders loaded list state.
   ///   fetchAllAgents = mockAgents, so the header plus is available above project rows.
   ///   camera permission = false, so QR mode displays the permission CTA.
   ///
@@ -153,7 +153,7 @@ describe('AgentListScreen', () => {
   ///   - Positive: full-screen Add Endpoint copy is visible.
   ///   - Positive: QR mode is active via "TAP TO ALLOW CAMERA".
   ///   - Negative: legacy centered-card "ADD ENDPOINT" heading is not shown.
-  it('opens the add endpoint modal in QR mode from the Projects header plus', async () => {
+  it('opens the add endpoint modal in QR mode from the Agents header plus', async () => {
     render(<AgentListScreen />, { wrapper });
 
     await waitFor(() => {

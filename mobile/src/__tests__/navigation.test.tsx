@@ -70,7 +70,7 @@ function wrapper({ children }: { children: React.ReactNode }) {
   return <QueryClientProvider client={qc}>{children}</QueryClientProvider>;
 }
 
-/// Tab navigation: Projects, Activity, and Settings tabs are accessible
+/// Tab navigation: Agents, Activity, and Settings tabs are accessible
 ///
 /// Execution:
 ///   1. Render TabLayout
@@ -80,18 +80,18 @@ function wrapper({ children }: { children: React.ReactNode }) {
 ///   5. Verify Activity tab active
 ///
 /// Expected:
-///   - 'Projects' tab label visible
+///   - 'Agents' tab label visible
 ///   - 'Activity' tab label visible
 ///   - 'Settings' tab label visible
-///   - 'Agents', 'Chat', and 'Inbox' tab labels hidden
+///   - 'Projects', 'Chat', and 'Inbox' tab labels hidden
 describe('Tab navigation', () => {
-  it('renders only Projects, Activity, and Settings tabs', () => {
+  it('renders only Agents, Activity, and Settings tabs', () => {
     render(<TabLayout />, { wrapper });
-    expect(screen.getByText('Projects')).toBeTruthy();
+    expect(screen.getByText('Agents')).toBeTruthy();
     expect(screen.getByText('Activity')).toBeTruthy();
     expect(screen.getByText('Settings')).toBeTruthy();
 
-    expect(screen.queryByText('Agents')).toBeNull();
+    expect(screen.queryByText('Projects')).toBeNull();
     expect(screen.queryByText('Chat')).toBeNull();
     expect(screen.queryByText('Inbox')).toBeNull();
   });

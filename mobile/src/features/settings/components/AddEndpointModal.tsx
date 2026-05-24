@@ -12,6 +12,7 @@ type SetupCommand = {
   title: string;
   command: string;
 };
+type ScanStatus = 'idle' | 'checking' | 'invalid_qr' | 'connection_err';
 
 interface Props {
   visible: boolean;
@@ -48,7 +49,7 @@ const SETUP_COMMANDS: SetupCommand[] = [
 ];
 
 export function AddEndpointModal({ visible, onClose, onAdd }: Props) {
-  const [status, setStatus] = useState<'idle' | 'checking' | 'err'>('idle');
+  const [status, setStatus] = useState<ScanStatus>('idle');
   const [scanned, setScanned] = useState(false);
   const [helpVisible, setHelpVisible] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -108,8 +109,7 @@ export function AddEndpointModal({ visible, onClose, onAdd }: Props) {
         const res = await fetch(`${finalUrl}/api/v1/healthz`, {
           headers: { Authorization: `Bearer ${finalToken}` },
           signal: controller.signal,
-        });
-        clearTimeout(timeout);
+        }).finally(() => clearTimeout(timeout));
         console.warn('[AddEndpoint] fetch status:', res.status);
         const body = await res.text();
         console.warn('[AddEndpoint] fetch body:', body);
@@ -131,7 +131,8 @@ export function AddEndpointModal({ visible, onClose, onAdd }: Props) {
         const err3 = e3 as { message?: string };
         console.error('[AddEndpoint] public HTTPS also failed:', err3?.message);
       }
-      setStatus('err');
+      setScanned(false);
+      setStatus('connection_err');
     }
   };
 
@@ -142,18 +143,18 @@ export function AddEndpointModal({ visible, onClose, onAdd }: Props) {
     try {
       const parsed = new URL(data);
       if (parsed.protocol !== 'multisoul:') {
-        setStatus('err');
+        setStatus('invalid_qr');
         return;
       }
       const scannedUrl = parsed.searchParams.get('url') ?? '';
       const scannedToken = parsed.searchParams.get('token') ?? '';
       if (!scannedUrl || !scannedToken) {
-        setStatus('err');
+        setStatus('invalid_qr');
         return;
       }
       void handleAdd(scannedUrl, scannedToken);
     } catch {
-      setStatus('err');
+      setStatus('invalid_qr');
     }
   };
 
@@ -192,7 +193,8 @@ export function AddEndpointModal({ visible, onClose, onAdd }: Props) {
           <Text style={s.permText}>TAP TO ALLOW CAMERA</Text>
         </TouchableOpacity>
       )}
-      {status === 'err' && <Text style={s.errText}>INVALID QR CODE</Text>}
+      {status === 'invalid_qr' && <Text style={s.errText}>INVALID QR CODE</Text>}
+      {status === 'connection_err' && <Text style={s.errText}>CANNOT REACH ENDPOINT</Text>}
     </>
   );
 
@@ -285,10 +287,10 @@ export function AddEndpointModal({ visible, onClose, onAdd }: Props) {
               onClose();
             }}
             accessibilityRole="button"
-            accessibilityLabel="Back to Projects"
+            accessibilityLabel="Back to Agents"
           >
             <ChevronLeft size={18} color="#FF6B35" />
-            <Text style={s.backText}>Projects</Text>
+            <Text style={s.backText}>Agents</Text>
           </TouchableOpacity>
           <Text style={s.fullNavTitle}>Add Endpoint</Text>
           <View style={s.navSpacer} />

@@ -129,11 +129,11 @@ export function AgentList({
     return (
       <View style={[s.root, { paddingTop: insets.top }]}>
         <View style={s.header}>
-          <Text style={s.headerTitle}>Projects</Text>
+          <Text style={s.headerTitle}>Agents</Text>
         </View>
         <View style={s.centered}>
           <ActivityIndicator size="large" color="#FF6B35" />
-          <Text style={s.loadingText}>Loading projects...</Text>
+          <Text style={s.loadingText}>Loading agents...</Text>
         </View>
       </View>
     );
@@ -143,7 +143,7 @@ export function AgentList({
     return (
       <View style={[s.root, { paddingTop: insets.top }]}>
         <View style={s.header}>
-          <Text style={s.headerTitle}>Projects</Text>
+          <Text style={s.headerTitle}>Agents</Text>
         </View>
         <View style={s.centered}>
           <View style={s.errorIconWrap}>
@@ -162,7 +162,7 @@ export function AgentList({
   return (
     <View testID="projects-root" style={[s.root, { paddingTop: insets.top }]}>
       <View style={s.header}>
-        <Text style={s.headerTitle}>Projects</Text>
+        <Text style={s.headerTitle}>Agents</Text>
         <TouchableOpacity
           accessibilityLabel="Add endpoint"
           accessibilityRole="button"
@@ -180,7 +180,7 @@ export function AgentList({
           <TextInput
             value={query}
             onChangeText={setQuery}
-            placeholder="Search projects"
+            placeholder="Search agents"
             placeholderTextColor="#666666"
             style={s.searchInput}
             autoCapitalize="none"
@@ -216,8 +216,8 @@ export function AgentList({
               </>
             ) : (
               <>
-                <Text style={s.emptyTitle}>No projects found</Text>
-                <Text style={s.emptyDesc}>Try a different project name, path, or runtime.</Text>
+                <Text style={s.emptyTitle}>No agents found</Text>
+                <Text style={s.emptyDesc}>Try a different agent name, path, or runtime.</Text>
               </>
             )}
           </View>
@@ -233,10 +233,10 @@ export function AgentList({
                 ))}
               </>
             ) : null}
-            <Text style={s.sectionTitle}>All Projects</Text>
+            <Text style={s.sectionTitle}>All Agents</Text>
             <View testID="projects-group" style={s.projectGroup}>
               {allProjects.length === 0 ? (
-                <Text style={s.emptyGroupText}>No idle projects.</Text>
+                <Text style={s.emptyGroupText}>No idle agents.</Text>
               ) : (
                 allProjects.map((project, index) =>
                   renderProject(project, index, index < allProjects.length - 1, 'machine'),
