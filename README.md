@@ -19,8 +19,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/assets/demo-1.gif" alt="MultiSoul demo 1" width="260" />
-  <img src="docs/assets/demo-2.gif" alt="MultiSoul demo 2" width="260" />
+  <img src="docs/assets/multisoul-core-features.png" alt="MultiSoul core features: connect local agents, track live activity, and answer decisions from iOS or Android" width="860" />
 </p>
 
 ---

@@ -19,8 +19,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/assets/demo-1.gif" alt="MultiSoul 功能演示 1" width="260" />
-  <img src="docs/assets/demo-2.gif" alt="MultiSoul 功能演示 2" width="260" />
+  <img src="docs/assets/multisoul-core-features.png" alt="MultiSoul 核心功能：从 iOS 或 Android 连接本地 Agent、跟踪实时活动并回复决策问题" width="860" />
 </p>
 
 ---
