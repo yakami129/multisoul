@@ -298,9 +298,12 @@ const s = StyleSheet.create({
     color: '#FFFFFF',
   },
   activeRow: {
+    marginHorizontal: 16,
+    borderRadius: 12,
     backgroundColor: '#0D1A0D',
     borderLeftWidth: 3,
     borderLeftColor: '#4CAF50',
+    overflow: 'hidden',
   },
   projectGroup: {
     marginHorizontal: 16,

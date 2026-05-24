@@ -1,6 +1,6 @@
 import { render, fireEvent } from '@testing-library/react-native';
 import React from 'react';
-import { RefreshControl, ScrollView, StyleSheet, TextInput } from 'react-native';
+import { RefreshControl, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { useChatStore } from '@/store/chatStore';
 import { type Agent } from '@/types';
 import { AgentList } from './AgentList';
@@ -335,6 +335,84 @@ describe('AgentList', () => {
     expect(getAllByText('Alpha').length).toBe(
       2,
       'active Alpha should appear in Active Now and remain in All Projects',
+    );
+  });
+
+  /// Projects list width: Active Now rows and All Projects group share one horizontal frame.
+  ///
+  /// Data construction:
+  ///   agents = Alpha + Beta.
+  ///   conversations = one running conversation for Alpha, so Alpha renders in both sections.
+  ///   Width target from the user screenshot:
+  ///     content inset = 16px on both sides
+  ///     card radius = 12px for the visual project frame
+  ///
+  /// Execution:
+  ///   1. Render AgentList with Alpha active.
+  ///   2. Find the Active Now frame by its #0D1A0D active background.
+  ///   3. Read the All Projects group by testID.
+  ///   4. Compare resolved RN styles for their outer frame geometry.
+  ///
+  /// Expected:
+  ///   - Positive: Active Now uses the same 16px horizontal margin as All Projects.
+  ///   - Positive: Active Now uses the same 12px radius as All Projects.
+  ///   - Negative: Active Now must not remain full-bleed with no horizontal margin.
+  it('aligns Active Now rows with the All Projects group width', () => {
+    useChatStore.setState({
+      conversations: [
+        {
+          id: 'conv-1',
+          agent_id: 'a1',
+          title: 'Run checks',
+          created_at: 1,
+          last_message_at: 2,
+          status: 'running',
+          endpoint_id: 'ep-1',
+          agent_name: 'Alpha',
+        },
+      ],
+      messages: {},
+    });
+
+    const { getByTestId, UNSAFE_getAllByType } = render(
+      <AgentList
+        agents={agents}
+        isLoading={false}
+        isError={false}
+        error={null}
+        isFetching={false}
+        onRefetch={() => {}}
+        onAgentPress={() => {}}
+      />,
+    );
+
+    const activeFrame = UNSAFE_getAllByType(View).find((node) => {
+      const style = StyleSheet.flatten(node.props.style);
+      return style?.backgroundColor === '#0D1A0D';
+    });
+    expectEqualWithReason(
+      activeFrame === undefined,
+      false,
+      'Active Now frame with #0D1A0D background should render for the running project',
+    );
+
+    const activeStyle = StyleSheet.flatten(activeFrame?.props.style);
+    const groupStyle = StyleSheet.flatten(getByTestId('projects-group').props.style);
+
+    expectEqualWithReason(
+      activeStyle.marginHorizontal,
+      16,
+      'Active Now row should use the same 16px outer inset as All Projects',
+    );
+    expectEqualWithReason(
+      activeStyle.borderRadius,
+      groupStyle.borderRadius,
+      'Active Now row should use the same visual frame radius as All Projects',
+    );
+    expectEqualWithReason(
+      activeStyle.marginHorizontal === undefined,
+      false,
+      'Active Now row must not stay full-bleed without a horizontal margin',
     );
   });
 });
