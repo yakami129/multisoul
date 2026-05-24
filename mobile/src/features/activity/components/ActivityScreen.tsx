@@ -5,8 +5,9 @@ import {
   SlidersHorizontal,
   Sparkles,
 } from 'lucide-react-native';
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Swipeable } from 'react-native-gesture-handler';
 
 export interface ActivityItem {
   id: string;
@@ -36,6 +37,7 @@ interface Props {
   onRefresh?: () => void;
   onRetry?: () => void;
   onOpenItem: (item: ActivityItem) => void;
+  onDeleteItem?: (item: ActivityItem) => void;
 }
 
 type ActivityFilter = 'all' | 'pending' | 'running' | 'done';
@@ -62,12 +64,29 @@ function Section({
   items,
   emptyText,
   onOpenItem,
+  onDeleteItem,
+  openSwipeableRef,
+  swipeableRefs,
 }: {
   title: string;
   items: ActivityItem[];
   emptyText: string;
   onOpenItem: (item: ActivityItem) => void;
+  onDeleteItem?: (item: ActivityItem) => void;
+  openSwipeableRef: React.MutableRefObject<Swipeable | null>;
+  swipeableRefs: React.MutableRefObject<Map<string, Swipeable>>;
 }) {
+  const renderDeleteAction = (item: ActivityItem) => (
+    <TouchableOpacity
+      style={s.deleteAction}
+      onPress={() => onDeleteItem?.(item)}
+      accessibilityRole="button"
+      accessibilityLabel={`Delete ${item.title}`}
+    >
+      <Text style={s.deleteText}>DELETE</Text>
+    </TouchableOpacity>
+  );
+
   return (
     <View style={s.section}>
       <View style={s.sectionHeader}>
@@ -78,53 +97,66 @@ function Section({
         <Text style={s.emptySectionText}>{emptyText}</Text>
       ) : (
         items.map((item) => (
-          <TouchableOpacity
+          <Swipeable
             key={item.id}
-            style={s.row}
-            onPress={() => onOpenItem(item)}
-            accessibilityRole="button"
-            accessibilityLabel={`Open ${item.title}`}
+            ref={(ref) => {
+              if (ref) swipeableRefs.current.set(item.id, ref);
+              else swipeableRefs.current.delete(item.id);
+            }}
+            onSwipeableOpen={() => {
+              if (openSwipeableRef.current) openSwipeableRef.current.close();
+              openSwipeableRef.current = swipeableRefs.current.get(item.id) ?? null;
+            }}
+            renderRightActions={() => renderDeleteAction(item)}
+            overshootRight={false}
           >
-            <View
-              style={[
-                s.iconWrap,
-                item.tone === 'attention' && s.iconAttention,
-                item.tone === 'failed' && s.iconFailed,
-              ]}
+            <TouchableOpacity
+              style={s.row}
+              onPress={() => onOpenItem(item)}
+              accessibilityRole="button"
+              accessibilityLabel={`Open ${item.title}`}
             >
-              {item.section === 'attention' ? (
-                <Sparkles size={15} color="#FF6B35" />
-              ) : (
-                <MessageCircle size={15} color={item.tone === 'failed' ? '#FF4444' : '#888888'} />
-              )}
-            </View>
-            <View style={s.rowBody}>
-              <View style={s.rowTop}>
-                <Text style={s.projectName} numberOfLines={1}>
-                  {item.projectName}
-                </Text>
-                <Text style={s.timeText}>{formatRelativeTime(item.timestamp)}</Text>
+              <View
+                style={[
+                  s.iconWrap,
+                  item.tone === 'attention' && s.iconAttention,
+                  item.tone === 'failed' && s.iconFailed,
+                ]}
+              >
+                {item.section === 'attention' ? (
+                  <Sparkles size={15} color="#FF6B35" />
+                ) : (
+                  <MessageCircle size={15} color={item.tone === 'failed' ? '#FF4444' : '#888888'} />
+                )}
               </View>
-              <Text style={s.itemTitle} numberOfLines={2}>
-                {item.title}
-              </Text>
-              <View style={s.metaRow}>
-                <Text style={s.subtitle} numberOfLines={1}>
-                  {item.subtitle}
+              <View style={s.rowBody}>
+                <View style={s.rowTop}>
+                  <Text style={s.projectName} numberOfLines={1}>
+                    {item.projectName}
+                  </Text>
+                  <Text style={s.timeText}>{formatRelativeTime(item.timestamp)}</Text>
+                </View>
+                <Text style={s.itemTitle} numberOfLines={2}>
+                  {item.title}
                 </Text>
-                <Text
-                  style={[
-                    s.statusLabel,
-                    item.tone === 'attention' && s.statusAttention,
-                    item.tone === 'running' && s.statusRunning,
-                    item.tone === 'failed' && s.statusFailed,
-                  ]}
-                >
-                  {item.statusLabel}
-                </Text>
+                <View style={s.metaRow}>
+                  <Text style={s.subtitle} numberOfLines={1}>
+                    {item.subtitle}
+                  </Text>
+                  <Text
+                    style={[
+                      s.statusLabel,
+                      item.tone === 'attention' && s.statusAttention,
+                      item.tone === 'running' && s.statusRunning,
+                      item.tone === 'failed' && s.statusFailed,
+                    ]}
+                  >
+                    {item.statusLabel}
+                  </Text>
+                </View>
               </View>
-            </View>
-          </TouchableOpacity>
+            </TouchableOpacity>
+          </Swipeable>
         ))
       )}
     </View>
@@ -167,8 +199,11 @@ export default function ActivityScreen({
   onRefresh,
   onRetry,
   onOpenItem,
+  onDeleteItem,
 }: Props) {
   const [activeFilter, setActiveFilter] = useState<ActivityFilter>('all');
+  const openSwipeableRef = useRef<Swipeable | null>(null);
+  const swipeableRefs = useRef<Map<string, Swipeable>>(new Map());
   const showAttention = activeFilter === 'all' || activeFilter === 'pending';
   const showRunning = activeFilter === 'all' || activeFilter === 'running';
   const showDone = activeFilter === 'all' || activeFilter === 'done';
@@ -271,6 +306,9 @@ export default function ActivityScreen({
               items={needsAttention}
               emptyText="No pending decisions."
               onOpenItem={onOpenItem}
+              onDeleteItem={onDeleteItem}
+              openSwipeableRef={openSwipeableRef}
+              swipeableRefs={swipeableRefs}
             />
           )}
           {showRunning && (
@@ -279,6 +317,9 @@ export default function ActivityScreen({
               items={running}
               emptyText="No active sessions."
               onOpenItem={onOpenItem}
+              onDeleteItem={onDeleteItem}
+              openSwipeableRef={openSwipeableRef}
+              swipeableRefs={swipeableRefs}
             />
           )}
           {showDone && (
@@ -287,6 +328,9 @@ export default function ActivityScreen({
               items={done}
               emptyText="No recent results."
               onOpenItem={onOpenItem}
+              onDeleteItem={onDeleteItem}
+              openSwipeableRef={openSwipeableRef}
+              swipeableRefs={swipeableRefs}
             />
           )}
         </ScrollView>
@@ -359,6 +403,15 @@ const s = StyleSheet.create({
   statusAttention: { color: '#FF6B35' },
   statusRunning: { color: '#FF6B35' },
   statusFailed: { color: '#FF4444' },
+  deleteAction: {
+    width: 80,
+    backgroundColor: '#1A1A1A',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderLeftWidth: 1,
+    borderLeftColor: '#FF4444',
+  },
+  deleteText: { fontFamily: 'Inter', fontSize: 13, fontWeight: '600', color: '#FF4444' },
   partialFailure: {
     flexDirection: 'row',
     alignItems: 'center',

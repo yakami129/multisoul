@@ -77,6 +77,12 @@ pub async fn handle(args: ServeArgs) -> Result<()> {
         args.tailnet || args.funnel,
         args.funnel,
     );
+    tracing::info!(
+        bind_addr = %bind_addr,
+        pair_url_host = %pair_url_host_for_log(&base_url),
+        token_prefix = %token_prefix_for_log(&token),
+        "serve_startup"
+    );
 
     println!("Bearer token: {}", token);
     println!();
@@ -196,6 +202,31 @@ fn format_base_url(host: &str, port: u16, use_https: bool) -> String {
     }
 }
 
+fn token_prefix_for_log(token: &str) -> String {
+    format!("{}...", token.chars().take(12).collect::<String>())
+}
+
+fn pair_url_host_for_log(base_url: &str) -> String {
+    let without_scheme = base_url
+        .split_once("://")
+        .map(|(_, rest)| rest)
+        .unwrap_or(base_url);
+    let authority = without_scheme.split('/').next().unwrap_or(without_scheme);
+    let host_port = authority.rsplit('@').next().unwrap_or(authority);
+
+    if let Some(rest) = host_port.strip_prefix('[') {
+        if let Some((host, _)) = rest.split_once(']') {
+            return host.to_string();
+        }
+    }
+
+    host_port
+        .split_once(':')
+        .map(|(host, _)| host)
+        .unwrap_or(host_port)
+        .to_string()
+}
+
 fn format_host_for_url(host: &str) -> String {
     match host.parse::<std::net::IpAddr>() {
         Ok(std::net::IpAddr::V6(_)) => format!("[{}]", host),
@@ -274,5 +305,47 @@ mod tests {
         let base_url = parse_tailscale_base_url(status, 8765, false);
 
         assert_eq!(base_url.as_deref(), Some("http://100.64.1.2:8765"));
+    }
+
+    /// serve_startup 脱敏字段：app 日志只能拿到 token 前缀和 pair host
+    ///
+    /// 数据构造（含关键数值的推导过程）：
+    ///   token        = "ms_v2_abcdefghijklmno"（15 字符后缀，低于 secret 扫描阈值）
+    ///   prefix_len   = 12（SPEC 要求前 12 字符）
+    ///   token_prefix = token[..12] + "..." = "ms_v2_abcdef..."
+    ///   base_url     = "https://alan.tailnet.ts.net"（Funnel 场景无端口）
+    ///
+    /// 执行过程（逐步说明系统如何处理）：
+    ///   1. 调用 token_prefix_for_log(token) 生成脱敏前缀
+    ///   2. 调用 pair_url_host_for_log(base_url) 提取 host
+    ///   3. 对比完整 token 与尾部片段，确认 app 日志字段不会泄漏完整 secret
+    ///
+    /// 预期结果：
+    ///   - 断言 A：token_prefix 等于前 12 字符 + 省略号
+    ///   - 断言 B：token_prefix 不等于完整 token
+    ///   - 断言 C：token_prefix 不包含 token 尾部秘密片段
+    ///   - 断言 D：pair_url_host 只保留 host，便于排查配对入口
+    #[test]
+    fn test_serve_startup_log_fields_are_redacted_and_host_only() {
+        let token = "ms_v2_abcdefghijklmno";
+        let prefix = token_prefix_for_log(token);
+        let pair_host = pair_url_host_for_log("https://alan.tailnet.ts.net");
+
+        assert_eq!(
+            prefix, "ms_v2_abcdef...",
+            "token_prefix should contain exactly the first 12 characters plus ellipsis"
+        );
+        assert_ne!(
+            prefix, token,
+            "token_prefix must not equal the complete bearer token"
+        );
+        assert!(
+            !prefix.contains("ghijklmno"),
+            "token_prefix must not contain the secret tail of the bearer token"
+        );
+        assert_eq!(
+            pair_host, "alan.tailnet.ts.net",
+            "pair_url_host should extract only the host from the advertised base URL"
+        );
     }
 }

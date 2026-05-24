@@ -2,6 +2,7 @@ import type { WsMessage } from '@/types';
 import {
   postMessage,
   abortConversation,
+  deleteConversation,
   buildUploadedImageUrl,
   resolveUserMessageImageUri,
 } from './chatService';
@@ -51,6 +52,35 @@ describe('chatService', () => {
       await abortConversation('http://localhost:8080', 'tok', 'conv-1');
 
       expect(mockPost).toHaveBeenCalledWith('/api/v1/conversations/conv-1/abort', {});
+    });
+  });
+
+  describe('deleteConversation', () => {
+    /// Conversation deletion: mobile client calls the canonical DELETE endpoint.
+    ///
+    /// Data construction:
+    ///   base_url = http://localhost:8080
+    ///   token    = tok
+    ///   conv_id  = conv-1
+    ///
+    /// Execution process:
+    ///   1. Mock endpoint client with a delete spy.
+    ///   2. Call deleteConversation(base_url, token, conv_id).
+    ///   3. Inspect the HTTP method and path.
+    ///
+    /// Expected result:
+    ///   - Positive: DELETE /api/v1/conversations/conv-1 is called.
+    ///   - Negative: no POST fallback is used for deletion.
+    it('calls DELETE /api/v1/conversations/:id with token', async () => {
+      const mockDelete = jest.fn().mockResolvedValue({ data: undefined });
+      const mockPost = jest.fn();
+      const { getEndpointClient } = require('@/api/endpointClient');
+      getEndpointClient.mockReturnValue({ delete: mockDelete, post: mockPost });
+
+      await deleteConversation('http://localhost:8080', 'tok', 'conv-1');
+
+      expect(mockDelete).toHaveBeenCalledWith('/api/v1/conversations/conv-1');
+      expect(mockPost).not.toHaveBeenCalled();
     });
   });
 

@@ -24,6 +24,7 @@ msctl logs --conv cnv_abc           # app 按会话过滤
 msctl logs --level warn             # app 只看 WARN/ERROR
 msctl logs --grep 'push_'           # app 匹配 message；service 匹配原始行
 msctl logs --source app --json | jq . # app NDJSON 管道给 jq
+msctl logs --source app --level debug --conv cnv_abc # 看 Agent stdout 原始行等 DEBUG 细节
 ```
 
 ## 手机端 Release logs
@@ -65,7 +66,7 @@ msctl logs --grep 'ws_' --conv <conv_id> --tail 10
 msctl logs --level warn --tail 30
 ```
 
-- 看到 `http_error status=401 path=/api/v1/healthz` → token 不对。对照 `msctl serve` 启动时打印的 Bearer token 修正 App 端。
+- 看到 `http_error GET /api/v1/agents status=401` → token 不对。对照 `msctl serve` 启动时打印的 Bearer token 修正 App 端。
 - 没有任何 `http_request` 记录 → 请求根本没到 `msctl serve`。检查：
   - Tailscale funnel 是否起来：`tailscale funnel status`
   - 端口是否被系统防火墙拦
@@ -94,14 +95,15 @@ msctl logs --grep 'push_' --since 30m
 msctl logs --grep 'task_status' --conv <conv_id>
 ```
 
-## 场景 4：Agent 进程崩溃
+## 场景 4：Agent 进程崩溃 / stderr 异常
 
 **症状**：对话停在某步，之后新消息也没响应。
 
 **定位**：
 
 ```bash
-msctl logs --since 10m --grep 'agent_' --conv <conv_id>
+msctl logs --source app --since 10m --grep 'agent_' --conv <conv_id>
+msctl logs --source service --tail 80
 ```
 
 关键事件：
@@ -109,15 +111,10 @@ msctl logs --since 10m --grep 'agent_' --conv <conv_id>
 | message | 字段 | 说明 |
 |---------|------|------|
 | `agent_spawn` | pid, runtime, resume | 进程启动 |
-| `agent_exit` | pid, exit_code, stderr_tail | 进程退出（非 0 = 异常） |
 | `agent_respawn` | attempt, reason | 自动重试（最多 3 次） |
 | `turn_failed_after_retries` | — | 3 次重试都失败，会话标记为 `failed` |
 
-常见退出码：
-
-- `exit_code=137` → SIGKILL（通常是 OOM）
-- `exit_code=1` → 通用错误，看 `stderr_tail`
-- `exit_code=127` → `claude`/`codex` 找不到可执行文件，PATH 问题
+Claude 子进程和 Plugin agent 的 stderr 继承到 service 日志，不写入 app NDJSON。若 app 侧只看到 `agent_spawn` 后无 `turn_end` / `turn_error`，继续看 `--source service` 中的 CLI stderr、PATH、崩溃输出。
 
 ## 进阶：和 `jq` 组合
 

@@ -7,6 +7,8 @@ import ActivityTab from '../../app/(tabs)/activity';
 
 const mockPush = jest.fn();
 const mockAggregateActivity = jest.fn();
+const mockAbortConversation = jest.fn();
+const mockDeleteConversation = jest.fn();
 let mockEndpoints: Endpoint[] = [];
 let appStateHandler: ((state: string) => void) | null = null;
 const mockRemoveAppStateListener = jest.fn();
@@ -22,6 +24,23 @@ jest.mock('expo-router', () => ({
 jest.mock('@/features/activity/services/activityService', () => ({
   aggregateActivity: (...args: unknown[]) => mockAggregateActivity(...args),
 }));
+
+jest.mock('@/features/chat/services/chatService', () => ({
+  abortConversation: (...args: unknown[]) => mockAbortConversation(...args),
+  deleteConversation: (...args: unknown[]) => mockDeleteConversation(...args),
+}));
+
+jest.mock('react-native-gesture-handler', () => {
+  const { View } = require('react-native');
+  return {
+    Swipeable: ({ children, renderRightActions }: any) => (
+      <View>
+        {children}
+        {renderRightActions?.()}
+      </View>
+    ),
+  };
+});
 
 jest.mock('@/store/endpointStore', () => ({
   useEndpointStore: (selector: (state: { endpoints: Endpoint[] }) => unknown) =>
@@ -139,6 +158,8 @@ describe('ActivityTab DB-backed aggregation', () => {
     jest.clearAllMocks();
     mockEndpoints = configuredEndpoints();
     mockAggregateActivity.mockResolvedValue(activityResult());
+    mockAbortConversation.mockResolvedValue(undefined);
+    mockDeleteConversation.mockResolvedValue(undefined);
     appStateHandler = null;
     mockRemoveAppStateListener.mockReset();
     setAppState('active');
@@ -220,6 +241,231 @@ describe('ActivityTab DB-backed aggregation', () => {
     );
   });
 
+  /// Activity swipe actions: all visible Activity sections expose one DELETE action per row.
+  ///
+  /// Data construction:
+  ///   needsAttention = conv-pending
+  ///   running        = conv-running
+  ///   done           = conv-done
+  ///   mocked Swipeable renders renderRightActions immediately
+  ///
+  /// Execution process:
+  ///   1. Render ActivityTab with one item in each section.
+  ///   2. Query the visible DELETE labels.
+  ///
+  /// Expected result:
+  ///   - Positive: three DELETE buttons render, one per Activity row.
+  ///   - Negative: the empty Activity state is not shown while rows exist.
+  it('renders DELETE swipe actions for Activity items in every section', async () => {
+    await renderActivity();
+
+    await waitFor(() => {
+      expect(screen.getByText('Deploy now?')).toBeTruthy();
+    });
+
+    expect(screen.getAllByText('DELETE')).toHaveLength(3);
+    expect(screen.queryByText('All caught up')).toBeNull();
+  });
+
+  /// Activity pending deletion: attention rows must stop the conversation before deleting it.
+  ///
+  /// Data construction:
+  ///   DELETE target = attention conv-pending on ep-1
+  ///   endpoint ep-1 = http://office.local:8765 / tok-office
+  ///   refresh result after delete = no pending row, running + done remain
+  ///
+  /// Execution process:
+  ///   1. Render ActivityTab with pending/running/done rows.
+  ///   2. Press the first DELETE action, which belongs to the pending row.
+  ///   3. Wait for abort, delete, and refresh to complete.
+  ///
+  /// Expected result:
+  ///   - Positive: abortConversation is called before deleteConversation for conv-pending.
+  ///   - Positive: deleteConversation uses ep-1 credentials and conv-pending.
+  ///   - Positive: the pending row disappears after refresh.
+  ///   - Negative: delete is not attempted before abort.
+  it('aborts then deletes an attention Activity item and refreshes it away', async () => {
+    mockAggregateActivity
+      .mockResolvedValueOnce(activityResult())
+      .mockResolvedValueOnce(activityResult({ needsAttention: [] }));
+
+    await renderActivity();
+
+    await waitFor(() => {
+      expect(screen.getByText('Deploy now?')).toBeTruthy();
+    });
+
+    await act(async () => {
+      fireEvent.press(screen.getAllByText('DELETE')[0]);
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    await waitFor(() => {
+      expect(mockDeleteConversation).toHaveBeenCalledWith(
+        'http://office.local:8765',
+        'tok-office',
+        'conv-pending',
+      );
+    });
+
+    expect(mockAbortConversation).toHaveBeenCalledWith(
+      'http://office.local:8765',
+      'tok-office',
+      'conv-pending',
+    );
+    expect(mockAbortConversation.mock.invocationCallOrder[0]).toBeLessThan(
+      mockDeleteConversation.mock.invocationCallOrder[0],
+    );
+    await waitFor(() => {
+      expect(screen.queryByText('Deploy now?')).toBeNull();
+    });
+  });
+
+  /// Activity running deletion: running rows follow the same stop-before-delete policy.
+  ///
+  /// Data construction:
+  ///   DELETE target = running conv-running on ep-1
+  ///   refresh result after delete = pending + done remain, running removed
+  ///
+  /// Execution process:
+  ///   1. Render ActivityTab.
+  ///   2. Press the second DELETE action, which belongs to the running row.
+  ///   3. Inspect service calls and refreshed UI.
+  ///
+  /// Expected result:
+  ///   - Positive: abortConversation is called for conv-running.
+  ///   - Positive: deleteConversation is called for conv-running.
+  ///   - Positive: the running row disappears after refresh.
+  ///   - Negative: the pending row remains visible.
+  it('aborts then deletes a running Activity item', async () => {
+    mockAggregateActivity
+      .mockResolvedValueOnce(activityResult())
+      .mockResolvedValueOnce(activityResult({ running: [] }));
+
+    await renderActivity();
+
+    await waitFor(() => {
+      expect(screen.getByText('Tighten sign in states')).toBeTruthy();
+    });
+
+    await act(async () => {
+      fireEvent.press(screen.getAllByText('DELETE')[1]);
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    await waitFor(() => {
+      expect(mockDeleteConversation).toHaveBeenCalledWith(
+        'http://office.local:8765',
+        'tok-office',
+        'conv-running',
+      );
+    });
+
+    expect(mockAbortConversation).toHaveBeenCalledWith(
+      'http://office.local:8765',
+      'tok-office',
+      'conv-running',
+    );
+    await waitFor(() => {
+      expect(screen.queryByText('Tighten sign in states')).toBeNull();
+    });
+    expect(screen.getByText('Deploy now?')).toBeTruthy();
+  });
+
+  /// Activity done deletion: completed rows delete directly without aborting.
+  ///
+  /// Data construction:
+  ///   DELETE target = done conv-done on ep-2
+  ///   endpoint ep-2 = http://studio.local:8765 / tok-studio
+  ///   refresh result after delete = pending + running remain, done removed
+  ///
+  /// Execution process:
+  ///   1. Render ActivityTab with all sections.
+  ///   2. Press the third DELETE action, which belongs to the done row.
+  ///   3. Inspect service calls and refreshed UI.
+  ///
+  /// Expected result:
+  ///   - Positive: deleteConversation uses ep-2 credentials and conv-done.
+  ///   - Positive: the done row disappears after refresh.
+  ///   - Negative: abortConversation is not called for completed Activity.
+  it('deletes a done Activity item without aborting', async () => {
+    mockAggregateActivity
+      .mockResolvedValueOnce(activityResult())
+      .mockResolvedValueOnce(activityResult({ done: [] }));
+
+    await renderActivity();
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Open Ship release notes')).toBeTruthy();
+    });
+
+    await act(async () => {
+      fireEvent.press(screen.getAllByText('DELETE')[2]);
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    await waitFor(() => {
+      expect(mockDeleteConversation).toHaveBeenCalledWith(
+        'http://studio.local:8765',
+        'tok-studio',
+        'conv-done',
+      );
+    });
+
+    expect(mockAbortConversation).not.toHaveBeenCalled();
+    await waitFor(() => {
+      expect(screen.queryByLabelText('Open Ship release notes')).toBeNull();
+    });
+  });
+
+  /// Activity delete failure: failed delete calls must leave the Activity row visible.
+  ///
+  /// Data construction:
+  ///   DELETE target = done conv-done
+  ///   deleteConversation rejects with a network error
+  ///
+  /// Execution process:
+  ///   1. Render ActivityTab.
+  ///   2. Press the done row DELETE action.
+  ///   3. Let the rejected promise settle.
+  ///
+  /// Expected result:
+  ///   - Positive: deleteConversation is attempted for conv-done.
+  ///   - Positive: the done row remains visible after the failure.
+  ///   - Negative: no refresh request is made after a failed delete.
+  it('keeps an Activity item visible when delete fails', async () => {
+    mockDeleteConversation.mockRejectedValueOnce(new Error('delete failed'));
+
+    await renderActivity();
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Open Ship release notes')).toBeTruthy();
+    });
+
+    await act(async () => {
+      fireEvent.press(screen.getAllByText('DELETE')[2]);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    await waitFor(() => {
+      expect(mockDeleteConversation).toHaveBeenCalledWith(
+        'http://studio.local:8765',
+        'tok-studio',
+        'conv-done',
+      );
+    });
+
+    expect(screen.getByLabelText('Open Ship release notes')).toBeTruthy();
+    expect(mockAggregateActivity).toHaveBeenCalledTimes(1);
+  });
+
   /// Partial endpoint failure: successful endpoint rows remain visible with retry affordance.
   /// Data construction:
   ///   ep-1 = one running Activity item
@@ -250,7 +496,11 @@ describe('ActivityTab DB-backed aggregation', () => {
 
     expect(screen.getByText('Some endpoints failed: Studio Mac')).toBeTruthy();
     expect(screen.queryByText('Could not load activity')).toBeNull();
-    fireEvent.press(screen.getByLabelText('Retry failed endpoints'));
+    await act(async () => {
+      fireEvent.press(screen.getByLabelText('Retry failed endpoints'));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
     expect(mockAggregateActivity).toHaveBeenCalledTimes(2);
   });
 
@@ -319,7 +569,11 @@ describe('ActivityTab DB-backed aggregation', () => {
     });
 
     expect(screen.queryByText('Connect an endpoint')).toBeNull();
-    fireEvent.press(screen.getByLabelText('Retry activity'));
+    await act(async () => {
+      fireEvent.press(screen.getByLabelText('Retry activity'));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
     expect(mockAggregateActivity).toHaveBeenCalledTimes(2);
   });
 

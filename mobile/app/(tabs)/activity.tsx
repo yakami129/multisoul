@@ -8,7 +8,9 @@ import {
   type AggregatedActivityItem,
   type AggregatedActivityResult,
 } from '@/features/activity/services/activityService';
+import { abortConversation, deleteConversation } from '@/features/chat/services/chatService';
 import { buildChatDetailPath } from '@/features/chat/utils/chatRoutes';
+import { useChatStore } from '@/store/chatStore';
 import { useEndpointStore } from '@/store/endpointStore';
 
 const POLL_INTERVAL_MS = 15_000;
@@ -43,6 +45,7 @@ function toScreenItem(item: AggregatedActivityItem): ActivityItem {
 
 export default function ActivityTab() {
   const endpoints = useEndpointStore((s) => s.endpoints);
+  const removeConversation = useChatStore((s) => s.removeConversation);
   const router = useRouter();
   const [activity, setActivity] = useState<AggregatedActivityResult>(() => emptyActivity());
   const [refreshing, setRefreshing] = useState(false);
@@ -139,6 +142,34 @@ export default function ActivityTab() {
     );
   };
 
+  const removeActivityConversation = (conversationId: string) => {
+    setActivity((current) => ({
+      ...current,
+      needsAttention: current.needsAttention.filter(
+        (item) => item.conversation_id !== conversationId,
+      ),
+      running: current.running.filter((item) => item.conversation_id !== conversationId),
+      done: current.done.filter((item) => item.conversation_id !== conversationId),
+    }));
+  };
+
+  const handleDeleteItem = async (item: ActivityItem) => {
+    const endpoint = endpoints.find((ep) => ep.id === item.endpointId);
+    if (!endpoint) return;
+
+    try {
+      if (item.section === 'attention' || item.section === 'running') {
+        await abortConversation(endpoint.base_url, endpoint.token, item.conversationId);
+      }
+      await deleteConversation(endpoint.base_url, endpoint.token, item.conversationId);
+      removeActivityConversation(item.conversationId);
+      removeConversation(item.conversationId);
+      await refreshActivity(false);
+    } catch {
+      // Keep the Activity row visible when the endpoint refuses or loses the delete request.
+    }
+  };
+
   return (
     <SafeAreaView style={s.safe}>
       <ActivityScreen
@@ -152,6 +183,9 @@ export default function ActivityTab() {
           void refreshActivity();
         }}
         onOpenItem={handleOpenItem}
+        onDeleteItem={(item) => {
+          void handleDeleteItem(item);
+        }}
         isRefreshing={refreshing}
         onRefresh={() => {
           void refreshActivity();

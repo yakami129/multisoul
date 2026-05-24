@@ -1,5 +1,5 @@
 import { ChevronLeft, ChevronRight, Plus } from 'lucide-react-native';
-import React from 'react';
+import React, { useRef } from 'react';
 import {
   ActivityIndicator,
   ScrollView,
@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { Swipeable } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { conversationDisplaySummary, conversationDisplayTitle } from '@/features/chat';
 import { type Agent, type Conversation } from '@/types';
@@ -20,6 +21,7 @@ interface Props {
   onBack: () => void;
   onNewChat: () => void;
   onOpenConversation?: (conversation: Conversation) => void;
+  onDeleteConversation?: (conversation: Conversation) => void;
 }
 
 type ProjectStatus = {
@@ -91,9 +93,23 @@ export function AgentDetail({
   onBack,
   onNewChat,
   onOpenConversation,
+  onDeleteConversation,
 }: Props) {
   const insets = useSafeAreaInsets();
   const status = agent ? projectStatus(agent, recentConversations) : undefined;
+  const openSwipeableRef = useRef<Swipeable | null>(null);
+  const swipeableRefs = useRef<Map<string, Swipeable>>(new Map());
+
+  const renderDeleteAction = (conversation: Conversation) => (
+    <TouchableOpacity
+      style={s.deleteAction}
+      onPress={() => onDeleteConversation?.(conversation)}
+      accessibilityRole="button"
+      accessibilityLabel={`Delete ${conversationDisplayTitle(conversation)}`}
+    >
+      <Text style={s.deleteText}>DELETE</Text>
+    </TouchableOpacity>
+  );
 
   if (isLoading) {
     return (
@@ -156,33 +172,46 @@ export function AgentDetail({
           ) : (
             recentConversations.map((conversation, index) => (
               <View key={conversation.id}>
-                <TouchableOpacity
-                  style={s.chatRow}
-                  onPress={() => onOpenConversation?.(conversation)}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Open ${conversationDisplayTitle(conversation)}`}
+                <Swipeable
+                  ref={(ref) => {
+                    if (ref) swipeableRefs.current.set(conversation.id, ref);
+                    else swipeableRefs.current.delete(conversation.id);
+                  }}
+                  onSwipeableOpen={() => {
+                    if (openSwipeableRef.current) openSwipeableRef.current.close();
+                    openSwipeableRef.current = swipeableRefs.current.get(conversation.id) ?? null;
+                  }}
+                  renderRightActions={() => renderDeleteAction(conversation)}
+                  overshootRight={false}
                 >
-                  <View
-                    style={[
-                      s.chatDot,
-                      (conversation.status === 'running' ||
-                        conversation.status === 'awaiting_question') &&
-                        s.chatDotActive,
-                    ]}
-                  />
-                  <View style={s.chatInfo}>
-                    <Text style={s.chatTitle} numberOfLines={1}>
-                      {conversationDisplayTitle(conversation)}
-                    </Text>
-                    <Text style={s.chatSummary} numberOfLines={1}>
-                      {conversationDisplaySummary(conversation)}
-                    </Text>
-                  </View>
-                  <View style={s.chatMeta}>
-                    <Text style={s.chatTime}>{relativeTime(conversation.last_message_at)}</Text>
-                    <ChevronRight size={13} color="#666666" />
-                  </View>
-                </TouchableOpacity>
+                  <TouchableOpacity
+                    style={s.chatRow}
+                    onPress={() => onOpenConversation?.(conversation)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Open ${conversationDisplayTitle(conversation)}`}
+                  >
+                    <View
+                      style={[
+                        s.chatDot,
+                        (conversation.status === 'running' ||
+                          conversation.status === 'awaiting_question') &&
+                          s.chatDotActive,
+                      ]}
+                    />
+                    <View style={s.chatInfo}>
+                      <Text style={s.chatTitle} numberOfLines={1}>
+                        {conversationDisplayTitle(conversation)}
+                      </Text>
+                      <Text style={s.chatSummary} numberOfLines={1}>
+                        {conversationDisplaySummary(conversation)}
+                      </Text>
+                    </View>
+                    <View style={s.chatMeta}>
+                      <Text style={s.chatTime}>{relativeTime(conversation.last_message_at)}</Text>
+                      <ChevronRight size={13} color="#666666" />
+                    </View>
+                  </TouchableOpacity>
+                </Swipeable>
                 {index < recentConversations.length - 1 ? <View style={s.divider} /> : null}
               </View>
             ))
@@ -280,4 +309,11 @@ const s = StyleSheet.create({
   chatMeta: { alignItems: 'flex-end', gap: 4 },
   chatTime: { fontFamily: 'Inter', fontSize: 12, color: '#555555' },
   divider: { height: 1, backgroundColor: '#1E1E1E', marginLeft: 32 },
+  deleteAction: {
+    width: 80,
+    backgroundColor: '#1A1A1A',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  deleteText: { fontFamily: 'Inter', fontSize: 13, fontWeight: '600', color: '#FF4444' },
 });

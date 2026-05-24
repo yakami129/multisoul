@@ -241,19 +241,20 @@ impl Renderer {
             .map(|c| format!(" conv={c}"))
             .unwrap_or_default();
         let target_short = rec.target.rsplit("::").next().unwrap_or(&rec.target);
+        let message_context = message_context(rec);
         let fields_extras = extra_fields(&rec.fields);
         let prefix = if self.prefix { "[app]     " } else { "" };
         if self.color {
             let (level_col, reset) = ansi_for_level(&rec.level);
             writeln!(
                 w,
-                "{prefix}{ts} {level_col}{level}{reset} [{target_short}{span_info}] {msg}{fields_extras}",
+                "{prefix}{ts} {level_col}{level}{reset} [{target_short}{span_info}] {msg}{message_context}{fields_extras}",
                 msg = rec.message
             )
         } else {
             writeln!(
                 w,
-                "{prefix}{ts} {level} [{target_short}{span_info}] {msg}{fields_extras}",
+                "{prefix}{ts} {level} [{target_short}{span_info}] {msg}{message_context}{fields_extras}",
                 msg = rec.message
             )
         }
@@ -264,6 +265,28 @@ impl Renderer {
         self.emit(&mut out, line, rec)?;
         Ok(String::from_utf8_lossy(&out).trim_end().to_string())
     }
+}
+
+fn message_context(rec: &LogRecord) -> String {
+    if rec.message != "http_error" {
+        return String::new();
+    }
+
+    let Some(method) = span_string(rec, "method") else {
+        return String::new();
+    };
+    let Some(path) = span_string(rec, "path") else {
+        return String::new();
+    };
+    format!(" {method} {path}")
+}
+
+fn span_string(rec: &LogRecord, key: &str) -> Option<String> {
+    rec.span
+        .as_ref()?
+        .get(key)
+        .and_then(|v| v.as_str())
+        .map(str::to_string)
 }
 
 fn pad_level(level: &str) -> String {
@@ -286,20 +309,31 @@ fn extra_fields(fields: &serde_json::Value) -> String {
         return String::new();
     };
     let mut parts: Vec<String> = Vec::new();
+    for key in ["status", "dur_ms"] {
+        if let Some(v) = obj.get(key) {
+            parts.push(format!("{key}={}", render_field_value(v)));
+        }
+    }
     for (k, v) in obj {
         if k == "message" {
             continue;
         }
-        let rendered = match v {
-            serde_json::Value::String(s) => s.clone(),
-            other => other.to_string(),
-        };
-        parts.push(format!("{k}={rendered}"));
+        if k == "status" || k == "dur_ms" {
+            continue;
+        }
+        parts.push(format!("{k}={}", render_field_value(v)));
     }
     if parts.is_empty() {
         String::new()
     } else {
         format!(" {}", parts.join(" "))
+    }
+}
+
+fn render_field_value(v: &serde_json::Value) -> String {
+    match v {
+        serde_json::Value::String(s) => s.clone(),
+        other => other.to_string(),
     }
 }
 
@@ -413,52 +447,5 @@ pub fn parse_duration(s: &str) -> std::result::Result<Duration, String> {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn parse_duration_minutes() {
-        assert_eq!(
-            parse_duration("5m").unwrap(),
-            Duration::from_secs(300),
-            "5m should parse to 300 seconds"
-        );
-    }
-
-    #[test]
-    fn parse_duration_rejects_unknown_unit() {
-        assert!(
-            parse_duration("5x").is_err(),
-            "unknown duration suffix should be rejected"
-        );
-    }
-
-    #[test]
-    fn record_extracts_conv_id_from_span() {
-        let json = r#"{
-            "timestamp": "2026-05-02T10:00:00Z",
-            "level": "INFO",
-            "target": "msctl::serve::runtime",
-            "fields": { "message": "agent_spawn", "pid": 123 },
-            "span": { "name": "session_worker", "conv_id": "cnv_abc" }
-        }"#;
-        let rec = LogRecord::from_line(json).unwrap();
-        assert_eq!(
-            rec.conv_id().as_deref(),
-            Some("cnv_abc"),
-            "span conv_id should be extracted for app filtering"
-        );
-    }
-
-    #[test]
-    fn level_rank_is_ordered() {
-        assert!(
-            level_rank("trace").unwrap() < level_rank("info").unwrap(),
-            "trace should rank below info"
-        );
-        assert!(
-            level_rank("warn").unwrap() < level_rank("error").unwrap(),
-            "warn should rank below error"
-        );
-    }
-}
+#[path = "logs_tests.rs"]
+mod logs_tests;
