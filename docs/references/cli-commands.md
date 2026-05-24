@@ -16,6 +16,7 @@ msctl <COMMAND>
 | `agent` | Agent 注册与管理 |
 | `serve` | 启动本地 HTTP/WS 服务器 |
 | `daemon` | 后台服务管理 |
+| `logs` | 查看 `msctl serve` 结构化日志的人类可读渲染 |
 
 ---
 
@@ -66,6 +67,18 @@ Source: `cli/src/commands/serve.rs`
 | `--token <TOKEN>` | 自动生成 | Bearer token；省略时自动生成 `ms_v2_<random32>` |
 | `--funnel` | false | 通过 Tailscale Funnel 暴露到公网 |
 | `--tailnet` | false | 绑定 `0.0.0.0`（供 Tailnet 访问） |
+
+### `serve` 日志 WebSocket
+
+手机端 Release logs 使用 `GET /ws/logs?token=<TOKEN>&tail=200&level=trace`。
+
+| 参数 | 默认值 | 说明 |
+|------|--------|------|
+| `token` | 必填 | 与其他受保护 REST/WS 接口一致的 Bearer token query auth |
+| `tail` | `200` | 连接后先推送最近 N 条日志，最大 1000 |
+| `level` | `trace` | 最低日志级别：`trace` / `debug` / `info` / `warn` / `error` |
+
+每个 WebSocket message 都是一行格式化文本，格式与 `msctl logs` 默认输出一致，不是 JSON/NDJSON。
 
 ---
 

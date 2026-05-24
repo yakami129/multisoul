@@ -82,6 +82,59 @@ pub fn handle(args: LogsArgs) -> Result<()> {
     }
 }
 
+/// Return the same human-readable text lines that `msctl logs` prints by default.
+///
+/// This is used by the mobile release logs websocket so the app and CLI do not
+/// drift into two different log formats.
+pub fn formatted_tail_lines(
+    log_dir: &std::path::Path,
+    tail: usize,
+    level: &str,
+) -> Result<Vec<String>> {
+    if !log_dir.exists() {
+        return Ok(Vec::new());
+    }
+    let files = logging::list_log_files(log_dir);
+    if files.is_empty() {
+        return Ok(Vec::new());
+    }
+    let filter = Filter {
+        since: None,
+        conv: None,
+        min_level: level_rank(level)?,
+        grep: None,
+    };
+    let renderer = Renderer {
+        json: false,
+        color: false,
+    };
+    Ok(collect_tail_records(&files, &filter, tail)?
+        .into_iter()
+        .filter_map(|(line, rec)| renderer.render_to_string(&line, &rec).ok())
+        .collect())
+}
+
+/// Format one newly-appended NDJSON log line as human-readable text for follow mode.
+pub fn format_log_line_for_stream(line: &str, level: &str) -> Result<Option<String>> {
+    let filter = Filter {
+        since: None,
+        conv: None,
+        min_level: level_rank(level)?,
+        grep: None,
+    };
+    let Some(rec) = LogRecord::from_line(line.trim_end()) else {
+        return Ok(None);
+    };
+    if !filter.keeps(&rec) {
+        return Ok(None);
+    }
+    let renderer = Renderer {
+        json: false,
+        color: false,
+    };
+    Ok(renderer.render_to_string(line, &rec).ok())
+}
+
 // ── filtering ──────────────────────────────────────────────────────────────
 
 struct Filter {
@@ -228,6 +281,12 @@ impl Renderer {
             }
         }
     }
+
+    fn render_to_string(&self, line: &str, rec: &LogRecord) -> std::io::Result<String> {
+        let mut out = Vec::new();
+        self.emit(&mut out, line, rec)?;
+        Ok(String::from_utf8_lossy(&out).trim_end().to_string())
+    }
 }
 
 fn pad_level(level: &str) -> String {
@@ -270,6 +329,23 @@ fn extra_fields(fields: &serde_json::Value) -> String {
 // ── batch scan (default mode) ──────────────────────────────────────────────
 
 fn batch_scan(files: &[PathBuf], filter: &Filter, tail: usize, renderer: &Renderer) -> Result<()> {
+    let kept = collect_tail_records(files, filter, tail)?;
+    let stdout = std::io::stdout();
+    let mut out = stdout.lock();
+    for (line, rec) in kept {
+        renderer.emit(&mut out, &line, &rec).ok();
+    }
+    Ok(())
+}
+
+fn collect_tail_records(
+    files: &[PathBuf],
+    filter: &Filter,
+    tail: usize,
+) -> Result<Vec<(String, LogRecord)>> {
+    if tail == 0 {
+        return Ok(Vec::new());
+    }
     // Gather matching records (raw line + parsed) from newest file backwards
     // until we have enough to satisfy --tail after filtering.
     let mut kept: VecDeque<(String, LogRecord)> = VecDeque::with_capacity(tail.max(16));
@@ -296,12 +372,7 @@ fn batch_scan(files: &[PathBuf], filter: &Filter, tail: usize, renderer: &Render
         }
     }
 
-    let stdout = std::io::stdout();
-    let mut out = stdout.lock();
-    for (line, rec) in kept {
-        renderer.emit(&mut out, &line, &rec).ok();
-    }
-    Ok(())
+    Ok(kept.into_iter().collect())
 }
 
 // ── follow mode ────────────────────────────────────────────────────────────
@@ -369,105 +440,5 @@ fn parse_duration(s: &str) -> std::result::Result<Duration, String> {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn parse_duration_minutes() {
-        assert_eq!(parse_duration("5m").unwrap(), Duration::from_secs(300));
-    }
-
-    #[test]
-    fn parse_duration_hours() {
-        assert_eq!(parse_duration("2h").unwrap(), Duration::from_secs(7200));
-    }
-
-    #[test]
-    fn parse_duration_days() {
-        assert_eq!(parse_duration("1d").unwrap(), Duration::from_secs(86400));
-    }
-
-    #[test]
-    fn parse_duration_rejects_unknown_unit() {
-        assert!(parse_duration("5x").is_err());
-    }
-
-    #[test]
-    fn level_rank_is_ordered() {
-        assert!(level_rank("trace").unwrap() < level_rank("info").unwrap());
-        assert!(level_rank("info").unwrap() < level_rank("warn").unwrap());
-        assert!(level_rank("warn").unwrap() < level_rank("error").unwrap());
-    }
-
-    fn sample_record() -> LogRecord {
-        let json = r#"{
-            "timestamp": "2026-05-02T10:00:00Z",
-            "level": "INFO",
-            "target": "msctl::serve::runtime",
-            "fields": { "message": "agent_spawn", "pid": 123 },
-            "span": { "name": "session_worker", "conv_id": "cnv_abc" }
-        }"#;
-        LogRecord::from_line(json).unwrap()
-    }
-
-    #[test]
-    fn record_extracts_conv_id_from_span() {
-        let rec = sample_record();
-        assert_eq!(rec.conv_id().as_deref(), Some("cnv_abc"));
-    }
-
-    #[test]
-    fn filter_rejects_below_min_level() {
-        let rec = sample_record();
-        let f = Filter {
-            since: None,
-            conv: None,
-            min_level: level_rank("warn").unwrap(),
-            grep: None,
-        };
-        assert!(!f.keeps(&rec));
-    }
-
-    #[test]
-    fn filter_accepts_matching_conv() {
-        let rec = sample_record();
-        let f = Filter {
-            since: None,
-            conv: Some("cnv_abc".to_string()),
-            min_level: 0,
-            grep: None,
-        };
-        assert!(f.keeps(&rec));
-    }
-
-    #[test]
-    fn filter_rejects_other_conv() {
-        let rec = sample_record();
-        let f = Filter {
-            since: None,
-            conv: Some("cnv_other".to_string()),
-            min_level: 0,
-            grep: None,
-        };
-        assert!(!f.keeps(&rec));
-    }
-
-    #[test]
-    fn filter_applies_grep_to_message() {
-        let rec = sample_record();
-        let f = Filter {
-            since: None,
-            conv: None,
-            min_level: 0,
-            grep: Some(Regex::new("spawn").unwrap()),
-        };
-        assert!(f.keeps(&rec));
-        let f2 = Filter {
-            since: None,
-            conv: None,
-            min_level: 0,
-            grep: Some(Regex::new("nonexistent").unwrap()),
-        };
-        assert!(!f2.keeps(&rec));
-    }
-}
+#[path = "logs_tests.rs"]
+mod tests;
