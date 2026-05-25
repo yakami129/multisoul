@@ -228,28 +228,29 @@ pub async fn post_message(
 
     drop(db);
 
-    // Fetch project_path, runtime, and mode; trigger runtime adapter
-    let agent_info: Option<(String, String, String)> = {
+    // Fetch project_path, runtime, mode, and selected model; trigger runtime adapter.
+    let agent_info: Option<(String, String, String, Option<String>)> = {
         let db2 = state
             .db
             .lock()
             .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
         db2.query_row(
-            "SELECT a.project_path, a.runtime, a.mode FROM agents a
+            "SELECT a.project_path, a.runtime, a.mode, c.model_id FROM agents a
              JOIN conversations c ON c.agent_id = a.id
              WHERE c.id = ?1",
             [&conv_id],
-            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)),
         )
         .ok()
     };
-    if let Some((path, rt, mode)) = agent_info {
+    if let Some((path, rt, mode, model_id)) = agent_info {
         runtime::send_to_session(
             &state,
             &conv_id,
             runtime::DispatchMessage {
                 text: &body.text,
                 file_id: body.file_id.as_deref(),
+                model_id: model_id.as_deref(),
                 seq: next_seq,
             },
             &path,

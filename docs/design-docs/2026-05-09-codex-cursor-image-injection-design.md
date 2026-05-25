@@ -61,10 +61,10 @@ fn inject_image_prefix(user_text: &str, file_id: &str, uploads_dir: &std::path::
 dispatch 时：
 
 ```rust
-let message = runtime::DispatchMessage { text: user_text, file_id, seq: user_seq };
+let message = runtime::DispatchMessage { text: user_text, file_id, model_id, seq: user_seq };
 
 "codex" => {
-    codex::send_to_session(state, conv_id, message.text, message.file_id, message.seq, project_path, mode);
+    codex::send_to_session(state, conv_id, message, project_path, mode);
 }
 "cursor-cli" => {
     let effective_text = if let Some(fid) = message.file_id {
@@ -72,7 +72,8 @@ let message = runtime::DispatchMessage { text: user_text, file_id, seq: user_seq
     } else {
         message.text.to_string()
     };
-    cursor::send_to_session(state, conv_id, &effective_text, message.seq, project_path, mode);
+    let cursor_message = runtime::DispatchMessage { text: &effective_text, file_id: None, model_id: message.model_id, seq: message.seq };
+    cursor::send_to_session(state, conv_id, cursor_message, project_path, mode);
 }
 ```
 
@@ -85,6 +86,10 @@ let message = runtime::DispatchMessage { text: user_text, file_id, seq: user_seq
 ### 2026-05-23 更新
 
 为避免旧 turn 的完成状态覆盖新 turn，runtime dispatch 现在通过 `DispatchMessage { text, file_id, seq }` 传递用户消息。`SessionMessage` 和 `cursor::send_to_session` 因此携带 `seq`，但图片输入策略不变：Codex 继续接收 `file_id`，Cursor 继续接收注入后的 prompt 文本。
+
+### 2026-05-24 更新
+
+conversation 级模型切换把 `model_id` 加入 `DispatchMessage` / `SessionMessage`，由各 runtime adapter 转为底层 CLI 的 `--model` 参数。该字段不改变本文的图片策略：Codex 仍直接消费 `file_id` 并追加 `--image`，Cursor 仍接收已经注入图片路径的文本且不再携带 `file_id`。
 
 ## 测试覆盖
 

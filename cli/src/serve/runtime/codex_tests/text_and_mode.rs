@@ -170,7 +170,7 @@ fn test_resume_mode_flags() {
 ///   - 负断言：不再出现 sandbox_mode 配置覆盖
 #[test]
 fn test_build_codex_args_full_auto_fresh_uses_top_level_defaults() {
-    let args = build_codex_args("/repo", None, "full-auto", None);
+    let args = build_codex_args("/repo", None, "full-auto", None, None);
 
     assert_eq!(
         args,

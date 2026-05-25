@@ -16,7 +16,7 @@ export function getLatestAgentTextSeq(messages: WsMessage[]) {
 
 export function getLatestAgentActivitySeq(messages: WsMessage[]) {
   for (let index = messages.length - 1; index >= 0; index -= 1) {
-    if (messages[index].role !== 'user_text') {
+    if (messages[index].role !== 'user_text' && messages[index].role !== 'system_event') {
       return messages[index].seq;
     }
   }

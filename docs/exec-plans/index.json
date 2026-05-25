@@ -9,7 +9,8 @@
     },
     {
       "file": "2026-05-24-runtime-model-switching.md",
-      "title": "Runtime Model Switching Implementation Plan"
+      "title": "Runtime Model Switching Implementation Plan",
+      "lastCompletedCommit": "5f74d149b6f5db940c49987fb64cc2fb6a887009"
     },
     {
       "file": "2026-05-24-cli-logs-visibility.md",

@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { EMPTY_MESSAGES, STATUS_BADGE } from '@/features/chat/chatDetailConstants';
 import ChatInputBar from '@/features/chat/components/ChatInputBar';
 import CommandPopup from '@/features/chat/components/CommandPopup';
+import { ModelSelector, useChatModelSelector } from '@/features/chat/components/ModelSelector';
 import { resolveUserMessageImageUri } from '@/features/chat/services/chatService';
 import {
   getLatestAgentActivitySeq,
@@ -45,6 +46,7 @@ export default function ChatDetailScreen() {
   const endpoint = useEndpointStore((s) => s.endpoints.find((e) => e.id === endpoint_id));
   const conversations = useChatStore((s) => s.conversations);
   const messagesMap = useChatStore((s) => s.messages);
+  const updateConversation = useChatStore((s) => s.updateConversation);
   const messages = messagesMap[conv_id] ?? EMPTY_MESSAGES;
   const conversation = conversations.find((c) => c.id === conv_id);
   const { pendingImages, pickImage, removePendingImage, clearPendingImages } =
@@ -77,6 +79,7 @@ export default function ChatDetailScreen() {
 
   const conversationStatus = conversation?.status ?? 'idle';
   const {
+    isAwaitingResponse,
     incomingAgentActivitySeq,
     activeTypewriterSeq,
     shouldForceComplete,
@@ -172,6 +175,16 @@ export default function ChatDetailScreen() {
 
   const isOffline = !endpoint || status === 'closed';
   const composerDisabled = isOffline || isAgentRunning;
+  const modelSelector = useChatModelSelector({
+    endpoint,
+    endpointId: endpoint_id,
+    convId: conv_id,
+    agentId: agent_id,
+    agentName: agent_name,
+    conversation,
+    isAwaitingResponse,
+    updateConversation,
+  });
   const badge = isOffline
     ? { label: 'OFFLINE', bg: '#1A1A1A', dot: '#FF4444' }
     : (STATUS_BADGE[conversation?.status ?? 'idle'] ?? STATUS_BADGE.idle);
@@ -182,7 +195,22 @@ export default function ChatDetailScreen() {
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <ChatHeader title={navTitle} badge={badge} onBack={() => router.back()} />
+        <ChatHeader
+          title={navTitle}
+          badge={badge}
+          modelLabel={modelSelector.currentModelLabel}
+          modelDisabled={modelSelector.modelHeaderDisabled}
+          onPressModel={modelSelector.open}
+          onBack={() => router.back()}
+        />
+        <ModelSelector
+          visible={modelSelector.visible}
+          models={modelSelector.runtimeModels}
+          currentModelId={conversation?.model_id ?? null}
+          disabled={modelSelector.modelSwitchDisabled}
+          onClose={() => modelSelector.setVisible(false)}
+          onSelect={(id) => void modelSelector.select(id)}
+        />
 
         <ChatTranscriptList
           listRef={listRef}

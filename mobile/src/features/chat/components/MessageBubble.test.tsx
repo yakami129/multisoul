@@ -6,6 +6,10 @@ import type { WsMessage } from '@/types';
 import { MessageBubble } from './MessageBubble';
 
 const originalFetch = global.fetch;
+function assertTrue(value: boolean, message: string) {
+  if (!value) throw new Error(message);
+  expect(value).toBe(true);
+}
 
 afterEach(() => {
   jest.useRealTimers();
@@ -19,6 +23,48 @@ const agentMessage: WsMessage = {
   payload: { text: 'system online' },
   created_at: 0,
 };
+
+/// System event separator: model changes render as lightweight transcript text, not AI bubbles.
+///
+/// Data setup:
+///   role = "system_event", event = "model_changed"
+///   labels = "Default" -> "Codex 5.3"
+///
+/// Execution:
+///   1. Render MessageBubble with the system event message.
+///   2. Query for the separator text and for agent text bubble chrome.
+///
+/// Expected result:
+///   - Positive: "Model changed: Default -> Codex 5.3" is visible.
+///   - Negative: no agent-text-bubble is rendered for a system event.
+it('renders model_changed system event as separator text', () => {
+  const { getByText, queryByTestId } = render(
+    <MessageBubble
+      msg={{
+        type: 'message',
+        seq: 5,
+        role: 'system_event',
+        created_at: 1,
+        payload: {
+          event: 'model_changed',
+          from_model_id: null,
+          to_model_id: 'gpt-5.3-codex',
+          from_label: 'Default',
+          to_label: 'Codex 5.3',
+        },
+      }}
+    />,
+  );
+
+  assertTrue(
+    !!getByText('Model changed: Default -> Codex 5.3'),
+    'model_changed system event should render a visible separator label',
+  );
+  assertTrue(
+    queryByTestId('agent-text-bubble') === null,
+    'system event must not render inside the agent text bubble chrome',
+  );
+});
 
 test('renders minimal shining waiting status', () => {
   jest.useFakeTimers();

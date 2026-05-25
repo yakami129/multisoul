@@ -76,6 +76,63 @@ async fn test_create_conversation_returns_201() {
     );
 }
 
+/// POST /api/v1/agents/:id/conversations returns an explicit null model_id for new conversations.
+///
+/// Data construction:
+///   - Register agent "test-agent" in DB through make_conv_app.
+///   - POST body: { "title": "Runtime model choice" } creates one conversation.
+///   - New conversation model_id should be absent from persisted data, represented in JSON as null.
+///
+/// Execution process:
+///   1. POST /api/v1/agents/:agent_id/conversations with a valid Bearer token.
+///   2. Parse the response body as JSON.
+///   3. Read the model_id key and compare it against null and the invalid default string.
+///
+/// Expected results:
+///   - HTTP status is 201 so the response body is the created conversation row.
+///   - model_id key exists to make the response shape stable for mobile clients.
+///   - model_id is null because no runtime model has been selected yet.
+///   - model_id is not "default" because v1 must not invent a sentinel model.
+#[tokio::test]
+async fn test_create_conversation_returns_null_model_id() {
+    let (app, agent_id) = make_conv_app("tok").await;
+    let body = serde_json::json!({ "title": "Runtime model choice" });
+    let resp = app
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri(format!("/api/v1/agents/{}/conversations", agent_id))
+                .header("Authorization", "Bearer tok")
+                .header("Content-Type", "application/json")
+                .body(Body::from(body.to_string()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        resp.status(),
+        StatusCode::CREATED,
+        "create conversation must return 201 before checking model_id response shape"
+    );
+
+    let bytes = axum::body::to_bytes(resp.into_body(), 4096).await.unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+    assert!(
+        json.as_object()
+            .expect("create conversation response must be a JSON object")
+            .contains_key("model_id"),
+        "model_id key must exist so clients can distinguish null from an omitted field"
+    );
+    assert!(
+        json["model_id"].is_null(),
+        "new conversations must return model_id null until a model is selected"
+    );
+    assert_ne!(
+        json["model_id"], "default",
+        "new conversations must not return the sentinel string \"default\" as model_id"
+    );
+}
+
 async fn make_conv_app_with_delete(token: &str) -> (axum::Router, String) {
     let dir = tempdir().unwrap();
     let conn = db::open_at(&dir.path().join("t.db")).unwrap();
@@ -301,3 +358,6 @@ async fn test_abort_nonexistent_conversation_returns_404() {
         "abort unknown conv must be 404"
     );
 }
+
+include!("conversation_model_patch_tests.rs");
+include!("conversation_model_patch_validation_tests.rs");
