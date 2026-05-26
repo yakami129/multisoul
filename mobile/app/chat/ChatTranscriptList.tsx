@@ -1,5 +1,11 @@
 import React from 'react';
-import { FlatList, type NativeScrollEvent, type NativeSyntheticEvent, View } from 'react-native';
+import {
+  ActivityIndicator,
+  FlatList,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
+  View,
+} from 'react-native';
 import { WAITING_MESSAGE } from '@/features/chat/chatDetailConstants';
 import { MessageBubble } from '@/features/chat/components/MessageBubble';
 import { getAskId } from '@/features/chat/utils/chatMessageWindows';
@@ -9,6 +15,7 @@ import { s } from './styles';
 interface Props {
   listRef: React.RefObject<FlatList<WsMessage> | null>;
   messages: WsMessage[];
+  isLoadingOlder: boolean;
   isAgentRunning: boolean;
   incomingAgentActivitySeq: number | null;
   activeTypewriterSeq: number | null;
@@ -27,6 +34,7 @@ interface Props {
 export default function ChatTranscriptList({
   listRef,
   messages,
+  isLoadingOlder,
   isAgentRunning,
   incomingAgentActivitySeq,
   activeTypewriterSeq,
@@ -60,6 +68,13 @@ export default function ChatTranscriptList({
     );
   };
 
+  const renderOlderLoading = () =>
+    isLoadingOlder ? (
+      <View testID="older-messages-loading" style={s.olderMessagesLoading}>
+        <ActivityIndicator testID="older-messages-loading-indicator" color="#FF6B35" />
+      </View>
+    ) : null;
+
   return (
     <FlatList
       ref={listRef}
@@ -68,6 +83,7 @@ export default function ChatTranscriptList({
       data={messages}
       keyExtractor={(msg) => `${msg.seq}`}
       renderItem={renderMessage}
+      ListHeaderComponent={isLoadingOlder ? renderOlderLoading : null}
       ListFooterComponent={
         isAgentRunning && incomingAgentActivitySeq === null ? (
           <MessageBubble msg={WAITING_MESSAGE} waiting />

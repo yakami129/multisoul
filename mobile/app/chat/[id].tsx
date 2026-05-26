@@ -62,6 +62,7 @@ export default function ChatDetailScreen() {
   const {
     catchUpAfterSeq,
     transcriptMessages,
+    isLoadingOlder,
     hasUserScrolledHistoryRef,
     hasLoadedInitialMessagesRef,
     loadOlderMessages,
@@ -212,6 +213,7 @@ export default function ChatDetailScreen() {
         <ChatTranscriptList
           listRef={listRef}
           messages={transcriptMessages}
+          isLoadingOlder={isLoadingOlder}
           isAgentRunning={isAgentRunning}
           incomingAgentActivitySeq={incomingAgentActivitySeq}
           activeTypewriterSeq={activeTypewriterSeq}

@@ -1,9 +1,9 @@
 import { type WsMessage } from '@/types';
 
-export const INITIAL_MESSAGE_LIMIT = 15;
-export const OLDER_MESSAGE_LIMIT = 50;
+export const INITIAL_MESSAGE_LIMIT = 25;
+export const OLDER_MESSAGE_LIMIT = 30;
 export const FOCUS_MESSAGE_LIMIT = 100;
-export const TOP_LOAD_THRESHOLD = 80;
+export const TOP_LOAD_THRESHOLD = 300;
 export const BOTTOM_STICKY_THRESHOLD = 120;
 
 export function getLatestWindowMinSeq(messages: WsMessage[], limit: number): number | null {
