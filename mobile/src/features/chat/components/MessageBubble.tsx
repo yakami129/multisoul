@@ -1,5 +1,5 @@
 import { X } from 'lucide-react-native';
-import React, { memo, useEffect, useRef, useState } from 'react';
+import React, { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Easing, View, Text, StyleSheet, Image, Modal, Pressable } from 'react-native';
 import { recordDiagnosticsEvent } from '@/services/diagnosticsLog';
 import {
@@ -8,6 +8,7 @@ import {
   type AgentTextPayload,
   type UserTextPayload,
   type ToolCallPayload,
+  type SystemEventPayload,
 } from '@/types';
 import AskQuestionCard from './AskQuestionCard';
 import { MarkdownMessage } from './MarkdownMessage';
@@ -15,7 +16,73 @@ import MultiAskQuestionCard from './MultiAskQuestionCard';
 import { ToolCallRow } from './ToolCallRow';
 
 const TYPEWRITER_INTERVAL_MS = 18;
+const TYPEWRITER_BULK_GAP_MIN = 140;
+const TYPEWRITER_LONG_DOC_MIN = 240;
+const TYPEWRITER_LONG_TAIL_SMOOTH = 64;
+const TYPEWRITER_MAX_STEP = 18;
 const DOT_PULSE_DURATION = 600;
+
+type SegmenterCtor = new (
+  locales?: string,
+  options?: { granularity: 'grapheme' },
+) => { segment(input: string): Iterable<{ segment: string }> };
+
+function graphemeUnits(raw: string): string[] {
+  const segmenter = (Intl as typeof Intl & { Segmenter?: SegmenterCtor }).Segmenter;
+  if (segmenter) {
+    return Array.from(
+      new segmenter(undefined, { granularity: 'grapheme' }).segment(raw),
+      (part) => part.segment,
+    );
+  }
+  return Array.from(raw);
+}
+
+function joinUnits(units: string[], count: number) {
+  return units.slice(0, Math.min(count, units.length)).join('');
+}
+
+function stepForGap(gap: number) {
+  if (gap <= 0) return 0;
+  const frames = 72;
+  return Math.min(gap, Math.min(TYPEWRITER_MAX_STEP, Math.max(1, Math.ceil(gap / frames))));
+}
+
+function bulkAdvanceEndUnits(units: string[], from: number) {
+  const end = units.length;
+  for (let i = from; i < end; i++) {
+    if (
+      units[i] === '\r' &&
+      units[i + 1] === '\n' &&
+      units[i + 2] === '\r' &&
+      units[i + 3] === '\n'
+    )
+      return i + 4;
+    if (units[i] === '\n' && units[i + 1] === '\n') return i + 2;
+  }
+  for (let i = from; i < end; i++) {
+    if (units[i] === '\r' && units[i + 1] === '\n') return i + 2;
+    if (units[i] === '\n' || units[i] === '\r') return i + 1;
+  }
+
+  const rest = end - from;
+  if (rest <= 200) return end;
+  const slab = Math.min(Math.max(120, Math.floor(rest / 28)), 360);
+  const edge = Math.min(from + slab, end);
+  for (let i = edge; i > from + slab * 0.52; i--) if (units[i - 1] === ',') return i;
+  for (let i = edge; i > from + slab * 0.42; i--) if (units[i - 1] === ' ') return i;
+  return edge;
+}
+
+function nextTypewriterCount(units: string[], current: number) {
+  const targetLen = units.length;
+  const gap = targetLen - current;
+  if (gap <= 0) return current;
+  const useBulk =
+    gap > TYPEWRITER_BULK_GAP_MIN ||
+    (targetLen >= TYPEWRITER_LONG_DOC_MIN && gap > TYPEWRITER_LONG_TAIL_SMOOTH);
+  return useBulk ? bulkAdvanceEndUnits(units, current) : current + stepForGap(gap);
+}
 
 async function probeFailedImageUri(imageUri: string, fileId: string | undefined, seq: number) {
   try {
@@ -61,8 +128,13 @@ export const MessageBubble = memo(function MessageBubble({
   token = '',
 }: Props) {
   const agentText = msg.role === 'agent_text' ? ((msg.payload as AgentTextPayload).text ?? '') : '';
-  const [visibleChars, setVisibleChars] = useState(typewriter ? 0 : agentText.length);
+  const agentUnits = useMemo(() => graphemeUnits(agentText), [agentText]);
+  const agentUnitCount = agentUnits.length;
+  const [visibleUnits, setVisibleUnits] = useState(typewriter ? 0 : agentUnitCount);
   const prevTypewriterRef = useRef(typewriter);
+  const prevAgentTextRef = useRef(agentText);
+  const prevAgentSeqRef = useRef(msg.seq);
+  const visibleUnitsRef = useRef(typewriter ? 0 : agentUnitCount);
   const [previewVisible, setPreviewVisible] = useState(false);
   const [imageLoadFailed, setImageLoadFailed] = useState(false);
   const dot1 = useRef(new Animated.Value(0.3)).current;
@@ -70,30 +142,42 @@ export const MessageBubble = memo(function MessageBubble({
   const dot3 = useRef(new Animated.Value(0.3)).current;
 
   useEffect(() => {
-    if (!typewriter || msg.role !== 'agent_text') {
-      // Also handles typewriter=false (natural end / forceComplete): jumps visibleChars to end.
-      // Note: setting typewriter=false also triggers this effect and jumps visibleChars to end.
-      setVisibleChars(agentText.length);
+    function setRevealCount(count: number) {
+      visibleUnitsRef.current = count;
+      setVisibleUnits(count);
+    }
+
+    if (!typewriter || forceComplete || msg.role !== 'agent_text') {
+      setRevealCount(agentUnitCount);
+      prevAgentTextRef.current = agentText;
+      prevAgentSeqRef.current = msg.seq;
       return undefined;
     }
 
-    // Only reset to 0 when typewriter transitions false→true (new message)
-    if (!prevTypewriterRef.current) {
-      setVisibleChars(0);
+    const replacesMessage =
+      msg.seq !== prevAgentSeqRef.current || !agentText.startsWith(prevAgentTextRef.current);
+    if (!prevTypewriterRef.current || replacesMessage || visibleUnitsRef.current > agentUnitCount) {
+      setRevealCount(0);
     }
+    prevAgentTextRef.current = agentText;
+    prevAgentSeqRef.current = msg.seq;
 
     const timer = setInterval(() => {
-      setVisibleChars((count: number) => {
-        if (count >= agentText.length) {
+      setVisibleUnits((count: number) => {
+        const safeCount = Math.min(count, agentUnitCount);
+        if (safeCount >= agentUnitCount) {
           clearInterval(timer);
-          return count;
+          visibleUnitsRef.current = safeCount;
+          return safeCount;
         }
-        return Math.min(count + 1, agentText.length);
+        const next = Math.min(nextTypewriterCount(agentUnits, safeCount), agentUnitCount);
+        visibleUnitsRef.current = next;
+        return next;
       });
     }, TYPEWRITER_INTERVAL_MS);
 
     return () => clearInterval(timer);
-  }, [agentText, msg.role, msg.seq, typewriter]);
+  }, [agentText, agentUnits, agentUnitCount, forceComplete, msg.role, msg.seq, typewriter]);
 
   // Track previous typewriter value for transition detection
   useEffect(() => {
@@ -241,14 +325,14 @@ export const MessageBubble = memo(function MessageBubble({
       // forceComplete bypasses typewriter even if typewriter prop is still true.
       // This handles the case when a tool_call arrives or conversation completes
       // mid-typewriter — the parent computes this synchronously (no setState race).
-      const isStreaming = typewriter && !forceComplete && visibleChars < agentText.length;
-      const displayedText = isStreaming ? `${agentText.slice(0, visibleChars)}▌` : agentText;
+      const isStreaming = typewriter && !forceComplete && visibleUnits < agentUnitCount;
+      const displayedText = isStreaming ? `${joinUnits(agentUnits, visibleUnits)}▌` : agentText;
 
       if (isStreaming) {
         return (
           <View style={s.aiWrap}>
             <View testID="agent-text-bubble" style={s.aiBubble}>
-              <Text selectable style={[s.aiText, s.typingText]}>
+              <Text selectable style={s.aiText}>
                 {displayedText}
               </Text>
             </View>
@@ -323,19 +407,17 @@ export const MessageBubble = memo(function MessageBubble({
       );
     }
 
-    // case 'task_status': {
-    //   const p = msg.payload as any;
-    //   const color = p.status === 'completed' ? '#33FF33' : '#FFB000';
-    //   return (
-    //     <View style={s.statusRow}>
-    //       <View style={[s.statusLine, { backgroundColor: color }]} />
-    //       <Text style={[s.statusText, { color }]}>
-    //         {p.status.toUpperCase()} — {p.summary}
-    //       </Text>
-    //       <View style={[s.statusLine, { backgroundColor: color }]} />
-    //     </View>
-    //   );
-    // }
+    case 'system_event': {
+      const payload = msg.payload as SystemEventPayload;
+      if (payload.event !== 'model_changed') return null;
+      return (
+        <View style={s.systemEventWrap}>
+          <Text style={s.systemEventText}>
+            {`Model changed: ${payload.from_label} -> ${payload.to_label}`}
+          </Text>
+        </View>
+      );
+    }
 
     default:
       return null;
@@ -379,21 +461,8 @@ const s = StyleSheet.create({
     marginTop: 4,
   },
   dot: { width: 7, height: 7, borderRadius: 4, backgroundColor: '#888888' },
-  typingBubble: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    width: 64,
-    gap: 6,
-  },
   userText: { fontFamily: 'Inter', fontSize: 15, color: '#FFFFFF', lineHeight: 22 },
   aiText: { fontFamily: 'Inter', fontSize: 15, color: '#FFFFFF', lineHeight: 22 },
-  typingText: { color: '#FFFFFF' },
-  waitingText: { fontFamily: 'Inter', fontSize: 14, color: '#888888', lineHeight: 20 },
-  waitingTextWrap: { overflow: 'hidden', position: 'relative', width: 112 },
-  waitingShine: { position: 'absolute', top: 0, bottom: 0, width: 48, overflow: 'hidden' },
-  waitingTextHighlight: { color: '#FFFFFF', width: 112 },
   thumbImage: { width: 120, height: 120, borderRadius: 8, marginBottom: 4 },
   attachmentPlaceholder: { fontFamily: 'Inter', fontSize: 12, color: '#FFFFFF', marginBottom: 4 },
   imageCaption: { marginTop: 4 },
@@ -418,7 +487,14 @@ const s = StyleSheet.create({
     justifyContent: 'center',
   },
   previewImage: { width: '100%', height: '80%' },
-  statusRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8 },
-  statusLine: { flex: 1, height: 1 },
-  statusText: { fontFamily: 'Inter', fontSize: 11, letterSpacing: 1 },
+  systemEventWrap: { width: '100%', alignItems: 'center', paddingVertical: 4 },
+  systemEventText: {
+    fontFamily: 'Inter',
+    fontSize: 12,
+    color: '#888888',
+    backgroundColor: '#252525',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
 });

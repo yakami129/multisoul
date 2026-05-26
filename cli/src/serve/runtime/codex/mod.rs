@@ -17,12 +17,12 @@ use uuid::Uuid;
 
 use crate::db::now_ms;
 use crate::logging;
+use crate::serve::runtime::DispatchMessage;
 use crate::serve::state::{start_new_process_group, AppState, SessionHandle};
 
-#[path = "codex_turn.rs"]
-mod codex_turn;
+mod turn;
 
-use codex_turn::{complete_turn, process_turn};
+use turn::{complete_turn, process_turn};
 
 // ─── public API ───────────────────────────────────────────────────────────────
 
@@ -30,9 +30,7 @@ use codex_turn::{complete_turn, process_turn};
 pub fn send_to_session(
     state: &AppState,
     conv_id: &str,
-    user_text: &str,
-    file_id: Option<&str>,
-    user_seq: i64,
+    message: DispatchMessage<'_>,
     project_path: &str,
     mode: &str,
 ) {
@@ -41,9 +39,10 @@ pub fn send_to_session(
         if session
             .tx
             .send(crate::serve::state::SessionMessage {
-                user_text: user_text.to_string(),
-                file_id: file_id.map(str::to_string),
-                seq: user_seq,
+                user_text: message.text.to_string(),
+                file_id: message.file_id.map(str::to_string),
+                model_id: normalize_model_id(message.model_id),
+                seq: message.seq,
             })
             .is_ok()
         {
@@ -59,9 +58,10 @@ pub fn send_to_session(
     drop(sessions);
 
     let _ = tx.send(crate::serve::state::SessionMessage {
-        user_text: user_text.to_string(),
-        file_id: file_id.map(str::to_string),
-        seq: user_seq,
+        user_text: message.text.to_string(),
+        file_id: message.file_id.map(str::to_string),
+        model_id: normalize_model_id(message.model_id),
+        seq: message.seq,
     });
 
     let state2 = state.clone();
@@ -92,7 +92,7 @@ fn session_worker(
 
     // Pre-warmed process: spawned after each successful turn so that Node.js
     // startup happens in the background while the user types their next message.
-    let mut pre_spawned: Option<(Child, ChildStdin)> = None;
+    let mut pre_spawned: Option<(Option<String>, Child, ChildStdin)> = None;
 
     loop {
         let msg = match rx.recv() {
@@ -100,7 +100,7 @@ fn session_worker(
             Err(_) => {
                 info!("session_channel_closed_shutting_down");
                 // Kill the pre-warmed process if nobody sent a follow-up message.
-                if let Some((mut c, _s)) = pre_spawned.take() {
+                if let Some((_model_id, mut c, _s)) = pre_spawned.take() {
                     let _ = c.kill();
                     session_handle.clear_current_pid(c.id());
                     let _ = c.wait();
@@ -110,6 +110,7 @@ fn session_worker(
         };
         let user_text = msg.user_text;
         let user_seq = msg.seq;
+        let model_id = msg.model_id;
         let image_path = msg
             .file_id
             .as_deref()
@@ -132,7 +133,7 @@ fn session_worker(
             }
             let process = if attempt == 1 {
                 let reusable_pre_spawned = if image_path.is_some() {
-                    if let Some((mut child, _stdin)) = pre_spawned.take() {
+                    if let Some((_model_id, mut child, _stdin)) = pre_spawned.take() {
                         let pid = child.id();
                         let _ = child.kill();
                         session_handle.clear_current_pid(pid);
@@ -141,7 +142,20 @@ fn session_worker(
                     }
                     None
                 } else {
-                    pre_spawned.take()
+                    match pre_spawned.take() {
+                        Some((pre_model_id, child, stdin)) if pre_model_id == model_id => {
+                            Some((child, stdin))
+                        }
+                        Some((_pre_model_id, mut child, _stdin)) => {
+                            let pid = child.id();
+                            let _ = child.kill();
+                            session_handle.clear_current_pid(pid);
+                            let _ = child.wait();
+                            debug!(pid, "codex_pre_warm_discarded_for_model_change");
+                            None
+                        }
+                        None => None,
+                    }
                 };
                 reusable_pre_spawned.or_else(|| {
                     debug!("codex_no_pre_warm_spawning_fresh");
@@ -150,6 +164,7 @@ fn session_worker(
                         thread_id.as_deref(),
                         &mode,
                         image_path.as_deref(),
+                        model_id.as_deref(),
                     )
                 })
             } else {
@@ -159,6 +174,7 @@ fn session_worker(
                     thread_id.as_deref(),
                     &mode,
                     image_path.as_deref(),
+                    model_id.as_deref(),
                 )
             };
 
@@ -216,10 +232,10 @@ fn session_worker(
                     info!("session_aborted_skip_pre_warm");
                     return;
                 }
-                match spawn_codex(&project_path, Some(tid), &mode, None) {
+                match spawn_codex(&project_path, Some(tid), &mode, None, model_id.as_deref()) {
                     Some(p) => {
                         session_handle.set_current_pid(p.0.id());
-                        pre_spawned = Some(p);
+                        pre_spawned = Some((model_id.clone(), p.0, p.1));
                         debug!(thread_id = %tid, "codex_pre_warm_ok");
                     }
                     None => {
@@ -241,8 +257,9 @@ fn spawn_codex(
     thread_id: Option<&str>,
     mode: &str,
     image_path: Option<&Path>,
+    model_id: Option<&str>,
 ) -> Option<(Child, ChildStdin)> {
-    let args = build_codex_args(project_path, thread_id, mode, image_path);
+    let args = build_codex_args(project_path, thread_id, mode, image_path, model_id);
     debug!(args = ?args, "codex_spawn_args");
 
     let mut command = Command::new("codex");
@@ -268,6 +285,7 @@ fn build_codex_args(
     thread_id: Option<&str>,
     mode: &str,
     image_path: Option<&Path>,
+    model_id: Option<&str>,
 ) -> Vec<String> {
     let is_resume = thread_id.filter(|s| !s.is_empty()).is_some();
     let mode_args = if is_resume {
@@ -301,11 +319,27 @@ fn build_codex_args(
             "-".to_string(),
         ]);
     }
+    if let Some(model_id) = model_id.filter(|s| !s.trim().is_empty()) {
+        let (base_model, effort) = super::models::split_model_effort(model_id);
+        args.push("--model".to_string());
+        args.push(base_model.to_string());
+        if let Some(effort) = effort {
+            args.push("-c".to_string());
+            args.push(format!("model_reasoning_effort={effort}"));
+        }
+    }
     if let Some(image_path) = image_path {
         args.push("--image".to_string());
         args.push(image_path.to_string_lossy().replace('\\', "/"));
     }
     args
+}
+
+fn normalize_model_id(model_id: Option<&str>) -> Option<String> {
+    model_id
+        .map(str::trim)
+        .filter(|model_id| !model_id.is_empty())
+        .map(ToString::to_string)
 }
 
 fn codex_image_path(uploads_dir: &Path, file_id: &str) -> PathBuf {
@@ -452,5 +486,4 @@ pub(super) fn broadcast(
 }
 
 #[cfg(test)]
-#[path = "codex_tests/mod.rs"]
 mod tests;

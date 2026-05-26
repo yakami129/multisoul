@@ -30,3 +30,42 @@ test('chat input does not add a fixed bottom spacer under the composer', () => {
   );
   expect(safeArea.height).toBe(0, 'chat input bottom spacer should collapse to zero height');
 });
+
+/// Chat composer edge spacing: the floating input tray must not touch the phone frame.
+///
+/// Data construction:
+///   horizontal breathing room target >= 20 px, matching iOS floating tray margins.
+///   top breathing room target        >= 12 px, separating transcript from composer.
+///   bottom breathing room target     >= 20 px, keeping the tray off the device edge.
+///
+/// Execution process:
+///   1. Read the exported chat screen styles.
+///   2. Flatten inputArea so numeric padding values are directly visible.
+///
+/// Expected result:
+///   - Positive assertion: inputArea style resolves to an object.
+///   - Boundary assertion: horizontal padding is at least 20 px.
+///   - Boundary assertion: bottom padding is at least 20 px.
+///   - Negative assertion: padding must not be 0, because that recreates the
+///     screenshot issue where the card visually sticks to the phone frame.
+test('chat composer input area keeps the tray away from screen edges', () => {
+  const inputArea = StyleSheet.flatten(s.inputArea);
+
+  expect(inputArea).toBeTruthy();
+  expect(inputArea.paddingHorizontal).toBeGreaterThanOrEqual(
+    20,
+    'composer must keep at least 20px horizontal margin from the phone frame',
+  );
+  expect(inputArea.paddingTop).toBeGreaterThanOrEqual(
+    12,
+    'composer must keep visible breathing room above the tray',
+  );
+  expect(inputArea.paddingBottom).toBeGreaterThanOrEqual(
+    20,
+    'composer must keep at least 20px bottom margin from the phone frame',
+  );
+  expect(inputArea.paddingHorizontal).not.toBe(
+    0,
+    'composer horizontal padding must not collapse to the screen edge',
+  );
+});

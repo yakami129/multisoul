@@ -8,13 +8,13 @@
 
 ## 1. 概述
 
-MultiSoul CLI（`msctl`）通过 **Runtime 适配层** 驱动 AI agent 子进程。当前内置两个 runtime：
+MultiSoul CLI（`msctl`）通过 **Runtime 适配层** 驱动 AI agent 子进程。当前内置三个 runtime：
 
 | runtime 标识 | 实现文件 | 驱动的子进程 |
 |---|---|---|
-| `claude-code`（默认） | `cli/src/serve/runtime/claude.rs` | `claude` 可执行文件（Claude Code SDK） |
-| `codex` | `cli/src/serve/runtime/codex.rs` | `codex` 可执行文件（OpenAI Codex CLI） |
-| `cursor-cli` | `cli/src/serve/runtime/cursor.rs` | `agent`（Cursor Agent CLI，`CURSOR_AGENT_BIN` 可覆盖） |
+| `claude-code`（默认） | `cli/src/serve/runtime/claude/mod.rs` | `claude` 可执行文件（Claude Code SDK） |
+| `codex` | `cli/src/serve/runtime/codex/mod.rs` | `codex` 可执行文件（OpenAI Codex CLI） |
+| `cursor-cli` | `cli/src/serve/runtime/cursor/mod.rs` | `agent`（Cursor Agent CLI，`CURSOR_AGENT_BIN` 可覆盖） |
 
 本文档说明如何接入第三个（或更多）runtime，复用已有骨架，只需实现差异部分。
 
@@ -70,6 +70,8 @@ pub struct AppState {
 pub struct SessionMessage {
     pub user_text: String,
     pub file_id: Option<String>,   // 上传文件 ID（可选）
+    pub model_id: Option<String>,  // conversation 级模型；None 表示 runtime 默认
+    pub seq: i64,                  // 当前 user_text 的 message seq
 }
 ```
 
@@ -104,6 +106,8 @@ pub fn send_to_session(
         if handle.tx.send(crate::serve::state::SessionMessage {
             user_text: user_text.to_string(),
             file_id: None,
+            model_id: None,
+            seq,
         }).is_ok() {
             debug!(conv_id = %conv_id, "runtime_message_queued");
             return;
@@ -120,6 +124,8 @@ pub fn send_to_session(
     let _ = tx.send(crate::serve::state::SessionMessage {
         user_text: user_text.to_string(),
         file_id: None,
+        model_id: None,
+        seq,
     });
 
     let state2 = state.clone();
@@ -267,7 +273,7 @@ serde_json::json!({ "call_id": "tool-1", "ok": true, "summary": "/repo" })
 
 ### Step 4：注册到 mod.rs
 
-打开 `cli/src/serve/runtime/mod.rs`，添加模块声明和 match arm。已知能原生接收图片的 runtime 应直接传递 `file_id`；不支持原生图片的 runtime 才使用 `inject_image_prefix`（该函数会将拼接后的路径里的 `\\` 换成 `/`，保证 Windows 上注入串仍与 Unix 一样可读）：
+打开 `cli/src/serve/runtime/mod.rs`，添加模块声明和 match arm。分发入口通过 `DispatchMessage { text, file_id, model_id, seq }` 传递当前 turn 的文本、上传文件、conversation 级模型和 user message seq。已知能原生接收图片的 runtime 应直接传递 `file_id`；不支持原生图片的 runtime 才使用 `inject_image_prefix`（该函数会将拼接后的路径里的 `\\` 换成 `/`，保证 Windows 上注入串仍与 Unix 一样可读）：
 
 ```rust
 mod claude;
@@ -278,7 +284,7 @@ pub fn send_to_session(...) {
     match runtime {
         "codex" => {
             // Codex 支持 `codex exec ... - --image <path>`，由 codex adapter 消费 file_id。
-            codex::send_to_session(state, conv_id, user_text, file_id, project_path, mode);
+            codex::send_to_session(state, conv_id, message, project_path, mode);
         }
         "cursor-cli" | "your-runtime" => {
             // file_id 在 dispatch 层转换为路径前缀注入到 prompt（inject_image_prefix）
@@ -288,7 +294,8 @@ pub fn send_to_session(...) {
             };
             // 按 runtime 分发
             if runtime == "your-runtime" {
-                your_runtime::send_to_session(state, conv_id, &effective_text, project_path);
+                let next = DispatchMessage { text: &effective_text, file_id: None, model_id: message.model_id, seq: message.seq };
+                your_runtime::send_to_session(state, conv_id, next, project_path, mode);
             } else { /* cursor-cli */ }
         }
         _ => claude::send_to_session(state, conv_id, user_text, file_id, project_path),
@@ -314,6 +321,8 @@ let _ = conn.execute_batch(
 > **规则**：所有 schema 变更走 `ALTER TABLE … ADD COLUMN`，不允许在运行时 `DROP`/`CREATE TABLE`，确保向后兼容现有用户数据。
 
 当前 schema 还包含 `ask_answers` 表，用于记录已经成功交付给 runtime 的 AskUserQuestion answer；HTTP message history 通过它恢复 `ask_question.answered` 状态。新 runtime 若支持交互式提问，应复用这张表作为后端权威 answered state。
+
+conversation 级模型选择使用 `conversations.model_id` 字段，`NULL` 表示底层 runtime 默认模型。新 runtime 若支持模型切换，应在 provider registry 中声明可选模型，并在 adapter 里把 `DispatchMessage.model_id` 转为该 CLI 的模型参数。
 
 ---
 
@@ -352,6 +361,7 @@ Codex 使用 `codex exec` / `codex exec resume <thread_id>` 命令；`full-auto`
 - **模式标志**：`mode` 字段映射到 Codex CLI 顶层参数；fresh 与 resume 的 `full-auto` / `auto-edit` 都使用 `codex -s danger-full-access -a never exec ...`，避免交互式审批阻塞；`yolo` 映射到 `--dangerously-bypass-approvals-and-sandbox`（见 `codex::mode_flags()` / `codex::resume_mode_flags()`）。
 - **重试**：失败时最多重试 3 次；若遇到 `"thread ... not found"` 错误，清空 `codex_thread_id` 重新开始。
 - **单测位置**：`codex.rs` 旁的 `codex_tests.rs`（`#[path = "codex_tests.rs"] mod tests`），用于满足仓库单文件行数上限。
+- **模型参数**：conversation 有具体 `model_id` 时，fresh 与 resume 都追加 `--model <model_id>`；Default/`NULL` 不追加。预热进程必须绑定当前模型，模型变化后丢弃旧模型预热进程。
 
 ---
 
@@ -388,6 +398,12 @@ Codex 使用 `codex exec` / `codex exec resume <thread_id>` 命令；`full-auto`
 > **2026-05-24**：`cli/src/db.rs` 新增 `activity_reads` 表（conversation_id → read_at），供 Activity Done 已读状态持久化；与 runtime 接入无关，本文 §Step 5 纪律不变。
 >
 > **2026-05-24（chat performance）**：`GET /api/v1/conversations/:id/messages` 新增可选 query `limit` / `before_seq` / `around_ask_id`，用于有界历史分页；仅传 `since_seq` 时行为与原先一致。`cli/src/db.rs` 在 `init_schema` 中为 `messages(conversation_id, seq)` 与 `ask_answers(conversation_id, ask_id)` 增加索引以加速上述查询。`POST` 路径仍经 `serve/runtime/mod.rs` 分发，本文 §2 架构图与 Step 1–4 正文无需改动。
+
+> **2026-05-24（runtime model switching）**：`conversations.model_id` 成为 conversation 级模型选择；`serve/routes/messages.rs` 在分发用户消息时读取该字段并放入 `DispatchMessage.model_id`，`SessionMessage` 同步携带该字段。Claude / Codex / Cursor adapter 都在具体模型存在时向底层 CLI 追加 `--model <model_id>`；Default 仍以 `NULL` 表示，不传 `--model`。Mobile 的 `Conversation` 和 message schema 同步增加 `model_id` / `system_event:model_changed`，用于 Chat header 展示和历史分隔行。
+>
+> **2026-05-26（codex model + reasoning effort）**：Codex builtin 模型更新为 `gpt-5.5` / `gpt-5.4-mini`（符合 OpenAI 官方命名）。Codex adapter 支持复合 ID `model:effort`（如 `gpt-5.5:high`），`build_codex_args` 通过 `split_model_effort()` 拆分后分别传递 `--model gpt-5.5` 和 `-c model_reasoning_effort=high`。Claude 模型更新为 `claude-sonnet-4-6` / `claude-opus-4-6`。正文架构描述不变——模型参数传递机制与 §Step 4 / §Codex adapter 一致。
+>
+> **2026-05-26（runtime directory restructure）**：`cli/src/serve/runtime/` 扁平文件迁移至子目录：`claude/`、`codex/`、`cursor/`。各 adapter 主逻辑入口为 `<runtime>/mod.rs`，内部子模块去掉冗余前缀（`claude_stream.rs` → `claude/stream.rs`、`codex_turn.rs` → `codex/turn.rs` 等）。所有 `#[path = "..."]` 指令替换为标准 Rust 子模块约定。文档中引用路径同步更新。
 
 完成实现后，按 `CLAUDE.md §5` 跑：
 

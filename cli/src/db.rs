@@ -92,6 +92,7 @@ fn init_schema(conn: &Connection) -> Result<()> {
     let _ = conn.execute_batch("ALTER TABLE conversations ADD COLUMN codex_thread_id TEXT;");
     let _ = conn.execute_batch("ALTER TABLE push_tokens ADD COLUMN endpoint_id TEXT;");
     let _ = conn.execute_batch("ALTER TABLE conversations ADD COLUMN cursor_session_id TEXT;");
+    let _ = conn.execute_batch("ALTER TABLE conversations ADD COLUMN model_id TEXT;");
     // plugin_agents: plugin 可执行文件注册表
     let _ = conn.execute_batch(
         "CREATE TABLE IF NOT EXISTS plugin_agents (
@@ -234,6 +235,52 @@ mod tests {
         assert!(
             has_ask_answers_choice_ids,
             "ask_answers.choice_ids column must exist after migration"
+        );
+    }
+
+    /// Conversation schema includes a nullable model_id, and agents remain runtime-only.
+    ///
+    /// Data construction:
+    ///   - tempdir creates an isolated SQLite path: <temp>/test.db
+    ///   - open_at initializes a fresh schema and then applies compatibility migrations
+    ///   - conversations expected column count includes model_id as TEXT nullable
+    ///   - agents expected column set does not include model_id because v1 model choice is conversation-scoped
+    ///
+    /// Execution process:
+    ///   1. Open the temp DB through open_at so init_schema runs exactly as production startup does.
+    ///   2. Query pragma_table_info('conversations') for name='model_id'.
+    ///   3. Query pragma_table_info('agents') for name='model_id'.
+    ///
+    /// Expected results:
+    ///   - conversations.model_id exists so API rows can carry a nullable runtime model choice.
+    ///   - agents.model_id does not exist because v1 must not persist model defaults on agents.
+    #[test]
+    fn test_schema_has_conversation_model_id() {
+        let dir = tempdir().unwrap();
+        let conn = open_at(&dir.path().join("test.db")).unwrap();
+
+        let conversation_model_id_count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM pragma_table_info('conversations') WHERE name='model_id'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(
+            conversation_model_id_count, 1,
+            "conversations.model_id must exist exactly once as the conversation-scoped model selector"
+        );
+
+        let agent_model_id_count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM pragma_table_info('agents') WHERE name='model_id'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(
+            agent_model_id_count, 0,
+            "agents.model_id must not exist because v1 model switching is conversation-scoped"
         );
     }
 

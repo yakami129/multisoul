@@ -19,6 +19,45 @@ fn detects_claude_stale_resume_session_error() {
     assert!(is_stale_session_error(&raw));
 }
 
+/// build_claude_args: Claude 恢复会话时应同时传入 session_id 和选中的 model_id。
+///
+/// 数据构造（含关键数值的推导过程）：
+///   session_id = "sid-1"（已有 Claude 会话，必须使用 --resume）
+///   model_id   = "claude-sonnet-4-6"（conversation.model_id 的具体值，必须使用 --model）
+///   default    = None（Default/未选择模型，不能生成 --model）
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 调用 build_claude_args(Some("sid-1"), Some("claude-sonnet-4-6"))
+///   2. 检查 argv 中存在 `--resume sid-1` 和 `--model claude-sonnet-4-6`
+///   3. 调用 build_claude_args(Some("sid-1"), None)
+///
+/// 预期结果：
+///   - 断言 A：resume argv 包含 `--resume sid-1`
+///   - 断言 B：resume argv 包含 `--model claude-sonnet-4-6`
+///   - 断言 C：None argv 不包含 `--model`
+#[test]
+fn test_build_claude_args_resume_with_model() {
+    let selected = build_claude_args(Some("sid-1"), Some("claude-sonnet-4-6"));
+    let default = build_claude_args(Some("sid-1"), None);
+
+    assert!(
+        selected
+            .windows(2)
+            .any(|window| window == ["--resume", "sid-1"]),
+        "Claude resume args should include the persisted session id"
+    );
+    assert!(
+        selected
+            .windows(2)
+            .any(|window| window == ["--model", "claude-sonnet-4-6"]),
+        "Claude resume args should include the selected concrete model"
+    );
+    assert!(
+        !default.iter().any(|arg| arg == "--model"),
+        "Claude args for Default/None should not include --model"
+    );
+}
+
 /// write_user_message 写入正确的 stream-json 格式（纯文本）。
 ///
 /// 数据构造：
@@ -171,7 +210,7 @@ fn test_write_user_message_with_image_no_text() {
 ///
 /// 数据构造（含关键数值推导）：
 ///   child script:
-///     - 先读取 stdin 到 EOF，匹配 claude_stream::process_turn 写 user message 后继续读 stdout 的行为
+///     - 先读取 stdin 到 EOF，匹配 stream::process_turn 写 user message 后继续读 stdout 的行为
 ///     - 再 sleep 30s，不输出 result，让 process_turn 卡在 read_line
 ///   wait budget:
 ///     - abort 后最多轮询 20 次 * 50ms = 1000ms
@@ -179,7 +218,7 @@ fn test_write_user_message_with_image_no_text() {
 ///
 /// 执行过程：
 ///   1. 创建真实 sh 子进程，stdin/stdout/stderr 均为 pipe，并放入独立 process group
-///   2. 用独立线程调用 claude_stream::process_turn，线程会写 user message 并阻塞读 stdout
+///   2. 用独立线程调用 stream::process_turn，线程会写 user message 并阻塞读 stdout
 ///   3. 将 child pid 注册到 AppState.sessions[conv_id]
 ///   4. 调用与 HTTP handler 相同的 remove + abort_current_process 路径
 ///   5. 等待 process_turn 线程返回
@@ -220,13 +259,13 @@ fn abort_kills_child_blocking_inside_claude_process_turn() {
     let state_for_turn = state.clone();
     let turn_thread = std::thread::spawn(move || {
         let mut reader = BufReader::new(stdout);
-        let input = claude_stream::TurnInput {
+        let input = stream::TurnInput {
             user_text: "hello",
             file_id: None,
             uploads_dir: std::path::Path::new("/tmp/uploads"),
             seq: 1,
         };
-        claude_stream::process_turn(
+        stream::process_turn(
             &mut stdin,
             &mut reader,
             &state_for_turn,

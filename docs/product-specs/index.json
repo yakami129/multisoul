@@ -3,6 +3,10 @@
   "version": 1,
   "documents": [
     {
+      "file": "SPEC-activity-pagination.md",
+      "title": "Activity 模块分页滚动加载优化 SPEC"
+    },
+    {
       "file": "SPEC-agent-card-chat-entry.md",
       "title": "Agent 卡片直达对话 SPEC"
     },
@@ -25,6 +29,10 @@
     {
       "file": "SPEC-chat-media.md",
       "title": "Chat 图片上传 SPEC"
+    },
+    {
+      "file": "SPEC-chat-pagination.md",
+      "title": "Chat 懒加载分页优化 SPEC"
     },
     {
       "file": "SPEC-chat-performance.md",

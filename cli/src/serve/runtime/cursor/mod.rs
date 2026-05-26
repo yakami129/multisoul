@@ -4,12 +4,9 @@
 //!
 //! Override binary path with `CURSOR_AGENT_BIN` (default: `agent` on `PATH`).
 
-#[path = "cursor_db.rs"]
-mod cursor_db;
-#[path = "cursor_events.rs"]
-mod cursor_events;
-#[path = "cursor_text.rs"]
-mod cursor_text;
+mod db;
+mod events;
+mod text;
 
 use serde_json::Value;
 use std::io::{BufRead, BufReader, Read};
@@ -17,19 +14,19 @@ use std::process::{Child, Command, Stdio};
 use tracing::{debug, error, info, info_span, warn};
 
 use crate::logging;
+use crate::serve::runtime::DispatchMessage;
 use crate::serve::state::{start_new_process_group, AppState, SessionHandle};
-use cursor_db::{
+use db::{
     broadcast, clear_cursor_session, complete_turn, insert_message, load_cursor_session,
     mark_failed, save_cursor_session,
 };
-use cursor_events::{parse_tool_event, CursorToolEvent};
-use cursor_text::{extract_assistant_text, merge_stream_fragment};
+use events::{parse_tool_event, CursorToolEvent};
+use text::{extract_assistant_text, merge_stream_fragment};
 
 pub fn send_to_session(
     state: &AppState,
     conv_id: &str,
-    user_text: &str,
-    user_seq: i64,
+    message: DispatchMessage<'_>,
     project_path: &str,
     mode: &str,
 ) {
@@ -38,9 +35,10 @@ pub fn send_to_session(
         if session
             .tx
             .send(crate::serve::state::SessionMessage {
-                user_text: user_text.to_string(),
+                user_text: message.text.to_string(),
                 file_id: None,
-                seq: user_seq,
+                model_id: normalize_model_id(message.model_id),
+                seq: message.seq,
             })
             .is_ok()
         {
@@ -56,9 +54,10 @@ pub fn send_to_session(
     drop(sessions);
 
     let _ = tx.send(crate::serve::state::SessionMessage {
-        user_text: user_text.to_string(),
+        user_text: message.text.to_string(),
         file_id: None,
-        seq: user_seq,
+        model_id: normalize_model_id(message.model_id),
+        seq: message.seq,
     });
 
     let state2 = state.clone();
@@ -96,6 +95,7 @@ fn session_worker(
         };
         let user_text = msg.user_text;
         let user_seq = msg.seq;
+        let model_id = msg.model_id;
         let preview = logging::truncate(&user_text, 200);
         info!(
             user_text_len = user_text.chars().count(),
@@ -112,6 +112,7 @@ fn session_worker(
                 project_path: &project_path,
                 mode: &mode,
                 resume: session_id.as_deref(),
+                model_id: model_id.as_deref(),
             },
             &session_handle,
         ) {
@@ -141,6 +142,7 @@ fn session_worker(
                             project_path: &project_path,
                             mode: &mode,
                             resume: None,
+                            model_id: model_id.as_deref(),
                         },
                         &session_handle,
                     ) {
@@ -176,6 +178,7 @@ struct CursorTurn<'a> {
     project_path: &'a str,
     mode: &'a str,
     resume: Option<&'a str>,
+    model_id: Option<&'a str>,
 }
 
 fn process_turn(
@@ -184,7 +187,13 @@ fn process_turn(
     turn: CursorTurn<'_>,
     session_handle: &SessionHandle,
 ) -> Result<(), String> {
-    let mut child = spawn_agent(turn.prompt, turn.project_path, turn.mode, turn.resume)?;
+    let mut child = spawn_agent(
+        turn.prompt,
+        turn.project_path,
+        turn.mode,
+        turn.resume,
+        turn.model_id,
+    )?;
     session_handle.set_current_pid(child.id());
     debug!(pid = ?child.id(), conv_id = %conv_id, "cursor_agent_spawned");
 
@@ -319,38 +328,17 @@ fn spawn_agent(
     project_path: &str,
     mode: &str,
     resume: Option<&str>,
+    model_id: Option<&str>,
 ) -> Result<Child, String> {
     let bin = agent_bin();
     let mut cmd = Command::new(&bin);
-    cmd.arg("-p")
-        .arg(prompt)
-        .arg("--print")
-        .arg("--output-format")
-        .arg("stream-json")
-        .arg("--stream-partial-output")
-        .arg("--trust")
-        .arg("--workspace")
-        .arg(project_path)
-        // msctl is always non-interactive: approve shell/tools without a TTY.
-        .arg("--force");
-
-    if let Some(m) = model_from_env() {
-        cmd.arg("--model").arg(m);
-    }
-
-    match mode.to_lowercase().as_str() {
-        "ask" => {
-            cmd.arg("--mode").arg("ask");
-        }
-        "plan" => {
-            cmd.arg("--plan");
-        }
-        _ => {}
-    }
-
-    if let Some(sid) = resume.filter(|s| !s.is_empty()) {
-        cmd.arg("--resume").arg(sid);
-    }
+    cmd.args(build_cursor_args(
+        prompt,
+        project_path,
+        mode,
+        resume,
+        model_id,
+    ));
 
     cmd.current_dir(project_path)
         .stdin(Stdio::null())
@@ -361,14 +349,56 @@ fn spawn_agent(
     cmd.spawn().map_err(|e| format!("spawn {}: {}", bin, e))
 }
 
-fn model_from_env() -> Option<String> {
-    let v = std::env::var("CURSOR_AGENT_MODEL").ok()?;
-    let t = v.trim().to_string();
-    if t.is_empty() {
-        None
-    } else {
-        Some(t)
+fn build_cursor_args(
+    prompt: &str,
+    project_path: &str,
+    mode: &str,
+    resume: Option<&str>,
+    model_id: Option<&str>,
+) -> Vec<String> {
+    let mut args = vec![
+        "-p".to_string(),
+        prompt.to_string(),
+        "--print".to_string(),
+        "--output-format".to_string(),
+        "stream-json".to_string(),
+        "--stream-partial-output".to_string(),
+        "--trust".to_string(),
+        "--workspace".to_string(),
+        project_path.to_string(),
+        // msctl is always non-interactive: approve shell/tools without a TTY.
+        "--force".to_string(),
+    ];
+
+    if let Some(model_id) = model_id.filter(|s| !s.trim().is_empty()) {
+        args.push("--model".to_string());
+        args.push(model_id.to_string());
     }
+
+    match mode.to_lowercase().as_str() {
+        "ask" => {
+            args.push("--mode".to_string());
+            args.push("ask".to_string());
+        }
+        "plan" => {
+            args.push("--plan".to_string());
+        }
+        _ => {}
+    }
+
+    if let Some(sid) = resume.filter(|s| !s.is_empty()) {
+        args.push("--resume".to_string());
+        args.push(sid.to_string());
+    }
+
+    args
+}
+
+fn normalize_model_id(model_id: Option<&str>) -> Option<String> {
+    model_id
+        .map(str::trim)
+        .filter(|model_id| !model_id.is_empty())
+        .map(ToString::to_string)
 }
 
 fn read_stderr_tail(stderr: &mut Option<std::process::ChildStderr>) -> String {
@@ -399,5 +429,4 @@ fn is_stale_session_error(msg: &str) -> bool {
 }
 
 #[cfg(test)]
-#[path = "cursor_tests.rs"]
 mod tests;

@@ -151,8 +151,8 @@ Mobile → POST /api/v1/messages
 |------|--------|
 | `cli/src/serve/runtime.rs` | **Delete** (replaced by module) |
 | `cli/src/serve/runtime/mod.rs` | **New** — dispatch + public API |
-| `cli/src/serve/runtime/claude.rs` | **New** — moved from runtime.rs |
-| `cli/src/serve/runtime/codex.rs` | **New** — Codex protocol impl |
+| `cli/src/serve/runtime/claude/mod.rs` | **New** — moved from runtime.rs |
+| `cli/src/serve/runtime/codex/mod.rs` | **New** — Codex protocol impl |
 | `cli/src/serve/mod.rs` | Update `mod runtime` reference (no other change) |
 | `cli/src/db.rs` | Add 2 migrations |
 | `cli/src/commands/agent.rs` | Add `--mode` to `register` and `insert_agent` |

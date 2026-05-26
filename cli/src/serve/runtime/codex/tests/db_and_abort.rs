@@ -1,5 +1,5 @@
 use super::super::clear_thread_id;
-use super::super::codex_turn;
+use super::super::turn;
 use super::test_helpers::{
     join_with_timeout, process_exists, wait_until, StartNewProcessGroupForTest,
 };
@@ -54,7 +54,7 @@ fn clears_stale_codex_thread_id() {
 ///   conversation.status = running，表示 Activity 应展示 Running
 ///
 /// 执行过程：
-///   1. 调用 codex_turn::complete_turn(status=completed, turn_seq=1)
+///   1. 调用 turn::complete_turn(status=completed, turn_seq=1)
 ///   2. complete_turn 检查是否存在 seq > 1 的 user_text
 ///   3. 因 seq=2 已存在，旧 completed 应被忽略
 ///   4. 再调用 complete_turn(status=completed, turn_seq=2)，模拟当前 turn 正常结束
@@ -107,7 +107,7 @@ fn stale_codex_turn_completion_does_not_override_newer_user_turn() {
         ))),
     );
 
-    codex_turn::complete_turn(&state, "conv-1", "completed", 1);
+    turn::complete_turn(&state, "conv-1", "completed", 1);
 
     {
         let db = state.db.lock().unwrap();
@@ -135,7 +135,7 @@ fn stale_codex_turn_completion_does_not_override_newer_user_turn() {
         );
     }
 
-    codex_turn::complete_turn(&state, "conv-1", "completed", 2);
+    turn::complete_turn(&state, "conv-1", "completed", 2);
 
     let db = state.db.lock().unwrap();
     let status: String = db
@@ -174,7 +174,7 @@ fn stale_codex_turn_completion_does_not_override_newer_user_turn() {
 ///
 /// 执行过程：
 ///   1. 创建真实 sh 子进程，stdin/stdout/stderr 均为 pipe
-///   2. 用独立线程调用 codex_turn::process_turn，线程会写 prompt、关闭 stdin、阻塞读 stdout
+///   2. 用独立线程调用 turn::process_turn，线程会写 prompt、关闭 stdin、阻塞读 stdout
 ///   3. 将 child pid 注册到 AppState.sessions[conv_id]
 ///   4. 调用与 HTTP handler 相同的 remove + abort_current_process 路径
 ///   5. 等待 process_turn 线程返回，并检查子进程不再存活
@@ -244,7 +244,7 @@ fn abort_kills_child_blocking_inside_codex_process_turn() {
     let state_for_turn = state.clone();
     let turn_thread = std::thread::spawn(move || {
         let mut thread_id = None;
-        codex_turn::process_turn(
+        turn::process_turn(
             &state_for_turn,
             "conv-1",
             "hello",

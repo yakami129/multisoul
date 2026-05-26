@@ -45,9 +45,9 @@
 - `cli/src/serve/runtime/mod.rs`
 - `cli/src/serve/state.rs`
 - `cli/src/serve/routes/messages.rs`
-- `cli/src/serve/runtime/claude.rs`
-- `cli/src/serve/runtime/codex.rs`
-- `cli/src/serve/runtime/cursor.rs`
+- `cli/src/serve/runtime/claude/mod.rs`
+- `cli/src/serve/runtime/codex/mod.rs`
+- `cli/src/serve/runtime/cursor/mod.rs`
 - `cli/src/db.rs`
 - `mobile/src/types.ts`
 

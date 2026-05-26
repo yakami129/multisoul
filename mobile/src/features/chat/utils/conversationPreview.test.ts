@@ -1,8 +1,19 @@
 import {
+  applyConversationPreviewMessage,
   getLatestConversationStatusFromTaskMessages,
   resolveConversationStatusFromMessageHistory,
 } from '@/features/chat/utils/conversationPreview';
-import type { WsMessage } from '@/types';
+import type { Conversation, WsMessage } from '@/types';
+
+function assertEqual<T>(actual: T, expected: T, message: string) {
+  if (!Object.is(actual, expected)) throw new Error(message);
+  expect(actual).toBe(expected);
+}
+
+function assertNotEqual<T>(actual: T, expected: T, message: string) {
+  if (Object.is(actual, expected)) throw new Error(message);
+  expect(actual).not.toBe(expected);
+}
 
 describe('resolveConversationStatusFromMessageHistory', () => {
   it('returns running when transcript ends with user_text (never trust earlier task terminal)', () => {
@@ -155,5 +166,75 @@ describe('getLatestConversationStatusFromTaskMessages', () => {
       },
     ];
     expect(getLatestConversationStatusFromTaskMessages(messages)).toBe('completed');
+  });
+});
+
+describe('applyConversationPreviewMessage', () => {
+  /// System event preview: model changes refresh recency but never replace the AI summary.
+  ///
+  /// Data setup:
+  ///   conversation.last_ai_reply = "previous assistant summary"
+  ///   conversation.last_message_at = 10
+  ///   system_event.created_at = 20
+  ///
+  /// Execution:
+  ///   1. Apply a model_changed system event to the conversation preview.
+  ///   2. Inspect last_message_at and last_ai_reply.
+  ///
+  /// Expected result:
+  ///   - Positive: last_message_at becomes 20 so the chat can move to the top.
+  ///   - Positive: model_id becomes the event to_model_id so other open clients refresh the header.
+  ///   - Negative: last_ai_reply remains the previous assistant summary.
+  ///   - Negative: last_ai_reply does not become the system event text.
+  it('updates model_id but not last_ai_reply for model_changed system events', () => {
+    const conversation: Conversation = {
+      id: 'conv-1',
+      agent_id: 'agent-1',
+      title: 'Chat',
+      created_at: 1,
+      last_message_at: 10,
+      status: 'completed',
+      model_id: null,
+      endpoint_id: 'endpoint-1',
+      agent_name: 'Codex',
+      first_user_message: 'hello',
+      last_ai_reply: 'previous assistant summary',
+    };
+    const event: WsMessage = {
+      type: 'message',
+      seq: 9,
+      role: 'system_event',
+      payload: {
+        event: 'model_changed',
+        from_model_id: null,
+        to_model_id: 'gpt-5.3-codex',
+        from_label: 'Default',
+        to_label: 'Codex 5.3',
+      },
+      created_at: 20,
+    };
+
+    const updated = applyConversationPreviewMessage(conversation, event);
+
+    assertEqual(
+      updated.last_message_at,
+      20,
+      'system_event should still refresh conversation recency',
+    );
+    assertEqual(
+      updated.model_id,
+      'gpt-5.3-codex',
+      'model_changed system_event should refresh conversation.model_id for passive clients',
+    );
+    assertEqual(
+      updated.last_ai_reply,
+      'previous assistant summary',
+      'system_event must preserve the previous assistant preview text',
+    );
+    assertNotEqual(
+      updated.last_ai_reply,
+      'Model changed: Default -> Codex 5.3',
+      'system_event text must not replace last_ai_reply',
+    );
   });
 });

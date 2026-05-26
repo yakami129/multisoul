@@ -4,7 +4,14 @@ import * as ImagePicker from 'expo-image-picker';
 import React from 'react';
 import { Alert, FlatList } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { fetchMessages, postMessage, uploadImage } from '@/features/chat/services/chatService';
+import { fetchAgent } from '@/features/agents';
+import {
+  fetchMessages,
+  fetchRuntimeModels,
+  postMessage,
+  switchConversationModel,
+  uploadImage,
+} from '@/features/chat/services/chatService';
 import { useWebSocket } from '@/hooks/useWebSocket';
 import { useChatStore } from '@/store/chatStore';
 import { useEndpointStore } from '@/store/endpointStore';
@@ -30,9 +37,15 @@ jest.mock('@/hooks/useWebSocket', () => ({
   })),
 }));
 
+jest.mock('@/features/agents', () => ({
+  fetchAgent: jest.fn(),
+}));
+
 jest.mock('@/features/chat/services/chatService', () => ({
   fetchMessages: jest.fn(),
+  fetchRuntimeModels: jest.fn(),
   postMessage: jest.fn(),
+  switchConversationModel: jest.fn(),
   uploadImage: jest.fn(),
   abortConversation: jest.fn().mockResolvedValue(undefined),
   resolveUserMessageImageUri: (
@@ -143,6 +156,24 @@ beforeEach(() => {
   });
   useInboxStore.setState({ items: [] });
   (fetchMessages as jest.Mock).mockResolvedValue(historyMessages);
+  (fetchAgent as jest.Mock).mockResolvedValue({
+    id: 'agent-1',
+    name: 'Agent',
+    project_path: '/tmp/project',
+    runtime: 'codex',
+    created_at: 0,
+    endpoint_id: 'endpoint-1',
+    endpoint_label: 'Local',
+  });
+  (fetchRuntimeModels as jest.Mock).mockResolvedValue([
+    {
+      id: 'default',
+      label: 'Default',
+      is_default: true,
+      source: 'builtin',
+      available: true,
+    },
+  ]);
   (postMessage as jest.Mock).mockResolvedValue(undefined);
   (uploadImage as jest.Mock).mockResolvedValue({ file_id: 'file-1' });
   (ImagePicker.launchImageLibraryAsync as jest.Mock).mockResolvedValue({
@@ -154,13 +185,32 @@ beforeEach(() => {
   });
 });
 
+async function pickImageFromComposer(getByTestId: (testID: string) => any) {
+  await act(async () => {
+    fireEvent.press(getByTestId('composer-plus-btn'));
+  });
+  await act(async () => {
+    fireEvent.press(getByTestId('composer-action-upload'));
+  });
+}
+
 test('renders fetched historical agent text without typewriter replay', async () => {
   const { getByText, queryByText } = render(<ChatDetailScreen />);
 
-  await waitFor(() => expect(getByText('historical response')).toBeTruthy());
+  // Drain deeply-chained promise effects (fetchAgent→fetchRuntimeModels→setRuntimeModels,
+  // Promise.all([fetchMessages,loadAnsweredAsks])→resetMessages). Two macrotask yields
+  // ensure even slow CI runners flush all microtask chains before assertions.
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+
+  await waitFor(() => expect(getByText('historical response')).toBeTruthy(), { timeout: 10000 });
 
   expect(queryByText('historical response [typewriter]')).toBeNull();
-});
+}, 15000);
 
 test('loads the initial chat history with the latest 15 message limit', async () => {
   const { getByText } = render(<ChatDetailScreen />);
@@ -667,6 +717,95 @@ test('shows the current agent name in the header', async () => {
   await waitFor(() => expect(getByText('Agent')).toBeTruthy());
 });
 
+/// Deep-linked model switch: selecting a model from the composer still works
+/// when ChatDetail was opened from Activity/notification and the conversation
+/// row is not in store yet.
+///
+/// Data construction:
+///   route conv_id   = "conv-1"（Activity/notification only passes the id）
+///   route agent_id  = "agent-1"（enough to load runtime model capabilities）
+///   store convs     = []（conversation metadata has not been seeded）
+///   model option    = "gpt-5.3-codex"（concrete Codex model）
+///
+/// Execution process:
+///   1. Render ChatDetailScreen with route params but no stored conversation.
+///   2. Wait for runtime models to load and open the selector from the composer model chip.
+///   3. Press the concrete "Codex 5.3" row and accept the warning.
+///
+/// Expected result:
+///   - Positive: switchConversationModel is called for conv-1 with "gpt-5.3-codex".
+///   - Positive: the returned conversation is inserted into chatStore.
+///   - Negative: the selection must not silently stop because conversation was missing locally.
+test('switches model from a deep-linked chat without a seeded conversation row', async () => {
+  mockSearchParams = {
+    id: 'conv-1',
+    endpoint_id: 'endpoint-1',
+    agent_id: 'agent-1',
+    agent_name: 'Agent',
+  };
+  useChatStore.setState({ conversations: [], messages: {} });
+  (fetchRuntimeModels as jest.Mock).mockResolvedValue([
+    { id: 'default', label: 'Default', is_default: true, source: 'builtin', available: true },
+    {
+      id: 'gpt-5.3-codex',
+      label: 'Codex 5.3',
+      is_default: false,
+      source: 'builtin',
+      available: true,
+    },
+  ]);
+  const switched = {
+    id: 'conv-1',
+    agent_id: 'agent-1',
+    title: 'Existing Chat',
+    created_at: 0,
+    last_message_at: 3,
+    status: 'completed' as const,
+    model_id: 'gpt-5.3-codex',
+    endpoint_id: 'endpoint-1',
+    agent_name: 'Agent',
+  };
+  (switchConversationModel as jest.Mock).mockResolvedValue(switched);
+  jest.spyOn(Alert, 'alert').mockImplementation((_title, _message, buttons) => {
+    buttons?.[1]?.onPress?.();
+  });
+
+  const { getByTestId, getByText } = render(<ChatDetailScreen />);
+
+  await waitFor(() =>
+    expect({
+      actual: (fetchRuntimeModels as jest.Mock).mock.calls.length > 0,
+      reason: 'route agent_id should be enough to load runtime models for a deep link',
+    }).toEqual({ actual: true, reason: expect.any(String) }),
+  );
+  fireEvent.press(getByTestId('composer-model-chip'));
+  await waitFor(() => expect(getByText('Codex 5.3')).toBeTruthy());
+  fireEvent.press(getByText('Codex 5.3'));
+
+  await waitFor(() =>
+    expect({
+      actual: (switchConversationModel as jest.Mock).mock.calls.some(
+        (call) =>
+          call[0] === 'http://localhost:8080' &&
+          call[1] === 'token' &&
+          call[2] === 'conv-1' &&
+          call[3] === 'endpoint-1' &&
+          call[4] === 'Agent' &&
+          call[5] === 'gpt-5.3-codex',
+      ),
+      reason: 'selecting a concrete row must PATCH even when conversation is not locally cached',
+    }).toEqual({ actual: true, reason: expect.any(String) }),
+  );
+  expect({
+    actual: useChatStore.getState().conversations.some((conv) => conv.id === 'conv-1'),
+    reason: 'successful PATCH should seed the missing conversation row for future updates',
+  }).toEqual({ actual: true, reason: expect.any(String) });
+  expect({
+    actual: (switchConversationModel as jest.Mock).mock.calls.length,
+    reason: 'missing local conversation must not make model selection a silent no-op',
+  }).not.toEqual({ actual: 0, reason: expect.any(String) });
+});
+
 test('updates the status badge when conversation metadata changes', async () => {
   const { getByTestId } = render(<ChatDetailScreen />);
 
@@ -944,11 +1083,14 @@ test('scrolls to focus_ask_id after focused ask row lays out', async () => {
   }
 });
 
-test('renders image picker button in chat list detail composer', () => {
-  const { getByLabelText, getByTestId } = render(<ChatDetailScreen />);
+test('renders composer plus button and upload image action in chat detail composer', () => {
+  const { getByText, getByTestId, queryByTestId } = render(<ChatDetailScreen />);
 
-  expect(getByLabelText('Attach image')).toBeTruthy();
-  expect(getByTestId('attach-btn')).toBeTruthy();
+  expect(getByTestId('composer-plus-btn')).toBeTruthy();
+  expect(queryByTestId('composer-action-upload')).toBeNull();
+  fireEvent.press(getByTestId('composer-plus-btn'));
+  expect(getByText('Upload Image')).toBeTruthy();
+  expect(getByTestId('composer-action-upload')).toBeTruthy();
 });
 
 /// Chat detail bottom edge: the screen-level safe area must not reserve bottom
@@ -991,9 +1133,7 @@ test('chat detail safe area excludes the bottom edge under the composer', () => 
 test('uploads selected image and renders the sent image message with local uri', async () => {
   const { getByLabelText, getByTestId, getByText, queryByTestId } = render(<ChatDetailScreen />);
 
-  await act(async () => {
-    fireEvent.press(getByLabelText('Attach image'));
-  });
+  await pickImageFromComposer(getByTestId);
   await waitFor(() => expect(queryByTestId('img-preview-row')).not.toBeNull());
 
   // Type text so the send button becomes visible
@@ -1279,9 +1419,7 @@ describe('multi-image upload', () => {
     const { getByTestId, queryByTestId } = render(<ChatDetailScreen />);
     await waitFor(() => expect(queryByTestId('img-preview-row')).toBeNull());
 
-    await act(async () => {
-      fireEvent.press(getByTestId('attach-btn'));
-    });
+    await pickImageFromComposer(getByTestId);
 
     await waitFor(() => {
       expect(queryByTestId('img-preview-row')).not.toBeNull();
@@ -1290,9 +1428,7 @@ describe('multi-image upload', () => {
 
   it('removes image when × badge tapped', async () => {
     const { getByTestId, queryByTestId } = render(<ChatDetailScreen />);
-    await act(async () => {
-      fireEvent.press(getByTestId('attach-btn'));
-    });
+    await pickImageFromComposer(getByTestId);
     await waitFor(() => expect(queryByTestId('img-preview-row')).not.toBeNull());
 
     await act(async () => {
@@ -1316,16 +1452,12 @@ describe('multi-image upload', () => {
     const { getByTestId, queryByTestId } = render(<ChatDetailScreen />);
 
     for (let i = 0; i < 5; i++) {
-      await act(async () => {
-        fireEvent.press(getByTestId('attach-btn'));
-      });
+      await pickImageFromComposer(getByTestId);
     }
     await waitFor(() => expect(queryByTestId('remove-img-4')).toBeTruthy());
 
     const alertSpy = jest.spyOn(Alert, 'alert');
-    await act(async () => {
-      fireEvent.press(getByTestId('attach-btn'));
-    });
+    await pickImageFromComposer(getByTestId);
 
     expect(alertSpy).toHaveBeenCalledWith('最多选择 5 张图片');
     expect(queryByTestId('remove-img-5')).toBeNull();
@@ -1362,15 +1494,11 @@ describe('multi-image upload', () => {
 
     const { getByTestId, getByLabelText } = render(<ChatDetailScreen />);
 
-    await act(async () => {
-      fireEvent.press(getByTestId('attach-btn'));
-    });
+    await pickImageFromComposer(getByTestId);
 
     // 第 2 次 attach 前切换 mock
     (uploadImage as jest.Mock).mockResolvedValueOnce({ file_id: 'file-2' });
-    await act(async () => {
-      fireEvent.press(getByTestId('attach-btn'));
-    });
+    await pickImageFromComposer(getByTestId);
 
     await waitFor(() => expect(getByTestId('remove-img-1')).toBeTruthy());
 

@@ -15,7 +15,11 @@ export default function ChatHeader({ title, badge, onBack }: Props) {
       <TouchableOpacity onPress={onBack}>
         <ChevronLeft size={24} color="#FFFFFF" />
       </TouchableOpacity>
-      <Text style={s.navTitle}>{title}</Text>
+      <View style={s.navCenter}>
+        <Text style={s.navTitle} numberOfLines={1}>
+          {title}
+        </Text>
+      </View>
       <View style={[s.statusBadge, { backgroundColor: badge.bg }]}>
         <View style={[s.statusDot, { backgroundColor: badge.dot }]} />
         <Text testID="status-badge-text" style={s.statusBadgeText}>

@@ -12,7 +12,7 @@
       "trackedFiles": [
         {
           "path": "cli/src/serve/runtime/mod.rs",
-          "sha256": "ce23039394725b3b03ca02796c7739b27a3f7039b25c13c6391a37373b545754",
+          "sha256": "c2fa8d04f3717bf3922fcc337c2d877d05c9a1ad975748e3391b02e74055a9fb",
           "reason": "dispatch 层新增 inject_image_prefix 逻辑，是本设计的唯一变更文件。"
         }
       ]
@@ -23,42 +23,42 @@
       "trackedFiles": [
         {
           "path": "cli/src/serve/runtime/mod.rs",
-          "sha256": "ce23039394725b3b03ca02796c7739b27a3f7039b25c13c6391a37373b545754",
+          "sha256": "c2fa8d04f3717bf3922fcc337c2d877d05c9a1ad975748e3391b02e74055a9fb",
           "reason": "Runtime 分发入口；文档说明新增 runtime module 与 match arm。"
         },
         {
           "path": "cli/src/serve/state.rs",
-          "sha256": "4ee96882f19dc25878ee7cd2f1c6a795e40984c25cd9e80fe416e89b7573fec8",
+          "sha256": "9010536dd28ffe10cb8db3b9399ab13b813eb636e6626603dee7c4a65cbae80d",
           "reason": "AppState、SessionMessage 与 runtime worker 通信结构由文档核心数据结构章节引用。"
         },
         {
           "path": "cli/src/serve/routes/messages.rs",
-          "sha256": "a8de03137875b469ffebd7c2b4b67eee324fbe53737d2434f9f55866ef8033d2",
+          "sha256": "ee312135208985b8a0da0d6e88ec2d19c4174f99766e0338683e49d44b0bda15",
           "reason": "HTTP message route 调用 runtime 分发；文档架构图与入口流程依赖该行为。"
         },
         {
-          "path": "cli/src/serve/runtime/claude.rs",
-          "sha256": "1243d89d91c49436a6ed27367ae3a4c7721d82977fa2d023caec7c84d9c93680",
+          "path": "cli/src/serve/runtime/claude/mod.rs",
+          "sha256": "da2933d3f34911002992382a7932d133a463d2b1178913a75f5aa3fc3dd9e911",
           "reason": "Claude runtime 是默认 adapter，文档以其行为说明 runtime 模板与特殊注意事项。"
         },
         {
-          "path": "cli/src/serve/runtime/codex.rs",
-          "sha256": "c6c4735b1d84c6fa2fbea038883ef98ceb032021ac8eec5bd13878dcd9b6398b",
+          "path": "cli/src/serve/runtime/codex/mod.rs",
+          "sha256": "2eb8d15c95f833336e5a79a3329ba495545a827a7fea45ac39ddffe116b58f8c",
           "reason": "Codex runtime 是现有 adapter 示例；文档 runtime 列表与接入说明引用它。"
         },
         {
-          "path": "cli/src/serve/runtime/cursor.rs",
-          "sha256": "e166514f07c4cdba0010f873d32b06732d90a62e9b5521ca2fb5c07ed9597b74",
+          "path": "cli/src/serve/runtime/cursor/mod.rs",
+          "sha256": "980118c244fef2d4193e2058131f2e63a61aa5fddac60ec79eda874169a6d95f",
           "reason": "Cursor runtime 是新接入 adapter 示例；文档 runtime 列表与 CLI 约定引用它。"
         },
         {
           "path": "cli/src/db.rs",
-          "sha256": "b4290dcf292a94ba043b666b266b1735e0a6b03d19c23693b044e895cc7a18cb",
+          "sha256": "dda85aa573059d3edcf4a132328a94e61e7b6422eb15662c9ffec6c431569bfd",
           "reason": "文档说明 runtime 持久化字段和 migration 纪律；DB schema 演进会影响该章节。"
         },
         {
           "path": "mobile/src/types.ts",
-          "sha256": "5399bb51cea59f229ec57752941be6d0160edde9a275b94dec476076474edf42",
+          "sha256": "22669471c6a3d7e46686b0312ad6635788a7c4f2ede0ae148ff242575b49b745",
           "reason": "文档说明 mobile Agent.runtime 类型展示联动；类型变化会影响该说明。"
         }
       ]
@@ -89,7 +89,7 @@
           "reason": "通知发送权、payload 结构、问答/完成互斥逻辑由本文档定义。"
         },
         {
-          "path": "cli/src/serve/runtime/claude_stream.rs",
+          "path": "cli/src/serve/runtime/claude/stream.rs",
           "sha256": "7d59bd134adfacb967d7f7be7b87fe144bb374e7e2984736427bdb0911d2b0de",
           "reason": "Claude AskUserQuestion 触发问答推送的时机由本文档定义。"
         },

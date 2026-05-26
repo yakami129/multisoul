@@ -1,6 +1,7 @@
 import {
   type AgentTextPayload,
   type Conversation,
+  type SystemEventPayload,
   type TaskStatusPayload,
   type UserTextPayload,
   type WsMessage,
@@ -32,6 +33,14 @@ export function applyConversationPreviewMessage(
 
   if (last_message_at !== conversation.last_message_at) {
     next = { ...next, last_message_at };
+  }
+
+  if (message.role === 'system_event') {
+    const payload = message.payload as SystemEventPayload;
+    if (payload.event === 'model_changed' && payload.to_model_id !== conversation.model_id) {
+      next = { ...next, model_id: payload.to_model_id };
+    }
+    return next;
   }
 
   if (message.role === 'user_text') {
