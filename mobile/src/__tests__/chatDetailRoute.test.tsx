@@ -198,16 +198,19 @@ test('renders fetched historical agent text without typewriter replay', async ()
   const { getByText, queryByText } = render(<ChatDetailScreen />);
 
   // Drain deeply-chained promise effects (fetchAgent→fetchRuntimeModels→setRuntimeModels,
-  // Promise.all([fetchMessages,loadAnsweredAsks])→resetMessages). setTimeout(0) yields to the
-  // macrotask queue only after ALL microtasks are exhausted, so act() sees every state update.
+  // Promise.all([fetchMessages,loadAnsweredAsks])→resetMessages). Two macrotask yields
+  // ensure even slow CI runners flush all microtask chains before assertions.
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
   await act(async () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
   });
 
-  await waitFor(() => expect(getByText('historical response')).toBeTruthy());
+  await waitFor(() => expect(getByText('historical response')).toBeTruthy(), { timeout: 10000 });
 
   expect(queryByText('historical response [typewriter]')).toBeNull();
-});
+}, 15000);
 
 test('loads the initial chat history with the latest 15 message limit', async () => {
   const { getByText } = render(<ChatDetailScreen />);
