@@ -20,10 +20,9 @@ use crate::logging;
 use crate::serve::runtime::DispatchMessage;
 use crate::serve::state::{start_new_process_group, AppState, SessionHandle};
 
-#[path = "codex_turn.rs"]
-mod codex_turn;
+mod turn;
 
-use codex_turn::{complete_turn, process_turn};
+use turn::{complete_turn, process_turn};
 
 // ─── public API ───────────────────────────────────────────────────────────────
 
@@ -487,5 +486,4 @@ pub(super) fn broadcast(
 }
 
 #[cfg(test)]
-#[path = "codex_tests/mod.rs"]
 mod tests;

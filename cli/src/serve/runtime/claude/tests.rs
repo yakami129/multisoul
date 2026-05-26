@@ -210,7 +210,7 @@ fn test_write_user_message_with_image_no_text() {
 ///
 /// 数据构造（含关键数值推导）：
 ///   child script:
-///     - 先读取 stdin 到 EOF，匹配 claude_stream::process_turn 写 user message 后继续读 stdout 的行为
+///     - 先读取 stdin 到 EOF，匹配 stream::process_turn 写 user message 后继续读 stdout 的行为
 ///     - 再 sleep 30s，不输出 result，让 process_turn 卡在 read_line
 ///   wait budget:
 ///     - abort 后最多轮询 20 次 * 50ms = 1000ms
@@ -218,7 +218,7 @@ fn test_write_user_message_with_image_no_text() {
 ///
 /// 执行过程：
 ///   1. 创建真实 sh 子进程，stdin/stdout/stderr 均为 pipe，并放入独立 process group
-///   2. 用独立线程调用 claude_stream::process_turn，线程会写 user message 并阻塞读 stdout
+///   2. 用独立线程调用 stream::process_turn，线程会写 user message 并阻塞读 stdout
 ///   3. 将 child pid 注册到 AppState.sessions[conv_id]
 ///   4. 调用与 HTTP handler 相同的 remove + abort_current_process 路径
 ///   5. 等待 process_turn 线程返回
@@ -259,13 +259,13 @@ fn abort_kills_child_blocking_inside_claude_process_turn() {
     let state_for_turn = state.clone();
     let turn_thread = std::thread::spawn(move || {
         let mut reader = BufReader::new(stdout);
-        let input = claude_stream::TurnInput {
+        let input = stream::TurnInput {
             user_text: "hello",
             file_id: None,
             uploads_dir: std::path::Path::new("/tmp/uploads"),
             seq: 1,
         };
-        claude_stream::process_turn(
+        stream::process_turn(
             &mut stdin,
             &mut reader,
             &state_for_turn,

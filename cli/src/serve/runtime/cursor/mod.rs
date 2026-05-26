@@ -4,12 +4,9 @@
 //!
 //! Override binary path with `CURSOR_AGENT_BIN` (default: `agent` on `PATH`).
 
-#[path = "cursor_db.rs"]
-mod cursor_db;
-#[path = "cursor_events.rs"]
-mod cursor_events;
-#[path = "cursor_text.rs"]
-mod cursor_text;
+mod db;
+mod events;
+mod text;
 
 use serde_json::Value;
 use std::io::{BufRead, BufReader, Read};
@@ -19,12 +16,12 @@ use tracing::{debug, error, info, info_span, warn};
 use crate::logging;
 use crate::serve::runtime::DispatchMessage;
 use crate::serve::state::{start_new_process_group, AppState, SessionHandle};
-use cursor_db::{
+use db::{
     broadcast, clear_cursor_session, complete_turn, insert_message, load_cursor_session,
     mark_failed, save_cursor_session,
 };
-use cursor_events::{parse_tool_event, CursorToolEvent};
-use cursor_text::{extract_assistant_text, merge_stream_fragment};
+use events::{parse_tool_event, CursorToolEvent};
+use text::{extract_assistant_text, merge_stream_fragment};
 
 pub fn send_to_session(
     state: &AppState,
@@ -432,5 +429,4 @@ fn is_stale_session_error(msg: &str) -> bool {
 }
 
 #[cfg(test)]
-#[path = "cursor_tests.rs"]
 mod tests;

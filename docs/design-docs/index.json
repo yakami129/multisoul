@@ -37,18 +37,18 @@
           "reason": "HTTP message route 调用 runtime 分发；文档架构图与入口流程依赖该行为。"
         },
         {
-          "path": "cli/src/serve/runtime/claude.rs",
-          "sha256": "f84a59ddc6c3aa3d7c941dd10a7547bb82f2a0b0fe91d9b686ef2bb89f949b82",
+          "path": "cli/src/serve/runtime/claude/mod.rs",
+          "sha256": "da2933d3f34911002992382a7932d133a463d2b1178913a75f5aa3fc3dd9e911",
           "reason": "Claude runtime 是默认 adapter，文档以其行为说明 runtime 模板与特殊注意事项。"
         },
         {
-          "path": "cli/src/serve/runtime/codex.rs",
-          "sha256": "cea2cd6f02c112b6d678df0035815949658464482dd90ab783fb20fe6f993a0d",
+          "path": "cli/src/serve/runtime/codex/mod.rs",
+          "sha256": "2eb8d15c95f833336e5a79a3329ba495545a827a7fea45ac39ddffe116b58f8c",
           "reason": "Codex runtime 是现有 adapter 示例；文档 runtime 列表与接入说明引用它。"
         },
         {
-          "path": "cli/src/serve/runtime/cursor.rs",
-          "sha256": "aebb9978ab9fd67632c5970aae3ee4b032de73f7004600348efca179da97d893",
+          "path": "cli/src/serve/runtime/cursor/mod.rs",
+          "sha256": "980118c244fef2d4193e2058131f2e63a61aa5fddac60ec79eda874169a6d95f",
           "reason": "Cursor runtime 是新接入 adapter 示例；文档 runtime 列表与 CLI 约定引用它。"
         },
         {
@@ -89,7 +89,7 @@
           "reason": "通知发送权、payload 结构、问答/完成互斥逻辑由本文档定义。"
         },
         {
-          "path": "cli/src/serve/runtime/claude_stream.rs",
+          "path": "cli/src/serve/runtime/claude/stream.rs",
           "sha256": "7d59bd134adfacb967d7f7be7b87fe144bb374e7e2984736427bdb0911d2b0de",
           "reason": "Claude AskUserQuestion 触发问答推送的时机由本文档定义。"
         },

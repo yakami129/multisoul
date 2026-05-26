@@ -10,16 +10,14 @@ use std::io::{BufRead, BufReader};
 use std::process::{Child, ChildStdin, Command, Stdio};
 use tracing::{debug, error, info, info_span, warn};
 
-#[path = "claude_stream.rs"]
-mod claude_stream;
+mod stream;
 
-#[path = "claude_db.rs"]
-mod claude_db;
+mod db;
 
-use claude_db::{
+use db::{
     broadcast, clear_session_id, insert_message, load_session_id, mark_failed, save_session_id,
 };
-use claude_stream::process_turn;
+use stream::process_turn;
 
 // ─── public API ──────────────────────────────────────────────────────────────
 
@@ -209,7 +207,7 @@ fn session_worker(
         // Try to process the turn; on failure, respawn and retry (up to 3x)
         let mut ok = false;
         for attempt in 1..=3 {
-            let turn_input = claude_stream::TurnInput {
+            let turn_input = stream::TurnInput {
                 user_text: &user_text,
                 file_id: file_id.as_deref(),
                 uploads_dir: &state.uploads_dir,
@@ -348,10 +346,9 @@ fn normalize_model_id(model_id: Option<&str>) -> Option<String> {
         .map(ToString::to_string)
 }
 
-#[path = "claude_io.rs"]
-mod claude_io;
+mod io;
 
-pub(super) use claude_io::{write_user_message, write_user_message_with_image};
+pub(super) use io::{write_user_message, write_user_message_with_image};
 
 /// Read the `system` event from stdout to capture the session_id.
 /// Stops after the first system event or first non-system event.
@@ -409,13 +406,10 @@ fn is_stale_session_error(raw: &Value) -> bool {
 }
 
 #[cfg(test)]
-#[path = "claude_tests.rs"]
 mod tests;
 
 #[cfg(test)]
-#[path = "claude_model_tests.rs"]
 mod model_tests;
 
 #[cfg(test)]
-#[path = "claude_ask_tests.rs"]
 mod ask_tests;

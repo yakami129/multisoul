@@ -43,7 +43,7 @@ Codex worker 从 `SessionMessage.file_id` 计算 `uploads_dir.join(file_id)`，�
 ### 变更位置
 
 - `cli/src/serve/runtime/mod.rs`：Codex 分支直接传递 `file_id`；Cursor-CLI 分支继续调用 `inject_image_prefix`。
-- `cli/src/serve/runtime/codex.rs`：`send_to_session` 接收并入队 `file_id`；`build_codex_args` 在带图 turn 中追加 `--image <path>`。
+- `cli/src/serve/runtime/codex/mod.rs`：`send_to_session` 接收并入队 `file_id`；`build_codex_args` 在带图 turn 中追加 `--image <path>`。
 
 ```rust
 fn inject_image_prefix(user_text: &str, file_id: &str, uploads_dir: &std::path::Path) -> String {
