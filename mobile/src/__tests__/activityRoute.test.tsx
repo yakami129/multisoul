@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import React from 'react';
 import { AppState, RefreshControl, StyleSheet } from 'react-native';
@@ -150,7 +151,14 @@ function deferred<T>() {
 }
 
 async function renderActivity() {
-  const view = render(<ActivityTab />);
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false, gcTime: 0 } },
+  });
+  const view = render(
+    <QueryClientProvider client={queryClient}>
+      <ActivityTab />
+    </QueryClientProvider>,
+  );
   await act(async () => {
     await Promise.resolve();
   });
@@ -160,7 +168,12 @@ async function renderActivity() {
 describe('ActivityTab DB-backed aggregation', () => {
   beforeEach(() => {
     jest.useRealTimers();
-    jest.clearAllMocks();
+    mockPush.mockReset();
+    mockAggregateActivity.mockReset();
+    mockMarkDoneActivityRead.mockReset();
+    mockMarkAllDoneActivityRead.mockReset();
+    mockAbortConversation.mockReset();
+    mockDeleteConversation.mockReset();
     mockEndpoints = configuredEndpoints();
     mockAggregateActivity.mockResolvedValue(activityResult());
     mockMarkDoneActivityRead.mockResolvedValue(undefined);
@@ -200,7 +213,7 @@ describe('ActivityTab DB-backed aggregation', () => {
       expect(screen.getByText('Deploy now?')).toBeTruthy();
     });
 
-    expect(mockAggregateActivity).toHaveBeenCalledWith(mockEndpoints);
+    expect(mockAggregateActivity).toHaveBeenCalledWith(mockEndpoints, 20);
     expect(screen.getByText('Tighten sign in states')).toBeTruthy();
     expect(screen.getAllByText('Ship release notes').length).toBeGreaterThanOrEqual(
       1,
@@ -440,6 +453,61 @@ describe('ActivityTab DB-backed aggregation', () => {
       '/chat/conv-done?endpoint_id=ep-2&agent_id=agent-3&agent_name=Docs%20Project',
     );
     expect(mockPush).not.toHaveBeenCalledWith(expect.stringContaining('focus_ask_id='));
+  });
+
+  /// Done read failure: rejected mark-read must restore the server's unread state.
+  ///
+  /// Data construction:
+  ///   initial Done row        = ep-2 / conv-done / read_at null
+  ///   filter-reset Done row   = ep-2 / conv-done / read_at null
+  ///   markDoneActivityRead   = Error("read failed")
+  ///   failure-refetch row    = ep-2 / conv-done / read_at null
+  ///
+  /// Execution process:
+  ///   1. Render ActivityTab and switch to the Done filter.
+  ///   2. Switch to the Done filter, which refreshes page one.
+  ///   3. Open the unread Done row, which applies a local read override.
+  ///   4. Let markDoneActivityRead reject and wait for the failure refetch.
+  ///   5. Inspect Done unread state after the refetch settles.
+  ///
+  /// Expected result:
+  ///   - Positive: the refetched server unread state is visible again.
+  ///   - Positive: Done filter announces one unread item after the failed mutation.
+  ///   - Negative: the local optimistic read override does not persist after failure.
+  it('restores unread Done state when marking a Done item read fails', async () => {
+    mockMarkDoneActivityRead.mockRejectedValueOnce(new Error('read failed'));
+    mockAggregateActivity
+      .mockResolvedValueOnce(activityResult())
+      .mockResolvedValueOnce(activityResult())
+      .mockResolvedValueOnce(activityResult());
+
+    await renderActivity();
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Show Done activity, 1 item, 1 unread')).toBeTruthy();
+    });
+    fireEvent.press(screen.getByLabelText('Show Done activity, 1 item, 1 unread'));
+    await act(async () => {
+      fireEvent.press(screen.getByLabelText('Open Ship release notes'));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    await waitFor(() => {
+      expect(mockAggregateActivity).toHaveBeenCalledTimes(3);
+    });
+
+    expect({
+      actual: screen.getByLabelText('Show Done activity, 1 item, 1 unread') != null,
+      reason: 'failed read mutation should restore the server unread count after refetch',
+    }).toEqual({ actual: true, reason: expect.any(String) });
+    expect({
+      actual: screen.getByText('Unread 1') != null,
+      reason: 'Done sub-filter should return to one unread row after read failure',
+    }).toEqual({ actual: true, reason: expect.any(String) });
+    expect({
+      actual: screen.queryByText('Unread 0') == null,
+      reason: 'optimistic read override must not persist after mark-read failure',
+    }).toEqual({ actual: true, reason: expect.any(String) });
   });
 
   /// Mark all read: Done action sends one read-all request per endpoint that owns unread Done rows.
@@ -1023,7 +1091,14 @@ describe('ActivityTab DB-backed aggregation', () => {
     const first = deferred<AggregatedActivityResult>();
     mockAggregateActivity.mockReturnValueOnce(first.promise);
 
-    render(<ActivityTab />);
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false, gcTime: 0 } },
+    });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <ActivityTab />
+      </QueryClientProvider>,
+    );
 
     expect(mockAggregateActivity).toHaveBeenCalledTimes(1);
     act(() => {

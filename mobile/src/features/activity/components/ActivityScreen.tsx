@@ -1,6 +1,14 @@
 import { ChevronRight, CircleCheck, MessageCircle, SlidersHorizontal } from 'lucide-react-native';
 import React, { useRef, useState } from 'react';
-import { RefreshControl, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import {
+  ActivityIndicator,
+  FlatList,
+  RefreshControl,
+  ScrollView,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 import { activityScreenStyles as s } from './activityScreenStyles';
 
@@ -30,7 +38,13 @@ interface Props {
   hasEndpoints?: boolean;
   allFailed?: boolean;
   isRefreshing?: boolean;
+  isLoadingMore?: boolean;
+  hasMore?: boolean;
+  loadMoreError?: string | null;
   onRefresh?: () => void;
+  onLoadMore?: () => void;
+  onRetryLoadMore?: () => void;
+  onFilterChange?: () => void;
   onRetry?: () => void;
   onOpenItem: (item: ActivityItem) => void;
   onMarkAllDoneRead?: () => void;
@@ -178,7 +192,13 @@ export default function ActivityScreen({
   hasEndpoints = true,
   allFailed = false,
   isRefreshing = false,
+  isLoadingMore = false,
+  hasMore = false,
+  loadMoreError = null,
   onRefresh,
+  onLoadMore,
+  onRetryLoadMore,
+  onFilterChange,
   onRetry,
   onOpenItem,
   onMarkAllDoneRead,
@@ -186,6 +206,7 @@ export default function ActivityScreen({
 }: Props) {
   const [activeFilter, setActiveFilter] = useState<ActivityFilter>('all');
   const [doneFilter, setDoneFilter] = useState<DoneFilter>('unread');
+  const listRef = useRef<FlatList<ActivityItem> | null>(null);
   const openSwipeableRef = useRef<Swipeable | null>(null);
   const swipeableRefs = useRef<Map<string, Swipeable>>(new Map());
   const unreadDone = done.filter((item) => item.readAt == null);
@@ -220,21 +241,76 @@ export default function ActivityScreen({
           ? 'No recent results.'
           : 'No activity.';
 
-  const renderRows = () =>
-    visibleItems.length === 0 ? (
-      <Text style={s.emptySectionText}>{emptyText}</Text>
-    ) : (
-      visibleItems.map((item) => (
-        <ActivityRow
-          key={item.id}
-          item={item}
-          onOpenItem={onOpenItem}
-          onDeleteItem={onDeleteItem}
-          openSwipeableRef={openSwipeableRef}
-          swipeableRefs={swipeableRefs}
-        />
-      ))
-    );
+  const renderListHeader = () => (
+    <>
+      <PartialFailureBanner failedEndpointLabels={failedEndpointLabels} onRetry={onRetry} />
+      {activeFilter === 'done' ? (
+        <View style={s.doneHeader}>
+          <View style={s.doneSegment}>
+            {(['unread', 'read'] as const).map((filter) => {
+              const selected = doneFilter === filter;
+              const count = filter === 'unread' ? unreadDone.length : readDone.length;
+              const label = filter === 'unread' ? 'Unread' : 'Read';
+              return (
+                <TouchableOpacity
+                  key={filter}
+                  style={[s.doneSegmentItem, selected && s.doneSegmentItemActive]}
+                  onPress={() => setDoneFilter(filter)}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected }}
+                >
+                  <Text style={[s.doneSegmentText, selected && s.doneSegmentTextActive]}>
+                    {label} {count}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+          {doneFilter === 'unread' && unreadDone.length > 0 ? (
+            <TouchableOpacity
+              onPress={() => {
+                setDoneFilter('read');
+                onMarkAllDoneRead?.();
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="Mark all Done items read"
+            >
+              <Text style={s.markReadText}>Mark All Read</Text>
+            </TouchableOpacity>
+          ) : null}
+        </View>
+      ) : null}
+    </>
+  );
+
+  const renderListFooter = () => {
+    if (isLoadingMore) {
+      return (
+        <View style={s.loadMoreFooter} accessibilityLiveRegion="polite">
+          <ActivityIndicator color="#FF6B35" />
+          <Text style={s.loadMoreText}>Loading more activity...</Text>
+        </View>
+      );
+    }
+    if (loadMoreError) {
+      return (
+        <TouchableOpacity
+          style={s.loadMoreFooter}
+          onPress={onRetryLoadMore}
+          accessibilityRole="button"
+          accessibilityLabel="Retry loading more activity"
+        >
+          <Text style={s.loadMoreRetryText}>Load failed. Tap to retry.</Text>
+        </TouchableOpacity>
+      );
+    }
+    return null;
+  };
+
+  const handleEndReached = () => {
+    if (!hasMore || isLoadingMore || loadMoreError) return;
+    onLoadMore?.();
+  };
 
   return (
     <View style={s.root}>
@@ -254,6 +330,10 @@ export default function ActivityScreen({
                 key={filter.key}
                 style={[s.segmentItem, selected && s.segmentItemActive]}
                 onPress={() => {
+                  if (activeFilter !== filter.key) {
+                    onFilterChange?.();
+                    listRef.current?.scrollToOffset({ offset: 0, animated: false });
+                  }
                   setActiveFilter(filter.key);
                   if (filter.key === 'done') {
                     setDoneFilter(unreadDone.length > 0 ? 'unread' : 'read');
@@ -319,52 +399,35 @@ export default function ActivityScreen({
           </Text>
         </ScrollView>
       ) : (
-        <ScrollView
+        <FlatList
+          ref={listRef}
+          data={visibleItems}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => (
+            <ActivityRow
+              item={item}
+              onOpenItem={onOpenItem}
+              onDeleteItem={onDeleteItem}
+              openSwipeableRef={openSwipeableRef}
+              swipeableRefs={swipeableRefs}
+            />
+          )}
+          ListHeaderComponent={renderListHeader}
+          ListEmptyComponent={<Text style={s.emptySectionText}>{emptyText}</Text>}
+          ListFooterComponent={renderListFooter}
+          onEndReached={handleEndReached}
+          onEndReachedThreshold={0.2}
+          initialNumToRender={20}
+          maxToRenderPerBatch={20}
+          windowSize={7}
+          removeClippedSubviews
+          style={s.list}
           contentContainerStyle={s.content}
           refreshControl={
             <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor="#FF6B35" />
           }
-          testID="activity-scroll"
-        >
-          <PartialFailureBanner failedEndpointLabels={failedEndpointLabels} onRetry={onRetry} />
-          {activeFilter === 'done' ? (
-            <View style={s.doneHeader}>
-              <View style={s.doneSegment}>
-                {(['unread', 'read'] as const).map((filter) => {
-                  const selected = doneFilter === filter;
-                  const count = filter === 'unread' ? unreadDone.length : readDone.length;
-                  const label = filter === 'unread' ? 'Unread' : 'Read';
-                  return (
-                    <TouchableOpacity
-                      key={filter}
-                      style={[s.doneSegmentItem, selected && s.doneSegmentItemActive]}
-                      onPress={() => setDoneFilter(filter)}
-                      accessibilityRole="button"
-                      accessibilityState={{ selected }}
-                    >
-                      <Text style={[s.doneSegmentText, selected && s.doneSegmentTextActive]}>
-                        {label} {count}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-              {doneFilter === 'unread' && unreadDone.length > 0 ? (
-                <TouchableOpacity
-                  onPress={() => {
-                    setDoneFilter('read');
-                    onMarkAllDoneRead?.();
-                  }}
-                  accessibilityRole="button"
-                  accessibilityLabel="Mark all Done items read"
-                >
-                  <Text style={s.markReadText}>Mark All Read</Text>
-                </TouchableOpacity>
-              ) : null}
-            </View>
-          ) : null}
-          <View style={s.list}>{renderRows()}</View>
-        </ScrollView>
+          testID="activity-list"
+        />
       )}
     </View>
   );
