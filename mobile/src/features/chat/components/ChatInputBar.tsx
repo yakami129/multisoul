@@ -121,8 +121,8 @@ export default function ChatInputBar({
             disabled={disabled}
             style={[s.hitControl, disabled && s.toolBtnDisabled]}
           >
-            <View style={s.roundControl}>
-              <Plus size={18} color={disabled ? '#555555' : '#888888'} />
+            <View testID="composer-plus-shell" style={s.roundControl}>
+              <Plus size={15} color={disabled ? '#555555' : '#888888'} />
             </View>
           </TouchableOpacity>
 
@@ -135,11 +135,11 @@ export default function ChatInputBar({
             disabled={modelDisabled}
             style={[s.modelChipHit, modelDisabled && s.toolBtnDisabled]}
           >
-            <View style={s.modelChip}>
+            <View testID="composer-model-shell" style={s.modelChip}>
               <Text style={[s.modelChipText, modelDisabled && s.disabledText]} numberOfLines={1}>
                 {modelLabel}
               </Text>
-              <ChevronDown size={12} color={modelDisabled ? '#555555' : '#888888'} />
+              <ChevronDown size={10} color={modelDisabled ? '#555555' : '#888888'} />
             </View>
           </TouchableOpacity>
         </View>
@@ -153,8 +153,8 @@ export default function ChatInputBar({
             onPress={handleVoicePress}
             style={s.hitControl}
           >
-            <View style={s.roundControl}>
-              <Mic size={18} color="#888888" />
+            <View testID="mic-shell" style={s.roundControl}>
+              <Mic size={15} color="#888888" />
             </View>
           </TouchableOpacity>
           {isAgentRunning ? (
@@ -165,7 +165,7 @@ export default function ChatInputBar({
               onPress={onStop}
               style={[s.actionBtn, s.stopBtn]}
             >
-              <Square size={14} color="#FF4444" />
+              <Square size={12} color="#FF4444" />
             </TouchableOpacity>
           ) : canSend ? (
             <TouchableOpacity
@@ -177,7 +177,7 @@ export default function ChatInputBar({
               disabled={actionDisabled}
               style={[s.actionBtn, s.sendBtn, actionDisabled && s.toolBtnDisabled]}
             >
-              <ArrowUp size={18} color="#FFFFFF" />
+              <ArrowUp size={15} color="#FFFFFF" />
             </TouchableOpacity>
           ) : null}
         </View>
@@ -189,13 +189,13 @@ export default function ChatInputBar({
 const s = StyleSheet.create({
   card: {
     backgroundColor: '#1A1A1A',
-    minHeight: 136,
-    borderRadius: 28,
+    minHeight: 112,
+    borderRadius: 24,
     borderWidth: 1,
     borderColor: '#333333',
-    paddingVertical: 18,
-    paddingHorizontal: 24,
-    gap: 18,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    gap: 6,
     shadowColor: '#FF6B3588',
     shadowOpacity: 0.16,
     shadowRadius: 18,
@@ -253,21 +253,21 @@ const s = StyleSheet.create({
     justifyContent: 'center',
   },
   textRow: {
-    minHeight: 48,
-    maxHeight: 132,
+    minHeight: 36,
+    maxHeight: 108,
     flexDirection: 'row',
     alignItems: 'flex-start',
   },
   input: {
     flex: 1,
-    minHeight: 48,
-    maxHeight: 110,
+    minHeight: 36,
+    maxHeight: 88,
     padding: 0,
     margin: 0,
     fontFamily: 'Inter',
-    fontSize: 18,
+    fontSize: 15,
     color: '#FFFFFF',
-    lineHeight: 24,
+    lineHeight: 20,
   },
   toolbar: {
     flexDirection: 'row',
@@ -296,9 +296,9 @@ const s = StyleSheet.create({
   },
   toolBtnDisabled: { opacity: 0.4 },
   roundControl: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     backgroundColor: '#252525',
     borderWidth: 1,
     borderColor: '#333333',
@@ -310,23 +310,23 @@ const s = StyleSheet.create({
     justifyContent: 'center',
   },
   modelChip: {
-    maxWidth: 154,
-    height: 34,
+    maxWidth: 132,
+    height: 28,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 14,
-    borderRadius: 17,
+    gap: 4,
+    paddingHorizontal: 10,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: '#333333',
     backgroundColor: '#252525',
   },
   modelChipText: {
     fontFamily: 'Inter',
-    fontSize: 13,
+    fontSize: 11,
     fontWeight: '600',
     color: '#888888',
-    maxWidth: 124,
+    maxWidth: 106,
   },
   disabledText: { color: '#555555' },
   charCount: {
@@ -335,9 +335,9 @@ const s = StyleSheet.create({
     color: '#333333',
   },
   actionBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
   },

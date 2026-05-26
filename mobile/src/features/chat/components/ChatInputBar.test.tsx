@@ -81,25 +81,33 @@ describe('ChatInputBar', () => {
   /// Perplexity-style tray spacing: input and controls should breathe.
   ///
   /// Data construction:
-  ///   card minHeight target = 136px, enough for a tall input area and toolbar.
+  ///   card minHeight target = 112px, close to the compact reference tray.
   ///   leading tools         = + and model chip only.
   ///   trailing tools        = mic plus contextual action/counter.
+  ///   visual control target = 28px shells, 11px model label, 15px input text.
   ///
   /// Execution process:
   ///   1. Render the empty composer.
-  ///   2. Inspect card geometry and toolbar group ownership.
+  ///   2. Inspect card geometry, toolbar group ownership, and compact control scale.
   ///
   /// Expected result:
   ///   - Positive assertion: card has a taller minimum height.
   ///   - Positive assertion: mic lives in the trailing group like the reference.
+  ///   - Positive assertion: icon shells and text are visually quieter than the
+  ///     previous oversized composer.
   ///   - Negative assertion: mic is not squeezed into the leading group.
   it('uses a spacious two-zone toolbar like the reference input tray', () => {
-    const { getByTestId } = renderInputBar();
+    const { getByText, getByTestId } = renderInputBar();
     const cardStyle = StyleSheet.flatten(getByTestId('composer-card').props.style);
+    const inputStyle = StyleSheet.flatten(getByTestId('message-input').props.style);
+    const plusShellStyle = StyleSheet.flatten(getByTestId('composer-plus-shell').props.style);
+    const micShellStyle = StyleSheet.flatten(getByTestId('mic-shell').props.style);
+    const modelShellStyle = StyleSheet.flatten(getByTestId('composer-model-shell').props.style);
+    const modelTextStyle = StyleSheet.flatten(getByText('Default').props.style);
     const leadingTools = within(getByTestId('composer-toolbar-left'));
     const trailingTools = within(getByTestId('composer-toolbar-right'));
 
-    assertEqual(cardStyle.minHeight, 136, 'composer card should reserve a spacious tray height');
+    assertEqual(cardStyle.minHeight, 112, 'composer card should match the compact tray height');
     assertTruthy(
       leadingTools.getByTestId('composer-plus-btn'),
       'leading toolbar should keep the + affordance',
@@ -116,6 +124,13 @@ describe('ChatInputBar', () => {
       trailingTools.getByTestId('mic-btn'),
       'mic should sit in the trailing action group',
     );
+    assertEqual(cardStyle.paddingVertical, 12, 'composer vertical padding should be compact');
+    assertEqual(cardStyle.gap, 6, 'composer rows should sit closer like the reference tray');
+    assertEqual(inputStyle.fontSize, 15, 'input placeholder/text should be compact');
+    assertEqual(plusShellStyle.width, 28, '+ icon shell should be visually compact');
+    assertEqual(micShellStyle.width, 28, 'mic icon shell should be visually compact');
+    assertEqual(modelShellStyle.height, 28, 'model chip should use a compact height');
+    assertEqual(modelTextStyle.fontSize, 11, 'model label should be smaller than body text');
   });
 
   /// Character counter: input length should update the composer count.

@@ -11,6 +11,11 @@ function assertTrue(value: boolean, message: string) {
   expect(value).toBe(true);
 }
 
+function assertFalse(value: boolean, message: string) {
+  if (value) throw new Error(message);
+  expect(value).toBe(false);
+}
+
 afterEach(() => {
   jest.useRealTimers();
   global.fetch = originalFetch;
@@ -504,6 +509,117 @@ describe('MessageBubble agent_text markdown rendering', () => {
 
     // 断言失败 = typewriter→false 时没有跳到末尾并切换 MarkdownMessage
     expect(getByTestId('markdown-root')).toBeTruthy();
+    jest.useRealTimers();
+  });
+
+  /// 长流式回复：积压明显时应先按段落/行块状显示，避免每个字都慢慢追。
+  ///
+  /// 数据构造：
+  ///   firstLine = "First paragraph arrives as one readable chunk.\n"（46 code units）
+  ///   tail = "tail " × 35 ≈ 175 code units
+  ///   Total ≈ 221 code units，超过 bulk 阈值 140
+  ///   初始 typewriter=true → visible count = 0
+  ///
+  /// 执行过程：
+  ///   1. render MessageBubble(typewriter=true)，agent_text 一次收到整段长文
+  ///   2. advanceTimersByTime(18ms)，打字机执行首轮追赶
+  ///   3. 首轮 backlog ≈ 221 > 140，应推进到第一处换行边界
+  ///
+  /// 预期结果：
+  ///   - 正断言：首行完整显示并带光标，读者能马上看到一个语义块
+  ///   - 负断言：不应只显示 "F▌"，否则长回复会按单字拖慢
+  it('reveals the first line as a chunk when streamed text has a large backlog', () => {
+    jest.useFakeTimers();
+    const firstLine = 'First paragraph arrives as one readable chunk.\n';
+    const msg = makeAgentMsg(`${firstLine}${'tail '.repeat(35)}`);
+    const { getByText, queryByText } = render(<MessageBubble msg={msg} typewriter />);
+
+    act(() => {
+      jest.advanceTimersByTime(18);
+    });
+
+    assertTrue(
+      !!getByText(`${firstLine}▌`),
+      'large backlog should reveal through the first line boundary on the first tick',
+    );
+    assertFalse(
+      !!queryByText('F▌'),
+      'large backlog must not use the old one-character reveal path',
+    );
+    jest.useRealTimers();
+  });
+
+  /// Emoji 字素：首轮显示不能截断 surrogate pair / ZWJ 序列。
+  ///
+  /// 数据构造：
+  ///   agent_text = "👩‍💻 done"
+  ///   "👩‍💻" 是一个用户感知字素，但包含多个 UTF-16 code units
+  ///   初始 visible count = 0
+  ///
+  /// 执行过程：
+  ///   1. render MessageBubble(typewriter=true)
+  ///   2. advanceTimersByTime(18ms)，首轮显示第一个字素
+  ///
+  /// 预期结果：
+  ///   - 正断言：显示完整 "👩‍💻▌"
+  ///   - 负断言：不应显示 replacement character，说明没有截断 emoji code unit
+  it('reveals one complete grapheme at a time so emoji are not split', () => {
+    jest.useFakeTimers();
+    const msg = makeAgentMsg('👩‍💻 done');
+    const { getByText, queryByText } = render(<MessageBubble msg={msg} typewriter />);
+
+    act(() => {
+      jest.advanceTimersByTime(18);
+    });
+
+    assertTrue(!!getByText('👩‍💻▌'), 'first tick should reveal the full emoji grapheme');
+    assertFalse(
+      !!queryByText(/�/),
+      'typewriter output must not contain replacement characters from split emoji',
+    );
+    jest.useRealTimers();
+  });
+
+  /// 新 agent 消息：同一组件继续 typewriter=true 时，替换文本必须重置进度。
+  ///
+  /// 数据构造：
+  ///   old msg seq=10, text="abcdef"
+  ///   new msg seq=11, text="uvwxyz"
+  ///   旧消息 advance 36ms → 已显示 2 个字素
+  ///
+  /// 执行过程：
+  ///   1. render old message with typewriter=true
+  ///   2. advanceTimersByTime(36ms) → old visible count = 2
+  ///   3. rerender new seq while typewriter 仍为 true
+  ///   4. advanceTimersByTime(18ms) → 新消息从 0 开始显示第 1 个字素
+  ///
+  /// 预期结果：
+  ///   - 正断言：新消息首轮只显示 "u▌"
+  ///   - 负断言：不应立即显示 "uv▌"，否则泄漏了上一条消息的进度
+  it('resets reveal progress when a new agent message replaces the previous one', () => {
+    jest.useFakeTimers();
+    const oldMsg = makeAgentMsg('abcdef');
+    const newMsg = { ...makeAgentMsg('uvwxyz'), seq: 11 };
+    const { rerender, getByText, queryByText } = render(<MessageBubble msg={oldMsg} typewriter />);
+
+    act(() => {
+      jest.advanceTimersByTime(36);
+    });
+
+    act(() => {
+      rerender(<MessageBubble msg={newMsg} typewriter />);
+    });
+
+    assertFalse(
+      !!queryByText('uv▌'),
+      'new message must not inherit the previous message reveal count before its first tick',
+    );
+
+    act(() => {
+      jest.advanceTimersByTime(18);
+    });
+
+    assertTrue(!!getByText('u▌'), 'new message should start revealing from its first grapheme');
     jest.useRealTimers();
   });
 });
