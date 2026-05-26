@@ -19,12 +19,12 @@ async fn send_patch_model_raw(
 /// PATCH model rejects an omitted model_id instead of clearing a concrete override.
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   starting model = "gpt-5.5-codex"（已持久化的 concrete override）
+///   starting model = "gpt-5.5"（已持久化的 concrete override）
 ///   request body   = {}（缺少 model_id 字段，不是显式 null）
 ///   initial msgs   = 0；若误清空会插入 1 条 system_event
 ///
 /// 执行过程（逐步说明系统如何处理）：
-///   1. Seed conversations.model_id to "gpt-5.5-codex".
+///   1. Seed conversations.model_id to "gpt-5.5".
 ///   2. PATCH {} with a valid Bearer token.
 ///   3. Handler validates request shape before interpreting null/default semantics.
 ///
@@ -38,7 +38,7 @@ async fn test_patch_conversation_model_rejects_missing_model_id_field() {
     {
         let db = state.db.lock().unwrap();
         db.execute(
-            "UPDATE conversations SET model_id = 'gpt-5.5-codex' WHERE id = ?1",
+            "UPDATE conversations SET model_id = 'gpt-5.5' WHERE id = ?1",
             [&conv_id],
         )
         .unwrap();
@@ -53,7 +53,7 @@ async fn test_patch_conversation_model_rejects_missing_model_id_field() {
     );
     assert_eq!(
         conversation_model_id(&state, &conv_id),
-        Some("gpt-5.5-codex".to_string()),
+        Some("gpt-5.5".to_string()),
         "missing model_id must not clear an existing concrete model override",
     );
     assert_eq!(

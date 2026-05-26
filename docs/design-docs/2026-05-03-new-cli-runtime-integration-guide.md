@@ -400,6 +400,8 @@ Codex 使用 `codex exec` / `codex exec resume <thread_id>` 命令；`full-auto`
 > **2026-05-24（chat performance）**：`GET /api/v1/conversations/:id/messages` 新增可选 query `limit` / `before_seq` / `around_ask_id`，用于有界历史分页；仅传 `since_seq` 时行为与原先一致。`cli/src/db.rs` 在 `init_schema` 中为 `messages(conversation_id, seq)` 与 `ask_answers(conversation_id, ask_id)` 增加索引以加速上述查询。`POST` 路径仍经 `serve/runtime/mod.rs` 分发，本文 §2 架构图与 Step 1–4 正文无需改动。
 
 > **2026-05-24（runtime model switching）**：`conversations.model_id` 成为 conversation 级模型选择；`serve/routes/messages.rs` 在分发用户消息时读取该字段并放入 `DispatchMessage.model_id`，`SessionMessage` 同步携带该字段。Claude / Codex / Cursor adapter 都在具体模型存在时向底层 CLI 追加 `--model <model_id>`；Default 仍以 `NULL` 表示，不传 `--model`。Mobile 的 `Conversation` 和 message schema 同步增加 `model_id` / `system_event:model_changed`，用于 Chat header 展示和历史分隔行。
+>
+> **2026-05-26（codex model + reasoning effort）**：Codex builtin 模型更新为 `gpt-5.5` / `gpt-5.4-mini`（符合 OpenAI 官方命名）。Codex adapter 支持复合 ID `model:effort`（如 `gpt-5.5:high`），`build_codex_args` 通过 `split_model_effort()` 拆分后分别传递 `--model gpt-5.5` 和 `-c model_reasoning_effort=high`。Claude 模型更新为 `claude-sonnet-4-6` / `claude-opus-4-6`。正文架构描述不变——模型参数传递机制与 §Step 4 / §Codex adapter 一致。
 
 完成实现后，按 `CLAUDE.md §5` 跑：
 

@@ -321,8 +321,13 @@ fn build_codex_args(
         ]);
     }
     if let Some(model_id) = model_id.filter(|s| !s.trim().is_empty()) {
+        let (base_model, effort) = super::models::split_model_effort(model_id);
         args.push("--model".to_string());
-        args.push(model_id.to_string());
+        args.push(base_model.to_string());
+        if let Some(effort) = effort {
+            args.push("-c".to_string());
+            args.push(format!("model_reasoning_effort={effort}"));
+        }
     }
     if let Some(image_path) = image_path {
         args.push("--image".to_string());

@@ -57,7 +57,7 @@ fn test_claude_builtin_models_include_default_first() {
 /// 数据构造（含关键数值的推导过程）：
 ///   runtime        = "codex"
 ///   expected[0]    = Default（虚拟项，PATCH null 语义）
-///   expected[1]    = gpt-5.5-codex（内置 Codex fallback 模型）
+///   expected[1]    = gpt-5.5（内置 Codex fallback 模型）
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 调用 list_models("codex")
@@ -66,8 +66,8 @@ fn test_claude_builtin_models_include_default_first() {
 ///
 /// 预期结果：
 ///   - 正断言：Default 是第一项且可用
-///   - 正断言：gpt-5.3-codex 是 concrete builtin
-///   - 负断言：gpt-5.3-codex 不应被标记为 default
+///   - 正断言：gpt-5.5 是 concrete builtin
+///   - 负断言：gpt-5.5 不应被标记为 default
 #[test]
 fn test_codex_builtin_models_include_default_first() {
     let models = list_models("codex").expect("codex should list builtin models");
@@ -83,8 +83,8 @@ fn test_codex_builtin_models_include_default_first() {
         "Codex Default should be available for switching back to runtime default"
     );
     assert_eq!(
-        codex.id, "gpt-5.5-codex",
-        "Codex concrete builtin list should include gpt-5.5-codex after Default"
+        codex.id, "gpt-5.5",
+        "Codex concrete builtin list should include gpt-5.5 after Default"
     );
     assert_eq!(
         codex.source,
@@ -221,7 +221,7 @@ fn test_validate_default_semantics() {
 /// 数据构造（含关键数值的推导过程）：
 ///   runtime        = "codex"（受支持 runtime）
 ///   model_id       = "made-up-model"（不在 Codex builtin fallback 列表）
-///   fallback count = 3（gpt-5.5-codex / high / xhigh，均不匹配 model_id）
+///   fallback count = 4（gpt-5.5 / gpt-5.5:high / gpt-5.5:xhigh / gpt-5.4-mini，均不匹配 model_id）
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 调用 validate_model("codex", Some("made-up-model"))
@@ -283,6 +283,26 @@ fn test_validate_cursor_dynamic_model() {
         },
         "Cursor unsupported dynamic model error should include runtime and model id"
     );
+}
+
+/// split_model_effort: compound "model:effort" splits correctly; plain model returns None effort.
+#[test]
+fn test_split_model_effort() {
+    let (model, effort) = split_model_effort("gpt-5.5:high");
+    assert_eq!(model, "gpt-5.5");
+    assert_eq!(effort, Some("high"));
+
+    let (model, effort) = split_model_effort("gpt-5.5:xhigh");
+    assert_eq!(model, "gpt-5.5");
+    assert_eq!(effort, Some("xhigh"));
+
+    let (model, effort) = split_model_effort("gpt-5.5");
+    assert_eq!(model, "gpt-5.5");
+    assert_eq!(effort, None);
+
+    let (model, effort) = split_model_effort("claude-sonnet-4-6");
+    assert_eq!(model, "claude-sonnet-4-6");
+    assert_eq!(effort, None);
 }
 
 #[cfg(unix)]

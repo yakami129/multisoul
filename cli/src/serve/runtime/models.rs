@@ -42,16 +42,20 @@ const CLAUDE_MODELS: &[BuiltinModel] = &[
 
 const CODEX_MODELS: &[BuiltinModel] = &[
     BuiltinModel {
-        id: "gpt-5.5-codex",
-        label: "Codex 5.5",
+        id: "gpt-5.5",
+        label: "GPT-5.5",
     },
     BuiltinModel {
-        id: "gpt-5.5-codex-high",
-        label: "Codex 5.5 High",
+        id: "gpt-5.5:high",
+        label: "GPT-5.5 High",
     },
     BuiltinModel {
-        id: "gpt-5.5-codex-xhigh",
-        label: "Codex 5.5 XHigh",
+        id: "gpt-5.5:xhigh",
+        label: "GPT-5.5 XHigh",
+    },
+    BuiltinModel {
+        id: "gpt-5.4-mini",
+        label: "GPT-5.4 Mini",
     },
 ];
 
@@ -65,8 +69,8 @@ const CURSOR_MODELS: &[BuiltinModel] = &[
         label: "Composer 2",
     },
     BuiltinModel {
-        id: "gpt-5.5-codex",
-        label: "Codex 5.5",
+        id: "gpt-5.5",
+        label: "GPT-5.5",
     },
 ];
 
@@ -137,6 +141,15 @@ pub fn validate_model(runtime: &str, model_id: Option<&str>) -> Result<(), Model
             runtime: runtime.to_string(),
             model_id: model_id.to_string(),
         })
+    }
+}
+
+/// Split a compound model ID (`"gpt-5.5:high"`) into base model and optional
+/// reasoning effort. Plain IDs like `"gpt-5.5"` return `None` for effort.
+pub fn split_model_effort(compound: &str) -> (&str, Option<&str>) {
+    match compound.split_once(':') {
+        Some((model, effort)) if !effort.is_empty() => (model, Some(effort)),
+        _ => (compound, None),
     }
 }
 

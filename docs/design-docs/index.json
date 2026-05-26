@@ -43,7 +43,7 @@
         },
         {
           "path": "cli/src/serve/runtime/codex.rs",
-          "sha256": "9f6df9a8f3c3fea6b2fff9380e6fe7ce20c04f077513fc64b41c084ccadfa123",
+          "sha256": "cea2cd6f02c112b6d678df0035815949658464482dd90ab783fb20fe6f993a0d",
           "reason": "Codex runtime 是现有 adapter 示例；文档 runtime 列表与接入说明引用它。"
         },
         {
