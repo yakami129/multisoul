@@ -44,6 +44,7 @@ export default function ActivityTab() {
   const [appState, setAppState] = useState<AppStateStatus>(AppState.currentState);
   const [readOverrides, setReadOverrides] = useState<Record<string, number>>({});
   const [hiddenConversationIds, setHiddenConversationIds] = useState<Set<string>>(() => new Set());
+  const [isPullRefreshActive, setIsPullRefreshActive] = useState(false);
   const {
     activity,
     isRefreshing,
@@ -89,6 +90,15 @@ export default function ActivityTab() {
       setReadOverrides({});
     }
   }, [endpoints.length]);
+
+  const handlePullRefresh = useCallback(async () => {
+    setIsPullRefreshActive(true);
+    try {
+      await refreshFirstPage();
+    } finally {
+      setIsPullRefreshActive(false);
+    }
+  }, [refreshFirstPage]);
 
   const applyLocalActivityState = (item: AggregatedActivityItem): AggregatedActivityItem | null => {
     if (hiddenConversationIds.has(item.conversation_id)) return null;
@@ -220,7 +230,7 @@ export default function ActivityTab() {
         onDeleteItem={(item) => {
           void handleDeleteItem(item);
         }}
-        isRefreshing={isRefreshing}
+        isRefreshing={isPullRefreshActive && isRefreshing}
         isLoadingMore={isFetchingNextPage}
         hasMore={hasNextPage}
         loadMoreError={loadMoreError?.message ?? null}
@@ -231,10 +241,10 @@ export default function ActivityTab() {
           void fetchNextPage();
         }}
         onFilterChange={() => {
-          void refreshFirstPage();
+          void refetchActivity();
         }}
         onRefresh={() => {
-          void refreshFirstPage();
+          void handlePullRefresh();
         }}
       />
     </SafeAreaView>

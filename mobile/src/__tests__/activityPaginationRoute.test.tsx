@@ -405,27 +405,32 @@ describe('ActivityTab pagination integration', () => {
     }).toEqual({ actual: true, reason: expect.any(String) });
   });
 
-  /// Filter reset integration: switching an Activity filter reloads the first page.
+  /// Filter refetch integration: switching an Activity filter refreshes cached pages silently.
   ///
   /// Data construction:
-  ///   first page title        = "First decision" from limit 20
-  ///   second page title       = "Second decision" from limit 40
-  ///   filter-reset page title = "Filtered first page" from limit 20
+  ///   first page title           = "First decision" from limit 20
+  ///   second page title          = "Second decision" from limit 40
+  ///   filter refetch page 1      = "Refetched first decision" from limit 20
+  ///   filter refetch page 2      = "Refetched first decision" + "Refetched second decision" from limit 40
   ///
   /// Execution process:
   ///   1. Render ActivityTab and load the second cumulative page.
   ///   2. Press the mocked filter switch control.
-  ///   3. Inspect the third aggregateActivity call and rendered rows.
+  ///   3. Inspect the filter-triggered refetch calls and rendered rows.
   ///
   /// Expected result:
-  ///   - Positive: filter switch requests the first Activity page again.
-  ///   - Positive: refreshed first-page row renders.
-  ///   - Negative: filter switch does not keep requesting limit 40 or retain second-page-only rows.
-  it('resets pagination to page one when the Activity filter changes', async () => {
+  ///   - Positive: filter switch refreshes the already cached limit 20 page.
+  ///   - Positive: filter switch also refreshes the already cached limit 40 page.
+  ///   - Positive: refreshed second-page row renders after the silent refetch settles.
+  ///   - Negative: filter switch does not reset pagination back to only the first page.
+  it('silently refreshes cached Activity pages when the filter changes', async () => {
     mockAggregateActivity
       .mockResolvedValueOnce(activityResult(['First decision']))
       .mockResolvedValueOnce(activityResult(['First decision', 'Second decision']))
-      .mockResolvedValueOnce(activityResult(['Filtered first page']));
+      .mockResolvedValueOnce(activityResult(['Refetched first decision']))
+      .mockResolvedValueOnce(
+        activityResult(['Refetched first decision', 'Refetched second decision']),
+      );
 
     renderActivity();
 
@@ -442,20 +447,21 @@ describe('ActivityTab pagination integration', () => {
       fireEvent.press(screen.getByLabelText('Switch Activity filter'));
     });
     await waitFor(() => {
-      expect(screen.getByText('Filtered first page')).toBeTruthy();
+      expect(screen.getByText('Refetched second decision')).toBeTruthy();
     });
 
     expect({
       actual: mockAggregateActivity.mock.calls[2],
-      reason: 'filter changes should reset the Activity query to its first page',
+      reason: 'filter changes should refresh the first cached Activity page',
     }).toEqual({ actual: [mockEndpoints, 20], reason: expect.any(String) });
     expect({
-      actual: mockAggregateActivity.mock.calls[2][1] === 40,
-      reason: 'filter changes must not refetch the previously loaded second cumulative limit',
-    }).toEqual({ actual: false, reason: expect.any(String) });
+      actual: mockAggregateActivity.mock.calls[3],
+      reason:
+        'filter changes should refresh the second cached Activity page instead of dropping it',
+    }).toEqual({ actual: [mockEndpoints, 40], reason: expect.any(String) });
     expect({
       actual: screen.queryByText('Second decision') == null,
-      reason: 'second-page-only rows should disappear after filter reset reloads page one',
+      reason: 'old second-page data should be replaced by refreshed second-page data',
     }).toEqual({ actual: true, reason: expect.any(String) });
   });
 });
