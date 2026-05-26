@@ -1,4 +1,4 @@
-import { ArrowUp, ImagePlus, Mic, Square, Terminal, X } from 'lucide-react-native';
+import { ArrowUp, ChevronDown, Mic, Plus, Square, X } from 'lucide-react-native';
 import React from 'react';
 import {
   Alert,
@@ -22,30 +22,36 @@ interface Props {
   value: string;
   onChangeText: (text: string) => void;
   onSend: () => void;
-  onPickImage: () => void;
-  onOpenCommands: () => void;
   disabled: boolean;
   isAgentRunning: boolean;
   onStop: () => void;
   placeholder?: string;
   pendingImages: PendingImage[];
   onRemoveImage: (index: number) => void;
+  modelLabel: string;
+  modelDisabled: boolean;
+  onOpenModelSelector: () => void;
+  onOpenComposerSheet: () => void;
 }
 
 export default function ChatInputBar({
   value,
   onChangeText,
   onSend,
-  onPickImage,
-  onOpenCommands,
   disabled,
   isAgentRunning,
   onStop,
   placeholder = 'Message Grok...',
   pendingImages,
   onRemoveImage,
+  modelLabel,
+  modelDisabled,
+  onOpenModelSelector,
+  onOpenComposerSheet,
 }: Props) {
   const hasText = value.trim().length > 0;
+  const hasUploadedImage = pendingImages.some((img) => img.status === 'uploaded' && img.fileId);
+  const canSend = hasText || hasUploadedImage;
   const handleVoicePress = () => Alert.alert('语音功能即将上线，敬请期待');
   const charCount = `${value.length} / 4096`;
   const actionDisabled = disabled && !isAgentRunning;
@@ -92,7 +98,7 @@ export default function ChatInputBar({
           testID="message-input"
           style={s.input}
           placeholder={placeholder}
-          placeholderTextColor="#333333"
+          placeholderTextColor="#666666"
           value={value}
           onChangeText={onChangeText}
           editable={!disabled}
@@ -101,70 +107,80 @@ export default function ChatInputBar({
           returnKeyType="default"
           scrollEnabled
         />
-        {isAgentRunning ? (
-          <TouchableOpacity
-            testID="stop-btn"
-            accessibilityLabel="Stop conversation"
-            accessibilityRole="button"
-            onPress={onStop}
-            style={[s.actionBtn, s.stopBtn]}
-          >
-            <Square size={14} color="#FF4444" />
-          </TouchableOpacity>
-        ) : hasText ? (
-          <TouchableOpacity
-            testID="send-btn"
-            accessibilityLabel="Send message"
-            accessibilityRole="button"
-            accessibilityState={{ disabled: actionDisabled }}
-            onPress={onSend}
-            disabled={actionDisabled}
-            style={[s.actionBtn, s.sendBtn, actionDisabled && s.toolBtnDisabled]}
-          >
-            <ArrowUp size={18} color="#FFFFFF" />
-          </TouchableOpacity>
-        ) : (
-          <TouchableOpacity
-            testID="mic-btn"
-            accessibilityLabel="Voice input (coming soon)"
-            accessibilityRole="button"
-            onPress={handleVoicePress}
-            style={s.actionBtn}
-          >
-            <Mic size={17} color="#666666" />
-          </TouchableOpacity>
-        )}
       </View>
 
       <View style={s.toolbar}>
         <View style={s.toolbarLeft}>
           <TouchableOpacity
-            testID="attach-btn"
-            accessibilityLabel="Attach image"
+            testID="composer-plus-btn"
+            accessibilityLabel="Add to message"
             accessibilityRole="button"
             accessibilityState={{ disabled }}
-            onPress={onPickImage}
+            onPress={onOpenComposerSheet}
             disabled={disabled}
-            style={[s.toolBtn, disabled && s.toolBtnDisabled]}
+            style={[s.hitControl, disabled && s.toolBtnDisabled]}
           >
-            <ImagePlus size={22} color={disabled ? '#555555' : '#888888'} />
+            <View style={s.roundControl}>
+              <Plus size={18} color={disabled ? '#555555' : '#888888'} />
+            </View>
           </TouchableOpacity>
 
           <TouchableOpacity
-            testID="command-btn"
-            accessibilityLabel="Open commands"
+            testID="composer-model-chip"
+            accessibilityLabel="Switch model"
             accessibilityRole="button"
-            accessibilityState={{ disabled }}
-            onPress={onOpenCommands}
-            disabled={disabled}
-            style={[s.commandPill, disabled && s.toolBtnDisabled]}
+            accessibilityState={{ disabled: modelDisabled }}
+            onPress={onOpenModelSelector}
+            disabled={modelDisabled}
+            style={[s.modelChipHit, modelDisabled && s.toolBtnDisabled]}
           >
-            <Terminal size={14} color={disabled ? '#555555' : '#FF6B35'} />
-            <Text style={[s.commandPillText, disabled && s.disabledText]}>Commands</Text>
+            <View style={s.modelChip}>
+              <Text style={[s.modelChipText, modelDisabled && s.disabledText]} numberOfLines={1}>
+                {modelLabel}
+              </Text>
+              <ChevronDown size={12} color={modelDisabled ? '#555555' : '#888888'} />
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            testID="mic-btn"
+            accessibilityLabel="Voice input (coming soon)"
+            accessibilityRole="button"
+            onPress={handleVoicePress}
+            style={s.hitControl}
+          >
+            <View style={s.roundControl}>
+              <Mic size={18} color="#888888" />
+            </View>
           </TouchableOpacity>
         </View>
 
-        <Text style={s.charCount}>{charCount}</Text>
+        <View style={s.toolbarRight}>
+          <Text style={s.charCount}>{charCount}</Text>
+          {isAgentRunning ? (
+            <TouchableOpacity
+              testID="stop-btn"
+              accessibilityLabel="Stop conversation"
+              accessibilityRole="button"
+              onPress={onStop}
+              style={[s.actionBtn, s.stopBtn]}
+            >
+              <Square size={14} color="#FF4444" />
+            </TouchableOpacity>
+          ) : canSend ? (
+            <TouchableOpacity
+              testID="send-btn"
+              accessibilityLabel="Send message"
+              accessibilityRole="button"
+              accessibilityState={{ disabled: actionDisabled }}
+              onPress={onSend}
+              disabled={actionDisabled}
+              style={[s.actionBtn, s.sendBtn, actionDisabled && s.toolBtnDisabled]}
+            >
+              <ArrowUp size={18} color="#FFFFFF" />
+            </TouchableOpacity>
+          ) : null}
+        </View>
       </View>
     </View>
   );
@@ -172,13 +188,17 @@ export default function ChatInputBar({
 
 const s = StyleSheet.create({
   card: {
-    backgroundColor: '#111111',
-    borderRadius: 10,
+    backgroundColor: '#1A1A1A',
+    borderRadius: 22,
     borderWidth: 1,
-    borderColor: '#1E1E1E',
-    padding: 12,
+    borderColor: '#333333',
+    paddingVertical: 16,
     paddingHorizontal: 14,
-    gap: 8,
+    gap: 16,
+    shadowColor: '#FF6B3588',
+    shadowOpacity: 0.16,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 8 },
   },
   imgStrip: {
     maxHeight: 68,
@@ -232,59 +252,77 @@ const s = StyleSheet.create({
     justifyContent: 'center',
   },
   textRow: {
-    minHeight: 40,
+    minHeight: 28,
     maxHeight: 120,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
   },
   input: {
     flex: 1,
-    minHeight: 24,
+    minHeight: 28,
     maxHeight: 98,
     padding: 0,
     margin: 0,
     fontFamily: 'Inter',
-    fontSize: 14,
+    fontSize: 17,
     color: '#FFFFFF',
-    lineHeight: 20,
+    lineHeight: 22,
   },
   toolbar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    minHeight: 36,
+    minHeight: 44,
   },
   toolbarLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 2,
   },
-  toolBtn: {
-    width: 36,
-    height: 36,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 8,
-  },
-  toolBtnDisabled: { opacity: 0.4 },
-  commandPill: {
-    minHeight: 30,
+  toolbarRight: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 8,
+    gap: 12,
+  },
+  hitControl: {
+    width: 44,
+    height: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  toolBtnDisabled: { opacity: 0.4 },
+  roundControl: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#252525',
     borderWidth: 1,
-    borderColor: '#FF6B3588',
+    borderColor: '#333333',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modelChipHit: {
+    minHeight: 44,
+    justifyContent: 'center',
+  },
+  modelChip: {
+    maxWidth: 130,
+    height: 28,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#333333',
     backgroundColor: '#1A1A1A',
   },
-  commandPillText: {
+  modelChipText: {
     fontFamily: 'Inter',
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
-    color: '#FF6B35',
+    color: '#888888',
+    maxWidth: 104,
   },
   disabledText: { color: '#555555' },
   charCount: {

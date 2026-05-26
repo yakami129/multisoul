@@ -9,6 +9,7 @@ import {
   fetchMessages,
   fetchRuntimeModels,
   postMessage,
+  switchConversationModel,
   uploadImage,
 } from '@/features/chat/services/chatService';
 import { useWebSocket } from '@/hooks/useWebSocket';
@@ -695,6 +696,94 @@ test('shows the current agent name in the header', async () => {
   const { getByText } = render(<ChatDetailScreen />);
 
   await waitFor(() => expect(getByText('Agent')).toBeTruthy());
+});
+
+/// Deep-linked model switch: selecting a model still works when ChatDetail was
+/// opened from Activity/notification and the conversation row is not in store yet.
+///
+/// Data construction:
+///   route conv_id   = "conv-1"（Activity/notification only passes the id）
+///   route agent_id  = "agent-1"（enough to load runtime model capabilities）
+///   store convs     = []（conversation metadata has not been seeded）
+///   model option    = "gpt-5.3-codex"（concrete Codex model）
+///
+/// Execution process:
+///   1. Render ChatDetailScreen with route params but no stored conversation.
+///   2. Wait for runtime models to load and open the selector from the header.
+///   3. Press the concrete "Codex 5.3" row and accept the warning.
+///
+/// Expected result:
+///   - Positive: switchConversationModel is called for conv-1 with "gpt-5.3-codex".
+///   - Positive: the returned conversation is inserted into chatStore.
+///   - Negative: the selection must not silently stop because conversation was missing locally.
+test('switches model from a deep-linked chat without a seeded conversation row', async () => {
+  mockSearchParams = {
+    id: 'conv-1',
+    endpoint_id: 'endpoint-1',
+    agent_id: 'agent-1',
+    agent_name: 'Agent',
+  };
+  useChatStore.setState({ conversations: [], messages: {} });
+  (fetchRuntimeModels as jest.Mock).mockResolvedValue([
+    { id: 'default', label: 'Default', is_default: true, source: 'builtin', available: true },
+    {
+      id: 'gpt-5.3-codex',
+      label: 'Codex 5.3',
+      is_default: false,
+      source: 'builtin',
+      available: true,
+    },
+  ]);
+  const switched = {
+    id: 'conv-1',
+    agent_id: 'agent-1',
+    title: 'Existing Chat',
+    created_at: 0,
+    last_message_at: 3,
+    status: 'completed' as const,
+    model_id: 'gpt-5.3-codex',
+    endpoint_id: 'endpoint-1',
+    agent_name: 'Agent',
+  };
+  (switchConversationModel as jest.Mock).mockResolvedValue(switched);
+  jest.spyOn(Alert, 'alert').mockImplementation((_title, _message, buttons) => {
+    buttons?.[1]?.onPress?.();
+  });
+
+  const { getByText } = render(<ChatDetailScreen />);
+
+  await waitFor(() =>
+    expect({
+      actual: (fetchRuntimeModels as jest.Mock).mock.calls.length > 0,
+      reason: 'route agent_id should be enough to load runtime models for a deep link',
+    }).toEqual({ actual: true, reason: expect.any(String) }),
+  );
+  fireEvent.press(getByText('Default'));
+  await waitFor(() => expect(getByText('Codex 5.3')).toBeTruthy());
+  fireEvent.press(getByText('Codex 5.3'));
+
+  await waitFor(() =>
+    expect({
+      actual: (switchConversationModel as jest.Mock).mock.calls.some(
+        (call) =>
+          call[0] === 'http://localhost:8080' &&
+          call[1] === 'token' &&
+          call[2] === 'conv-1' &&
+          call[3] === 'endpoint-1' &&
+          call[4] === 'Agent' &&
+          call[5] === 'gpt-5.3-codex',
+      ),
+      reason: 'selecting a concrete row must PATCH even when conversation is not locally cached',
+    }).toEqual({ actual: true, reason: expect.any(String) }),
+  );
+  expect({
+    actual: useChatStore.getState().conversations.some((conv) => conv.id === 'conv-1'),
+    reason: 'successful PATCH should seed the missing conversation row for future updates',
+  }).toEqual({ actual: true, reason: expect.any(String) });
+  expect({
+    actual: (switchConversationModel as jest.Mock).mock.calls.length,
+    reason: 'missing local conversation must not make model selection a silent no-op',
+  }).not.toEqual({ actual: 0, reason: expect.any(String) });
 });
 
 test('updates the status badge when conversation metadata changes', async () => {

@@ -23,21 +23,21 @@ fn detects_claude_stale_resume_session_error() {
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   session_id = "sid-1"（已有 Claude 会话，必须使用 --resume）
-///   model_id   = "sonnet"（conversation.model_id 的具体值，必须使用 --model）
+///   model_id   = "claude-sonnet-4-6"（conversation.model_id 的具体值，必须使用 --model）
 ///   default    = None（Default/未选择模型，不能生成 --model）
 ///
 /// 执行过程（逐步说明系统如何处理）：
-///   1. 调用 build_claude_args(Some("sid-1"), Some("sonnet"))
-///   2. 检查 argv 中存在 `--resume sid-1` 和 `--model sonnet`
+///   1. 调用 build_claude_args(Some("sid-1"), Some("claude-sonnet-4-6"))
+///   2. 检查 argv 中存在 `--resume sid-1` 和 `--model claude-sonnet-4-6`
 ///   3. 调用 build_claude_args(Some("sid-1"), None)
 ///
 /// 预期结果：
 ///   - 断言 A：resume argv 包含 `--resume sid-1`
-///   - 断言 B：resume argv 包含 `--model sonnet`
+///   - 断言 B：resume argv 包含 `--model claude-sonnet-4-6`
 ///   - 断言 C：None argv 不包含 `--model`
 #[test]
 fn test_build_claude_args_resume_with_model() {
-    let selected = build_claude_args(Some("sid-1"), Some("sonnet"));
+    let selected = build_claude_args(Some("sid-1"), Some("claude-sonnet-4-6"));
     let default = build_claude_args(Some("sid-1"), None);
 
     assert!(
@@ -49,7 +49,7 @@ fn test_build_claude_args_resume_with_model() {
     assert!(
         selected
             .windows(2)
-            .any(|window| window == ["--model", "sonnet"]),
+            .any(|window| window == ["--model", "claude-sonnet-4-6"]),
         "Claude resume args should include the selected concrete model"
     );
     assert!(

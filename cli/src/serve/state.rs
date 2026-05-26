@@ -344,7 +344,7 @@ mod tests {
     /// 数据构造（含关键数值的推导过程）：
     ///   user_text = "hello"（用户输入）
     ///   file_id   = Some("abc.jpg")（上传图片 id）
-    ///   model_id  = Some("sonnet")（conversation 级模型选择）
+    ///   model_id  = Some("claude-sonnet-4-6")（conversation 级模型选择）
     ///   seq       = 1（用户消息入库后的消息序号）
     ///
     /// 执行过程：
@@ -360,7 +360,7 @@ mod tests {
         let msg = SessionMessage {
             user_text: "hello".to_string(),
             file_id: Some("abc.jpg".to_string()),
-            model_id: Some("sonnet".to_string()),
+            model_id: Some("claude-sonnet-4-6".to_string()),
             seq: 1,
         };
         assert_eq!(msg.user_text, "hello", "user_text should match");
@@ -371,7 +371,7 @@ mod tests {
         );
         assert_eq!(
             msg.model_id.as_deref(),
-            Some("sonnet"),
+            Some("claude-sonnet-4-6"),
             "model_id should match the selected runtime model"
         );
 

@@ -12,7 +12,7 @@ use tempfile::tempdir;
 /// 数据构造（含关键数值推导）：
 ///   fake claude:
 ///     - 无 --model 时立即输出 `{"type":"system","session_id":"sid-1"}`，让 worker 进入 rx.recv
-///     - 带 `--model sonnet` 时写入自身 pid 到 replacement.pid，然后 sleep 30 且不输出 stdout
+///     - 带 `--model claude-sonnet-4-6` 时写入自身 pid 到 replacement.pid，然后 sleep 30 且不输出 stdout
 ///   wait budget:
 ///     - 等 replacement pid 文件最多 20 次 * 50ms = 1000ms
 ///     - 1000ms << 30s，因此 pid 可见后 worker 仍阻塞在 read_system_event
@@ -20,7 +20,7 @@ use tempfile::tempdir;
 /// 执行过程：
 ///   1. 用 PATH 前缀注入 fake `claude`
 ///   2. 启动 session_worker，初始模型为 None，初始 fake child 输出 system event
-///   3. 发送 model_id=Some("sonnet") 的消息触发 model-change restart
+///   3. 发送 model_id=Some("claude-sonnet-4-6") 的消息触发 model-change restart
 ///   4. replacement fake child 写 pid 后阻塞 stdout，测试读取 session_handle.current_pid
 ///
 /// 预期结果：
@@ -36,7 +36,7 @@ fn model_change_restart_registers_replacement_pid_before_system_read() {
     let replacement_pid_file = dir.path().join("replacement.pid");
     std::fs::write(
         &fake_claude,
-        "#!/bin/sh\ncase \" $* \" in\n  *\" --model sonnet \"*) echo $$ > \"$CLAUDE_REPLACEMENT_PID_FILE\"; sleep 30 ;;\n  *) printf '{\"type\":\"system\",\"session_id\":\"sid-1\"}\\n'; cat >/dev/null ;;\nesac\n",
+        "#!/bin/sh\ncase \" $* \" in\n  *\" --model claude-sonnet-4-6 \"*) echo $$ > \"$CLAUDE_REPLACEMENT_PID_FILE\"; sleep 30 ;;\n  *) printf '{\"type\":\"system\",\"session_id\":\"sid-1\"}\\n'; cat >/dev/null ;;\nesac\n",
     )
     .unwrap();
     make_executable(&fake_claude);
@@ -63,7 +63,7 @@ fn model_change_restart_registers_replacement_pid_before_system_read() {
     tx.send(crate::serve::state::SessionMessage {
         user_text: "switch model".to_string(),
         file_id: None,
-        model_id: Some("sonnet".to_string()),
+        model_id: Some("claude-sonnet-4-6".to_string()),
         seq: 1,
     })
     .expect("model switch message should be queued to the Claude worker");

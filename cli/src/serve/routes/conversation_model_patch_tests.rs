@@ -98,26 +98,26 @@ fn assert_value(actual: &serde_json::Value, expected: &str, msg: &str) {
 /// PATCH model inserts one system_event for a Codex concrete model.
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   runtime       = "codex"（fallback provider contains gpt-5.3-codex）
+///   runtime       = "codex"（fallback provider contains gpt-5.5-codex）
 ///   model_id      = NULL（conversation initially uses Default）
 ///   messages      = 0 existing rows
 ///   next seq      = COALESCE(MAX(seq), 0) + 1 = 1
 ///
 /// 执行过程（逐步说明系统如何处理）：
-///   1. PATCH { "model_id": "gpt-5.3-codex" } with a valid Bearer token
+///   1. PATCH { "model_id": "gpt-5.5-codex" } with a valid Bearer token
 ///   2. Handler validates the model against the Codex fallback list
 ///   3. Handler persists conversations.model_id and inserts seq 1 system_event
 ///
 /// 预期结果：
 ///   - 断言 A：HTTP 200 confirms the supported model switch succeeds
-///   - 断言 B：response and DB model_id both equal "gpt-5.3-codex"
+///   - 断言 B：response and DB model_id both equal "gpt-5.5-codex"
 ///   - 断言 C：exactly one message exists and its seq is 1
 ///   - 断言 D：message role is system_event and not agent_text
-///   - 断言 E：payload records Default/null → Codex 5.3/gpt-5.3-codex
+///   - 断言 E：payload records Default/null → Codex 5.5/gpt-5.5-codex
 #[tokio::test]
 async fn test_patch_conversation_model_inserts_system_event() {
     let (app, state, conv_id) = make_patch_model_app("tok").await;
-    let resp = send_patch_model(app, &conv_id, serde_json::json!("gpt-5.3-codex")).await;
+    let resp = send_patch_model(app, &conv_id, serde_json::json!("gpt-5.5-codex")).await;
 
     assert_status(
         resp.status(),
@@ -128,12 +128,12 @@ async fn test_patch_conversation_model_inserts_system_event() {
     let json: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
     assert_value(
         &json["model_id"],
-        "gpt-5.3-codex",
+        "gpt-5.5-codex",
         "response model_id should reflect the selected concrete model",
     );
     assert_eq!(
         conversation_model_id(&state, &conv_id),
-        Some("gpt-5.3-codex".to_string()),
+        Some("gpt-5.5-codex".to_string()),
         "DB model_id should persist the selected concrete model"
     );
     let messages = conversation_messages(&state, &conv_id);
@@ -165,7 +165,7 @@ async fn test_patch_conversation_model_inserts_system_event() {
     );
     assert_value(
         &messages[0].2["to_model_id"],
-        "gpt-5.3-codex",
+        "gpt-5.5-codex",
         "to_model_id should record the selected concrete model",
     );
     assert_value(
@@ -175,8 +175,8 @@ async fn test_patch_conversation_model_inserts_system_event() {
     );
     assert_value(
         &messages[0].2["to_label"],
-        "Codex 5.3",
-        "to_label should render gpt-5.3-codex with the product-facing label",
+        "Codex 5.5",
+        "to_label should render gpt-5.5-codex with the product-facing label",
     );
 }
 
@@ -190,7 +190,7 @@ async fn test_patch_conversation_model_inserts_system_event() {
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. Set the conversation status to running in SQLite
-///   2. PATCH { "model_id": "gpt-5.3-codex" } with a valid model id
+///   2. PATCH { "model_id": "gpt-5.5-codex" } with a valid model id
 ///   3. Handler detects the active status and returns before DB writes
 ///
 /// 预期结果：
@@ -208,7 +208,7 @@ async fn test_patch_conversation_model_rejects_running_status() {
         )
         .unwrap();
     }
-    let resp = send_patch_model(app, &conv_id, serde_json::json!("gpt-5.3-codex")).await;
+    let resp = send_patch_model(app, &conv_id, serde_json::json!("gpt-5.5-codex")).await;
 
     assert_status(
         resp.status(),
@@ -301,12 +301,12 @@ async fn test_patch_conversation_model_rejects_unsupported_model_id() {
 /// 数据构造（含关键数值的推导过程）：
 ///   runtime       = "codex"（valid runtime and valid target model）
 ///   model_id      = NULL before request
-///   target model  = "gpt-5.3-codex"
+///   target model  = "gpt-5.5-codex"
 ///   trigger       = messages_insert_fails raises after next seq can be calculated
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. Create a messages BEFORE INSERT trigger that raises an error
-///   2. PATCH { "model_id": "gpt-5.3-codex" }
+///   2. PATCH { "model_id": "gpt-5.5-codex" }
 ///   3. Handler attempts the model update plus system_event insert as one unit
 ///   4. Insert failure aborts the unit and the model update is rolled back
 ///
@@ -329,7 +329,7 @@ async fn test_patch_conversation_model_rolls_back_when_system_event_insert_fails
         .expect("setup should create trigger to force insert failure after model update");
     }
 
-    let resp = send_patch_model(app, &conv_id, serde_json::json!("gpt-5.3-codex")).await;
+    let resp = send_patch_model(app, &conv_id, serde_json::json!("gpt-5.5-codex")).await;
 
     assert_status(
         resp.status(),
@@ -345,13 +345,13 @@ async fn test_patch_conversation_model_rolls_back_when_system_event_insert_fails
 /// PATCH model clears to default and avoids duplicate events for a no-op.
 ///
 /// 数据构造（含关键数值的推导过程）：
-///   starting model = "gpt-5.3-codex"（concrete override already persisted）
+///   starting model = "gpt-5.5-codex"（concrete override already persisted）
 ///   first request  = NULL（clear override and switch to Default）
 ///   initial msgs   = 0, so first event seq = COALESCE(MAX(seq), 0) + 1 = 1
 ///   second request = NULL（same model as current state, so no-op）
 ///
 /// 执行过程（逐步说明系统如何处理）：
-///   1. Seed conversations.model_id to "gpt-5.3-codex"
+///   1. Seed conversations.model_id to "gpt-5.5-codex"
 ///   2. PATCH { "model_id": null } to clear the override
 ///   3. PATCH { "model_id": null } again after the conversation is already default
 ///
@@ -366,7 +366,7 @@ async fn test_patch_conversation_model_clears_to_default_without_duplicate_for_s
     {
         let db = state.db.lock().unwrap();
         db.execute(
-            "UPDATE conversations SET model_id = 'gpt-5.3-codex' WHERE id = ?1",
+            "UPDATE conversations SET model_id = 'gpt-5.5-codex' WHERE id = ?1",
             [&conv_id],
         )
         .unwrap();

@@ -344,7 +344,7 @@ fn insert_user_message_marks_completed_conversation_running_immediately() {
 ///
 /// 数据构造（含关键数值的推导过程）：
 ///   agent.runtime = "codex"（使用已有 session 避免真实 spawn）
-///   conversation.model_id = "gpt-5.3-codex"（具体模型选择）
+///   conversation.model_id = "gpt-5.5-codex"（具体模型选择）
 ///   existing messages = 0 条，因此新 user_text seq = COALESCE(MAX(seq),0)+1 = 1
 ///
 /// 执行过程（逐步说明系统如何处理）：
@@ -355,7 +355,7 @@ fn insert_user_message_marks_completed_conversation_running_immediately() {
 ///
 /// 预期结果：
 ///   - 断言 A：HTTP 返回 201，说明消息创建成功
-///   - 断言 B：queued.model_id == Some("gpt-5.3-codex")
+///   - 断言 B：queued.model_id == Some("gpt-5.5-codex")
 ///   - 断言 C：queued.model_id != None，防止 handler 查询时漏掉 c.model_id
 #[tokio::test]
 async fn post_message_passes_conversation_model_id_to_runtime_queue() {
@@ -368,7 +368,7 @@ async fn post_message_passes_conversation_model_id_to_runtime_queue() {
         )
         .expect("seeded agent runtime and mode should be mutable");
         db.execute(
-            "UPDATE conversations SET model_id = 'gpt-5.3-codex' WHERE id = 'conv-1'",
+            "UPDATE conversations SET model_id = 'gpt-5.5-codex' WHERE id = 'conv-1'",
             [],
         )
         .expect("seeded conversation model_id should be mutable");
@@ -407,7 +407,7 @@ async fn post_message_passes_conversation_model_id_to_runtime_queue() {
         .expect("existing runtime session should receive queued message");
     assert_eq!(
         queued.model_id.as_deref(),
-        Some("gpt-5.3-codex"),
+        Some("gpt-5.5-codex"),
         "post_message should pass conversations.model_id into DispatchMessage"
     );
     assert!(

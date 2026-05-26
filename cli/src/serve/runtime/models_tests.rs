@@ -12,7 +12,7 @@ use tempfile::tempdir;
 /// 数据构造（含关键数值的推导过程）：
 ///   runtime        = "claude-code"
 ///   expected[0]    = Default（虚拟项，数据库 NULL 语义）
-///   expected[1]    = Sonnet（内置 Claude fallback 模型）
+///   expected[1]    = claude-sonnet-4-6（内置 Claude fallback 模型）
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 调用 list_models("claude-code")
@@ -21,7 +21,7 @@ use tempfile::tempdir;
 ///
 /// 预期结果：
 ///   - 正断言：第 0 项 id 为 "default" 且 is_default=true
-///   - 正断言：第 1 项 id 为 "sonnet" 且 source=builtin
+///   - 正断言：第 1 项 id 为 "claude-sonnet-4-6" 且 source=builtin
 ///   - 负断言：第 1 项不是 default，避免 concrete 模型被 UI 当成 Default
 #[test]
 fn test_claude_builtin_models_include_default_first() {
@@ -38,8 +38,8 @@ fn test_claude_builtin_models_include_default_first() {
         "Claude first model should be marked default for NULL model_id"
     );
     assert_eq!(
-        sonnet.id, "sonnet",
-        "Claude concrete builtin list should include Sonnet after Default"
+        sonnet.id, "claude-sonnet-4-6",
+        "Claude concrete builtin list should include Sonnet 4.6 after Default"
     );
     assert_eq!(
         sonnet.source,
@@ -57,7 +57,7 @@ fn test_claude_builtin_models_include_default_first() {
 /// 数据构造（含关键数值的推导过程）：
 ///   runtime        = "codex"
 ///   expected[0]    = Default（虚拟项，PATCH null 语义）
-///   expected[1]    = gpt-5.3-codex（内置 Codex fallback 模型）
+///   expected[1]    = gpt-5.5-codex（内置 Codex fallback 模型）
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 调用 list_models("codex")
@@ -83,8 +83,8 @@ fn test_codex_builtin_models_include_default_first() {
         "Codex Default should be available for switching back to runtime default"
     );
     assert_eq!(
-        codex.id, "gpt-5.3-codex",
-        "Codex concrete builtin list should include gpt-5.3-codex after Default"
+        codex.id, "gpt-5.5-codex",
+        "Codex concrete builtin list should include gpt-5.5-codex after Default"
     );
     assert_eq!(
         codex.source,
@@ -221,7 +221,7 @@ fn test_validate_default_semantics() {
 /// 数据构造（含关键数值的推导过程）：
 ///   runtime        = "codex"（受支持 runtime）
 ///   model_id       = "made-up-model"（不在 Codex builtin fallback 列表）
-///   fallback count = 3（gpt-5.3-codex / high / xhigh，均不匹配 model_id）
+///   fallback count = 3（gpt-5.5-codex / high / xhigh，均不匹配 model_id）
 ///
 /// 执行过程（逐步说明系统如何处理）：
 ///   1. 调用 validate_model("codex", Some("made-up-model"))

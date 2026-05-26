@@ -31,27 +31,27 @@ struct BuiltinModel {
 
 const CLAUDE_MODELS: &[BuiltinModel] = &[
     BuiltinModel {
-        id: "sonnet",
-        label: "Sonnet",
+        id: "claude-sonnet-4-6",
+        label: "Sonnet 4.6",
     },
     BuiltinModel {
-        id: "opus",
-        label: "Opus",
+        id: "claude-opus-4-6",
+        label: "Opus 4.6",
     },
 ];
 
 const CODEX_MODELS: &[BuiltinModel] = &[
     BuiltinModel {
-        id: "gpt-5.3-codex",
-        label: "Codex 5.3",
+        id: "gpt-5.5-codex",
+        label: "Codex 5.5",
     },
     BuiltinModel {
-        id: "gpt-5.3-codex-high",
-        label: "Codex 5.3 High",
+        id: "gpt-5.5-codex-high",
+        label: "Codex 5.5 High",
     },
     BuiltinModel {
-        id: "gpt-5.3-codex-xhigh",
-        label: "Codex 5.3 XHigh",
+        id: "gpt-5.5-codex-xhigh",
+        label: "Codex 5.5 XHigh",
     },
 ];
 
@@ -65,8 +65,8 @@ const CURSOR_MODELS: &[BuiltinModel] = &[
         label: "Composer 2",
     },
     BuiltinModel {
-        id: "gpt-5.3-codex",
-        label: "Codex 5.3",
+        id: "gpt-5.5-codex",
+        label: "Codex 5.5",
     },
 ];
 

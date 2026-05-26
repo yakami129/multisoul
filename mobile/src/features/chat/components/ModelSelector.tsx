@@ -61,6 +61,7 @@ interface UseChatModelSelectorInput {
   agentName?: string;
   conversation: Conversation | undefined;
   isAwaitingResponse: boolean;
+  addConversation?: (conversation: Conversation) => void;
   updateConversation: (id: string, patch: Partial<Conversation>) => void;
 }
 
@@ -72,6 +73,7 @@ export function useChatModelSelector({
   agentName,
   conversation,
   isAwaitingResponse,
+  addConversation,
   updateConversation,
 }: UseChatModelSelectorInput) {
   const [runtimeModels, setRuntimeModels] = React.useState<RuntimeModel[]>([]);
@@ -134,19 +136,24 @@ export function useChatModelSelector({
 
   async function select(modelId: string | null) {
     setVisible(false);
-    if (!endpoint || !conversation || modelId === conversation.model_id) return;
+    if (!endpoint || modelId === conversation?.model_id || (!conversation && modelId == null)) {
+      return;
+    }
     const ack = await requestModelSwitchAcknowledgement();
     if (!ack.ok) return;
     try {
+      const effectiveEndpointId = endpointId ?? conversation?.endpoint_id ?? '';
+      const effectiveAgentName = conversation?.agent_name ?? agentName ?? '';
       const updated = await switchConversationModel(
         endpoint.base_url,
         endpoint.token,
         convId,
-        endpointId ?? conversation.endpoint_id,
-        conversation.agent_name ?? agentName ?? '',
+        effectiveEndpointId,
+        effectiveAgentName,
         modelId,
       );
-      updateConversation(convId, updated);
+      if (conversation) updateConversation(convId, updated);
+      else addConversation?.(updated);
       if (!ack.alreadySeen) void markModelSwitchAcknowledged();
     } catch (error: unknown) {
       recordDiagnosticsEvent('warn', 'chat.models', 'failed to switch model', {

@@ -4,7 +4,7 @@ import { KeyboardAvoidingView, Platform, type FlatList, View } from 'react-nativ
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { EMPTY_MESSAGES, STATUS_BADGE } from '@/features/chat/chatDetailConstants';
 import ChatInputBar from '@/features/chat/components/ChatInputBar';
-import CommandPopup from '@/features/chat/components/CommandPopup';
+import CommandPopup, { type ComposerSheetMode } from '@/features/chat/components/CommandPopup';
 import { ModelSelector, useChatModelSelector } from '@/features/chat/components/ModelSelector';
 import { resolveUserMessageImageUri } from '@/features/chat/services/chatService';
 import {
@@ -39,13 +39,15 @@ export default function ChatDetailScreen() {
   }>();
   const router = useRouter();
   const [input, setInput] = useState('');
-  const [commandPopupVisible, setCommandPopupVisible] = useState(false);
+  const [composerSheetVisible, setComposerSheetVisible] = useState(false);
+  const [composerSheetMode, setComposerSheetMode] = useState<ComposerSheetMode>('actions');
   const imageMapRef = useRef<Map<string, string>>(new Map());
   const listRef = useRef<FlatList<WsMessage>>(null);
 
   const endpoint = useEndpointStore((s) => s.endpoints.find((e) => e.id === endpoint_id));
   const conversations = useChatStore((s) => s.conversations);
   const messagesMap = useChatStore((s) => s.messages);
+  const addConversation = useChatStore((s) => s.addConversation);
   const updateConversation = useChatStore((s) => s.updateConversation);
   const messages = messagesMap[conv_id] ?? EMPTY_MESSAGES;
   const conversation = conversations.find((c) => c.id === conv_id);
@@ -154,15 +156,16 @@ export default function ChatDetailScreen() {
   const handleInputChange = (text: string) => {
     setInput(text);
     if (text.startsWith('/')) {
-      setCommandPopupVisible(true);
-    } else if (commandPopupVisible) {
-      setCommandPopupVisible(false);
+      setComposerSheetMode('commands');
+      setComposerSheetVisible(true);
+    } else if (composerSheetVisible) {
+      setComposerSheetVisible(false);
     }
   };
 
   const handleCommandSelect = (command: string) => {
     setInput(command + ' ');
-    setCommandPopupVisible(false);
+    setComposerSheetVisible(false);
   };
 
   const onSend = () => {
@@ -183,6 +186,7 @@ export default function ChatDetailScreen() {
     agentName: agent_name,
     conversation,
     isAwaitingResponse,
+    addConversation,
     updateConversation,
   });
   const badge = isOffline
@@ -195,14 +199,7 @@ export default function ChatDetailScreen() {
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <ChatHeader
-          title={navTitle}
-          badge={badge}
-          modelLabel={modelSelector.currentModelLabel}
-          modelDisabled={modelSelector.modelHeaderDisabled}
-          onPressModel={modelSelector.open}
-          onBack={() => router.back()}
-        />
+        <ChatHeader title={navTitle} badge={badge} onBack={() => router.back()} />
         <ModelSelector
           visible={modelSelector.visible}
           models={modelSelector.runtimeModels}
@@ -231,23 +228,34 @@ export default function ChatDetailScreen() {
         />
 
         <CommandPopup
-          visible={commandPopupVisible}
+          visible={composerSheetVisible}
+          mode={composerSheetMode}
+          onModeChange={setComposerSheetMode}
+          onPickImage={() => {
+            setComposerSheetVisible(false);
+            void pickImage();
+          }}
           onSelect={handleCommandSelect}
-          onDismiss={() => setCommandPopupVisible(false)}
+          onDismiss={() => setComposerSheetVisible(false)}
         />
         <View style={s.inputArea}>
           <ChatInputBar
             value={input}
             onChangeText={handleInputChange}
             onSend={onSend}
-            onPickImage={() => void pickImage()}
-            onOpenCommands={() => setCommandPopupVisible(true)}
             disabled={composerDisabled}
             isAgentRunning={isAgentRunning}
             onStop={handleStop}
             placeholder={isOffline ? 'Agent offline...' : 'Message...'}
             pendingImages={pendingImages}
             onRemoveImage={removePendingImage}
+            modelLabel={modelSelector.currentModelLabel}
+            modelDisabled={modelSelector.modelHeaderDisabled}
+            onOpenModelSelector={modelSelector.open}
+            onOpenComposerSheet={() => {
+              setComposerSheetMode('actions');
+              setComposerSheetVisible(true);
+            }}
           />
         </View>
       </KeyboardAvoidingView>
