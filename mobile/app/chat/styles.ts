@@ -33,6 +33,13 @@ export const s = StyleSheet.create({
   },
   scroll: { flex: 1 },
   scrollContent: { padding: 16, gap: 20 },
+  olderMessagesLoading: {
+    height: 40,
+    paddingVertical: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'transparent',
+  },
   inputArea: {
     backgroundColor: '#0D0D0D',
     paddingHorizontal: 20,

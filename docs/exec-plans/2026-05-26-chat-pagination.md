@@ -43,7 +43,7 @@ Add:
 }
 ```
 
-- [ ] **Step 2: Run baseline route tests**
+- [x] **Step 2: Run baseline route tests**
 
 Run:
 
@@ -53,7 +53,7 @@ cd mobile && pnpm test -- chatDetailRoute.test.tsx --watchAll=false
 
 Expected: PASS before feature edits.
 
-- [ ] **Step 3: Run baseline typecheck**
+- [x] **Step 3: Run baseline typecheck**
 
 Run:
 
@@ -69,7 +69,7 @@ Expected: PASS before feature edits.
 - Modify: `mobile/app/chat/chatDetailLimits.ts`
 - Modify: `mobile/src/__tests__/chatDetailRoute.test.tsx`
 
-- [ ] **Step 1: Update existing route assertions for new limits**
+- [x] **Step 1: Update existing route assertions for new limits**
 
 Update the test named `loads the initial chat history with the latest 15 message limit` to assert `limit: 25` and rename it to `loads the initial chat history with the latest 25 message limit`.
 
@@ -113,7 +113,7 @@ expect(fetchMessages).toHaveBeenCalledWith('http://localhost:8080', 'token', 'co
 });
 ```
 
-- [ ] **Step 2: Add the threshold regression test**
+- [x] **Step 2: Add the threshold regression test**
 
 Add a route test with this shape:
 
@@ -206,7 +206,7 @@ test('starts older pagination when user scrolls within the 300px top threshold',
 });
 ```
 
-- [ ] **Step 3: Verify RED**
+- [x] **Step 3: Verify RED**
 
 Run:
 
@@ -216,7 +216,7 @@ cd mobile && pnpm test -- chatDetailRoute.test.tsx --watchAll=false
 
 Expected: FAIL because production constants still use `15`, `50`, and `80`.
 
-- [ ] **Step 4: Update constants**
+- [x] **Step 4: Update constants**
 
 Change `mobile/app/chat/chatDetailLimits.ts` to:
 
@@ -230,7 +230,7 @@ export const BOTTOM_STICKY_THRESHOLD = 120;
 
 Do not change `FOCUS_MESSAGE_LIMIT`, `BOTTOM_STICKY_THRESHOLD`, or `getLatestWindowMinSeq`.
 
-- [ ] **Step 5: Verify GREEN**
+- [x] **Step 5: Verify GREEN**
 
 Run:
 
@@ -247,7 +247,7 @@ Expected: PASS.
 - Modify: `mobile/app/chat/ChatTranscriptList.tsx`
 - Modify: `mobile/app/chat/styles.ts`
 
-- [ ] **Step 1: Write the component RED tests**
+- [x] **Step 1: Write the component RED tests**
 
 Create `mobile/src/__tests__/ChatTranscriptList.loading.test.tsx`. Import `ChatTranscriptList` from `../../app/chat/ChatTranscriptList`, mock `MessageBubble`, and render one `WsMessage`.
 
@@ -367,7 +367,7 @@ test('does not render the older-loading header while idle', () => {
 });
 ```
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
 Run:
 
@@ -377,7 +377,7 @@ cd mobile && pnpm test -- ChatTranscriptList.loading.test.tsx --watchAll=false
 
 Expected: FAIL because `ChatTranscriptList` has no `isLoadingOlder` prop or loading header.
 
-- [ ] **Step 3: Add the loading style**
+- [x] **Step 3: Add the loading style**
 
 In `mobile/app/chat/styles.ts`, add:
 
@@ -391,7 +391,7 @@ olderMessagesLoading: {
 },
 ```
 
-- [ ] **Step 4: Add the prop and header UI**
+- [x] **Step 4: Add the prop and header UI**
 
 In `mobile/app/chat/ChatTranscriptList.tsx`:
 
@@ -424,7 +424,7 @@ ListHeaderComponent={renderOlderLoading}
 
 Keep `maintainVisibleContentPosition={{ minIndexForVisible: 0 }}` unchanged.
 
-- [ ] **Step 5: Verify GREEN**
+- [x] **Step 5: Verify GREEN**
 
 Run:
 
@@ -441,7 +441,7 @@ Expected: PASS.
 - Modify: `mobile/app/chat/[id].tsx`
 - Modify: `mobile/src/__tests__/chatDetailRoute.test.tsx`
 
-- [ ] **Step 1: Add route-level RED tests for loading lifecycle**
+- [x] **Step 1: Add route-level RED tests for loading lifecycle**
 
 Add three route tests near the existing older-pagination tests.
 
@@ -679,7 +679,7 @@ test('shows older loading feedback while expanding a cached older window', async
 });
 ```
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
 Run:
 
@@ -689,7 +689,7 @@ cd mobile && pnpm test -- chatDetailRoute.test.tsx --watchAll=false
 
 Expected: FAIL because `useChatDetailHistory` does not expose reactive loading state and `ChatDetailScreen` is not passing it into `ChatTranscriptList`.
 
-- [ ] **Step 3: Add reactive loading state**
+- [x] **Step 3: Add reactive loading state**
 
 In `mobile/app/chat/useChatDetailHistory.ts`, keep the ref and add state:
 
@@ -743,7 +743,7 @@ return {
 };
 ```
 
-- [ ] **Step 4: Wire the prop through Chat Detail**
+- [x] **Step 4: Wire the prop through Chat Detail**
 
 In `mobile/app/chat/[id].tsx`, destructure `isLoadingOlder` from `useChatDetailHistory()` and pass it to `ChatTranscriptList`:
 
@@ -768,7 +768,7 @@ In `mobile/app/chat/[id].tsx`, destructure `isLoadingOlder` from `useChatDetailH
 />
 ```
 
-- [ ] **Step 5: Verify route GREEN**
+- [x] **Step 5: Verify route GREEN**
 
 Run:
 
@@ -784,7 +784,7 @@ Expected: PASS.
 - Review: all modified files from Tasks 1-3
 - Modify after final commit: `docs/exec-plans/index.json`
 
-- [ ] **Step 1: Run focused component and route tests**
+- [x] **Step 1: Run focused component and route tests**
 
 Run:
 
@@ -794,17 +794,17 @@ cd mobile && pnpm test -- ChatTranscriptList.loading.test.tsx chatDetailRoute.te
 
 Expected: PASS.
 
-- [ ] **Step 2: Run full mobile test suite**
+- [x] **Step 2: Run full mobile test suite**
 
 Run:
 
 ```bash
-cd mobile && pnpm test -- --watchAll=false
+cd mobile && pnpm test --watchAll=false
 ```
 
-Expected: PASS.
+Expected: PASS. Note: this repository's `pnpm test -- --watchAll=false` form is parsed by Jest as a pattern; the equivalent working command is `pnpm test --watchAll=false`.
 
-- [ ] **Step 3: Run mobile typecheck**
+- [x] **Step 3: Run mobile typecheck**
 
 Run:
 
@@ -814,7 +814,7 @@ cd mobile && pnpm typecheck
 
 Expected: PASS.
 
-- [ ] **Step 4: Run docs index verification**
+- [x] **Step 4: Run docs index verification**
 
 Run:
 
@@ -824,7 +824,7 @@ python3 scripts/check-docs-indices.py
 
 Expected: PASS.
 
-- [ ] **Step 5: Inspect final diff**
+- [x] **Step 5: Inspect final diff**
 
 Run:
 
@@ -847,11 +847,11 @@ Expected:
 - `BOTTOM_STICKY_THRESHOLD` remains `120`.
 - No new API route or CLI code.
 
-- [ ] **Step 6: Request code review before commit**
+- [x] **Step 6: Request code review before commit**
 
 Use `superpowers:requesting-code-review` before committing. Fix all Critical and Important feedback, then rerun Steps 1-4.
 
-- [ ] **Step 7: Create one final commit**
+- [x] **Step 7: Create one final commit**
 
 The repository rule overrides per-task commits. Commit once after all tasks pass and review is complete:
 
@@ -868,7 +868,7 @@ git add mobile/app/chat/chatDetailLimits.ts \
 git commit -m "feat(mobile): improve chat history pagination feedback"
 ```
 
-- [ ] **Step 8: Record completion commit**
+- [x] **Step 8: Record completion commit**
 
 After the commit succeeds, get the 40-character SHA:
 
@@ -897,7 +897,7 @@ Amend the final commit if the workflow requires the plan completion marker to li
 - Loading indicator at list top: Task 2.
 - Loading state true/false for network, failure, and cached paths: Task 3.
 - No background prefetch, no server/API change, no focus jump redesign, no downward pagination: File Map and Task 4 diff inspection.
-- Validation commands `pnpm typecheck` and `pnpm test -- --watchAll=false`: Task 4.
+- Validation commands `pnpm typecheck` and `pnpm test --watchAll=false`: Task 4.
 
 **Placeholder scan:** This plan contains no `TBD`, no unbounded "add tests" step, and no open-ended "handle edge cases" instruction.
 
