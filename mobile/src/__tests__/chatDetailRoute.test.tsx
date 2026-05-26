@@ -197,6 +197,10 @@ async function pickImageFromComposer(getByTestId: (testID: string) => any) {
 test('renders fetched historical agent text without typewriter replay', async () => {
   const { getByText, queryByText } = render(<ChatDetailScreen />);
 
+  // Flush chained async effects (fetchMessages + loadAnsweredAsks, fetchAgent → fetchRuntimeModels)
+  // that update state outside act() boundaries — required for CI where cold JIT is slower.
+  await act(async () => {});
+
   await waitFor(() => expect(getByText('historical response')).toBeTruthy());
 
   expect(queryByText('historical response [typewriter]')).toBeNull();
