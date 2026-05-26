@@ -46,6 +46,14 @@ export const activityScreenStyles = StyleSheet.create({
     color: '#FF6B35',
   },
   list: { borderTopWidth: 1, borderTopColor: '#1A1A1A' },
+  loadMoreFooter: {
+    minHeight: 60,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  loadMoreText: { fontFamily: 'Inter', fontSize: 13, color: '#888888' },
+  loadMoreRetryText: { fontFamily: 'Inter', fontSize: 13, fontWeight: '700', color: '#FF6B35' },
   row: {
     minHeight: 84,
     flexDirection: 'row',

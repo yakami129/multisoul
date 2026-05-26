@@ -3,6 +3,11 @@
   "version": 1,
   "documents": [
     {
+      "file": "2026-05-26-activity-pagination.md",
+      "title": "Activity Pagination Performance Implementation Plan",
+      "lastCompletedCommit": "c9c22654dd5ed1ac0c81b3c6f5d80622cdfdfe3f"
+    },
+    {
       "file": "2026-05-24-unified-cli-logs.md",
       "title": "Unified CLI Logs Implementation Plan",
       "lastCompletedCommit": "0f0257743b377b436b9a7341cae0c52891bb5f81"
