@@ -851,7 +851,7 @@ Expected:
 
 Use `superpowers:requesting-code-review` before committing. Fix all Critical and Important feedback, then rerun Steps 1-4.
 
-- [ ] **Step 7: Create one final commit**
+- [x] **Step 7: Create one final commit**
 
 The repository rule overrides per-task commits. Commit once after all tasks pass and review is complete:
 
@@ -868,7 +868,7 @@ git add mobile/app/chat/chatDetailLimits.ts \
 git commit -m "feat(mobile): improve chat history pagination feedback"
 ```
 
-- [ ] **Step 8: Record completion commit**
+- [x] **Step 8: Record completion commit**
 
 After the commit succeeds, get the 40-character SHA:
 
