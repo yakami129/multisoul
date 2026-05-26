@@ -4,7 +4,8 @@
   "documents": [
     {
       "file": "2026-05-26-activity-pagination.md",
-      "title": "Activity Pagination Performance Implementation Plan"
+      "title": "Activity Pagination Performance Implementation Plan",
+      "lastCompletedCommit": "c9c22654dd5ed1ac0c81b3c6f5d80622cdfdfe3f"
     },
     {
       "file": "2026-05-24-unified-cli-logs.md",
