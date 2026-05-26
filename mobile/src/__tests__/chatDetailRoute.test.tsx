@@ -185,6 +185,15 @@ beforeEach(() => {
   });
 });
 
+async function pickImageFromComposer(getByTestId: (testID: string) => any) {
+  await act(async () => {
+    fireEvent.press(getByTestId('composer-plus-btn'));
+  });
+  await act(async () => {
+    fireEvent.press(getByTestId('composer-action-upload'));
+  });
+}
+
 test('renders fetched historical agent text without typewriter replay', async () => {
   const { getByText, queryByText } = render(<ChatDetailScreen />);
 
@@ -698,8 +707,9 @@ test('shows the current agent name in the header', async () => {
   await waitFor(() => expect(getByText('Agent')).toBeTruthy());
 });
 
-/// Deep-linked model switch: selecting a model still works when ChatDetail was
-/// opened from Activity/notification and the conversation row is not in store yet.
+/// Deep-linked model switch: selecting a model from the composer still works
+/// when ChatDetail was opened from Activity/notification and the conversation
+/// row is not in store yet.
 ///
 /// Data construction:
 ///   route conv_id   = "conv-1"（Activity/notification only passes the id）
@@ -709,7 +719,7 @@ test('shows the current agent name in the header', async () => {
 ///
 /// Execution process:
 ///   1. Render ChatDetailScreen with route params but no stored conversation.
-///   2. Wait for runtime models to load and open the selector from the header.
+///   2. Wait for runtime models to load and open the selector from the composer model chip.
 ///   3. Press the concrete "Codex 5.3" row and accept the warning.
 ///
 /// Expected result:
@@ -750,7 +760,7 @@ test('switches model from a deep-linked chat without a seeded conversation row',
     buttons?.[1]?.onPress?.();
   });
 
-  const { getByText } = render(<ChatDetailScreen />);
+  const { getByTestId, getByText } = render(<ChatDetailScreen />);
 
   await waitFor(() =>
     expect({
@@ -758,7 +768,7 @@ test('switches model from a deep-linked chat without a seeded conversation row',
       reason: 'route agent_id should be enough to load runtime models for a deep link',
     }).toEqual({ actual: true, reason: expect.any(String) }),
   );
-  fireEvent.press(getByText('Default'));
+  fireEvent.press(getByTestId('composer-model-chip'));
   await waitFor(() => expect(getByText('Codex 5.3')).toBeTruthy());
   fireEvent.press(getByText('Codex 5.3'));
 
@@ -1063,11 +1073,14 @@ test('scrolls to focus_ask_id after focused ask row lays out', async () => {
   }
 });
 
-test('renders image picker button in chat list detail composer', () => {
-  const { getByLabelText, getByTestId } = render(<ChatDetailScreen />);
+test('renders composer plus button and upload image action in chat detail composer', () => {
+  const { getByText, getByTestId, queryByTestId } = render(<ChatDetailScreen />);
 
-  expect(getByLabelText('Attach image')).toBeTruthy();
-  expect(getByTestId('attach-btn')).toBeTruthy();
+  expect(getByTestId('composer-plus-btn')).toBeTruthy();
+  expect(queryByTestId('composer-action-upload')).toBeNull();
+  fireEvent.press(getByTestId('composer-plus-btn'));
+  expect(getByText('Upload Image')).toBeTruthy();
+  expect(getByTestId('composer-action-upload')).toBeTruthy();
 });
 
 /// Chat detail bottom edge: the screen-level safe area must not reserve bottom
@@ -1110,9 +1123,7 @@ test('chat detail safe area excludes the bottom edge under the composer', () => 
 test('uploads selected image and renders the sent image message with local uri', async () => {
   const { getByLabelText, getByTestId, getByText, queryByTestId } = render(<ChatDetailScreen />);
 
-  await act(async () => {
-    fireEvent.press(getByLabelText('Attach image'));
-  });
+  await pickImageFromComposer(getByTestId);
   await waitFor(() => expect(queryByTestId('img-preview-row')).not.toBeNull());
 
   // Type text so the send button becomes visible
@@ -1398,9 +1409,7 @@ describe('multi-image upload', () => {
     const { getByTestId, queryByTestId } = render(<ChatDetailScreen />);
     await waitFor(() => expect(queryByTestId('img-preview-row')).toBeNull());
 
-    await act(async () => {
-      fireEvent.press(getByTestId('attach-btn'));
-    });
+    await pickImageFromComposer(getByTestId);
 
     await waitFor(() => {
       expect(queryByTestId('img-preview-row')).not.toBeNull();
@@ -1409,9 +1418,7 @@ describe('multi-image upload', () => {
 
   it('removes image when × badge tapped', async () => {
     const { getByTestId, queryByTestId } = render(<ChatDetailScreen />);
-    await act(async () => {
-      fireEvent.press(getByTestId('attach-btn'));
-    });
+    await pickImageFromComposer(getByTestId);
     await waitFor(() => expect(queryByTestId('img-preview-row')).not.toBeNull());
 
     await act(async () => {
@@ -1435,16 +1442,12 @@ describe('multi-image upload', () => {
     const { getByTestId, queryByTestId } = render(<ChatDetailScreen />);
 
     for (let i = 0; i < 5; i++) {
-      await act(async () => {
-        fireEvent.press(getByTestId('attach-btn'));
-      });
+      await pickImageFromComposer(getByTestId);
     }
     await waitFor(() => expect(queryByTestId('remove-img-4')).toBeTruthy());
 
     const alertSpy = jest.spyOn(Alert, 'alert');
-    await act(async () => {
-      fireEvent.press(getByTestId('attach-btn'));
-    });
+    await pickImageFromComposer(getByTestId);
 
     expect(alertSpy).toHaveBeenCalledWith('最多选择 5 张图片');
     expect(queryByTestId('remove-img-5')).toBeNull();
@@ -1481,15 +1484,11 @@ describe('multi-image upload', () => {
 
     const { getByTestId, getByLabelText } = render(<ChatDetailScreen />);
 
-    await act(async () => {
-      fireEvent.press(getByTestId('attach-btn'));
-    });
+    await pickImageFromComposer(getByTestId);
 
     // 第 2 次 attach 前切换 mock
     (uploadImage as jest.Mock).mockResolvedValueOnce({ file_id: 'file-2' });
-    await act(async () => {
-      fireEvent.press(getByTestId('attach-btn'));
-    });
+    await pickImageFromComposer(getByTestId);
 
     await waitFor(() => expect(getByTestId('remove-img-1')).toBeTruthy());
 

@@ -13,6 +13,7 @@ export const s = StyleSheet.create({
     borderBottomColor: '#1E1E1E',
   },
   navTitle: { fontFamily: 'Inter', fontSize: 17, fontWeight: '700', color: '#FFFFFF' },
+  navCenter: { flex: 1, alignItems: 'center', paddingHorizontal: 8 },
   statusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -34,6 +35,9 @@ export const s = StyleSheet.create({
   scrollContent: { padding: 16, gap: 20 },
   inputArea: {
     backgroundColor: '#0D0D0D',
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 22,
   },
   safeArea: { height: 0, backgroundColor: '#1A1A1A' },
 });

@@ -54,10 +54,11 @@ export default function ChatInputBar({
   const canSend = hasText || hasUploadedImage;
   const handleVoicePress = () => Alert.alert('语音功能即将上线，敬请期待');
   const charCount = `${value.length} / 4096`;
+  const shouldShowCounter = value.length > 0;
   const actionDisabled = disabled && !isAgentRunning;
 
   return (
-    <View style={s.card}>
+    <View testID="composer-card" style={s.card}>
       {pendingImages.length > 0 && (
         <ScrollView
           testID="img-preview-row"
@@ -67,7 +68,7 @@ export default function ChatInputBar({
           contentContainerStyle={s.imgStripContent}
         >
           {pendingImages.map((img, idx) => (
-            <View key={img.localUri} style={s.thumbWrapper}>
+            <View key={`${img.localUri}-${idx}`} style={s.thumbWrapper}>
               <Image source={{ uri: img.localUri }} style={s.thumb} />
               {img.status === 'uploading' && (
                 <View style={s.thumbOverlay}>
@@ -110,7 +111,7 @@ export default function ChatInputBar({
       </View>
 
       <View style={s.toolbar}>
-        <View style={s.toolbarLeft}>
+        <View testID="composer-toolbar-left" style={s.toolbarLeft}>
           <TouchableOpacity
             testID="composer-plus-btn"
             accessibilityLabel="Add to message"
@@ -141,7 +142,10 @@ export default function ChatInputBar({
               <ChevronDown size={12} color={modelDisabled ? '#555555' : '#888888'} />
             </View>
           </TouchableOpacity>
+        </View>
 
+        <View testID="composer-toolbar-right" style={s.toolbarRight}>
+          {shouldShowCounter ? <Text style={s.charCount}>{charCount}</Text> : null}
           <TouchableOpacity
             testID="mic-btn"
             accessibilityLabel="Voice input (coming soon)"
@@ -153,10 +157,6 @@ export default function ChatInputBar({
               <Mic size={18} color="#888888" />
             </View>
           </TouchableOpacity>
-        </View>
-
-        <View style={s.toolbarRight}>
-          <Text style={s.charCount}>{charCount}</Text>
           {isAgentRunning ? (
             <TouchableOpacity
               testID="stop-btn"
@@ -189,12 +189,13 @@ export default function ChatInputBar({
 const s = StyleSheet.create({
   card: {
     backgroundColor: '#1A1A1A',
-    borderRadius: 22,
+    minHeight: 136,
+    borderRadius: 28,
     borderWidth: 1,
     borderColor: '#333333',
-    paddingVertical: 16,
-    paddingHorizontal: 14,
-    gap: 16,
+    paddingVertical: 18,
+    paddingHorizontal: 24,
+    gap: 18,
     shadowColor: '#FF6B3588',
     shadowOpacity: 0.16,
     shadowRadius: 18,
@@ -252,21 +253,21 @@ const s = StyleSheet.create({
     justifyContent: 'center',
   },
   textRow: {
-    minHeight: 28,
-    maxHeight: 120,
+    minHeight: 48,
+    maxHeight: 132,
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
   },
   input: {
     flex: 1,
-    minHeight: 28,
-    maxHeight: 98,
+    minHeight: 48,
+    maxHeight: 110,
     padding: 0,
     margin: 0,
     fontFamily: 'Inter',
-    fontSize: 17,
+    fontSize: 18,
     color: '#FFFFFF',
-    lineHeight: 22,
+    lineHeight: 24,
   },
   toolbar: {
     flexDirection: 'row',
@@ -277,12 +278,15 @@ const s = StyleSheet.create({
   toolbarLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 2,
+    gap: 8,
+    flexShrink: 1,
   },
   toolbarRight: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    justifyContent: 'flex-end',
+    gap: 8,
+    flexShrink: 0,
   },
   hitControl: {
     width: 44,
@@ -292,9 +296,9 @@ const s = StyleSheet.create({
   },
   toolBtnDisabled: { opacity: 0.4 },
   roundControl: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     backgroundColor: '#252525',
     borderWidth: 1,
     borderColor: '#333333',
@@ -306,23 +310,23 @@ const s = StyleSheet.create({
     justifyContent: 'center',
   },
   modelChip: {
-    maxWidth: 130,
-    height: 28,
+    maxWidth: 154,
+    height: 34,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 12,
-    borderRadius: 14,
+    gap: 6,
+    paddingHorizontal: 14,
+    borderRadius: 17,
     borderWidth: 1,
     borderColor: '#333333',
-    backgroundColor: '#1A1A1A',
+    backgroundColor: '#252525',
   },
   modelChipText: {
     fontFamily: 'Inter',
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: '600',
     color: '#888888',
-    maxWidth: 104,
+    maxWidth: 124,
   },
   disabledText: { color: '#555555' },
   charCount: {

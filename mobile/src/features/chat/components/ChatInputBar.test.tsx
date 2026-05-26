@@ -1,6 +1,6 @@
-import { render, fireEvent } from '@testing-library/react-native';
+import { render, fireEvent, within } from '@testing-library/react-native';
 import React from 'react';
-import { Alert } from 'react-native';
+import { Alert, StyleSheet } from 'react-native';
 import ChatInputBar from './ChatInputBar';
 
 const noop = () => {};
@@ -56,17 +56,17 @@ describe('ChatInputBar', () => {
   ///   2. Inspect composer controls by labels/test IDs.
   ///
   /// Expected result:
-  ///   - Positive assertion: the + button, model chip, mic, counter, and
-  ///     message input exist because they are the new canonical toolbar.
+  ///   - Positive assertion: the + button, model chip, mic, and message input
+  ///     exist because they are the new canonical toolbar.
   ///   - Negative assertion: the old Commands pill is absent because commands
   ///     now live behind the + sheet.
+  ///   - Negative assertion: empty counter is absent to keep the toolbar airy.
   it('renders Apple-style composer controls instead of the old command pill', () => {
     const { getByPlaceholderText, getByText, getByTestId, queryByText } = renderInputBar();
 
     assertTruthy(getByTestId('composer-plus-btn'), 'composer must expose + as the sheet trigger');
     assertTruthy(getByTestId('composer-model-chip'), 'composer must show the selected model chip');
     assertTruthy(getByTestId('mic-btn'), 'composer must keep mic as an inline affordance');
-    assertTruthy(getByText('0 / 4096'), 'composer must show the character counter');
     assertTruthy(getByText('Default'), 'model chip should display the current model label');
     assertTruthy(getByPlaceholderText('Message Grok...'), 'default placeholder should render');
     assertEqual(
@@ -75,6 +75,47 @@ describe('ChatInputBar', () => {
       'message input must keep the 4096 character cap',
     );
     assertFalsy(queryByText('Commands'), 'old Commands pill should not render in the composer');
+    assertFalsy(queryByText('0 / 4096'), 'empty composer should not spend space on a counter');
+  });
+
+  /// Perplexity-style tray spacing: input and controls should breathe.
+  ///
+  /// Data construction:
+  ///   card minHeight target = 136px, enough for a tall input area and toolbar.
+  ///   leading tools         = + and model chip only.
+  ///   trailing tools        = mic plus contextual action/counter.
+  ///
+  /// Execution process:
+  ///   1. Render the empty composer.
+  ///   2. Inspect card geometry and toolbar group ownership.
+  ///
+  /// Expected result:
+  ///   - Positive assertion: card has a taller minimum height.
+  ///   - Positive assertion: mic lives in the trailing group like the reference.
+  ///   - Negative assertion: mic is not squeezed into the leading group.
+  it('uses a spacious two-zone toolbar like the reference input tray', () => {
+    const { getByTestId } = renderInputBar();
+    const cardStyle = StyleSheet.flatten(getByTestId('composer-card').props.style);
+    const leadingTools = within(getByTestId('composer-toolbar-left'));
+    const trailingTools = within(getByTestId('composer-toolbar-right'));
+
+    assertEqual(cardStyle.minHeight, 136, 'composer card should reserve a spacious tray height');
+    assertTruthy(
+      leadingTools.getByTestId('composer-plus-btn'),
+      'leading toolbar should keep the + affordance',
+    );
+    assertTruthy(
+      leadingTools.getByTestId('composer-model-chip'),
+      'leading toolbar should keep the model chip',
+    );
+    assertFalsy(
+      leadingTools.queryByTestId('mic-btn'),
+      'mic should not crowd the leading + and model controls',
+    );
+    assertTruthy(
+      trailingTools.getByTestId('mic-btn'),
+      'mic should sit in the trailing action group',
+    );
   });
 
   /// Character counter: input length should update the composer count.

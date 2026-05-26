@@ -1,5 +1,6 @@
 import { render, fireEvent } from '@testing-library/react-native';
 import React from 'react';
+import { StyleSheet } from 'react-native';
 import CommandPopup from './CommandPopup';
 
 const noop = () => {};
@@ -246,6 +247,35 @@ describe('Composer action sheet', () => {
     assertFalsy(
       queryByTestId('composer-sheet-backdrop'),
       'hidden sheet should not render backdrop',
+    );
+  });
+
+  /// Sheet stacking: the bottom drawer must render above the composer input tray.
+  ///
+  /// Data construction:
+  ///   input tray is a later sibling in ChatDetailScreen.
+  ///   required iOS stacking zIndex >= 20.
+  ///   required Android elevation >= 20.
+  ///
+  /// Execution process:
+  ///   1. Render the visible sheet.
+  ///   2. Inspect the root wrapper style that participates in sibling stacking.
+  ///
+  /// Expected result:
+  ///   - Positive assertion: sheet root exposes a high zIndex.
+  ///   - Positive assertion: sheet root exposes matching elevation.
+  ///   - Negative assertion: zIndex is not missing or zero, because that allows
+  ///     the composer to cover the drawer bottom.
+  it('stacks above the composer input tray', () => {
+    const { getByTestId } = renderSheet();
+    const rootStyle = StyleSheet.flatten(getByTestId('composer-sheet-root').props.style);
+
+    assertEqual(rootStyle.zIndex, 30, 'sheet root should stack above the composer tray');
+    assertEqual(rootStyle.elevation, 30, 'sheet root should also stack above on Android');
+    assertEqual(
+      rootStyle.zIndex === undefined || rootStyle.zIndex === 0,
+      false,
+      'sheet root zIndex must not be absent or zero',
     );
   });
 });
