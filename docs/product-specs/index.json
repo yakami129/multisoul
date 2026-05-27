@@ -11,6 +11,10 @@
       "title": "Agent 卡片直达对话 SPEC"
     },
     {
+      "file": "SPEC-agent-quick-register.md",
+      "title": "Agent 快速注册模式 SPEC"
+    },
+    {
       "file": "SPEC-agents-workspace-filter.md",
       "title": "Agents 工作空间筛选功能 SPEC"
     },

@@ -37,6 +37,7 @@ Source: `cli/src/commands/agent.rs`
 
 | 子命令 | 参数 | 说明 |
 |--------|------|------|
+| `agent <runtime>` | `codex` \| `claude-code` \| `cursor-cli` | 快速注册当前目录为 agent |
 | `agent register` | `--name <NAME>` `--project <PATH>` `--runtime <RUNTIME>` `--mode <MODE>` | 注册新 agent 到本地 `serve.db` |
 | `agent list` | — | 列出所有已注册 agent |
 | `agent get` | `<ID>` | 查看指定 agent 详情 |
@@ -50,7 +51,7 @@ Source: `cli/src/commands/agent.rs`
 |------|--------|------|
 | `--name` | 必填 | Agent 名称（唯一） |
 | `--project` | 必填 | 项目目录绝对路径 |
-| `--runtime` | `claude-code` | 运行时：`claude-code` \| `codex` |
+| `--runtime` | `claude-code` | 运行时：`claude-code` \| `codex` \| `cursor-cli` |
 | `--mode` | `full-auto` | 权限模式（仅 codex）：`suggest` \| `auto-edit` \| `full-auto` \| `yolo` |
 
 ---

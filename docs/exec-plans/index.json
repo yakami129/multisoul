@@ -3,6 +3,10 @@
   "version": 1,
   "documents": [
     {
+      "file": "2026-05-27-agent-quick-register.md",
+      "title": "Agent Quick Register Implementation Plan"
+    },
+    {
       "file": "2026-05-26-chat-pagination.md",
       "title": "Chat Pagination Loading Feedback Implementation Plan",
       "lastCompletedCommit": "583d883f2c502ea227eca15e890d024c41881f6f"
