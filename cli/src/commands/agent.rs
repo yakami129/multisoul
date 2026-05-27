@@ -4,13 +4,19 @@ use anyhow::{Context, Result};
 use clap::Subcommand;
 use rusqlite::Connection;
 use serde::Serialize;
+use std::path::Path;
 use uuid::Uuid;
 
 use crate::commands::agent_plugin::{
     install_plugin, plugin_agents_dir, register_plugin, restart_plugin, uninstall_plugin,
 };
+use crate::commands::agent_quick_register;
 
 #[derive(Subcommand)]
+#[command(after_help = "Quick register current workspace:
+  msctl agent codex
+  msctl agent claude-code
+  msctl agent cursor-cli")]
 pub enum AgentCommands {
     /// Register a new agent. Use --type plugin for plugin agents.
     Register {
@@ -60,6 +66,9 @@ pub enum AgentCommands {
     Uninstall { name: String },
     /// Restart a failed plugin agent process (resets DB status)
     Restart { id: String },
+    /// Quick register current directory with a runtime: codex | claude-code | cursor-cli
+    #[command(external_subcommand)]
+    QuickRegister(Vec<String>),
 }
 
 #[derive(Serialize, Debug)]
@@ -72,6 +81,11 @@ pub struct AgentRow {
 }
 
 pub fn handle(cmd: AgentCommands) -> Result<()> {
+    let cmd = match cmd {
+        AgentCommands::QuickRegister(args) => return agent_quick_register::quick_register(args),
+        cmd => cmd,
+    };
+
     let conn = open()?;
     match cmd {
         AgentCommands::Register {
@@ -102,6 +116,9 @@ pub fn handle(cmd: AgentCommands) -> Result<()> {
         AgentCommands::Install { source } => install_plugin(&source),
         AgentCommands::Uninstall { name } => uninstall_plugin(&name),
         AgentCommands::Restart { id } => restart_plugin(&conn, &id),
+        AgentCommands::QuickRegister(_) => {
+            unreachable!("quick register is dispatched before DB open")
+        }
     }
 }
 
@@ -123,8 +140,7 @@ pub fn insert_agent(
 fn register(conn: &Connection, name: &str, project: &str, runtime: &str, mode: &str) -> Result<()> {
     let id = insert_agent(conn, name, project, runtime, mode)?;
     println!("Agent registered. ID: {}", id);
-    // 注入 msctl 命令速查到工作空间
-    inject_context(runtime, std::path::Path::new(project))?;
+    inject_context(runtime, Path::new(project))?;
     Ok(())
 }
 

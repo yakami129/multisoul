@@ -37,6 +37,7 @@ Source: `cli/src/commands/agent.rs`
 
 | 子命令 | 参数 | 说明 |
 |--------|------|------|
+| `agent <runtime>` | `codex` \| `claude-code` \| `cursor-cli` | 快速注册当前目录为 agent |
 | `agent register` | `--name <NAME>` `--project <PATH>` `--runtime <RUNTIME>` `--mode <MODE>` | 注册新 agent 到本地 `serve.db` |
 | `agent list` | — | 列出所有已注册 agent |
 | `agent get` | `<ID>` | 查看指定 agent 详情 |
@@ -44,13 +45,41 @@ Source: `cli/src/commands/agent.rs`
 | `agent delete` | `<ID>` | 删除 agent（交互确认） |
 | `agent invoke` | `<ID>` `--message <MSG>` | 调用 agent（创建会话并发送消息） |
 
+### `agent <runtime>` 快速注册示例
+
+安装后的 CLI：
+
+```bash
+cd /path/to/project
+msctl agent codex
+msctl agent claude-code
+msctl agent cursor-cli
+```
+
+在 `cli/` 目录开发时：
+
+```bash
+cargo run -- agent codex
+cargo run -- agent claude-code
+cargo run -- agent cursor-cli
+```
+
+从源码注册其他项目目录时：
+
+```bash
+cd /path/to/project
+cargo run --manifest-path /path/to/multisoul/cli/Cargo.toml -- agent codex
+cargo run --manifest-path /path/to/multisoul/cli/Cargo.toml -- agent claude-code
+cargo run --manifest-path /path/to/multisoul/cli/Cargo.toml -- agent cursor-cli
+```
+
 ### `agent register` 参数说明
 
 | 参数 | 默认值 | 说明 |
 |------|--------|------|
 | `--name` | 必填 | Agent 名称（唯一） |
 | `--project` | 必填 | 项目目录绝对路径 |
-| `--runtime` | `claude-code` | 运行时：`claude-code` \| `codex` |
+| `--runtime` | `claude-code` | 运行时：`claude-code` \| `codex` \| `cursor-cli` |
 | `--mode` | `full-auto` | 权限模式（仅 codex）：`suggest` \| `auto-edit` \| `full-auto` \| `yolo` |
 
 ---

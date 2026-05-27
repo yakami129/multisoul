@@ -127,6 +127,48 @@ describe('activityService', () => {
     );
   });
 
+  /// Paginated aggregate fetch: caller-provided page size is forwarded to every endpoint.
+  ///
+  /// Data construction:
+  ///   endpoints = ep-1 + ep-2
+  ///   page size = 20（Activity pagination first page）
+  ///   responses = empty item arrays from both endpoints
+  ///
+  /// Execution process:
+  ///   1. Mock both endpoint Activity responses.
+  ///   2. Call aggregateActivity(endpoints, 20).
+  ///   3. Inspect both GET calls.
+  ///
+  /// Expected result:
+  ///   - Positive: each endpoint request includes limit_per_section=20.
+  ///   - Negative: the old default limit_per_section=50 is not used when a limit is provided.
+  it('forwards caller-provided limit_per_section to every endpoint', async () => {
+    mockGet
+      .mockResolvedValueOnce({ data: { items: [] } })
+      .mockResolvedValueOnce({ data: { items: [] } });
+
+    await aggregateActivity(endpoints, 20);
+
+    expect({
+      actual: mockGet.mock.calls[0],
+      reason: 'first endpoint should receive the Activity pagination first-page limit',
+    }).toEqual({
+      actual: ['/api/v1/activity', { params: { limit_per_section: 20 } }],
+      reason: expect.any(String),
+    });
+    expect({
+      actual: mockGet.mock.calls[1],
+      reason: 'second endpoint should receive the same caller-provided pagination limit',
+    }).toEqual({
+      actual: ['/api/v1/activity', { params: { limit_per_section: 20 } }],
+      reason: expect.any(String),
+    });
+    expect({
+      actual: mockGet.mock.calls.some((call) => call[1]?.params?.limit_per_section === 50),
+      reason: 'explicit pagination calls must not fall back to the old default limit 50',
+    }).toEqual({ actual: false, reason: expect.any(String) });
+  });
+
   /// Done read state parsing: DB-backed Activity exposes read_at for Done rows and keeps endpoint context.
   ///
   /// Data construction:

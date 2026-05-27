@@ -1,14 +1,13 @@
 import { useFocusEffect, useRouter } from 'expo-router';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { AppState, type AppStateStatus, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import ActivityScreen, { type ActivityItem } from '@/features/activity/components/ActivityScreen';
+import { useActivityInfiniteQuery } from '@/features/activity/hooks/useActivityInfiniteQuery';
 import {
-  aggregateActivity,
   markAllDoneActivityRead,
   markDoneActivityRead,
   type AggregatedActivityItem,
-  type AggregatedActivityResult,
 } from '@/features/activity/services/activityService';
 import { abortConversation, deleteConversation } from '@/features/chat/services/chatService';
 import { buildChatDetailPath } from '@/features/chat/utils/chatRoutes';
@@ -16,15 +15,6 @@ import { useChatStore } from '@/store/chatStore';
 import { useEndpointStore } from '@/store/endpointStore';
 
 const POLL_INTERVAL_MS = 15_000;
-
-function emptyActivity(): AggregatedActivityResult {
-  return {
-    needsAttention: [],
-    running: [],
-    done: [],
-    failedEndpoints: [],
-  };
-}
 
 function toScreenItem(item: AggregatedActivityItem): ActivityItem {
   return {
@@ -50,52 +40,29 @@ export default function ActivityTab() {
   const endpoints = useEndpointStore((s) => s.endpoints);
   const removeConversation = useChatStore((s) => s.removeConversation);
   const router = useRouter();
-  const [activity, setActivity] = useState<AggregatedActivityResult>(() => emptyActivity());
-  const [refreshing, setRefreshing] = useState(false);
-  const [hasLoaded, setHasLoaded] = useState(false);
   const [focused, setFocused] = useState(false);
   const [appState, setAppState] = useState<AppStateStatus>(AppState.currentState);
-  const inFlightRef = useRef<Promise<void> | null>(null);
-
-  const refreshActivity = useCallback(
-    (showRefreshing = true) => {
-      if (inFlightRef.current) return inFlightRef.current;
-
-      if (endpoints.length === 0) {
-        setActivity(emptyActivity());
-        setHasLoaded(true);
-        setRefreshing(false);
-        return Promise.resolve();
-      }
-
-      if (showRefreshing) setRefreshing(true);
-
-      const request = aggregateActivity(endpoints)
-        .then((result) => {
-          setActivity(result);
-          setHasLoaded(true);
-        })
-        .finally(() => {
-          if (inFlightRef.current === request) {
-            inFlightRef.current = null;
-          }
-          if (showRefreshing) setRefreshing(false);
-        });
-
-      inFlightRef.current = request;
-      return request;
-    },
-    [endpoints],
-  );
+  const [readOverrides, setReadOverrides] = useState<Record<string, number>>({});
+  const [hiddenConversationIds, setHiddenConversationIds] = useState<Set<string>>(() => new Set());
+  const [isPullRefreshActive, setIsPullRefreshActive] = useState(false);
+  const {
+    activity,
+    isRefreshing,
+    isFetchingNextPage,
+    hasNextPage,
+    loadMoreError,
+    refetch: refetchActivity,
+    refreshFirstPage,
+    fetchNextPage,
+  } = useActivityInfiniteQuery({ endpoints, enabled: focused });
 
   useFocusEffect(
     useCallback(() => {
       setFocused(true);
-      void refreshActivity(false);
       return () => {
         setFocused(false);
       };
-    }, [refreshActivity]),
+    }, []),
   );
 
   useEffect(() => {
@@ -110,46 +77,79 @@ export default function ActivityTab() {
   useEffect(() => {
     if (!focused || appState !== 'active') return undefined;
     const timer = setInterval(() => {
-      void refreshActivity(false);
+      void refetchActivity();
     }, POLL_INTERVAL_MS);
     return () => {
       clearInterval(timer);
     };
-  }, [appState, focused, refreshActivity]);
+  }, [appState, focused, refetchActivity]);
 
   useEffect(() => {
     if (endpoints.length === 0) {
-      setActivity(emptyActivity());
-      setHasLoaded(true);
+      setHiddenConversationIds(new Set());
+      setReadOverrides({});
     }
   }, [endpoints.length]);
 
-  const needsAttention = activity.needsAttention.map(toScreenItem);
-  const running = activity.running.map(toScreenItem);
-  const done = activity.done.map(toScreenItem);
+  const handlePullRefresh = useCallback(async () => {
+    setIsPullRefreshActive(true);
+    try {
+      await refreshFirstPage();
+    } finally {
+      setIsPullRefreshActive(false);
+    }
+  }, [refreshFirstPage]);
+
+  const applyLocalActivityState = (item: AggregatedActivityItem): AggregatedActivityItem | null => {
+    if (hiddenConversationIds.has(item.conversation_id)) return null;
+    const readAt = readOverrides[item.conversation_id];
+    if (item.section === 'done' && readAt != null) return { ...item, read_at: readAt };
+    return item;
+  };
+  const toVisibleScreenItems = (items: AggregatedActivityItem[]) =>
+    items
+      .map(applyLocalActivityState)
+      .filter((item): item is AggregatedActivityItem => item != null)
+      .map(toScreenItem);
+
+  const needsAttention = toVisibleScreenItems(activity.needsAttention);
+  const running = toVisibleScreenItems(activity.running);
+  const done = toVisibleScreenItems(activity.done);
   const allFailed =
     endpoints.length > 0 &&
-    hasLoaded &&
     activity.failedEndpoints.length === endpoints.length &&
     needsAttention.length + running.length + done.length === 0;
 
   const setDoneRead = (conversationIds: Set<string>, readAt: number) => {
-    setActivity((current) => ({
-      ...current,
-      done: current.done.map((doneItem) =>
-        conversationIds.has(doneItem.conversation_id) ? { ...doneItem, read_at: readAt } : doneItem,
-      ),
-    }));
+    setReadOverrides((current) => {
+      const next = { ...current };
+      conversationIds.forEach((conversationId) => {
+        next[conversationId] = readAt;
+      });
+      return next;
+    });
+  };
+
+  const clearDoneReadOverrides = (conversationIds: Set<string>) => {
+    setReadOverrides((current) => {
+      const next = { ...current };
+      conversationIds.forEach((conversationId) => {
+        delete next[conversationId];
+      });
+      return next;
+    });
   };
 
   const handleOpenItem = (item: ActivityItem) => {
     if (item.section === 'done' && item.readAt == null) {
       const endpoint = endpoints.find((ep) => ep.id === item.endpointId);
-      setDoneRead(new Set([item.conversationId]), Date.now());
+      const conversationIds = new Set([item.conversationId]);
+      setDoneRead(conversationIds, Date.now());
       if (endpoint) {
-        void markDoneActivityRead(endpoint, item.conversationId).catch(() =>
-          refreshActivity(false),
-        );
+        void markDoneActivityRead(endpoint, item.conversationId).catch(() => {
+          clearDoneReadOverrides(conversationIds);
+          return refetchActivity();
+        });
       }
     }
 
@@ -170,24 +170,30 @@ export default function ActivityTab() {
 
     const unreadEndpointIds = new Set(unreadDone.map((item) => item.endpoint_id));
     const unreadConversationIds = new Set(unreadDone.map((item) => item.conversation_id));
+    const unreadConversationIdsByEndpoint = new Map<string, Set<string>>();
+    unreadDone.forEach((item) => {
+      const conversationIds = unreadConversationIdsByEndpoint.get(item.endpoint_id) ?? new Set();
+      conversationIds.add(item.conversation_id);
+      unreadConversationIdsByEndpoint.set(item.endpoint_id, conversationIds);
+    });
     setDoneRead(unreadConversationIds, Date.now());
 
     endpoints
       .filter((endpoint) => unreadEndpointIds.has(endpoint.id))
       .forEach((endpoint) => {
-        void markAllDoneActivityRead(endpoint).catch(() => refreshActivity(false));
+        void markAllDoneActivityRead(endpoint).catch(() => {
+          clearDoneReadOverrides(unreadConversationIdsByEndpoint.get(endpoint.id) ?? new Set());
+          return refetchActivity();
+        });
       });
   };
 
   const removeActivityConversation = (conversationId: string) => {
-    setActivity((current) => ({
-      ...current,
-      needsAttention: current.needsAttention.filter(
-        (item) => item.conversation_id !== conversationId,
-      ),
-      running: current.running.filter((item) => item.conversation_id !== conversationId),
-      done: current.done.filter((item) => item.conversation_id !== conversationId),
-    }));
+    setHiddenConversationIds((current) => {
+      const next = new Set(current);
+      next.add(conversationId);
+      return next;
+    });
   };
 
   const handleDeleteItem = async (item: ActivityItem) => {
@@ -201,7 +207,7 @@ export default function ActivityTab() {
       await deleteConversation(endpoint.base_url, endpoint.token, item.conversationId);
       removeActivityConversation(item.conversationId);
       removeConversation(item.conversationId);
-      await refreshActivity(false);
+      await refetchActivity();
     } catch {
       // Keep the Activity row visible when the endpoint refuses or loses the delete request.
     }
@@ -217,16 +223,28 @@ export default function ActivityTab() {
         hasEndpoints={endpoints.length > 0}
         allFailed={allFailed}
         onRetry={() => {
-          void refreshActivity();
+          void refreshFirstPage();
         }}
         onOpenItem={handleOpenItem}
         onMarkAllDoneRead={handleMarkAllDoneRead}
         onDeleteItem={(item) => {
           void handleDeleteItem(item);
         }}
-        isRefreshing={refreshing}
+        isRefreshing={isPullRefreshActive && isRefreshing}
+        isLoadingMore={isFetchingNextPage}
+        hasMore={hasNextPage}
+        loadMoreError={loadMoreError?.message ?? null}
+        onLoadMore={() => {
+          void fetchNextPage();
+        }}
+        onRetryLoadMore={() => {
+          void fetchNextPage();
+        }}
+        onFilterChange={() => {
+          void refetchActivity();
+        }}
         onRefresh={() => {
-          void refreshActivity();
+          void handlePullRefresh();
         }}
       />
     </SafeAreaView>

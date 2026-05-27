@@ -59,18 +59,50 @@ export function useChatDetailHistory({
   const [visibleMinSeq, setVisibleMinSeq] = useState<number | null>(() =>
     getLatestWindowMinSeq(messages, INITIAL_MESSAGE_LIMIT),
   );
+  const [isLoadingOlder, setIsLoadingOlder] = useState(false);
   const isLoadingOlderRef = useRef(false);
   const hasOlderMessagesRef = useRef(true);
   const hasUserScrolledHistoryRef = useRef(false);
   const lastOlderRequestBeforeSeqRef = useRef<number | null>(null);
   const historyRequestGenerationRef = useRef(0);
   const olderLoadRequestIdRef = useRef(0);
+  const olderLoadingTokenRef = useRef(0);
+  const cachedOlderFrameRef = useRef<number | null>(null);
+  const isMountedRef = useRef(false);
   const hasLoadedInitialMessagesRef = useRef(messages.length > 0);
 
   const resetMessages = useChatStore((s) => s.resetMessages);
   const mergeMessages = useChatStore((s) => s.mergeMessages);
   const prependMessages = useChatStore((s) => s.prependMessages);
   const addInboxItem = useInboxStore((s) => s.addItem);
+
+  function cancelCachedOlderFinish() {
+    if (cachedOlderFrameRef.current == null) return;
+    cancelAnimationFrame(cachedOlderFrameRef.current);
+    cachedOlderFrameRef.current = null;
+  }
+
+  function startOlderLoading() {
+    cancelCachedOlderFinish();
+    const token = ++olderLoadingTokenRef.current;
+    isLoadingOlderRef.current = true;
+    if (isMountedRef.current) setIsLoadingOlder(true);
+    return token;
+  }
+
+  function finishOlderLoading(token: number) {
+    if (!isMountedRef.current || olderLoadingTokenRef.current !== token) return;
+    isLoadingOlderRef.current = false;
+    setIsLoadingOlder(false);
+  }
+
+  function finishCachedOlderLoading(token: number) {
+    const frameId = requestAnimationFrame(() => {
+      if (cachedOlderFrameRef.current === frameId) cachedOlderFrameRef.current = null;
+      finishOlderLoading(token);
+    });
+    cachedOlderFrameRef.current = frameId;
+  }
 
   const visibleMessages = React.useMemo(() => {
     if (visibleMinSeq == null) {
@@ -85,8 +117,22 @@ export function useChatDetailHistory({
   );
 
   useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+      cancelCachedOlderFinish();
+      olderLoadingTokenRef.current += 1;
+      olderLoadRequestIdRef.current += 1;
+      isLoadingOlderRef.current = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    cancelCachedOlderFinish();
+    olderLoadingTokenRef.current += 1;
     hasOlderMessagesRef.current = true;
     isLoadingOlderRef.current = false;
+    setIsLoadingOlder(false);
     lastOlderRequestBeforeSeqRef.current = null;
     hasUserScrolledHistoryRef.current = false;
     olderLoadRequestIdRef.current += 1;
@@ -191,6 +237,8 @@ export function useChatDetailHistory({
       hasOlderMessagesRef.current = false;
       return;
     }
+    if (lastOlderRequestBeforeSeqRef.current === firstLoadedSeq) return;
+    const loadingToken = startOlderLoading();
     const cachedOlder = messages.filter((message) => message.seq < firstLoadedSeq);
     if (cachedOlder.length > 0) {
       const nextCachedWindow = cachedOlder.slice(
@@ -201,11 +249,10 @@ export function useChatDetailHistory({
         setVisibleMinSeq(nextMinSeq);
         if (nextMinSeq <= 1) hasOlderMessagesRef.current = false;
       }
+      finishCachedOlderLoading(loadingToken);
       return;
     }
-    if (lastOlderRequestBeforeSeqRef.current === firstLoadedSeq) return;
     lastOlderRequestBeforeSeqRef.current = firstLoadedSeq;
-    isLoadingOlderRef.current = true;
     const olderRequestId = ++olderLoadRequestIdRef.current;
     const requestGeneration = historyRequestGenerationRef.current;
     const isStale = () => historyRequestGenerationRef.current !== requestGeneration;
@@ -238,7 +285,7 @@ export function useChatDetailHistory({
       });
     } finally {
       if (olderLoadRequestIdRef.current === olderRequestId) {
-        isLoadingOlderRef.current = false;
+        finishOlderLoading(loadingToken);
         if (isStale()) lastOlderRequestBeforeSeqRef.current = null;
       }
     }
@@ -247,6 +294,7 @@ export function useChatDetailHistory({
   return {
     catchUpAfterSeq,
     transcriptMessages,
+    isLoadingOlder,
     hasUserScrolledHistoryRef,
     hasLoadedInitialMessagesRef,
     loadOlderMessages,

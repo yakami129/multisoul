@@ -212,15 +212,47 @@ test('renders fetched historical agent text without typewriter replay', async ()
   expect(queryByText('historical response [typewriter]')).toBeNull();
 }, 15000);
 
-test('loads the initial chat history with the latest 15 message limit', async () => {
+/// Initial history request: opening ChatDetail should fetch only the latest
+/// page using the configured initial message limit.
+///
+/// Data construction:
+///   route conv_id = "conv-1"
+///   endpoint      = http://localhost:8080 with token "token"
+///   initial limit = 25 messages
+///
+/// Execution process:
+///   1. Render ChatDetailScreen for conv-1.
+///   2. Wait for the mocked historical response to render.
+///   3. Inspect fetchMessages calls.
+///
+/// Expected result:
+///   - Positive: fetchMessages requests conv-1 with limit 25.
+///   - Negative: fetchMessages is not called without an explicit latest limit.
+test('loads the initial chat history with the latest 25 message limit', async () => {
   const { getByText } = render(<ChatDetailScreen />);
 
   await waitFor(() => expect(getByText('historical response')).toBeTruthy());
 
-  expect(fetchMessages).toHaveBeenCalledWith('http://localhost:8080', 'token', 'conv-1', {
-    limit: 15,
-  });
-  expect(fetchMessages).not.toHaveBeenCalledWith('http://localhost:8080', 'token', 'conv-1');
+  expect({
+    actual: (fetchMessages as jest.Mock).mock.calls.some(
+      ([baseUrl, token, convId, options]) =>
+        baseUrl === 'http://localhost:8080' &&
+        token === 'token' &&
+        convId === 'conv-1' &&
+        options?.limit === 25,
+    ),
+    reason: 'initial history request should use the new 25-message latest page limit',
+  }).toEqual({ actual: true, reason: expect.any(String) });
+  expect({
+    actual: (fetchMessages as jest.Mock).mock.calls.some(
+      ([baseUrl, token, convId, options]) =>
+        baseUrl === 'http://localhost:8080' &&
+        token === 'token' &&
+        convId === 'conv-1' &&
+        options === undefined,
+    ),
+    reason: 'initial history request must not omit the explicit latest page limit',
+  }).toEqual({ actual: false, reason: expect.any(String) });
 });
 
 /// Cached transcript windowing: reopening a conversation with a large store cache
@@ -228,7 +260,7 @@ test('loads the initial chat history with the latest 15 message limit', async ()
 ///
 /// Data construction:
 ///   cached store rows = seq 1..200, total 200 messages
-///   initial window    = latest 15 rows = 200 - 15 + 1 = seq 186..200
+///   initial window    = latest 25 rows = 200 - 25 + 1 = seq 176..200
 ///   REST request      = unresolved, so the assertion inspects the pre-REST first render
 ///
 /// Execution process:
@@ -237,8 +269,8 @@ test('loads the initial chat history with the latest 15 message limit', async ()
 ///   3. Inspect the FlatList data used for the first visible transcript render.
 ///
 /// Expected result:
-///   - Positive: FlatList data length is exactly 15.
-///   - Positive: first visible seq is 186 and newest seq 200 is present.
+///   - Positive: FlatList data length is exactly 25.
+///   - Positive: first visible seq is 176 and newest seq 200 is present.
 ///   - Negative: seq 1 is not present, so old cache is not rendered on open.
 test('renders only the latest visible window from cached store history on open', () => {
   useChatStore.setState((state) => ({
@@ -252,12 +284,12 @@ test('renders only the latest visible window from cached store history on open',
 
   expect({
     actual: data.length,
-    reason: 'cached long histories should expose only the latest 15 rows on initial open',
-  }).toEqual({ actual: 15, reason: expect.any(String) });
+    reason: 'cached long histories should expose only the latest 25 rows on initial open',
+  }).toEqual({ actual: 25, reason: expect.any(String) });
   expect({
     actual: data[0]?.seq,
-    reason: 'latest 15 from seq 1..200 should start at seq 186',
-  }).toEqual({ actual: 186, reason: expect.any(String) });
+    reason: 'latest 25 from seq 1..200 should start at seq 176',
+  }).toEqual({ actual: 176, reason: expect.any(String) });
   expect({
     actual: data.some((message) => message.seq === 200),
     reason: 'initial window must still include the newest cached message',
@@ -352,7 +384,7 @@ test('preserves live messages appended before initial history resolves', async (
   let resolveInitial: ((messages: WsMessage[]) => void) | undefined;
   (fetchMessages as jest.Mock).mockImplementation(
     (_baseUrl: string, _token: string, _convId: string, options?: { limit?: number }) => {
-      if (options?.limit === 15) {
+      if (options?.limit === 25) {
         return new Promise((resolve) => {
           resolveInitial = resolve;
         });
@@ -433,6 +465,23 @@ test('seeds websocket catch-up only after initial history establishes a cursor',
   }).toEqual({ actual: false, reason: expect.any(String) });
 });
 
+/// Older pagination request: a user-driven top scroll should fetch the page
+/// before the first loaded seq with the configured older-page limit.
+///
+/// Data construction:
+///   latest page first seq = 11
+///   older page cursor     = before_seq 11
+///   older page limit      = 30 messages
+///
+/// Execution process:
+///   1. Render ChatDetailScreen and wait for latest seq 11.
+///   2. Mark the scroll as user-driven with onScrollBeginDrag.
+///   3. Fire a top scroll and inspect the older fetch call.
+///
+/// Expected result:
+///   - Positive: older response renders after the top scroll.
+///   - Positive: before_seq 11 is requested with limit 30.
+///   - Negative: the old 50-row older limit is not used.
 test('loads older messages before the first loaded seq when scrolled near the top', async () => {
   (fetchMessages as jest.Mock).mockImplementation(
     (_baseUrl: string, _token: string, _convId: string, options?: { before_seq?: number }) => {
@@ -473,10 +522,110 @@ test('loads older messages before the first loaded seq when scrolled near the to
   });
 
   await waitFor(() => expect(getByText('older response')).toBeTruthy());
-  expect(fetchMessages).toHaveBeenCalledWith('http://localhost:8080', 'token', 'conv-1', {
-    before_seq: 11,
-    limit: 50,
+  expect({
+    actual: (fetchMessages as jest.Mock).mock.calls.some(
+      ([baseUrl, token, convId, options]) =>
+        baseUrl === 'http://localhost:8080' &&
+        token === 'token' &&
+        convId === 'conv-1' &&
+        options?.before_seq === 11 &&
+        options?.limit === 30,
+    ),
+    reason: 'older history request should use before_seq 11 and the new 30-message limit',
+  }).toEqual({ actual: true, reason: expect.any(String) });
+  expect({
+    actual: (fetchMessages as jest.Mock).mock.calls.some(
+      ([, , , options]) => options?.before_seq === 11 && options?.limit === 50,
+    ),
+    reason: 'older history request must not use the previous 50-message limit',
+  }).toEqual({ actual: false, reason: expect.any(String) });
+});
+
+/// Top-load threshold: user upward scroll should start older pagination before
+/// reaching the absolute top of the transcript.
+///
+/// Data construction:
+///   latest page first seq = 11
+///   new threshold         = 300 px
+///   y = 301 px            = just outside loading range
+///   y = 299 px            = just inside loading range
+///
+/// Execution process:
+///   1. Render ChatDetailScreen and wait for the latest prompt.
+///   2. Mark the gesture as user-driven with onScrollBeginDrag.
+///   3. Fire scroll at y=301 and verify no older request.
+///   4. Fire scroll at y=299 and verify older request starts.
+///
+/// Expected result:
+///   - Positive: before_seq 11 is requested once at y=299 with limit 30.
+///   - Negative: y=301 does not request older history.
+test('starts older pagination when user scrolls within the 300px top threshold', async () => {
+  (fetchMessages as jest.Mock).mockImplementation(
+    (_baseUrl: string, _token: string, _convId: string, options?: { before_seq?: number }) => {
+      if (options?.before_seq === 11) {
+        return Promise.resolve([
+          {
+            type: 'message',
+            seq: 10,
+            role: 'agent_text',
+            payload: { text: 'older threshold response' },
+            created_at: 10,
+          },
+        ]);
+      }
+      return Promise.resolve([
+        {
+          type: 'message',
+          seq: 11,
+          role: 'user_text',
+          payload: { text: 'latest threshold prompt' },
+          created_at: 11,
+        },
+      ]);
+    },
+  );
+  const { UNSAFE_getByType, getByText } = render(<ChatDetailScreen />);
+
+  await waitFor(() => expect(getByText('latest threshold prompt')).toBeTruthy());
+  await act(async () => {
+    UNSAFE_getByType(FlatList).props.onScrollBeginDrag?.({ nativeEvent: {} });
+    UNSAFE_getByType(FlatList).props.onScroll({
+      nativeEvent: {
+        contentOffset: { y: 301 },
+        layoutMeasurement: { height: 400 },
+        contentSize: { height: 900 },
+      },
+    });
   });
+  expect({
+    actual: (fetchMessages as jest.Mock).mock.calls.some(
+      ([, , , options]) => options?.before_seq === 11,
+    ),
+    reason: 'scroll y=301 is outside the 300px threshold and must not request older messages',
+  }).toEqual({ actual: false, reason: expect.any(String) });
+
+  await act(async () => {
+    UNSAFE_getByType(FlatList).props.onScroll({
+      nativeEvent: {
+        contentOffset: { y: 299 },
+        layoutMeasurement: { height: 400 },
+        contentSize: { height: 900 },
+      },
+    });
+  });
+
+  await waitFor(() => expect(getByText('older threshold response')).toBeTruthy());
+  const beforeSeqCalls = (fetchMessages as jest.Mock).mock.calls.filter(
+    ([, , , options]) => options?.before_seq === 11,
+  );
+  expect({
+    actual: beforeSeqCalls.length,
+    reason: 'scroll y=299 should start exactly one older-page request',
+  }).toEqual({ actual: 1, reason: expect.any(String) });
+  expect({
+    actual: beforeSeqCalls[0]?.[3],
+    reason: 'older-page request should use before_seq 11 and the new 30-row limit',
+  }).toEqual({ actual: { before_seq: 11, limit: 30 }, reason: expect.any(String) });
 });
 
 test('does not repeatedly fetch the same older page when the first seq is unchanged', async () => {
@@ -608,6 +757,360 @@ test('retries the same older page after a transient fetch failure', async () => 
   expect(retryCalls).toHaveLength(2);
 });
 
+/// Older loading UI: a network older-page request should show the top loading
+/// indicator while pending and hide it after the messages are prepended.
+///
+/// Data construction:
+///   latest page first seq = 11
+///   older request before_seq = 11 remains pending until the test resolves it
+///   loading UI test id = older-messages-loading
+///
+/// Execution process:
+///   1. Render latest page.
+///   2. Start a user top-scroll older request.
+///   3. Assert loading indicator is visible before resolving the request.
+///   4. Resolve with seq 10 and wait for prepend.
+///
+/// Expected result:
+///   - Positive: loading indicator appears while request is pending.
+///   - Positive: older response renders after resolve.
+///   - Negative: loading indicator disappears after resolve.
+test('shows and hides the older loading indicator around network pagination', async () => {
+  let resolveOlder: ((messages: WsMessage[]) => void) | undefined;
+  (fetchMessages as jest.Mock).mockImplementation(
+    (_baseUrl: string, _token: string, _convId: string, options?: { before_seq?: number }) => {
+      if (options?.before_seq === 11) {
+        return new Promise((resolve) => {
+          resolveOlder = resolve;
+        });
+      }
+      return Promise.resolve([
+        {
+          type: 'message',
+          seq: 11,
+          role: 'user_text',
+          payload: { text: 'latest loading prompt' },
+          created_at: 11,
+        },
+      ]);
+    },
+  );
+  const { UNSAFE_getByType, getByText, getByTestId, queryByTestId } = render(<ChatDetailScreen />);
+
+  await waitFor(() => expect(getByText('latest loading prompt')).toBeTruthy());
+  await act(async () => {
+    UNSAFE_getByType(FlatList).props.onScrollBeginDrag?.({ nativeEvent: {} });
+    UNSAFE_getByType(FlatList).props.onScroll({
+      nativeEvent: {
+        contentOffset: { y: 0 },
+        layoutMeasurement: { height: 400 },
+        contentSize: { height: 900 },
+      },
+    });
+  });
+
+  await waitFor(() =>
+    expect({
+      actual: getByTestId('older-messages-loading') != null,
+      reason: 'pending older network request should render the top loading indicator',
+    }).toEqual({ actual: true, reason: expect.any(String) }),
+  );
+  await act(async () => {
+    resolveOlder?.([
+      {
+        type: 'message',
+        seq: 10,
+        role: 'agent_text',
+        payload: { text: 'older loaded after spinner' },
+        created_at: 10,
+      },
+    ]);
+  });
+
+  await waitFor(() => expect(getByText('older loaded after spinner')).toBeTruthy());
+  await waitFor(() =>
+    expect({
+      actual: queryByTestId('older-messages-loading'),
+      reason: 'older loading indicator must disappear after a successful prepend',
+    }).toEqual({ actual: null, reason: expect.any(String) }),
+  );
+});
+
+/// Older loading failure: failed older-page requests should clear the loading
+/// indicator and keep the existing retry behavior.
+///
+/// Data construction:
+///   latest page first seq = 11
+///   first older request rejects
+///   second older request resolves with seq 10
+///
+/// Execution process:
+///   1. Render latest page.
+///   2. Trigger top-scroll request and let it reject.
+///   3. Verify loading disappears.
+///   4. Trigger top-scroll again and verify retry can load seq 10.
+///
+/// Expected result:
+///   - Positive: loading indicator appears during the failed request.
+///   - Positive: retry renders the older message.
+///   - Negative: failed request does not leave loading stuck on screen.
+test('clears the older loading indicator after pagination failure and still retries', async () => {
+  let olderAttempts = 0;
+  let rejectFirstOlder: ((error: Error) => void) | undefined;
+  (fetchMessages as jest.Mock).mockImplementation(
+    (_baseUrl: string, _token: string, _convId: string, options?: { before_seq?: number }) => {
+      if (options?.before_seq === 11) {
+        olderAttempts += 1;
+        if (olderAttempts === 1) {
+          return new Promise((_resolve, reject) => {
+            rejectFirstOlder = reject;
+          });
+        }
+        return Promise.resolve([
+          {
+            type: 'message',
+            seq: 10,
+            role: 'agent_text',
+            payload: { text: 'older retry after loading failure' },
+            created_at: 10,
+          },
+        ]);
+      }
+      return Promise.resolve([
+        {
+          type: 'message',
+          seq: 11,
+          role: 'user_text',
+          payload: { text: 'latest failure prompt' },
+          created_at: 11,
+        },
+      ]);
+    },
+  );
+  const { UNSAFE_getByType, getByText, getByTestId, queryByTestId } = render(<ChatDetailScreen />);
+
+  await waitFor(() => expect(getByText('latest failure prompt')).toBeTruthy());
+  await act(async () => {
+    UNSAFE_getByType(FlatList).props.onScrollBeginDrag?.({ nativeEvent: {} });
+    UNSAFE_getByType(FlatList).props.onScroll({
+      nativeEvent: {
+        contentOffset: { y: 0 },
+        layoutMeasurement: { height: 400 },
+        contentSize: { height: 900 },
+      },
+    });
+  });
+  await waitFor(() => expect(getByTestId('older-messages-loading')).toBeTruthy());
+  await act(async () => {
+    rejectFirstOlder?.(new Error('temporary older failure'));
+  });
+  await waitFor(() =>
+    expect({
+      actual: queryByTestId('older-messages-loading'),
+      reason: 'failed older request must clear loading before retry',
+    }).toEqual({ actual: null, reason: expect.any(String) }),
+  );
+
+  await act(async () => {
+    UNSAFE_getByType(FlatList).props.onScroll({
+      nativeEvent: {
+        contentOffset: { y: 0 },
+        layoutMeasurement: { height: 400 },
+        contentSize: { height: 900 },
+      },
+    });
+  });
+
+  await waitFor(() => expect(getByText('older retry after loading failure')).toBeTruthy());
+  expect({
+    actual: olderAttempts,
+    reason: 'same before_seq must remain retryable after a transient failure',
+  }).toEqual({ actual: 2, reason: expect.any(String) });
+});
+
+/// Cached older loading: expanding a cached older window should still expose a
+/// short loading indicator for consistent user feedback.
+///
+/// Data construction:
+///   cached store rows = seq 1..60
+///   visible initial window after constants = seq 36..60
+///   cached older window with limit 30 expands visibleMinSeq to seq 6
+///
+/// Execution process:
+///   1. Seed chatStore with 60 cached rows and keep REST latest-page pending.
+///   2. Trigger user top-scroll.
+///   3. Verify loading indicator appears, then cached seq 6 becomes visible.
+///
+/// Expected result:
+///   - Positive: cached path renders the loading indicator at least once.
+///   - Positive: cached older seq 6 becomes visible without a network before_seq call.
+///   - Negative: cached path does not call fetchMessages with before_seq.
+///   - Negative: cached loading indicator disappears after the scheduled RAF.
+test('shows older loading feedback while expanding a cached older window', async () => {
+  useChatStore.setState((state) => ({
+    ...state,
+    messages: { 'conv-1': makeNumberedMessages(1, 60) },
+  }));
+  (fetchMessages as jest.Mock).mockImplementation(() => new Promise(() => {}));
+  const { UNSAFE_getByType, getByTestId, getByText, queryByTestId } = render(<ChatDetailScreen />);
+
+  jest.useFakeTimers();
+  try {
+    await act(async () => {
+      UNSAFE_getByType(FlatList).props.onScrollBeginDrag?.({ nativeEvent: {} });
+      UNSAFE_getByType(FlatList).props.onScroll({
+        nativeEvent: {
+          contentOffset: { y: 0 },
+          layoutMeasurement: { height: 400 },
+          contentSize: { height: 1400 },
+        },
+      });
+    });
+
+    expect({
+      actual: getByTestId('older-messages-loading') != null,
+      reason: 'cached older expansion should briefly show the same loading feedback',
+    }).toEqual({ actual: true, reason: expect.any(String) });
+    expect(getByText('cached message 6')).toBeTruthy();
+    await act(async () => {
+      jest.runOnlyPendingTimers();
+    });
+    expect({
+      actual: queryByTestId('older-messages-loading'),
+      reason: 'cached older loading should clear after its scheduled animation frame',
+    }).toEqual({ actual: null, reason: expect.any(String) });
+  } finally {
+    jest.useRealTimers();
+  }
+  expect({
+    actual: (fetchMessages as jest.Mock).mock.calls.some(
+      ([, , , options]) => options?.before_seq != null,
+    ),
+    reason: 'cached older expansion should not add a network request',
+  }).toEqual({ actual: false, reason: expect.any(String) });
+});
+
+/// Cached older loading lifecycle: a cached-path RAF from a previous route must
+/// not clear a newer network loader after the route resets.
+///
+/// Data construction:
+///   conv-1 cached store rows = seq 1..60
+///   conv-1 cached expansion schedules an older-loading RAF finish
+///   route then changes to conv-2 before that RAF fires
+///   conv-2 latest page first seq = 11
+///   conv-2 older request before_seq = 11 remains pending
+///
+/// Execution process:
+///   1. Trigger conv-1 cached older loading and leave its RAF pending.
+///   2. Rerender the route as conv-2 and wait for its latest page.
+///   3. Start a conv-2 network older request.
+///   4. Run pending timers from the old cached RAF.
+///
+/// Expected result:
+///   - Positive: conv-2 network older request shows the loading indicator.
+///   - Positive: conv-2 before_seq 11 request is pending.
+///   - Negative: old conv-1 cached RAF must not hide conv-2's current loader.
+test('keeps a newer network older loader visible when an old cached RAF fires', async () => {
+  useChatStore.setState((state) => ({
+    ...state,
+    conversations: [
+      ...state.conversations,
+      {
+        id: 'conv-2',
+        agent_id: 'agent-1',
+        title: 'Second Chat',
+        created_at: 0,
+        last_message_at: 0,
+        status: 'idle',
+        endpoint_id: 'endpoint-1',
+        agent_name: 'Agent',
+      },
+    ],
+    messages: { 'conv-1': makeNumberedMessages(1, 60) },
+  }));
+  let resolveConv2Older: ((messages: WsMessage[]) => void) | undefined;
+  (fetchMessages as jest.Mock).mockImplementation(
+    (_baseUrl: string, _token: string, convId: string, options?: { before_seq?: number }) => {
+      if (convId === 'conv-2' && options?.before_seq === 11) {
+        return new Promise((resolve) => {
+          resolveConv2Older = resolve;
+        });
+      }
+      if (convId === 'conv-2') {
+        return Promise.resolve([
+          {
+            type: 'message',
+            seq: 11,
+            role: 'user_text',
+            payload: { text: 'conv two latest prompt' },
+            created_at: 11,
+          },
+        ]);
+      }
+      return new Promise(() => {});
+    },
+  );
+  const { UNSAFE_getByType, getByTestId, getByText, queryByTestId, rerender } = render(
+    <ChatDetailScreen />,
+  );
+
+  jest.useFakeTimers();
+  const cancelAnimationFrameSpy = jest.spyOn(global, 'cancelAnimationFrame');
+  try {
+    await act(async () => {
+      UNSAFE_getByType(FlatList).props.onScrollBeginDrag?.({ nativeEvent: {} });
+      UNSAFE_getByType(FlatList).props.onScroll({
+        nativeEvent: {
+          contentOffset: { y: 0 },
+          layoutMeasurement: { height: 400 },
+          contentSize: { height: 1400 },
+        },
+      });
+    });
+    expect({
+      actual: getByTestId('older-messages-loading') != null,
+      reason: 'conv-1 cached expansion should start older loading before route reset',
+    }).toEqual({ actual: true, reason: expect.any(String) });
+
+    mockSearchParams = { id: 'conv-2', endpoint_id: 'endpoint-1' };
+    rerender(<ChatDetailScreen />);
+    expect({
+      actual: cancelAnimationFrameSpy.mock.calls.length,
+      reason: 'route reset must cancel the pending cached older RAF before a new load starts',
+    }).toEqual({ actual: 1, reason: expect.any(String) });
+    await waitFor(() => expect(getByText('conv two latest prompt')).toBeTruthy());
+    await act(async () => {
+      UNSAFE_getByType(FlatList).props.onScrollBeginDrag?.({ nativeEvent: {} });
+      UNSAFE_getByType(FlatList).props.onScroll({
+        nativeEvent: {
+          contentOffset: { y: 0 },
+          layoutMeasurement: { height: 400 },
+          contentSize: { height: 900 },
+        },
+      });
+    });
+
+    expect({
+      actual: typeof resolveConv2Older,
+      reason: 'conv-2 older network request should remain pending while loader is visible',
+    }).toEqual({ actual: 'function', reason: expect.any(String) });
+    expect({
+      actual: getByTestId('older-messages-loading') != null,
+      reason: 'conv-2 network request should show the current older loading indicator',
+    }).toEqual({ actual: true, reason: expect.any(String) });
+    await act(async () => {
+      jest.runOnlyPendingTimers();
+    });
+    expect({
+      actual: queryByTestId('older-messages-loading') != null,
+      reason: 'old conv-1 cached RAF must not clear the newer conv-2 network loader',
+    }).toEqual({ actual: true, reason: expect.any(String) });
+  } finally {
+    cancelAnimationFrameSpy.mockRestore();
+    jest.useRealTimers();
+  }
+});
+
 /// Older pagination stale completion: ignored older results must still release
 /// the loader so the current route generation can fetch older pages again.
 ///
@@ -678,7 +1181,7 @@ test('allows older pagination after a stale older request completes', async () =
   rerender(<ChatDetailScreen />);
   await waitFor(() =>
     expect(
-      (fetchMessages as jest.Mock).mock.calls.filter(([, , , options]) => options?.limit === 15),
+      (fetchMessages as jest.Mock).mock.calls.filter(([, , , options]) => options?.limit === 25),
     ).toHaveLength(2),
   );
 

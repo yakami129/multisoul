@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import React from 'react';
 import { AppState, RefreshControl, StyleSheet } from 'react-native';
@@ -150,7 +151,14 @@ function deferred<T>() {
 }
 
 async function renderActivity() {
-  const view = render(<ActivityTab />);
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false, gcTime: 0 } },
+  });
+  const view = render(
+    <QueryClientProvider client={queryClient}>
+      <ActivityTab />
+    </QueryClientProvider>,
+  );
   await act(async () => {
     await Promise.resolve();
   });
@@ -160,7 +168,12 @@ async function renderActivity() {
 describe('ActivityTab DB-backed aggregation', () => {
   beforeEach(() => {
     jest.useRealTimers();
-    jest.clearAllMocks();
+    mockPush.mockReset();
+    mockAggregateActivity.mockReset();
+    mockMarkDoneActivityRead.mockReset();
+    mockMarkAllDoneActivityRead.mockReset();
+    mockAbortConversation.mockReset();
+    mockDeleteConversation.mockReset();
     mockEndpoints = configuredEndpoints();
     mockAggregateActivity.mockResolvedValue(activityResult());
     mockMarkDoneActivityRead.mockResolvedValue(undefined);
@@ -200,7 +213,7 @@ describe('ActivityTab DB-backed aggregation', () => {
       expect(screen.getByText('Deploy now?')).toBeTruthy();
     });
 
-    expect(mockAggregateActivity).toHaveBeenCalledWith(mockEndpoints);
+    expect(mockAggregateActivity).toHaveBeenCalledWith(mockEndpoints, 20);
     expect(screen.getByText('Tighten sign in states')).toBeTruthy();
     expect(screen.getAllByText('Ship release notes').length).toBeGreaterThanOrEqual(
       1,
@@ -440,6 +453,61 @@ describe('ActivityTab DB-backed aggregation', () => {
       '/chat/conv-done?endpoint_id=ep-2&agent_id=agent-3&agent_name=Docs%20Project',
     );
     expect(mockPush).not.toHaveBeenCalledWith(expect.stringContaining('focus_ask_id='));
+  });
+
+  /// Done read failure: rejected mark-read must restore the server's unread state.
+  ///
+  /// Data construction:
+  ///   initial Done row        = ep-2 / conv-done / read_at null
+  ///   filter-reset Done row   = ep-2 / conv-done / read_at null
+  ///   markDoneActivityRead   = Error("read failed")
+  ///   failure-refetch row    = ep-2 / conv-done / read_at null
+  ///
+  /// Execution process:
+  ///   1. Render ActivityTab and switch to the Done filter.
+  ///   2. Switch to the Done filter, which refreshes page one.
+  ///   3. Open the unread Done row, which applies a local read override.
+  ///   4. Let markDoneActivityRead reject and wait for the failure refetch.
+  ///   5. Inspect Done unread state after the refetch settles.
+  ///
+  /// Expected result:
+  ///   - Positive: the refetched server unread state is visible again.
+  ///   - Positive: Done filter announces one unread item after the failed mutation.
+  ///   - Negative: the local optimistic read override does not persist after failure.
+  it('restores unread Done state when marking a Done item read fails', async () => {
+    mockMarkDoneActivityRead.mockRejectedValueOnce(new Error('read failed'));
+    mockAggregateActivity
+      .mockResolvedValueOnce(activityResult())
+      .mockResolvedValueOnce(activityResult())
+      .mockResolvedValueOnce(activityResult());
+
+    await renderActivity();
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Show Done activity, 1 item, 1 unread')).toBeTruthy();
+    });
+    fireEvent.press(screen.getByLabelText('Show Done activity, 1 item, 1 unread'));
+    await act(async () => {
+      fireEvent.press(screen.getByLabelText('Open Ship release notes'));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    await waitFor(() => {
+      expect(mockAggregateActivity).toHaveBeenCalledTimes(3);
+    });
+
+    expect({
+      actual: screen.getByLabelText('Show Done activity, 1 item, 1 unread') != null,
+      reason: 'failed read mutation should restore the server unread count after refetch',
+    }).toEqual({ actual: true, reason: expect.any(String) });
+    expect({
+      actual: screen.getByText('Unread 1') != null,
+      reason: 'Done sub-filter should return to one unread row after read failure',
+    }).toEqual({ actual: true, reason: expect.any(String) });
+    expect({
+      actual: screen.queryByText('Unread 0') == null,
+      reason: 'optimistic read override must not persist after mark-read failure',
+    }).toEqual({ actual: true, reason: expect.any(String) });
   });
 
   /// Mark all read: Done action sends one read-all request per endpoint that owns unread Done rows.
@@ -921,6 +989,9 @@ describe('ActivityTab DB-backed aggregation', () => {
     mockAggregateActivity.mockReturnValueOnce(first.promise);
 
     const view = await renderActivity();
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
 
     expect(mockAggregateActivity).toHaveBeenCalledTimes(
       1,
@@ -934,6 +1005,105 @@ describe('ActivityTab DB-backed aggregation', () => {
     await act(async () => {
       first.resolve(activityResult());
       await first.promise;
+    });
+  });
+
+  /// Filter refetch UI state: switching Activity filters must not expose pull-to-refresh chrome.
+  ///
+  /// Data construction:
+  ///   initial data       = 1 pending + 1 running + 1 done row
+  ///   filter refetch     = unresolved promise after pressing the Running filter
+  ///   refreshing flag    = false because the user did not perform a pull gesture
+  ///
+  /// Execution process:
+  ///   1. Render ActivityTab and wait for the initial loaded list.
+  ///   2. Press the Running filter, which refreshes page one while cached rows remain visible.
+  ///   3. Keep the refetch unresolved and inspect the FlatList RefreshControl state.
+  ///
+  /// Expected result:
+  ///   - Positive: aggregateActivity is called a second time for the filter reset.
+  ///   - Positive: the Running row remains visible while the silent refetch is in flight.
+  ///   - Negative: RefreshControl.refreshing stays false, so the top pull spinner is not shown.
+  it('keeps filter-switch refetch visually silent while cached Activity remains visible', async () => {
+    const filterRefetch = deferred<AggregatedActivityResult>();
+    mockAggregateActivity
+      .mockResolvedValueOnce(activityResult())
+      .mockReturnValueOnce(filterRefetch.promise);
+
+    const view = await renderActivity();
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Show Running activity, 1 item')).toBeTruthy();
+    });
+    await act(async () => {
+      fireEvent.press(screen.getByLabelText('Show Running activity, 1 item'));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    expect(mockAggregateActivity).toHaveBeenCalledTimes(
+      2,
+      'filter switch should still refetch the first Activity page',
+    );
+    expect(screen.getByText('Tighten sign in states')).toBeTruthy();
+    expect(view.UNSAFE_getByType(RefreshControl).props.refreshing).toBe(
+      false,
+      'filter-switch refetch must not drive the pull-to-refresh spinner',
+    );
+
+    await act(async () => {
+      filterRefetch.resolve(activityResult());
+      await filterRefetch.promise;
+    });
+  });
+
+  /// Polling refetch UI state: interval refresh must update data without forced pull UI.
+  ///
+  /// Data construction:
+  ///   interval        = 15_000ms
+  ///   initial data    = 1 pending + 1 running + 1 done row
+  ///   poll refetch    = unresolved promise after one interval tick
+  ///   refreshing flag = false because polling is background refresh, not manual pull refresh
+  ///
+  /// Execution process:
+  ///   1. Render ActivityTab with fake timers and wait for initial data.
+  ///   2. Advance timers by one polling interval.
+  ///   3. Keep the polling request unresolved and inspect the FlatList RefreshControl state.
+  ///
+  /// Expected result:
+  ///   - Positive: polling starts a second aggregateActivity call after 15 seconds.
+  ///   - Positive: existing Activity rows remain visible during the poll.
+  ///   - Negative: RefreshControl.refreshing stays false, preventing the top spinner regression.
+  it('keeps polling refetch visually silent while cached Activity remains visible', async () => {
+    jest.useFakeTimers();
+    const pollRefetch = deferred<AggregatedActivityResult>();
+    mockAggregateActivity
+      .mockResolvedValueOnce(activityResult())
+      .mockReturnValueOnce(pollRefetch.promise);
+
+    const view = await renderActivity();
+
+    await waitFor(() => {
+      expect(screen.getByText('Deploy now?')).toBeTruthy();
+    });
+    await act(async () => {
+      jest.advanceTimersByTime(15_000);
+      jest.advanceTimersByTime(0);
+      await Promise.resolve();
+    });
+
+    expect(mockAggregateActivity).toHaveBeenCalledTimes(
+      2,
+      'foreground polling should refetch Activity after one interval',
+    );
+    expect(screen.getByText('Deploy now?')).toBeTruthy();
+    expect(view.UNSAFE_getByType(RefreshControl).props.refreshing).toBe(
+      false,
+      'polling refetch must not drive the pull-to-refresh spinner',
+    );
+
+    await act(async () => {
+      pollRefetch.resolve(activityResult());
+      await pollRefetch.promise;
     });
   });
 
@@ -1023,7 +1193,14 @@ describe('ActivityTab DB-backed aggregation', () => {
     const first = deferred<AggregatedActivityResult>();
     mockAggregateActivity.mockReturnValueOnce(first.promise);
 
-    render(<ActivityTab />);
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false, gcTime: 0 } },
+    });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <ActivityTab />
+      </QueryClientProvider>,
+    );
 
     expect(mockAggregateActivity).toHaveBeenCalledTimes(1);
     act(() => {
