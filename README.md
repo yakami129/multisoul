@@ -155,6 +155,34 @@ msctl serve --tailnet --port 8765 --token test
 
 ### 3. Register an Agent
 
+Fastest installed CLI flow from the project you want to control:
+
+```bash
+cd /path/to/project
+msctl agent codex
+msctl agent claude-code
+msctl agent cursor-cli
+```
+
+From source, run the same quick registration path with Cargo:
+
+```bash
+cd cli
+cargo run -- agent codex
+cargo run -- agent claude-code
+cargo run -- agent cursor-cli
+```
+
+When running from source for a different project directory, keep your shell in
+that project and point Cargo at this repo's CLI manifest:
+
+```bash
+cd /path/to/project
+cargo run --manifest-path /path/to/multisoul/cli/Cargo.toml -- agent codex
+cargo run --manifest-path /path/to/multisoul/cli/Cargo.toml -- agent claude-code
+cargo run --manifest-path /path/to/multisoul/cli/Cargo.toml -- agent cursor-cli
+```
+
 Codex:
 
 ```bash

@@ -3,6 +3,10 @@
   "version": 1,
   "documents": [
     {
+      "file": "2026-05-27-ios-payment-implementation.md",
+      "title": "iOS 付费机制实施计划"
+    },
+    {
       "file": "2026-05-27-agent-quick-register.md",
       "title": "Agent Quick Register Implementation Plan",
       "lastCompletedCommit": "216c65afa04fb5811f0d3665e5a05120094c5ffb"

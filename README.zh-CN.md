@@ -155,6 +155,34 @@ msctl serve --tailnet --port 8765 --token test
 
 ### 3. 注册 Agent
 
+最快方式是在要控制的项目目录里快速注册：
+
+```bash
+cd /path/to/project
+msctl agent codex
+msctl agent claude-code
+msctl agent cursor-cli
+```
+
+从源码运行时，也可以走同一条快速注册路径：
+
+```bash
+cd cli
+cargo run -- agent codex
+cargo run -- agent claude-code
+cargo run -- agent cursor-cli
+```
+
+如果要从源码注册另一个项目目录，shell 留在那个项目目录，并用
+`--manifest-path` 指向本仓库 CLI：
+
+```bash
+cd /path/to/project
+cargo run --manifest-path /path/to/multisoul/cli/Cargo.toml -- agent codex
+cargo run --manifest-path /path/to/multisoul/cli/Cargo.toml -- agent claude-code
+cargo run --manifest-path /path/to/multisoul/cli/Cargo.toml -- agent cursor-cli
+```
+
 Codex：
 
 ```bash

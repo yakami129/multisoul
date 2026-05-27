@@ -45,6 +45,34 @@ Source: `cli/src/commands/agent.rs`
 | `agent delete` | `<ID>` | 删除 agent（交互确认） |
 | `agent invoke` | `<ID>` `--message <MSG>` | 调用 agent（创建会话并发送消息） |
 
+### `agent <runtime>` 快速注册示例
+
+安装后的 CLI：
+
+```bash
+cd /path/to/project
+msctl agent codex
+msctl agent claude-code
+msctl agent cursor-cli
+```
+
+在 `cli/` 目录开发时：
+
+```bash
+cargo run -- agent codex
+cargo run -- agent claude-code
+cargo run -- agent cursor-cli
+```
+
+从源码注册其他项目目录时：
+
+```bash
+cd /path/to/project
+cargo run --manifest-path /path/to/multisoul/cli/Cargo.toml -- agent codex
+cargo run --manifest-path /path/to/multisoul/cli/Cargo.toml -- agent claude-code
+cargo run --manifest-path /path/to/multisoul/cli/Cargo.toml -- agent cursor-cli
+```
+
 ### `agent register` 参数说明
 
 | 参数 | 默认值 | 说明 |
