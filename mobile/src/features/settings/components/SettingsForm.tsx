@@ -1,25 +1,61 @@
 import React, { useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, ScrollView, Text } from 'react-native';
+import {
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
+import type { Settings } from '@/features/settings/services/settingsService';
+import { pollTunnelUrl } from '@/features/settings/services/tunnelService';
 import { useSettingsStore } from '@/store/settingsStore';
 
 export function SettingsForm() {
   const insets = useSafeAreaInsets();
   const { settings, save } = useSettingsStore();
+
+  const [mode, setMode] = useState<'auto' | 'custom'>(settings.connectionMode);
   const [serverUrl, setServerUrl] = useState(settings.serverUrl);
   const [apiKey, setApiKey] = useState(settings.apiKey);
+  const [relayToken, setRelayToken] = useState(settings.relayToken);
   const [saving, setSaving] = useState(false);
 
   const handleSave = async () => {
     setSaving(true);
     try {
-      await save({ serverUrl: serverUrl.trim(), apiKey: apiKey.trim() });
-      Alert.alert('Saved', 'Settings saved successfully.');
-    } catch {
-      Alert.alert('Error', 'Failed to save settings.');
+      let resolvedServerUrl = serverUrl.trim();
+      let resolvedApiKey = apiKey.trim();
+
+      if (mode === 'auto') {
+        if (!relayToken.trim()) {
+          Alert.alert('Missing Token', 'Please enter your msctl Bearer token.');
+          return;
+        }
+        resolvedServerUrl = await pollTunnelUrl(settings.relayWorkerUrl, relayToken.trim());
+        resolvedApiKey = relayToken.trim();
+      }
+
+      const updated: Settings = {
+        ...settings,
+        connectionMode: mode,
+        serverUrl: resolvedServerUrl,
+        apiKey: resolvedApiKey,
+        relayToken: relayToken.trim(),
+      };
+      await save(updated);
+      Alert.alert(
+        'Connected',
+        mode === 'auto' ? `Tunnel: ${resolvedServerUrl}` : 'Settings saved.',
+      );
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Unknown error';
+      Alert.alert('Connection Failed', msg);
     } finally {
       setSaving(false);
     }
@@ -32,40 +68,94 @@ export function SettingsForm() {
     >
       <ScrollView
         contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}
-        className="flex-1 bg-slate-50 dark:bg-slate-900"
+        className="flex-1 bg-[#0D0D0D]"
         keyboardShouldPersistTaps="handled"
       >
-        <Text className="text-3xl font-bold text-slate-900 dark:text-slate-100 px-4 pt-4 pb-6">
-          Settings
-        </Text>
-        <Card className="mx-4">
-          <Input
-            label="Server URL"
-            value={serverUrl}
-            onChangeText={setServerUrl}
-            placeholder="http://localhost:8080"
-            autoCapitalize="none"
-            autoCorrect={false}
-            keyboardType="url"
-          />
-          <Input
-            label="API Key"
-            value={apiKey}
-            onChangeText={setApiKey}
-            placeholder="ms_..."
-            autoCapitalize="none"
-            autoCorrect={false}
-            secureTextEntry
-          />
+        <Text className="text-[28px] font-bold text-white px-4 pt-4 pb-6">Settings</Text>
+
+        {/* Connection mode toggle */}
+        <Card className="mx-4 mb-4">
+          <Text className="text-[#888888] text-[12px] mb-3">CONNECTION MODE</Text>
+          <View className="flex-row gap-2">
+            <TouchableOpacity
+              onPress={() => setMode('auto')}
+              className={`flex-1 py-3 rounded-[26px] items-center ${
+                mode === 'auto' ? 'bg-[#FF6B35]' : 'bg-[#1A1A1A]'
+              }`}
+            >
+              <Text
+                className={`text-[14px] font-semibold ${mode === 'auto' ? 'text-white' : 'text-[#888888]'}`}
+              >
+                Auto Tunnel
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => setMode('custom')}
+              className={`flex-1 py-3 rounded-[26px] items-center ${
+                mode === 'custom' ? 'bg-[#FF6B35]' : 'bg-[#1A1A1A]'
+              }`}
+            >
+              <Text
+                className={`text-[14px] font-semibold ${mode === 'custom' ? 'text-white' : 'text-[#888888]'}`}
+              >
+                Custom Server
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </Card>
+
+        {/* Auto Tunnel mode */}
+        {mode === 'auto' && (
+          <Card className="mx-4 mb-4">
+            <Text className="text-[#888888] text-[12px] mb-2">
+              Run `msctl serve --relay` on your Mac, then paste the Bearer token below.
+            </Text>
+            <Input
+              label="Bearer Token"
+              value={relayToken}
+              onChangeText={setRelayToken}
+              placeholder="ms_v2_..."
+              autoCapitalize="none"
+              autoCorrect={false}
+              secureTextEntry
+            />
+          </Card>
+        )}
+
+        {/* Custom Server mode */}
+        {mode === 'custom' && (
+          <Card className="mx-4 mb-4">
+            <Input
+              label="Server URL"
+              value={serverUrl}
+              onChangeText={setServerUrl}
+              placeholder="http://localhost:8080"
+              autoCapitalize="none"
+              autoCorrect={false}
+              keyboardType="url"
+            />
+            <Input
+              label="API Key"
+              value={apiKey}
+              onChangeText={setApiKey}
+              placeholder="ms_..."
+              autoCapitalize="none"
+              autoCorrect={false}
+              secureTextEntry
+            />
+          </Card>
+        )}
+
+        <View className="mx-4">
           <Button
             label="Save"
             onPress={() => {
               void handleSave();
             }}
             loading={saving}
-            loadingLabel="Saving..."
+            loadingLabel={mode === 'auto' ? 'Connecting...' : 'Saving...'}
           />
-        </Card>
+        </View>
       </ScrollView>
     </KeyboardAvoidingView>
   );
