@@ -396,7 +396,7 @@ const s = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 1,
     borderColor: '#FF6B35',
-    width: 320,
+    width: '100%',
     overflow: 'hidden',
   },
   header: {

@@ -1,11 +1,55 @@
 import { fireEvent, render } from '@testing-library/react-native';
 import React from 'react';
+import { StyleSheet } from 'react-native';
 import AskQuestionCard from './AskQuestionCard';
 
 const baseOptions = [
   { id: 'a', label: 'Option A' },
   { id: 'b', label: 'Option B' },
 ];
+
+function assertEqual<T>(actual: T, expected: T, message: string) {
+  expect({ actual, reason: message }).toEqual({ actual: expected, reason: expect.any(String) });
+}
+
+function assertNotEqual<T>(actual: T, expected: T, message: string) {
+  expect({ actual, reason: message }).not.toEqual({
+    actual: expected,
+    reason: expect.any(String),
+  });
+}
+
+/// iOS transcript width: a single-question card should fill the same parent
+/// width as the currently rendered AI message card instead of keeping the old
+/// narrow fixed width.
+///
+/// Data construction:
+///   parent transcript row width = 100% of the chat content column
+///   legacy card width           = 320px fixed
+///   desired card width          = 100% of parent row
+///
+/// Execution process:
+///   1. Render an unanswered AskQuestionCard with two options.
+///   2. Inspect the root card style applied to the rendered card.
+///
+/// Expected result:
+///   - Positive: root card width is "100%", matching the full parent row.
+///   - Negative: root card width is not the legacy fixed 320px value.
+test('fills the parent transcript width instead of using the legacy fixed width', () => {
+  const { toJSON } = render(
+    <AskQuestionCard
+      question="Pick one"
+      options={baseOptions}
+      onCancel={jest.fn()}
+      onConfirm={jest.fn()}
+    />,
+  );
+
+  const cardStyle = StyleSheet.flatten(toJSON()?.props.style);
+
+  assertEqual(cardStyle.width, '100%', 'question card should fill its parent transcript row');
+  assertNotEqual(cardStyle.width, 320, 'question card must not keep the old fixed 320px width');
+});
 
 // T-1: "Other" option always appears at the end of the options list
 test('renders Other option at the end of the options list', () => {
