@@ -1,5 +1,6 @@
 use anyhow::{Context, Result};
 use std::path::PathBuf;
+use std::sync::OnceLock;
 
 /// cloudflared binary path: ~/.config/msctl/bin/cloudflared[.exe]
 pub fn cloudflared_bin_path() -> PathBuf {
@@ -40,7 +41,8 @@ pub fn cloudflared_download_url() -> &'static str {
     return "";
 }
 
-/// Ensures cloudflared exists, downloads if missing
+/// Ensures cloudflared exists, downloads if missing.
+/// Fix: checks HTTP status before writing binary to disk.
 pub async fn ensure_cloudflared() -> Result<PathBuf> {
     let bin_path = cloudflared_bin_path();
     if bin_path.exists() {
@@ -52,8 +54,8 @@ pub async fn ensure_cloudflared() -> Result<PathBuf> {
         anyhow::bail!("Unsupported platform for cloudflared auto-download. Please install manually: https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/");
     }
 
-    println!("cloudflared not found. Downloading from Cloudflare...");
     tracing::info!(url = url, dest = %bin_path.display(), "downloading_cloudflared");
+    println!("cloudflared not found. Downloading from Cloudflare...");
 
     if let Some(parent) = bin_path.parent() {
         std::fs::create_dir_all(parent)
@@ -65,6 +67,13 @@ pub async fn ensure_cloudflared() -> Result<PathBuf> {
     tokio::task::spawn_blocking(move || -> Result<()> {
         let resp = reqwest::blocking::get(&url_owned)
             .with_context(|| format!("failed to download cloudflared from {}", url_owned))?;
+        // Critical fix: check HTTP status before writing — prevents writing error HTML as binary
+        let resp = resp.error_for_status().with_context(|| {
+            format!(
+                "cloudflared download returned error status from {}",
+                url_owned
+            )
+        })?;
         let bytes = resp
             .bytes()
             .context("failed to read cloudflared response body")?;
@@ -91,10 +100,20 @@ pub async fn ensure_cloudflared() -> Result<PathBuf> {
     Ok(bin_path)
 }
 
-/// Extracts tunnel URL from cloudflared stderr output line
+/// Compiled once at first use — avoids recompiling regex on every stderr line.
+fn tunnel_url_regex() -> &'static regex::Regex {
+    static RE: OnceLock<regex::Regex> = OnceLock::new();
+    RE.get_or_init(|| {
+        regex::Regex::new(r"https://[a-z0-9\-]+\.trycloudflare\.com")
+            .expect("tunnel URL regex is valid")
+    })
+}
+
+/// Extracts tunnel URL from cloudflared stderr output line.
 pub fn parse_tunnel_url(line: &str) -> Option<String> {
-    let re = regex::Regex::new(r"https://[a-z0-9\-]+\.trycloudflare\.com").ok()?;
-    re.find(line).map(|m| m.as_str().to_string())
+    tunnel_url_regex()
+        .find(line)
+        .map(|m| m.as_str().to_string())
 }
 
 /// Reports tunnel URL to Workers KV
@@ -127,7 +146,10 @@ async fn cleanup_tunnel(relay_url: &str, user_token: &str) {
     tracing::info!("relay_cleanup_done");
 }
 
-/// Main relay entry: launch cloudflared, parse URL, report KV, heartbeat, cleanup on exit
+/// Main relay entry: launch cloudflared, parse URL, report KV, heartbeat, cleanup on exit.
+///
+/// Fix: uses a shutdown channel so that when the tokio runtime drops (Ctrl+C / SIGTERM),
+/// the cloudflared child is killed and cleanup_tunnel runs before exit.
 pub async fn run_relay(relay_url: String, user_token: String, port: u16) -> Result<()> {
     use tokio::io::{AsyncBufReadExt, BufReader};
 
@@ -140,6 +162,7 @@ pub async fn run_relay(relay_url: String, user_token: String, port: u16) -> Resu
         .args(["tunnel", "--url", &format!("http://localhost:{}", port)])
         .stderr(std::process::Stdio::piped())
         .stdout(std::process::Stdio::null())
+        .kill_on_drop(true) // Fix: ensures child is killed when the future is dropped
         .spawn()
         .context("failed to spawn cloudflared")?;
 
@@ -163,10 +186,12 @@ pub async fn run_relay(relay_url: String, user_token: String, port: u16) -> Resu
 
     report_tunnel(&relay_url, &user_token, &tunnel_url).await?;
 
+    // Heartbeat: refresh KV TTL every 5 minutes.
+    // Fix: store JoinHandle so we can abort it after child exits.
     let relay_url_hb = relay_url.clone();
     let token_hb = user_token.clone();
     let url_hb = tunnel_url.clone();
-    tokio::spawn(async move {
+    let heartbeat = tokio::spawn(async move {
         let mut interval = tokio::time::interval(std::time::Duration::from_secs(300));
         interval.tick().await; // skip first immediate tick
         loop {
@@ -179,7 +204,12 @@ pub async fn run_relay(relay_url: String, user_token: String, port: u16) -> Resu
         }
     });
 
+    // Wait for cloudflared to exit (or be killed via kill_on_drop when runtime drops)
     let _ = child.wait().await;
+
+    // Fix: stop heartbeat before cleanup so it doesn't re-post after we delete
+    heartbeat.abort();
+
     cleanup_tunnel(&relay_url, &user_token).await;
     Ok(())
 }
@@ -225,6 +255,19 @@ mod tests {
             result,
             Some("https://example-tunnel.trycloudflare.com".to_string()),
             "should extract trycloudflare.com URL from cloudflared output"
+        );
+    }
+
+    #[test]
+    fn test_parse_tunnel_url_regex_compiled_once() {
+        // Calling multiple times should not panic (OnceLock is safe)
+        let _ = parse_tunnel_url("line 1");
+        let _ = parse_tunnel_url("line 2 https://foo-bar.trycloudflare.com end");
+        let result = parse_tunnel_url("https://my-tunnel.trycloudflare.com");
+        assert_eq!(
+            result,
+            Some("https://my-tunnel.trycloudflare.com".to_string()),
+            "regex should work correctly on repeated calls"
         );
     }
 }

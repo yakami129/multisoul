@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
@@ -26,7 +26,20 @@ export function SettingsForm() {
   const [relayToken, setRelayToken] = useState(settings.relayToken);
   const [saving, setSaving] = useState(false);
 
+  // Keep a ref to the active poll so we can cancel it on unmount or re-press
+  const activePollRef = useRef<{ abort: () => void } | null>(null);
+
+  useEffect(() => {
+    return () => {
+      activePollRef.current?.abort();
+    };
+  }, []);
+
   const handleSave = async () => {
+    // Cancel any in-flight poll before starting a new one
+    activePollRef.current?.abort();
+    activePollRef.current = null;
+
     setSaving(true);
     try {
       let resolvedServerUrl = serverUrl.trim();
@@ -37,7 +50,18 @@ export function SettingsForm() {
           Alert.alert('Missing Token', 'Please enter your msctl Bearer token.');
           return;
         }
-        resolvedServerUrl = await pollTunnelUrl(settings.relayWorkerUrl, relayToken.trim());
+        // Important fix: validate relay worker URL is configured before polling
+        if (settings.relayWorkerUrl.includes('PLACEHOLDER')) {
+          Alert.alert(
+            'Not Configured',
+            'Relay worker URL is not configured. Please contact support or use Custom Server mode.',
+          );
+          return;
+        }
+        const poll = pollTunnelUrl(settings.relayWorkerUrl, relayToken.trim());
+        activePollRef.current = poll;
+        resolvedServerUrl = await poll.promise;
+        activePollRef.current = null;
         resolvedApiKey = relayToken.trim();
       }
 
@@ -55,7 +79,9 @@ export function SettingsForm() {
       );
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Unknown error';
-      Alert.alert('Connection Failed', msg);
+      if (msg !== 'Tunnel poll cancelled') {
+        Alert.alert('Connection Failed', msg);
+      }
     } finally {
       setSaving(false);
     }
