@@ -35,7 +35,7 @@ pub struct ServeArgs {
     /// Cloudflare Workers KV service URL for relay
     #[arg(
         long,
-        default_value = "https://multisoul-tunnel.PLACEHOLDER.workers.dev"
+        default_value = "https://multisoul-tunnel.berrymeryl6.workers.dev"
     )]
     pub relay_url: String,
 }
