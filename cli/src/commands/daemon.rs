@@ -3,7 +3,8 @@ use crate::config::{load_config, save_config};
 #[cfg(target_os = "macos")]
 use crate::serve::daemon::Config as DaemonConfig;
 use crate::serve::daemon::{
-    self, default_log_file, load_meta, new_manager, remove_meta, resolve_binary, save_meta, Meta,
+    self, default_log_file, ensure_running, load_meta, new_manager, remove_meta, resolve_binary,
+    save_meta, Meta,
 };
 use anyhow::Result;
 use clap::{ArgAction, Subcommand};
@@ -111,11 +112,13 @@ fn install(port_arg: Option<u16>, tailnet: bool, force: bool) -> Result<()> {
 
     save_meta(&Meta {
         log_file: log_file.clone(),
-        binary_path: binary,
+        binary_path: binary.clone(),
         port: cfg.serve_port,
         tailnet,
         installed_at: chrono::Local::now().to_rfc3339(),
     })?;
+
+    ensure_running(&*mgr)?;
 
     println!("msctl daemon installed and started.");
     println!();
@@ -127,6 +130,7 @@ fn install(port_arg: Option<u16>, tailnet: bool, force: bool) -> Result<()> {
         if tailnet { "enabled" } else { "disabled" }
     );
     println!("  Log:      {}", log_file);
+    println!("  Binary:   {}", binary);
     println!();
     print_pairing_info(&cfg.serve_token, cfg.serve_port, tailnet);
     println!();
@@ -162,6 +166,7 @@ fn start() -> Result<()> {
     let mgr = new_manager()?;
     require_installed(&*mgr)?;
     mgr.start()?;
+    ensure_running(&*mgr)?;
     println!("msctl daemon started.");
     Ok(())
 }
@@ -178,6 +183,7 @@ fn restart() -> Result<()> {
     let mgr = new_manager()?;
     require_installed(&*mgr)?;
     mgr.restart()?;
+    ensure_running(&*mgr)?;
     println!("msctl daemon restarted.");
     Ok(())
 }
@@ -202,6 +208,10 @@ fn status() -> Result<()> {
     }
     if let Ok(meta) = load_meta() {
         println!("  Port:     {}", meta.port);
+        println!("  Binary:   {}", meta.binary_path);
+        if !std::path::Path::new(&meta.binary_path).is_file() {
+            println!("  Warning:  Binary missing — run `msctl daemon install --force`");
+        }
         println!(
             "  Tailnet:  {}",
             if meta.tailnet { "enabled" } else { "disabled" }
