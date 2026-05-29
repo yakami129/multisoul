@@ -34,6 +34,33 @@ Expo Push Service (task completion notifications)
 - 本机：`msctl serve`
 - Tailnet：`msctl serve --tailnet`
 - 公网 HTTPS：`msctl serve --funnel`，依赖 Tailscale Funnel
+- 自动隧道：`msctl serve --relay`，依赖 Cloudflare Tunnel + Workers KV（见 §1.1）
+
+### 1.1 Cloudflare Tunnel Relay（Auto Tunnel 模式）
+
+用户可以通过 `msctl serve --relay` 启用自动隧道发现：
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│ msctl serve --relay                                          │
+├──────────────────────────────────────────────────────────────┤
+│ 1. 自动下载 cloudflared 二进制                               │
+│    → ~/.config/msctl/cloudflared                             │
+│                                                               │
+│ 2. 启动 Cloudflare Tunnel                                    │
+│    → cloudflared tunnel --url http://localhost:8080          │
+│    → 获得临时公网 URL: https://abc-def-ghi.trycloudflare.com │
+│                                                               │
+│ 3. 每 30 秒上报到 Cloudflare Workers KV                      │
+│    → POST https://worker.example.com/tunnel/<token>          │
+│    → Body: { status: "active", tunnel_url: "..." }           │
+│                                                               │
+│ 4. 心跳循环（5 分钟超时）                                    │
+│    → 无心跳则 KV 条目自动过期                                │
+└──────────────────────────────────────────────────────────────┘
+```
+
+移动端在 Settings 中选择 "Auto Tunnel" 模式，输入 Bearer token，应用每 10 秒轮询一次 Workers 端点，直到获得隧道 URL。详见 `docs/design-docs/2026-05-29-cloudflare-tunnel-relay-design.md`。
 
 ## 2. 代码结构
 
@@ -51,12 +78,14 @@ cli/src/
 │   ├── agent.rs
 │   ├── daemon.rs
 │   ├── logs.rs
-│   └── serve.rs
+│   └── serve.rs           # --relay flag parsing
 └── serve/
     ├── mod.rs             # axum routes
     ├── auth.rs            # Bearer auth
     ├── state.rs           # shared AppState
     ├── push.rs            # Expo Push
+    ├── tunnel.rs          # Cloudflare Tunnel launch & KV reporting
+    ├── cloudflared.rs     # cloudflared binary download & caching
     ├── routes/
     └── runtime/           # Claude Code / Codex / Cursor adapters
 ```
@@ -85,6 +114,10 @@ mobile/
     │   ├── chat/
     │   ├── inbox/
     │   └── settings/
+    │       ├── components/SettingsForm.tsx    # Auto/Custom mode toggle
+    │       └── services/
+    │           ├── settingsService.ts         # Settings persistence
+    │           └── tunnelService.ts           # Tunnel polling logic
     ├── hooks/
     ├── services/
     └── store/             # Zustand stores
