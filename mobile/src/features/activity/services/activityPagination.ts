@@ -20,7 +20,8 @@ function dedupeById(items: AggregatedActivityItem[]): AggregatedActivityItem[] {
 }
 
 export function mergeActivityPages(pages: AggregatedActivityResult[]): AggregatedActivityResult {
-  if (pages.length === 0) {
+  const latest = pages.at(-1);
+  if (!latest) {
     return {
       needsAttention: [],
       running: [],
@@ -28,8 +29,6 @@ export function mergeActivityPages(pages: AggregatedActivityResult[]): Aggregate
       failedEndpoints: [],
     };
   }
-
-  const latest = pages.at(-1)!;
 
   return {
     needsAttention: dedupeById(latest.needsAttention),

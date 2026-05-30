@@ -5,6 +5,7 @@ pub mod plugin;
 pub mod push;
 #[cfg(test)]
 mod push_tests;
+pub mod relay;
 pub mod routes;
 pub mod runtime;
 pub mod state;
