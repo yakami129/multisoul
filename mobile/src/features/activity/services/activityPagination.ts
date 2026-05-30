@@ -20,8 +20,7 @@ function dedupeById(items: AggregatedActivityItem[]): AggregatedActivityItem[] {
 }
 
 export function mergeActivityPages(pages: AggregatedActivityResult[]): AggregatedActivityResult {
-  const latest = pages.at(-1);
-  if (!latest) {
+  if (pages.length === 0) {
     return {
       needsAttention: [],
       running: [],
@@ -30,10 +29,15 @@ export function mergeActivityPages(pages: AggregatedActivityResult[]): Aggregate
     };
   }
 
+  const allNeedsAttention = pages.flatMap((page) => page.needsAttention);
+  const allRunning = pages.flatMap((page) => page.running);
+  const allDone = pages.flatMap((page) => page.done);
+  const latest = pages.at(-1)!;
+
   return {
-    needsAttention: dedupeById(latest.needsAttention),
-    running: dedupeById(latest.running),
-    done: dedupeById(latest.done),
+    needsAttention: dedupeById(allNeedsAttention),
+    running: dedupeById(allRunning),
+    done: dedupeById(allDone),
     failedEndpoints: [...latest.failedEndpoints],
   };
 }
