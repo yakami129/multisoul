@@ -3,6 +3,14 @@
   "version": 1,
   "documents": [
     {
+      "file": "2026-05-29-ios-payment.md",
+      "title": "iOS 付费机制 Implementation Plan (Phase 2)"
+    },
+    {
+      "file": "2026-05-29-cloudflare-tunnel.md",
+      "title": "Cloudflare Tunnel 自动隧道 Implementation Plan (Phase 1)"
+    },
+    {
       "file": "2026-05-27-ios-payment-implementation.md",
       "title": "iOS 付费机制实施计划"
     },
