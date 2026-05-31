@@ -186,6 +186,7 @@ pub fn resolve_binary() -> Result<String> {
 }
 
 /// Block start/restart when the plist points at a missing binary.
+#[cfg(target_os = "macos")]
 pub fn require_installed_binary(path: &str) -> Result<()> {
     let p = Path::new(path);
     if is_usable_binary(p) {
@@ -372,12 +373,14 @@ mod tests {
         );
     }
 
+    #[cfg(target_os = "macos")]
     #[test]
     fn require_installed_binary_accepts_existing_file() {
         let path = std::env::current_exe().expect("current_exe");
         require_installed_binary(&path.to_string_lossy()).expect("require_installed_binary");
     }
 
+    #[cfg(target_os = "macos")]
     #[test]
     fn require_installed_binary_rejects_missing_file() {
         let err = require_installed_binary("/nonexistent/msctl-binary").unwrap_err();
@@ -391,6 +394,7 @@ mod tests {
         );
     }
 
+    #[cfg(target_os = "macos")]
     #[test]
     fn require_installed_binary_rejects_empty_file() {
         let dir = std::env::temp_dir().join(format!("msctl-empty-{}", std::process::id()));
