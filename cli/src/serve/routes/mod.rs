@@ -1,5 +1,8 @@
 pub mod activity;
 pub mod agents;
+pub mod ask_question;
+#[cfg(test)]
+mod ask_question_tests;
 pub mod conversations;
 pub mod files;
 pub mod healthz;
@@ -9,6 +12,7 @@ pub mod messages;
 mod messages_tests;
 pub mod push_tokens;
 pub mod runtime_models;
+pub mod specs;
 pub mod uploads;
 pub mod webhook;
 pub mod ws;

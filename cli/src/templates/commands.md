@@ -1,16 +1,6 @@
 <!-- msctl-inject-start -->
 ## msctl Quick Reference
 
-### Service
-
-```bash
-msctl serve                  # Start local server (default port 8765)
-msctl logs                   # Tail app + service logs
-msctl daemon quickstart      # Install and start as background service
-msctl daemon status          # Check service status
-msctl daemon restart         # Restart background service
-```
-
 ### Agent
 
 ```bash
@@ -26,19 +16,15 @@ msctl agent invoke <id> --message "<task>"
 msctl agent delete <id>
 ```
 
-### Auth
+### Ask User Question (`msctl ask-question`)
 
-```bash
-msctl auth login             # Save serve token to local config
-msctl auth status            # Show current auth status
-```
+**MANDATORY**
 
-### Update
+- For structured decisions (approach, continue/stop, risk trade-offs, etc.), **prefer** the `AskUserQuestion` tool when available.
+- **If the current runtime does not expose `AskUserQuestion`, you MUST call `msctl ask-question` to push a question card to iOS.** Never list options in free text or ask the user to type an answer.
+- After pushing, continue other work. Do not poll; iOS answers are injected into the same conversation automatically.
 
-```bash
-npm install -g @yakami129/msctl  # Update to latest version
-msctl --version                  # Check current version
-```
+Run `msctl ask-question -h` for flags, JSON shape, and copy-paste examples.
 
 ### Image Output
 

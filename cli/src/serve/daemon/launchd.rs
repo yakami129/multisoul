@@ -66,14 +66,70 @@ fn build_plist(cfg: &Config) -> String {
     )
 }
 
+/// First ProgramArguments entry from a LaunchAgent plist body.
+pub(crate) fn parse_plist_binary_path(content: &str) -> Option<String> {
+    let mut in_program_args = false;
+    for line in content.lines() {
+        let trimmed = line.trim();
+        if trimmed == "<key>ProgramArguments</key>" {
+            in_program_args = true;
+            continue;
+        }
+        if in_program_args && trimmed == "<array>" {
+            continue;
+        }
+        if in_program_args {
+            if let Some(value) = trimmed
+                .strip_prefix("<string>")
+                .and_then(|s| s.strip_suffix("</string>"))
+            {
+                return Some(value.to_string());
+            }
+            if trimmed == "</array>" {
+                break;
+            }
+        }
+    }
+    None
+}
+
+pub(crate) fn launchctl_output(
+    args: &[&str],
+    exit_code: Option<i32>,
+    stdout: &str,
+    stderr: &str,
+) -> anyhow::Result<String> {
+    let combined = format!("{}{}", stdout.trim(), stderr.trim());
+    if exit_code != Some(0) {
+        anyhow::bail!(
+            "launchctl {} failed (exit {}): {}",
+            args.join(" "),
+            exit_code.unwrap_or(-1),
+            combined
+        );
+    }
+    Ok(combined)
+}
+
 fn launchctl(args: &[&str]) -> anyhow::Result<String> {
     use std::process::Command;
     let out = Command::new("launchctl")
         .args(args)
         .output()
         .map_err(|e| anyhow::anyhow!("launchctl not found: {}", e))?;
-    Ok(String::from_utf8_lossy(&out.stdout).trim().to_string()
-        + String::from_utf8_lossy(&out.stderr).trim())
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    launchctl_output(args, out.status.code(), &stdout, &stderr)
+}
+
+/// First ProgramArguments entry from the installed LaunchAgent plist.
+pub fn installed_binary_path() -> Option<String> {
+    let plist = plist_path();
+    if !plist.exists() {
+        return None;
+    }
+    let content = std::fs::read_to_string(plist).ok()?;
+    parse_plist_binary_path(&content)
 }
 
 fn domain() -> String {
@@ -115,6 +171,9 @@ impl Manager for LaunchdManager {
     }
 
     fn start(&self) -> Result<()> {
+        if let Some(binary) = installed_binary_path() {
+            super::require_installed_binary(&binary)?;
+        }
         let plist_str = plist_path().to_string_lossy().into_owned();
         if launchctl(&["bootstrap", &domain(), &plist_str]).is_err() {
             launchctl(&["kickstart", "-kp", &target()])?;
@@ -128,6 +187,9 @@ impl Manager for LaunchdManager {
     }
 
     fn restart(&self) -> Result<()> {
+        if let Some(binary) = installed_binary_path() {
+            super::require_installed_binary(&binary)?;
+        }
         let _ = launchctl(&["bootout", &target()]);
         let plist_str = plist_path().to_string_lossy().into_owned();
         for i in 0..3 {
@@ -246,6 +308,71 @@ mod tests {
         assert!(
             plist.contains("SuccessfulExit"),
             "plist must use KeepAlive.SuccessfulExit so stop does not auto-restart"
+        );
+        assert!(
+            !plist.contains("--tailnet"),
+            "plist must omit --tailnet when disabled"
+        );
+    }
+
+    #[test]
+    fn parse_plist_binary_path_reads_first_program_argument() {
+        let plist = build_plist(&Config {
+            binary_path: "/usr/local/bin/msctl".into(),
+            token: "tok".into(),
+            port: 8765,
+            tailnet: true,
+            log_file: "/tmp/msctl.log".into(),
+            env_path: "/usr/bin".into(),
+        });
+        assert_eq!(
+            parse_plist_binary_path(&plist).as_deref(),
+            Some("/usr/local/bin/msctl")
+        );
+    }
+
+    #[test]
+    fn parse_plist_binary_path_returns_none_without_program_arguments() {
+        let plist = r#"<?xml version="1.0" encoding="UTF-8"?>
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.example.app</string>
+</dict>
+</plist>"#;
+        assert_eq!(parse_plist_binary_path(plist), None);
+    }
+
+    #[test]
+    fn launchctl_output_succeeds_on_exit_zero() {
+        let out = launchctl_output(
+            &["kickstart", "-kp", "gui/501/com.multisoul.msctl"],
+            Some(0),
+            "ok",
+            "",
+        )
+        .expect("launchctl_output");
+        assert_eq!(out, "ok");
+    }
+
+    #[test]
+    fn launchctl_output_fails_on_nonzero_exit() {
+        let err = launchctl_output(
+            &["kickstart", "-kp", "gui/501/com.multisoul.msctl"],
+            Some(78),
+            "",
+            "Bootstrap failed",
+        )
+        .unwrap_err();
+        let message = err.to_string();
+        assert!(
+            message.contains("launchctl kickstart"),
+            "unexpected: {message}"
+        );
+        assert!(message.contains("exit 78"), "unexpected: {message}");
+        assert!(
+            message.contains("Bootstrap failed"),
+            "unexpected: {message}"
         );
     }
 }

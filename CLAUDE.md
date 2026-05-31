@@ -40,7 +40,7 @@ Monorepo 两大件：
 - 不要碰 `~/.config/msctl/*` —— 用户本地数据
 - DB schema 改动走 migration —— 不允许运行时 `CREATE TABLE`（本仓库中 SQLite 由 `cli/src/db.rs` 统一演进，纪律同上）
 - REST/WS 强制 Bearer auth —— 唯一例外 `GET /api/v1/healthz`
-- 决策用 `AskUserQuestion` 工具调用 —— 不在自由文本问选择题
+- 结构化决策见 §7 **Ask User Question** —— 禁止自由文本列选项或让用户打字回答
 - **禁止直接 push main** —— 所有变更必须通过 PR；直接 push 会被 GitHub branch protection 拒绝
 - **PR 开启前必须验证** —— `cargo test` + `cargo build` + `pnpm typecheck` + `pnpm test --watchAll=false` 全部通过
 - **开 PR 需用户确认** —— Claude Code 自动 commit 到功能分支后，必须等用户确认才能执行 `gh pr create`
@@ -106,7 +106,7 @@ Monorepo 两大件：
 ## 6. Interaction & Output Constraints (Low-Input Scenarios)
 
 - Assume by default that the user may be in a situation where typing is inconvenient; minimize the need for free-text input.
-- **MANDATORY: When user decisions are needed** (e.g., choosing an approach, whether to continue, selecting environment, risk trade-offs, release options, architecture choices), **ALWAYS use the `AskUserQuestion` tool with structured options** instead of asking the user to type manually. Never ask decision questions in plain text.
+- **MANDATORY: When user decisions are needed** (e.g., choosing an approach, whether to continue, selecting environment, risk trade-offs, release options, architecture choices), **prefer** the `AskUserQuestion` tool with structured options. **If `AskUserQuestion` is unavailable, you MUST call `msctl ask-question`** (see §7). Never ask decision questions in plain text or ask the user to type an answer.
 - For enumerable decisions, provide 2-5 clear options first (including "Other/Later" when appropriate), so users can complete feedback via single- or multi-select.
 - Avoid open-ended follow-up questions unless necessary; if needed, provide options first, then add "You may type additional details if needed."
 - Keep responses in short, information-dense sentences: conclusion first, options second, supplementary notes last; avoid long paragraphs.
@@ -116,7 +116,17 @@ Monorepo 两大件：
 
 ## 7. 给 Agent 的协作约定（与 AGENTS.md 一致）
 
-- 用户场景常常 **不便打字**。涉及决策（方案选择、是否继续、风险权衡）一律用 `AskUserQuestion` 工具给 2-5 个结构化选项，**不要让用户敲字回答**
+### Ask User Question (`msctl ask-question`)
+
+**MANDATORY**
+
+- For structured decisions (approach, continue/stop, risk trade-offs, etc.), **prefer** the `AskUserQuestion` tool when available.
+- **If the current runtime does not expose `AskUserQuestion`, you MUST call `msctl ask-question` to push a question card to iOS.** Never list options in free text or ask the user to type an answer.
+- After pushing, continue other work. Do not poll; iOS answers are injected into the same conversation automatically.
+
+Run `msctl ask-question -h` for flags, JSON shape, and copy-paste examples.
+
+- 用户场景常常 **不便打字**。涉及决策一律按上文 MANDATORY 执行；有 `AskUserQuestion` 时用该工具给 2-5 个结构化选项，**不要让用户敲字回答**
 - 行动前先检索本地文件，不要凭记忆回答
 - 修改代码后必须按 §5 跑验证；引入了 lint error **必须修根本原因，禁止用 `#[allow]` / `// eslint-disable` / `@ts-ignore` 等抑制指令掩盖**
 - 同一用户流程只能有一个权威实现；避免为不同入口复制 screen / route / protocol 逻辑。需要多入口时，让入口只做参数准备，统一跳到同一页面或调用同一模块。
@@ -185,7 +195,12 @@ cargo test <test_name>
 
 # Local HTTP/WS
 cargo run -- serve
+
+# Runtime AskUserQuestion push (local dev; use installed `msctl ask-question` outside source)
+cargo run -- ask-question --conversation-id "$CONV_ID" --questions '[...]' --output json
 ```
+
+See §7 **Ask User Question** for MANDATORY rules. Run `msctl ask-question -h` for flags, JSON shape, and copy-paste examples.
 
 ### iOS 发布
 

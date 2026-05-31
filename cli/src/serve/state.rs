@@ -264,6 +264,22 @@ impl AppState {
     /// Returns a structured status so callers can avoid marking stale answers as delivered.
     pub fn send_answer(&self, conv_id: &str, answer: AnswerPayload) -> AnswerSendResult {
         let txs = self.answer_txs.lock().unwrap();
+        if let Some(channel) = txs.get(conv_id) {
+            if channel.pending_ask_id.as_deref() == Some(answer._ask_id.as_str()) {
+                return match channel.tx.try_send(answer) {
+                    Ok(()) => AnswerSendResult::Accepted,
+                    Err(e) => {
+                        warn!(
+                            conv_id = %conv_id,
+                            reason = ?e,
+                            "answer_send_failed"
+                        );
+                        AnswerSendResult::ChannelUnavailable
+                    }
+                };
+            }
+        }
+        let ask_id = answer._ask_id.clone();
         match txs.get(conv_id) {
             None => {
                 let registered: Vec<String> = txs.keys().cloned().collect();
@@ -276,32 +292,18 @@ impl AppState {
             }
             Some(channel) => {
                 let Some(expected) = channel.pending_ask_id.as_deref() else {
-                    warn!(conv_id = %conv_id, ask_id = %answer._ask_id, "answer_no_pending_ask");
+                    warn!(conv_id = %conv_id, ask_id = %ask_id, "answer_no_pending_ask");
                     return AnswerSendResult::NoPendingAsk;
                 };
-                if expected != answer._ask_id {
-                    warn!(
-                        conv_id = %conv_id,
-                        expected = %expected,
-                        actual = %answer._ask_id,
-                        "answer_ask_mismatch"
-                    );
-                    return AnswerSendResult::AskMismatch {
-                        expected: expected.to_string(),
-                        actual: answer._ask_id,
-                    };
-                }
-
-                match channel.tx.try_send(answer) {
-                    Ok(()) => AnswerSendResult::Accepted,
-                    Err(e) => {
-                        warn!(
-                            conv_id = %conv_id,
-                            reason = ?e,
-                            "answer_send_failed"
-                        );
-                        AnswerSendResult::ChannelUnavailable
-                    }
+                warn!(
+                    conv_id = %conv_id,
+                    expected = %expected,
+                    actual = %ask_id,
+                    "answer_ask_mismatch"
+                );
+                AnswerSendResult::AskMismatch {
+                    expected: expected.to_string(),
+                    actual: ask_id,
                 }
             }
         }

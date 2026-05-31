@@ -31,6 +31,8 @@ enum Commands {
     },
     /// Start the local serve server
     Serve(commands::serve::ServeArgs),
+    /// Push a question card to the local serve server
+    AskQuestion(commands::ask_question::AskQuestionArgs),
     /// Manage msctl as a background service
     Daemon {
         #[command(subcommand)]
@@ -54,6 +56,7 @@ fn main() -> anyhow::Result<()> {
             })?;
             tokio::runtime::Runtime::new()?.block_on(commands::serve::handle(args))
         }
+        Commands::AskQuestion(args) => commands::ask_question::handle(args),
         Commands::Daemon { subcommand } => commands::daemon::handle(subcommand),
         Commands::Logs(args) => commands::logs::handle(args),
     }

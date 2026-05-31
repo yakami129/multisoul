@@ -1,9 +1,9 @@
 import { Plus } from 'lucide-react-native';
 import React, { useState } from 'react';
-import { SafeAreaView, View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { AddEndpointModal } from '@/features/settings/components/AddEndpointModal';
 import { EndpointList } from '@/features/settings/components/EndpointList';
-import { ReleaseLogsModal } from '@/features/settings/components/ReleaseLogsModal';
 import { useEndpointStore } from '@/store/endpointStore';
 
 export default function SettingsScreen() {
@@ -11,7 +11,6 @@ export default function SettingsScreen() {
   const addEndpoint = useEndpointStore((s) => s.addEndpoint);
   const removeEndpoint = useEndpointStore((s) => s.removeEndpoint);
   const [modalVisible, setModalVisible] = useState(false);
-  const [releaseLogsVisible, setReleaseLogsVisible] = useState(false);
 
   return (
     <SafeAreaView style={s.safe}>
@@ -30,22 +29,6 @@ export default function SettingsScreen() {
             void removeEndpoint(id);
           }}
         />
-        <View style={s.sectionHeaderRow}>
-          <Text style={s.sectionLabel}>DIAGNOSTICS</Text>
-        </View>
-        <View style={s.diagnosticsCard}>
-          <Text style={s.diagnosticsTitle}>Release logs</Text>
-          <Text style={s.diagnosticsHint}>
-            Stream formatted msctl logs with iOS diagnostics when TestFlight needs debugging.
-          </Text>
-          <TouchableOpacity
-            testID="release-logs-open-btn"
-            style={s.primaryButton}
-            onPress={() => setReleaseLogsVisible(true)}
-          >
-            <Text style={s.primaryButtonText}>Open logs</Text>
-          </TouchableOpacity>
-        </View>
       </ScrollView>
 
       <AddEndpointModal
@@ -54,11 +37,6 @@ export default function SettingsScreen() {
         onAdd={(label, base_url, token) => {
           void addEndpoint({ label, base_url, token });
         }}
-      />
-      <ReleaseLogsModal
-        visible={releaseLogsVisible}
-        endpoints={endpoints}
-        onClose={() => setReleaseLogsVisible(false)}
       />
     </SafeAreaView>
   );
@@ -79,12 +57,6 @@ const s = StyleSheet.create({
   navTitle: { fontFamily: 'Inter', fontSize: 17, fontWeight: '700', color: '#FFFFFF' },
   scroll: { flex: 1 },
   content: { padding: 16, gap: 12 },
-  sectionHeaderRow: {
-    marginTop: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
   sectionLabel: {
     fontFamily: 'Inter',
     fontSize: 11,
@@ -92,22 +64,4 @@ const s = StyleSheet.create({
     color: '#666666',
     letterSpacing: 1.5,
   },
-  diagnosticsCard: {
-    backgroundColor: '#1A1A1A',
-    borderRadius: 8,
-    padding: 14,
-    gap: 10,
-    borderWidth: 1,
-    borderColor: '#1E1E1E',
-  },
-  diagnosticsTitle: { fontFamily: 'Inter', fontSize: 15, fontWeight: '700', color: '#FFFFFF' },
-  diagnosticsHint: { fontFamily: 'Inter', fontSize: 13, color: '#888888', lineHeight: 18 },
-  primaryButton: {
-    alignSelf: 'flex-start',
-    backgroundColor: '#FF6B35',
-    borderRadius: 8,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-  },
-  primaryButtonText: { fontFamily: 'Inter', fontSize: 13, fontWeight: '700', color: '#FFFFFF' },
 });

@@ -26,7 +26,7 @@ Notification ownership is centralized in the CLI to avoid duplicate local + remo
 | Component | File | Responsibility |
 |-----------|------|----------------|
 | CLI push builder | `cli/src/serve/push.rs` | Build Expo payloads for task completion/failure and pending questions |
-| Claude runtime | `cli/src/serve/runtime/claude/stream.rs` | Register pending ask, persist/broadcast `ask_question`, then send pending-question push |
+| Claude runtime | `cli/src/serve/runtime/claude/stream.rs` | Detect AskUserQuestion control_request; delegate to `serve/ask_question.rs` to register pending ask, persist/broadcast `ask_question`, then send pending-question push |
 | `useWebSocket` | `src/hooks/useWebSocket.ts` | Update chat state from `task_status` / `ask_question` / `answer_status`; never schedule duplicate local notifications |
 | Root layout | `app/_layout.tsx` | Register push tokens, suppress foreground banner, add tap-to-navigate listener |
 | Sound asset | `assets/sounds/task-complete.wav` | Bundled short terminal-style beep |
@@ -113,7 +113,7 @@ When active, the service plays the sound directly; the notification handler supp
 ## Files changed
 
 1. `cli/src/serve/push.rs` — task/ask push payload construction, token fan-out, mutual exclusion
-2. `cli/src/serve/runtime/claude/stream.rs` — register pending ask before ask-question push/broadcast
+2. `cli/src/serve/runtime/claude/stream.rs` + `cli/src/serve/ask_question.rs` — register pending ask before ask-question push/broadcast（2026-05-31：`record_ask_question` 抽到 `ask_question.rs`，推送时机与 payload 不变）
 3. `src/hooks/useWebSocket.ts` — remove local completion notification scheduling and apply answered state only after `answer_status(ok=true)`
 4. `app/_layout.tsx` — token registration, handler, tap listener, cold-start navigation
 

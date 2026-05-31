@@ -11,7 +11,7 @@
     {
       "id": "product-specs",
       "root": "docs/product-specs",
-      "filePattern": "^SPEC(-[a-z0-9-]+)?\\.md$",
+      "filePattern": "^(\\d{4}-\\d{2}-\\d{2}-)?SPEC(-[a-z0-9-]+)?\\.md$",
       "sortDocuments": "filename_asc"
     },
     {

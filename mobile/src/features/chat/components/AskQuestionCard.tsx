@@ -196,7 +196,7 @@ export default function AskQuestionCard({
 }
 
 const s = StyleSheet.create({
-  card: { backgroundColor: '#1A1A1A', borderRadius: 16, width: 320, overflow: 'hidden' },
+  card: { backgroundColor: '#1A1A1A', borderRadius: 16, width: '100%', overflow: 'hidden' },
   header: {
     height: 44,
     flexDirection: 'row',

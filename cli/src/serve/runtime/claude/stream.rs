@@ -1,5 +1,6 @@
 //! Claude stdout stream: one turn (user message → result) and assistant/user event handlers.
 
+use crate::serve::ask_question;
 use crate::serve::interactive::{self, AnswerPayload};
 use crate::serve::push;
 use crate::serve::state::AppState;
@@ -107,7 +108,7 @@ pub(super) fn process_turn(
                         if let Some(payload) =
                             interactive::build_ask_payload(&tool_name, &request_id, &orig_input)
                         {
-                            if !record_ask_question(state, conv_id, payload) {
+                            if !ask_question::record_ask_question(state, conv_id, payload) {
                                 return Err(format!(
                                     "failed to record AskUserQuestion request {}",
                                     request_id
@@ -202,29 +203,6 @@ pub(super) fn process_turn(
             _ => {}
         }
     }
-}
-
-pub(super) fn record_ask_question(state: &AppState, conv_id: &str, payload: Value) -> bool {
-    let ask_id = payload
-        .get("ask_id")
-        .and_then(Value::as_str)
-        .unwrap_or("")
-        .to_string();
-    let db = state.db.lock().unwrap();
-    if let Ok(seq) = insert_message(&db, conv_id, "ask_question", &payload) {
-        let _ = db.execute(
-            "UPDATE conversations SET status = 'awaiting_question' WHERE id = ?1",
-            [conv_id],
-        );
-        if !ask_id.is_empty() {
-            state.begin_waiting_answer(conv_id, &ask_id);
-        }
-        push::send_ask_question_push(&db, conv_id, &payload);
-        drop(db);
-        broadcast(state, conv_id, seq, "ask_question", payload);
-        return true;
-    }
-    false
 }
 
 /// Processes an assistant event, broadcasting messages to mobile.

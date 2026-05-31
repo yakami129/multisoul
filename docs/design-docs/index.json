@@ -16,7 +16,7 @@
       "trackedFiles": [
         {
           "path": "cli/src/serve/runtime/mod.rs",
-          "sha256": "c2fa8d04f3717bf3922fcc337c2d877d05c9a1ad975748e3391b02e74055a9fb",
+          "sha256": "42dc501a647b4d79a7d25336052ea27c34e8f6d771cc7b7e3b96871290751f2e",
           "reason": "dispatch 层新增 inject_image_prefix 逻辑，是本设计的唯一变更文件。"
         }
       ]
@@ -27,17 +27,17 @@
       "trackedFiles": [
         {
           "path": "cli/src/serve/runtime/mod.rs",
-          "sha256": "c2fa8d04f3717bf3922fcc337c2d877d05c9a1ad975748e3391b02e74055a9fb",
+          "sha256": "42dc501a647b4d79a7d25336052ea27c34e8f6d771cc7b7e3b96871290751f2e",
           "reason": "Runtime 分发入口；文档说明新增 runtime module 与 match arm。"
         },
         {
           "path": "cli/src/serve/state.rs",
-          "sha256": "9010536dd28ffe10cb8db3b9399ab13b813eb636e6626603dee7c4a65cbae80d",
+          "sha256": "256aa9abd525d1212bbbdeaf9bfc24ced339f4b71b183837bd1ac2fac435ade4",
           "reason": "AppState、SessionMessage 与 runtime worker 通信结构由文档核心数据结构章节引用。"
         },
         {
           "path": "cli/src/serve/routes/messages.rs",
-          "sha256": "ee312135208985b8a0da0d6e88ec2d19c4174f99766e0338683e49d44b0bda15",
+          "sha256": "324dc8a76b3c9e0f3f2aaed62536e04619dd00fa84ba8c193f44ac1a044077e4",
           "reason": "HTTP message route 调用 runtime 分发；文档架构图与入口流程依赖该行为。"
         },
         {
@@ -94,7 +94,7 @@
         },
         {
           "path": "cli/src/serve/runtime/claude/stream.rs",
-          "sha256": "7d59bd134adfacb967d7f7be7b87fe144bb374e7e2984736427bdb0911d2b0de",
+          "sha256": "bf5bcfba4f5902690e2bb015e740c6e7841e0a0438e5a6dff82ea0e6da559045",
           "reason": "Claude AskUserQuestion 触发问答推送的时机由本文档定义。"
         },
         {

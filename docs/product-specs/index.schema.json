@@ -23,7 +23,7 @@
         "properties": {
           "file": {
             "type": "string",
-            "pattern": "^SPEC(-[a-z0-9-]+)?\\.md$"
+            "pattern": "^(\\d{4}-\\d{2}-\\d{2}-)?SPEC(-[a-z0-9-]+)?\\.md$"
           },
           "title": {
             "type": "string",

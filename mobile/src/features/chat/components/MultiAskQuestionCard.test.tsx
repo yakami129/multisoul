@@ -1,5 +1,6 @@
 import { fireEvent, render } from '@testing-library/react-native';
 import React from 'react';
+import { StyleSheet } from 'react-native';
 import MultiAskQuestionCard from './MultiAskQuestionCard';
 
 const baseQuestions = [
@@ -20,6 +21,48 @@ const baseQuestions = [
     ],
   },
 ];
+
+function assertEqual<T>(actual: T, expected: T, message: string) {
+  expect({ actual, reason: message }).toEqual({ actual: expected, reason: expect.any(String) });
+}
+
+function assertNotEqual<T>(actual: T, expected: T, message: string) {
+  expect({ actual, reason: message }).not.toEqual({
+    actual: expected,
+    reason: expect.any(String),
+  });
+}
+
+/// iOS transcript width: a multi-question card should fill the same parent
+/// width as the currently rendered AI message card instead of keeping the old
+/// narrow fixed width.
+///
+/// Data construction:
+///   parent transcript row width = 100% of the chat content column
+///   legacy card width           = 320px fixed
+///   desired card width          = 100% of parent row
+///
+/// Execution process:
+///   1. Render an unanswered MultiAskQuestionCard with two questions.
+///   2. Inspect the root card style applied to the rendered card.
+///
+/// Expected result:
+///   - Positive: root card width is "100%", matching the full parent row.
+///   - Negative: root card width is not the legacy fixed 320px value.
+test('fills the parent transcript width instead of using the legacy fixed width', () => {
+  const { toJSON } = render(
+    <MultiAskQuestionCard questions={baseQuestions} onCancel={jest.fn()} onConfirm={jest.fn()} />,
+  );
+
+  const cardStyle = StyleSheet.flatten(toJSON()?.props.style);
+
+  assertEqual(cardStyle.width, '100%', 'multi-question card should fill its parent transcript row');
+  assertNotEqual(
+    cardStyle.width,
+    320,
+    'multi-question card must not keep the old fixed 320px width',
+  );
+});
 
 // T-1: Each active question renders an "Other" option at the end
 test('active question renders Other option at the end', () => {

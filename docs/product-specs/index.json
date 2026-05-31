@@ -3,6 +3,14 @@
   "version": 1,
   "documents": [
     {
+      "file": "2026-05-31-SPEC-cli-question-card-push.md",
+      "title": "CLI Question Card Push 统一实现 SPEC"
+    },
+    {
+      "file": "2026-05-31-SPEC-spec-management-module.md",
+      "title": "Spec 管理模块 SPEC"
+    },
+    {
       "file": "SPEC-activity-pagination.md",
       "title": "Activity 模块分页滚动加载优化 SPEC"
     },
@@ -45,6 +53,10 @@
     {
       "file": "SPEC-cli-logs-visibility.md",
       "title": "CLI Logs 可见性 SPEC"
+    },
+    {
+      "file": "SPEC-cli-question-card-push.md",
+      "title": "CLI Question Card Push 统一实现 SPEC"
     },
     {
       "file": "SPEC-github-actions-cicd.md",

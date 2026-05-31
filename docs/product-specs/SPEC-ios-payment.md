@@ -6,7 +6,8 @@
 MultiSoul 已开源，现需为 iOS 应用添加付费机制，以支持项目的可持续发展。
 
 ### 1.2 目标
-- 为 iOS 应用引入 7 天试用 + 买断制的付费模式
+- 为 iOS 应用引入 14 天试用 + 买断制的付费模式
+- 付费版提供自动隧道（Cloudflare Tunnel），免费版需自建内网穿透
 - 确保付费验证的安全性和可靠性
 - 支持用户跨设备恢复购买
 - 顺利通过 Apple 审核并正式上架
@@ -16,8 +17,10 @@ MultiSoul 已开源，现需为 iOS 应用添加付费机制，以支持项目�
 ## 2. 范围
 
 ### 2.1 In Scope
-- iOS 应用的付费机制（7 天试用 + 买断）
-- 独立的云端后台服务（收据验证、付费状态管理）
+- iOS 应用的付费机制（14 天试用 + 买断）
+- Cloudflare Tunnel 自动隧道（付费版功能）
+- msctl 端 Cloudflare Tunnel 集成（`msctl serve --relay`）
+- Cloudflare Workers KV 状态服务（隧道地址分发）
 - mobile 端的购买页面和付费状态检查
 - 恢复购买功能
 - TestFlight 测试和 App Store 审核流程
@@ -27,6 +30,7 @@ MultiSoul 已开源，现需为 iOS 应用添加付费机制，以支持项目�
 - 订阅制付费模式（当前仅买断）
 - msctl CLI 的付费限制（CLI 保持免费）
 - 用户账号系统（不需要注册/登录）
+- 服务器端付费验证（MVP 阶段仅 iOS 端验证）
 
 ---
 
@@ -34,37 +38,50 @@ MultiSoul 已开源，现需为 iOS 应用添加付费机制，以支持项目�
 
 ### 3.1 典型用户角色
 - **新用户**：首次下载并安装 MultiSoul iOS 应用
-- **试用用户**：正在使用 7 天试用期的用户
+- **试用用户**：正在使用 14 天试用期的用户
 - **付费用户**：已购买买断的用户
 - **换设备用户**：在新设备上恢复购买的用户
+- **免费版用户**：试用到期后选择自建内网穿透的用户
 
 ### 3.2 关键使用场景
 
-#### 场景 1：新用户首次使用
+#### 场景 1：新用户首次使用（自动隧道）
 1. 用户下载并安装 MultiSoul iOS 应用
-2. 用户配置并首次成功连接到 msctl serve
-3. 系统记录试用开始时间（7 天倒计时开始）
-4. 用户可以正常使用所有功能
+2. 用户在本地运行 `msctl serve --relay`
+3. msctl 自动启动 cloudflared 并建立隧道
+4. iOS App 获取隧道地址并成功连接
+5. 系统记录试用开始时间（14 天倒计时开始）
+6. 用户可以正常使用所有功能
 
 #### 场景 2：试用期到期
 1. 用户打开应用，系统检测到试用期已过
-2. 应用显示购买页面，提示用户购买
-3. 用户无法使用任何功能，直到完成购买
+2. 应用显示到期提示弹窗，提供两个选项：
+   - "Purchase Now" → 跳转到购买页面
+   - "Set Up Manual Connection" → 跳转到设置页面配置自建内网穿透
+3. 自动隧道功能不可用，但可以使用自定义服务器
 
 #### 场景 3：用户购买
 1. 用户在购买页面点击购买按钮
 2. 系统调用 Apple IAP 完成支付
-3. mobile 将 Apple 收据发送到后台服务验证
-4. 后台验证成功后，更新用户的付费状态
-5. 用户可以继续使用所有功能
+3. RevenueCat SDK 自动验证收据并更新用户权益
+4. iOS App 检查 `entitlements.active['pro']` 存在
+5. 用户可以继续使用自动隧道功能
 
 #### 场景 4：恢复购买
 1. 用户在新设备上安装应用
 2. 用户点击"恢复购买"按钮
 3. 系统从 Apple 获取历史购买记录
-4. mobile 将收据发送到后台服务验证
-5. 后台根据 original_transaction_id 识别用户并恢复付费状态
-6. 用户可以在新设备上继续使用
+4. RevenueCat SDK 自动验证并恢复用户权益
+5. iOS App 检查 `entitlements.active['pro']` 存在
+6. 用户可以在新设备上继续使用自动隧道
+
+#### 场景 5：免费版用户（自建内网穿透）
+1. 用户试用到期后选择不购买
+2. 用户在设置页面配置自定义服务器地址（如 Tailscale URL）
+3. 用户在本地运行 `msctl serve`（不带 `--relay` 参数）
+4. 用户通过 Tailscale/ngrok 等工具暴露 msctl serve
+5. iOS App 连接到自定义服务器地址
+6. 用户可以正常使用所有功能（无需付费）
 
 ---
 
@@ -74,7 +91,7 @@ MultiSoul 已开源，现需为 iOS 应用添加付费机制，以支持项目�
 
 #### 试用期管理流程
 ```
-用户首次连接 msctl serve
+用户首次连接自动隧道（msctl serve --relay）
   ↓
 mobile 本地记录试用开始时间（expo-sqlite）
   ↓
@@ -83,9 +100,27 @@ mobile 本地记录试用开始时间（expo-sqlite）
 同时调用 RevenueCat SDK 检查付费状态
   ↓
 if (试用未到期 OR 已付费)
-  → 允许使用
+  → 允许使用自动隧道
 else
-  → 显示购买页面
+  → 自动隧道不可用，显示到期提示
+  → 用户可选择购买或配置自定义服务器
+```
+
+#### 自动隧道连接流程（付费版）
+```
+用户在本地运行 msctl serve --relay
+  ↓
+msctl 自动启动 cloudflared 建立隧道
+  ↓
+msctl 解析隧道 URL（如 https://xxx.trycloudflare.com）
+  ↓
+msctl 上报隧道地址到 Cloudflare Workers KV
+  ↓
+iOS App 轮询获取隧道地址（10 秒间隔，最多 5 分钟）
+  ↓
+iOS App 连接到隧道地址
+  ↓
+首次连接成功时记录 trial_start_time
 ```
 
 #### 购买流程
@@ -102,7 +137,7 @@ SDK 返回 customerInfo（包含 entitlements）
   ↓
 检查 customerInfo.entitlements.active['pro']
   ↓
-存在 → 用户已解锁，可以继续使用
+存在 → 用户已解锁，可以继续使用自动隧道
 ```
 
 #### 恢复购买流程
@@ -119,7 +154,7 @@ SDK 返回 customerInfo（包含 entitlements）
   ↓
 检查 customerInfo.entitlements.active['pro']
   ↓
-存在 → 恢复成功，用户可以继续使用
+存在 → 恢复成功，用户可以继续使用自动隧道
   ↓
 不存在 → 提示"未找到购买记录"
 ```
@@ -127,10 +162,10 @@ SDK 返回 customerInfo（包含 entitlements）
 ### 4.2 状态流转
 
 用户付费状态：
-- **未试用**：用户尚未首次连接 msctl serve
-- **试用中**：用户在 7 天试用期内
-- **试用到期**：试用期已过，未购买
-- **已付费**：用户已购买买断
+- **未试用**：用户尚未首次连接自动隧道
+- **试用中**：用户在 14 天试用期内
+- **试用到期**：试用期已过，未购买（可使用自定义服务器）
+- **已付费**：用户已购买买断（可使用自动隧道）
 
 ---
 
@@ -146,20 +181,27 @@ RevenueCat 自动管理以下数据，无需自建数据库：
 - **Purchase History**：购买历史记录
 - **Subscription Status**：订阅状态（如果使用订阅制）
 
-#### mobile 本地存储（expo-sqlite，可选）
-
-如果需要在本地缓存试用开始时间：
+#### mobile 本地存储（expo-sqlite）
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
-| `trial_start_time` | Timestamp | 试用开始时间（缓存） |
+| `trial_start_time` | Timestamp | 试用开始时间（首次连接自动隧道时记录） |
+| `is_paid` | Boolean | 是否已付费（缓存 RevenueCat 状态） |
 | `last_checked_at` | Timestamp | 最后一次检查付费状态的时间 |
 
-**注意**：付费状态由 RevenueCat SDK 自动管理，无需手动缓存。
+**注意**：付费状态由 RevenueCat SDK 自动管理，本地仅缓存以减少网络请求。
 
-#### msctl serve 数据库（可选）
+#### Cloudflare Workers KV 存储（隧道地址状态服务）
 
-如果需要在 CLI 端查询付费状态，可以通过 RevenueCat Webhook 同步数据：
+| Key | Value | TTL | 说明 |
+|-----|-------|-----|------|
+| `tunnel:{user_token}` | `{ tunnel_url, updated_at }` | 30 分钟 | msctl 上报的隧道地址 |
+
+**注意**：msctl 每 5 分钟发送心跳更新 TTL，退出时自动清理。
+
+#### msctl serve 数据库（可选，未来升级）
+
+如果需要在 CLI 端查询付费状态（方案 C - 服务器端验证），可以通过 RevenueCat Webhook 同步数据：
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
@@ -170,6 +212,8 @@ RevenueCat 自动管理以下数据，无需自建数据库：
 | `purchase_time` | Timestamp | 购买时间 |
 | `created_at` | Timestamp | 创建时间 |
 | `updated_at` | Timestamp | 更新时间 |
+
+**注意**：MVP 阶段不需要此表，仅供未来升级参考。
 
 ### 5.2 RevenueCat SDK 集成
 
@@ -189,60 +233,87 @@ await Purchases.configure({
 ```typescript
 const offerings = await Purchases.getOfferings();
 const lifetimePackage = offerings.current?.lifetime;
-// lifetimePackage.product.priceString = "$19.99"
+// lifetimePackage.product.priceString = "$12.99"
 ```
 
 #### 购买
 ```typescript
-try {
-  const { customerInfo } = await Purchases.purchasePackage(lifetimePackage);
-  const isPro = customerInfo.entitlements.active['pro'] !== undefined;
-  if (isPro) {
-    // 用户已解锁
-  }
-} catch (error) {
-  if (error.userCancelled) {
-    // 用户取消购买
-  } else {
-    // 购买失败
-  }
+const { customerInfo } = await Purchases.purchasePackage(lifetimePackage);
+if (customerInfo.entitlements.active['pro']) {
+  // 用户已解锁
 }
 ```
 
 #### 恢复购买
 ```typescript
-try {
-  const customerInfo = await Purchases.restorePurchases();
-  const isPro = customerInfo.entitlements.active['pro'] !== undefined;
-  if (isPro) {
-    // 恢复成功
-  } else {
-    // 未找到购买记录
-  }
-} catch (error) {
-  // 恢复失败
+const { customerInfo } = await Purchases.restorePurchases();
+if (customerInfo.entitlements.active['pro']) {
+  // 恢复成功
 }
 ```
 
 #### 检查付费状态
 ```typescript
 const customerInfo = await Purchases.getCustomerInfo();
-const isPro = customerInfo.entitlements.active['pro'] !== undefined;
+const isPaid = customerInfo.entitlements.active['pro'] !== undefined;
 ```
 
-### 5.3 RevenueCat 配置
+### 5.3 Cloudflare Workers KV 状态服务 API
 
-#### 产品配置（在 RevenueCat Dashboard）
-- **Entitlement ID**: `pro`（权益标识）
-- **Product ID**: `com.multisoul.lifetime`（Apple IAP 产品 ID）
-- **Type**: Non-Consumable（买断）
-- **Price**: $19.99
+#### POST /tunnel — msctl 上报隧道地址
+```typescript
+// Request
+POST https://tunnel.multisoul.app/tunnel
+Content-Type: application/json
 
-#### Webhook（可选）
-RevenueCat 可以在购买事件发生时通知你的后端：
-- 事件类型：`INITIAL_PURCHASE`、`RENEWAL`、`CANCELLATION` 等
-- Webhook URL：`https://your-backend.com/webhooks/revenuecat`
-- 用途：同步付费状态到 msctl serve 数据库（可选）
+{
+  "user_token": "abc123...",
+  "tunnel_url": "https://xxx.trycloudflare.com"
+}
+
+// Response
+{
+  "status": "ok"
+}
+```
+
+#### GET /tunnel/:user_token — iOS App 获取隧道地址
+```typescript
+// Request
+GET https://tunnel.multisoul.app/tunnel/abc123...
+
+// Response (成功)
+{
+  "tunnel_url": "https://xxx.trycloudflare.com",
+  "status": "active",
+  "updated_at": "2026-05-28T10:30:00Z"
+}
+
+// Response (未找到)
+{
+  "status": "not_found",
+  "message": "msctl serve --relay not running"
+}
+```
+
+### 5.4 msctl Cloudflare Tunnel 集成
+
+#### 启动命令
+```bash
+# 启动自动隧道模式
+msctl serve --relay
+
+# 启动普通模式（需要自建内网穿透）
+msctl serve
+```
+
+#### 工作流程
+1. msctl 检查 cloudflared 是否存在，不存在则自动下载
+2. 启动 cloudflared 进程：`cloudflared tunnel --url http://localhost:3000`
+3. 解析 cloudflared 输出获取隧道 URL
+4. 上报隧道 URL 到 Cloudflare Workers KV
+5. 每 5 分钟发送心跳更新 TTL
+6. msctl 退出时清理状态（DELETE `/tunnel/:user_token`）
 
 ---
 
@@ -251,28 +322,62 @@ RevenueCat 可以在购买事件发生时通知你的后端：
 ### 6.1 整体架构
 
 ```
-┌─────────────────┐
-│  iOS App        │
-│  (React Native) │
-│                 │
-│  - 购买页面     │
-│  - 付费状态检查 │
-│  - 本地缓存     │
-└────────┬────────┘
-         │
-         │ HTTPS
-         │
-         ↓
-┌─────────────────┐
-│  RevenueCat     │
-│  (SaaS)         │
-│                 │
-│  - 收据验证     │
-│  - 付费状态管理 │
-│  - 用户管理     │
-│  - 分析面板     │
-└────────┬────────┘
-         │
+┌─────────────────────────────────────────────────────────────┐
+│                        iOS App (React Native)                │
+│                                                               │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────────┐  │
+│  │ 购买页面     │  │ 连接设置     │  │ 试用期管理       │  │
+│  │ PurchaseUI   │  │ ConnectionUI │  │ TrialManager     │  │
+│  └──────────────┘  └──────────────┘  └──────────────────┘  │
+│                                                               │
+│  ┌──────────────────────────────────────────────────────┐  │
+│  │ RevenueCat SDK (付费状态检查)                         │  │
+│  └──────────────────────────────────────────────────────┘  │
+│                                                               │
+│  ┌──────────────────────────────────────────────────────┐  │
+│  │ Tunnel Service (隧道地址获取)                         │  │
+│  └──────────────────────────────────────────────────────┘  │
+└───────────────┬─────────────────────────┬───────────────────┘
+                │                         │
+                │ HTTPS                   │ HTTPS
+                │                         │
+                ↓                         ↓
+┌───────────────────────┐   ┌─────────────────────────────┐
+│  RevenueCat (SaaS)    │   │ Cloudflare Workers KV       │
+│                       │   │ (隧道地址状态服务)           │
+│  - 收据验证           │   │                             │
+│  - 付费状态管理       │   │  - POST /tunnel (上报)      │
+│  - 用户管理           │   │  - GET /tunnel/:token (获取)│
+│  - 分析面板           │   │  - TTL 30 分钟自动清理      │
+└───────────────────────┘   └─────────────────────────────┘
+                                         ↑
+                                         │ HTTPS
+                                         │
+                            ┌────────────┴─────────────┐
+                            │  msctl serve --relay     │
+                            │                          │
+                            │  ┌────────────────────┐ │
+                            │  │ cloudflared        │ │
+                            │  │ (自动启动)         │ │
+                            │  └────────────────────┘ │
+                            │                          │
+                            │  - 建立隧道             │
+                            │  - 上报地址             │
+                            │  - 心跳保活             │
+                            └──────────────────────────┘
+```
+
+### 6.2 付费版 vs 免费版对比
+
+| 功能 | 付费版（试用期内或已购买） | 免费版（试用到期未购买） |
+|------|---------------------------|-------------------------|
+| 连接方式 | 自动隧道（msctl serve --relay） | 自定义服务器（需自建内网穿透） |
+| 配置复杂度 | 零配置，一键启动 | 需要配置 Tailscale/ngrok 等 |
+| msctl 启动命令 | `msctl serve --relay` | `msctl serve` + 内网穿透工具 |
+| iOS App 连接 | 自动获取隧道地址 | 手动输入自定义服务器地址 |
+| 核心功能 | 完整可用 | 完整可用 |
+| 试用期 | 14 天 | - |
+| 价格 | $12.99（买断） | 免费 |
          │ HTTPS
          │
          ↓
@@ -339,37 +444,54 @@ RevenueCat 可以在购买事件发生时通知你的后端：
 ### 7.1 购买页面
 
 #### 页面结构
-- **标题**：「MultiSoul Premium」
-- **副标题**：「解锁完整功能，支持开发者」
-- **价格展示**：「$19.99」（大字号，醒目）
+- **标题**：「Unlock MultiSoul」
+- **副标题**：「Auto tunnel without manual setup」
+- **价格展示**：「$12.99」（大字号，醒目）
 - **功能列表**：
-  - ✓ 无限制使用所有功能
+  - ✓ 自动隧道，零配置
   - ✓ 一次购买，永久使用
   - ✓ 支持跨设备恢复购买
-- **购买按钮**：「购买 $19.99」（橙色 #FF6B35，圆角 26px）
-- **恢复购买按钮**：「恢复购买」（次要按钮，灰色）
-- **试用提示**：「剩余 X 天试用」（试用期内显示）
+- **购买按钮**：「Purchase」（橙色 #FF6B35，圆角 26px）
+- **恢复购买按钮**：「Restore Purchase」（次要按钮，灰色）
+- **试用提示**：「X days remaining in trial」（试用期内显示）
 
 #### 交互行为
 - 点击购买按钮 → 调用 Apple IAP → 完成支付 → 验证收据 → 关闭购买页面
 - 点击恢复购买按钮 → 调用 Apple IAP → 获取历史购买 → 验证收据 → 关闭购买页面
 - 购买/恢复过程中显示 loading 状态
 
-### 7.2 试用期提示
+### 7.2 连接设置页面
 
+#### 连接方式选项
+- **Auto Tunnel**（自动隧道）
+  - 试用期内或已付费：显示为可选状态，默认选中
+  - 试用到期且未付费：显示为置灰状态 + 锁定图标 🔒
+  - 点击置灰选项时弹窗："Auto tunnel requires purchase"
+- **Custom Server**（自定义服务器）
+  - 所有用户都可以使用
+  - 输入框：输入自建内网穿透地址（如 Tailscale URL）
+  - 保存到本地配置
+
+#### 试用期倒计时
 - **位置**：设置页面顶部
-- **内容**：「试用剩余 X 天」（X ≤ 3 时显示橙色警告）
+- **内容**：
+  - 试用中：`Trial: X days remaining`
+  - 已付费：`Lifetime Access ✓`
+  - 试用到期：`Trial Expired - Purchase to use auto tunnel`
 - **点击行为**：跳转到购买页面
 
-### 7.3 到期后的锁定页面
+### 7.3 试用到期提示弹窗
 
-- **全屏遮罩**：半透明黑色背景
-- **中央卡片**：
-  - 标题：「试用期已结束」
-  - 描述：「感谢您试用 MultiSoul，购买后即可继续使用」
-  - 购买按钮：「购买 $19.99」
-  - 恢复购买按钮：「恢复购买」
-- **无法关闭**：用户必须购买或恢复购买才能继续使用
+- **触发时机**：
+  - App 启动时检测到试用到期且未付费
+  - 尝试使用自动隧道时检测到试用到期
+- **弹窗内容**：
+  - 标题：「Trial Expired」
+  - 描述：「Your 14-day trial has ended. Purchase to continue using auto tunnel, or set up manual connection.」
+  - 主按钮：「Purchase Now」（跳转到购买页面）
+  - 次要按钮：「Set Up Manual Connection」（跳转到设置页面）
+  - 底部链接：「Restore Purchase」
+- **可关闭**：用户可以关闭弹窗，稍后处理
 
 ---
 
@@ -392,23 +514,53 @@ RevenueCat 可以在购买事件发生时通知你的后端：
   - 允许用户重试
 
 #### 错误 3：恢复购买失败
-- **原因**：用户从未购买、网络问题
+- **原因**：用户未购买过、Apple 服务故障、网络问题
 - **处理**：
-  - 向用户显示提示：「未找到购买记录，请确认是否使用同一 Apple ID」
-  - 引导用户重新购买
+  - 未购买过：显示「未找到购买记录」
+  - 其他错误：显示「恢复失败，请稍后重试」
+  - 允许用户重试
+
+#### 错误 4：隧道地址获取超时
+- **原因**：msctl serve --relay 未启动、网络问题、Cloudflare Workers 故障
+- **处理**：
+  - 显示友好提示：「Waiting for msctl serve --relay to start...」
+  - 提供"刷新"按钮，手动重试
+  - 超时后提示：「Cannot connect to auto tunnel. Please check msctl status or use custom server.」
+
+#### 错误 5：cloudflared 启动失败
+- **原因**：cloudflared 未安装、网络问题、权限问题
+- **处理**：
+  - msctl 显示错误提示：「cloudflared not found. Installing...」
+  - 自动下载 cloudflared（如果不存在）
+  - 下载失败时提示用户手动安装：「Please install cloudflared: brew install cloudflared」
 
 ### 8.2 边界情况
 
 #### 情况 1：用户在试用期内购买
-- **处理**：立即更新付费状态，试用期提示消失
+- **处理**：立即更新付费状态，试用期提示消失，可以继续使用自动隧道
 
 #### 情况 2：用户在多台设备上使用
-- **处理**：使用 `original_transaction_id` 识别用户，自动同步付费状态
+- **处理**：使用 RevenueCat 的 `original_transaction_id` 识别用户，自动同步付费状态
 
 #### 情况 3：用户卸载并重新安装应用
-- **处理**：通过恢复购买功能恢复付费状态
+- **处理**：
+  - 试用期数据丢失（存储在本地）
+  - 用户可以通过"恢复购买"恢复付费状态
+  - 如果未购买，重新开始 14 天试用（这是预期行为，符合 Apple 审核要求）
 
-#### 情况 4：用户在离线环境下使用
+#### 情况 4：用户试用到期后选择免费版
+- **处理**：
+  - 自动隧道功能不可用
+  - 用户可以在设置中配置自定义服务器
+  - 核心功能完整可用（不强制付费）
+
+#### 情况 5：msctl serve --relay 和 msctl serve 同时运行
+- **处理**：
+  - 两者监听不同端口（或同一端口会冲突）
+  - iOS App 根据连接方式选择连接哪个
+  - 建议用户只运行一个实例
+
+#### 情况 6：用户在离线环境下使用
 - **处理**：
   - RevenueCat SDK 内置缓存机制，自动处理离线场景
   - 使用最后一次成功验证的付费状态
@@ -420,30 +572,34 @@ RevenueCat 可以在购买事件发生时通知你的后端：
 
 ### 9.1 性能与容量
 
-- **收据验证响应时间**：< 2 秒（P95）
-- **后台服务可用性**：> 99%
-- **数据库查询响应时间**：< 100ms
-- **预期用户量**：初期 < 1000 用户，后期可扩展到 10,000+
+- **隧道地址获取响应时间**：< 5 秒（轮询 10 秒间隔，最多 5 分钟）
+- **RevenueCat 付费状态检查**：< 2 秒（P95）
+- **Cloudflare Workers KV 可用性**：> 99.9%（Cloudflare SLA）
+- **cloudflared 隧道延迟**：< 100ms（取决于 Cloudflare 边缘节点）
+- **预期用户量**：初期 < 100 用户，后期可扩展到 1,000+
 
 ### 9.2 安全与权限
 
 - **收据验证**：RevenueCat 自动在服务端验证 Apple 收据，确保安全性
-- **数据传输**：RevenueCat SDK 使用 HTTPS 加密通信
+- **数据传输**：RevenueCat SDK 和 Cloudflare Workers 使用 HTTPS 加密通信
 - **收据存储**：RevenueCat 自动存储完整收据数据，用于审计和纠纷处理
 - **防刷单**：RevenueCat 通过 Apple 的 `original_transaction_id` 防止重复购买
 - **用户隐私**：RevenueCat 符合 GDPR 和 CCPA 要求，提供数据删除 API
+- **隧道安全**：Cloudflare Tunnel 使用 TLS 加密，无需暴露本地端口
 
 ### 9.3 可扩展性与可运维性
 
-- **水平扩展**：RevenueCat 自动处理扩展，无需担心性能问题
+- **水平扩展**：
+  - RevenueCat 自动处理扩展，无需担心性能问题
+  - Cloudflare Workers KV 自动扩展，支持全球分布
 - **监控与告警**：
   - RevenueCat Dashboard 提供实时监控（购买量、收入、转化率等）
+  - Cloudflare Workers 提供请求日志和错误监控
   - 可以设置 Webhook 接收购买事件通知
-  - 集成到自己的监控系统（可选）
 - **日志记录**：
   - RevenueCat 自动记录所有购买和验证事件
-  - 提供 REST API 查询历史数据
-  - 支持导出数据到 CSV/JSON
+  - Cloudflare Workers 提供请求日志（保留 24 小时）
+  - msctl 本地日志记录隧道启动和心跳状态
 
 ---
 
@@ -698,7 +854,10 @@ RevenueCat 可以在购买事件发生时通知你的后端：
 
 ---
 
-**文档版本**：v2.0（使用 RevenueCat）
+**文档版本**：v3.0（Cloudflare Tunnel 方案）
 **创建日期**：2026-05-24
-**最后更新**：2026-05-24
-**变更说明**：从自建 Node.js 后端方案改为使用 RevenueCat SaaS 平台
+**最后更新**：2026-05-28
+**变更说明**：
+- v1.0: 初始版本（自建 Node.js 后端）
+- v2.0: 改用 RevenueCat SaaS 平台
+- v3.0: 采用 Cloudflare Tunnel 实现自动隧道，试用期从 7 天改为 14 天，价格从 $19.99 改为 $12.99

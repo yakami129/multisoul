@@ -95,6 +95,8 @@ export default function ActivityTab() {
     setIsPullRefreshActive(true);
     try {
       await refreshFirstPage();
+      // After refresh, clear local read overrides since we have fresh server data
+      setReadOverrides({});
     } finally {
       setIsPullRefreshActive(false);
     }
@@ -146,10 +148,16 @@ export default function ActivityTab() {
       const conversationIds = new Set([item.conversationId]);
       setDoneRead(conversationIds, Date.now());
       if (endpoint) {
-        void markDoneActivityRead(endpoint, item.conversationId).catch(() => {
-          clearDoneReadOverrides(conversationIds);
-          return refetchActivity();
-        });
+        void markDoneActivityRead(endpoint, item.conversationId)
+          .then(() => {
+            // Success: clear local override since server now has the read state
+            clearDoneReadOverrides(conversationIds);
+          })
+          .catch(() => {
+            // Failure: revert local override and refresh
+            clearDoneReadOverrides(conversationIds);
+            return refetchActivity();
+          });
       }
     }
 
@@ -181,10 +189,16 @@ export default function ActivityTab() {
     endpoints
       .filter((endpoint) => unreadEndpointIds.has(endpoint.id))
       .forEach((endpoint) => {
-        void markAllDoneActivityRead(endpoint).catch(() => {
-          clearDoneReadOverrides(unreadConversationIdsByEndpoint.get(endpoint.id) ?? new Set());
-          return refetchActivity();
-        });
+        void markAllDoneActivityRead(endpoint)
+          .then(() => {
+            // Success: clear local overrides since server now has the read state
+            clearDoneReadOverrides(unreadConversationIdsByEndpoint.get(endpoint.id) ?? new Set());
+          })
+          .catch(() => {
+            // Failure: revert local overrides and refresh
+            clearDoneReadOverrides(unreadConversationIdsByEndpoint.get(endpoint.id) ?? new Set());
+            return refetchActivity();
+          });
       });
   };
 

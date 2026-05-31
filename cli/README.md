@@ -16,21 +16,28 @@ cargo test
 
 ## 安装命令（后台服务）
 
-推荐一键安装并启动后台服务：
+推荐用**稳定安装**的 `msctl` 管理后台服务（`cargo install --path .` 或 `npm i -g @yakami129/msctl`）。
+不要用 IDE 沙箱里的 `cargo run -- daemon install`——会把临时二进制路径写进 launchd，清理后服务会起不来。
+
+```bash
+msctl daemon quickstart
+```
+
+开发期若尚未全局安装，可用项目内二进制（路径稳定）：
 
 ```bash
 cd cli
-cargo run -- daemon quickstart
+./target/debug/msctl daemon quickstart
 ```
 
 常见安装场景：
 
 ```bash
 # 自定义 token / 端口 / tailnet
-cargo run -- daemon quickstart --token test --port 8765 --tailnet true
+msctl daemon quickstart --token test --port 8765 --tailnet true
 
 # 手动安装（已配置 token 时）
-cargo run -- daemon install --port 8765 --tailnet
+msctl daemon install --port 8765 --tailnet
 ```
 
 ## 使用命令示例
@@ -69,11 +76,11 @@ cargo run -- serve --token test --tailnet
 ### 4) 后台服务管理
 
 ```bash
-cargo run -- daemon status
-cargo run -- logs --source service -f
-cargo run -- daemon restart
-cargo run -- daemon stop
-cargo run -- daemon uninstall
+msctl daemon status
+msctl logs --source service -f
+msctl daemon restart
+msctl daemon stop
+msctl daemon uninstall
 ```
 
 ## 最小架构说明

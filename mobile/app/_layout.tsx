@@ -15,6 +15,7 @@ import { getNotificationNavTarget } from '../src/services/notificationNavigation
 import { registerPushTokenForEndpoints } from '../src/services/pushTokenService';
 import { useEndpointStore } from '../src/store/endpointStore';
 import { useInboxStore } from '../src/store/inboxStore';
+import { useSpecStore } from '../src/store/specStore';
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 2, staleTime: 10_000 } },
@@ -39,12 +40,14 @@ export default function RootLayout() {
   const endpoints = useEndpointStore((s) => s.endpoints);
   const loadInbox = useInboxStore((s) => s.load);
   const addInboxItem = useInboxStore((s) => s.addItem);
+  const loadSpecs = useSpecStore((s) => s.load);
 
   useEffect(() => {
     void (async () => {
       await initDb();
       await loadEndpoints();
       await loadInbox();
+      await loadSpecs();
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -106,6 +109,7 @@ export default function RootLayout() {
                 <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
                 <Stack.Screen name="agent/[id]" options={{ headerShown: false }} />
                 <Stack.Screen name="chat/[id]" options={{ headerShown: false }} />
+                <Stack.Screen name="spec/[id]" options={{ headerShown: false }} />
               </Stack>
             )}
           </QueryClientProvider>

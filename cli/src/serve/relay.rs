@@ -16,16 +16,17 @@ pub fn cloudflared_bin_path() -> PathBuf {
         .join(bin_name)
 }
 
-/// Returns cloudflared download URL for current platform
+/// Returns cloudflared download URL for current platform.
+/// macOS/Linux releases are `.tgz` archives; Windows ships a standalone `.exe`.
 pub fn cloudflared_download_url() -> &'static str {
     #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
-    return "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-darwin-arm64";
+    return "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-darwin-arm64.tgz";
     #[cfg(all(target_os = "macos", target_arch = "x86_64"))]
-    return "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-darwin-amd64";
+    return "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-darwin-amd64.tgz";
     #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
-    return "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64";
+    return "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.tgz";
     #[cfg(all(target_os = "linux", target_arch = "aarch64"))]
-    return "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-arm64";
+    return "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-arm64.tgz";
     #[cfg(all(target_os = "windows", target_arch = "x86_64"))]
     return "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.exe";
     #[cfg(all(target_os = "windows", target_arch = "aarch64"))]
@@ -77,12 +78,17 @@ pub async fn ensure_cloudflared() -> Result<PathBuf> {
         let bytes = resp
             .bytes()
             .context("failed to read cloudflared response body")?;
-        std::fs::write(&bin_path_clone, &bytes).with_context(|| {
-            format!(
-                "failed to write cloudflared to {}",
-                bin_path_clone.display()
-            )
-        })?;
+
+        if url_owned.ends_with(".tgz") {
+            extract_cloudflared_from_tgz(&bytes, &bin_path_clone)?;
+        } else {
+            std::fs::write(&bin_path_clone, &bytes).with_context(|| {
+                format!(
+                    "failed to write cloudflared to {}",
+                    bin_path_clone.display()
+                )
+            })?;
+        }
 
         #[cfg(unix)]
         {
@@ -98,6 +104,35 @@ pub async fn ensure_cloudflared() -> Result<PathBuf> {
 
     println!("cloudflared downloaded to {}", bin_path.display());
     Ok(bin_path)
+}
+
+fn extract_cloudflared_from_tgz(bytes: &[u8], dest: &PathBuf) -> Result<()> {
+    use std::io::Cursor;
+
+    let decoder = flate2::read::GzDecoder::new(Cursor::new(bytes));
+    let mut archive = tar::Archive::new(decoder);
+    let mut found = false;
+    for entry in archive
+        .entries()
+        .context("failed to read cloudflared archive")?
+    {
+        let mut entry = entry.context("failed to read cloudflared archive entry")?;
+        let path = entry
+            .path()
+            .context("invalid path in cloudflared archive")?;
+        if path.file_name().and_then(|n| n.to_str()) == Some("cloudflared") {
+            entry
+                .unpack(dest)
+                .with_context(|| format!("failed to extract cloudflared to {}", dest.display()))?;
+            found = true;
+            break;
+        }
+    }
+    anyhow::ensure!(
+        found,
+        "cloudflared binary not found inside downloaded archive"
+    );
+    Ok(())
 }
 
 /// Compiled once at first use — avoids recompiling regex on every stderr line.
@@ -146,6 +181,21 @@ async fn cleanup_tunnel(relay_url: &str, user_token: &str) {
     tracing::info!("relay_cleanup_done");
 }
 
+/// Waits until `msctl serve` is accepting TCP connections on the relay port.
+async fn wait_for_serve_port(port: u16) -> Result<()> {
+    let addr = format!("127.0.0.1:{}", port);
+    let deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(30);
+    loop {
+        if tokio::net::TcpStream::connect(&addr).await.is_ok() {
+            return Ok(());
+        }
+        if tokio::time::Instant::now() >= deadline {
+            anyhow::bail!("timed out waiting for msctl serve to listen on {}", addr);
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+    }
+}
+
 /// Main relay entry: launch cloudflared, parse URL, report KV, heartbeat, cleanup on exit.
 ///
 /// Fix: uses a shutdown channel so that when the tokio runtime drops (Ctrl+C / SIGTERM),
@@ -157,9 +207,10 @@ pub async fn run_relay(relay_url: String, user_token: String, port: u16) -> Resu
 
     tracing::info!(port = port, "starting_cloudflared");
     println!("Starting Cloudflare Tunnel for port {}...", port);
+    wait_for_serve_port(port).await?;
 
     let mut child = tokio::process::Command::new(&bin)
-        .args(["tunnel", "--url", &format!("http://localhost:{}", port)])
+        .args(["tunnel", "--url", &format!("http://127.0.0.1:{}", port)])
         .stderr(std::process::Stdio::piped())
         .stdout(std::process::Stdio::null())
         .kill_on_drop(true) // Fix: ensures child is killed when the future is dropped
@@ -169,22 +220,38 @@ pub async fn run_relay(relay_url: String, user_token: String, port: u16) -> Resu
     let stderr = child.stderr.take().context("no stderr from cloudflared")?;
     let mut reader = BufReader::new(stderr).lines();
 
-    let tunnel_url = tokio::time::timeout(std::time::Duration::from_secs(60), async {
+    let (url_tx, url_rx) = tokio::sync::oneshot::channel();
+
+    // Drain stderr from the start so cloudflared never blocks while we report to KV.
+    tokio::spawn(async move {
+        let mut url_tx = Some(url_tx);
         while let Ok(Some(line)) = reader.next_line().await {
             tracing::debug!(line = %line, "cloudflared_stderr");
             if let Some(url) = parse_tunnel_url(&line) {
-                return Ok::<String, anyhow::Error>(url);
+                if let Some(tx) = url_tx.take() {
+                    let _ = tx.send(url);
+                }
             }
         }
-        anyhow::bail!("cloudflared exited before providing tunnel URL")
-    })
-    .await
-    .context("timed out waiting for cloudflared tunnel URL")??;
+    });
+
+    let tunnel_url = tokio::time::timeout(std::time::Duration::from_secs(60), url_rx)
+        .await
+        .context("timed out waiting for cloudflared tunnel URL")?
+        .map_err(|_| anyhow::anyhow!("cloudflared exited before providing tunnel URL"))?;
 
     println!("Cloudflare Tunnel ready: {}", tunnel_url);
     tracing::info!(tunnel_url = %tunnel_url, "relay_tunnel_ready");
 
-    report_tunnel(&relay_url, &user_token, &tunnel_url).await?;
+    if let Err(e) = report_tunnel(&relay_url, &user_token, &tunnel_url).await {
+        tracing::warn!(err = %e, "relay_kv_report_failed");
+        eprintln!(
+            "[warn] Could not register tunnel with relay service ({}). \
+             The tunnel URL above still works for manual pairing; \
+             Auto Tunnel in the app requires a working --relay-url.",
+            e
+        );
+    }
 
     // Heartbeat: refresh KV TTL every 5 minutes.
     // Fix: store JoinHandle so we can abort it after child exits.
@@ -205,7 +272,13 @@ pub async fn run_relay(relay_url: String, user_token: String, port: u16) -> Resu
     });
 
     // Wait for cloudflared to exit (or be killed via kill_on_drop when runtime drops)
-    let _ = child.wait().await;
+    let status = child
+        .wait()
+        .await
+        .context("failed to wait for cloudflared")?;
+    if !status.success() {
+        tracing::warn!(?status, "cloudflared_exited");
+    }
 
     // Fix: stop heartbeat before cleanup so it doesn't re-post after we delete
     heartbeat.abort();
@@ -238,6 +311,12 @@ mod tests {
             url
         );
         assert!(!url.is_empty(), "download URL must not be empty");
+        #[cfg(any(target_os = "macos", target_os = "linux"))]
+        assert!(
+            url.ends_with(".tgz"),
+            "macOS/Linux should download .tgz archive, got: {}",
+            url
+        );
     }
 
     #[test]

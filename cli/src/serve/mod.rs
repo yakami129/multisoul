@@ -1,3 +1,5 @@
+pub mod answer_markdown;
+pub mod ask_question;
 pub mod auth;
 pub mod daemon;
 pub mod interactive;
@@ -44,6 +46,10 @@ pub async fn build_router(state: AppState) -> Router {
         )
         .route("/api/v1/agents", axum::routing::get(agents::list_agents))
         .route(
+            "/api/v1/ask-question",
+            axum::routing::post(ask_question::post_ask_question),
+        )
+        .route(
             "/api/v1/runtime-models",
             axum::routing::get(runtime_models::list_runtime_models),
         )
@@ -53,6 +59,10 @@ pub async fn build_router(state: AppState) -> Router {
             "/api/v1/agents/:id/conversations",
             axum::routing::get(conversations::list_conversations)
                 .post(conversations::create_conversation),
+        )
+        .route(
+            "/api/v1/agents/:id/specs/dispatch",
+            axum::routing::post(specs::dispatch_spec),
         )
         .route(
             "/api/v1/conversations/:id",
