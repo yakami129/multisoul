@@ -16,7 +16,7 @@
       "icon": "./assets/ios-icon.png",
       "supportsTablet": true,
       "bundleIdentifier": "com.yakami0129.multisoul",
-      "buildNumber": "74",
+      "buildNumber": "75",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSPhotoLibraryUsageDescription": "MultiSoul needs photo library access to attach images to your agent messages.",
