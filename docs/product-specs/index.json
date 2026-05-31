@@ -47,6 +47,10 @@
       "title": "CLI Logs 可见性 SPEC"
     },
     {
+      "file": "SPEC-cli-question-card-push.md",
+      "title": "CLI Question Card Push 统一实现 SPEC"
+    },
+    {
       "file": "SPEC-github-actions-cicd.md",
       "title": "GitHub Actions CI/CD SPEC"
     },

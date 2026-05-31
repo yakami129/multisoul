@@ -10,7 +10,7 @@ use tempfile::tempdir;
 ///   messages before     = 0 rows
 ///
 /// 执行过程（逐步说明系统如何处理）：
-///   1. 调用 stream::record_ask_question 写入 ask_question
+///   1. 调用 crate::serve::ask_question::record_ask_question 写入 ask_question
 ///   2. record_ask_question 调用 insert_message，seq 从 0 + 1 = 1
 ///   3. 同一 DB transaction path 更新 conversations.status 为 awaiting_question
 ///
@@ -28,7 +28,7 @@ fn record_ask_question_marks_conversation_awaiting_question() {
         "allow_freeform": false
     });
 
-    stream::record_ask_question(&state, "conv-ask", payload);
+    crate::serve::ask_question::record_ask_question(&state, "conv-ask", payload);
 
     let db = state.db.lock().unwrap();
     let status: String = db
@@ -104,7 +104,7 @@ fn record_ask_question_registers_pending_before_client_can_answer() {
         "allow_freeform": false
     });
 
-    stream::record_ask_question(&state, "conv-ask", payload);
+    crate::serve::ask_question::record_ask_question(&state, "conv-ask", payload);
 
     let send_result = state.send_answer(
         "conv-ask",

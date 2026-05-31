@@ -1,6 +1,7 @@
 pub mod agent;
 pub mod agent_plugin;
 pub(crate) mod agent_quick_register;
+pub mod ask_question;
 pub mod auth;
 pub mod daemon;
 pub mod inject;

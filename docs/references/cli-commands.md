@@ -15,6 +15,7 @@ msctl <COMMAND>
 | `auth` | 认证管理 |
 | `agent` | Agent 注册与管理 |
 | `serve` | 启动本地 HTTP/WS 服务器 |
+| `ask-question` | Push a structured question card to mobile through `msctl serve` |
 | `daemon` | 后台服务管理 |
 | `logs` | 查看 app/service 日志 |
 
@@ -116,6 +117,39 @@ tailscale funnel --https=443 8765
 | `level` | `trace` | 最低日志级别：`trace` / `debug` / `info` / `warn` / `error` |
 
 每个 WebSocket message 都是一行格式化文本，格式与 `msctl logs` 默认输出一致，包含 app 与 service 来源前缀，不是 JSON/NDJSON。
+
+## `msctl ask-question`
+
+Source: `cli/src/commands/ask_question.rs`
+
+Pushes a structured question card to the paired MultiSoul mobile app through a running `msctl serve` process. The command only submits the question and returns `pending`; runtimes that need to block should call the answer API after this command returns.
+
+| 参数 | 默认值 | 说明 |
+|------|--------|------|
+| `--ask-id <ID>` | 必填 | Runtime tool call/question id; also used as the answer lookup key |
+| `--questions <JSON>` | 必填 | Structured question array JSON, including question ids, text, options, and `multi_select` |
+| `--conversation-id <ID>` | 必填 | Conversation that should receive the question card |
+| `--output <text\|json>` | `json` | Output format; JSON includes the submitted `ask_id` and `pending` status |
+| `--token <TOKEN>` | saved auth token | Bearer token for the running `msctl serve` process |
+| `--port <PORT>` | saved config port, else `8765` | Local `msctl serve` port |
+| `--host <HOST>` | `127.0.0.1` | Host for the local `msctl serve` process |
+
+Submit a question card and return immediately:
+
+```bash
+msctl ask-question \
+  --ask-id "call_123" \
+  --conversation-id "conv_456" \
+  --questions '[{"id":"0","text":"选择方案","options":[{"id":"0","label":"A"},{"id":"1","label":"B"}],"multi_select":false}]' \
+  --output json
+```
+
+Runtime integrations that need to block can wait for the answer after the command returns:
+
+```bash
+curl -X GET "http://localhost:8765/api/v1/answer/call_123?conversation_id=conv_456&timeout=600" \
+  -H "Authorization: Bearer <token>"
+```
 
 ---
 

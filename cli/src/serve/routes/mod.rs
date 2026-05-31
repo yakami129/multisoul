@@ -1,5 +1,12 @@
 pub mod activity;
 pub mod agents;
+pub mod ask_question;
+#[cfg(test)]
+mod ask_question_fast_tests;
+#[cfg(test)]
+mod ask_question_isolation_tests;
+#[cfg(test)]
+mod ask_question_tests;
 pub mod conversations;
 pub mod files;
 pub mod healthz;

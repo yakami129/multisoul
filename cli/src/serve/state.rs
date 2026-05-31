@@ -183,6 +183,10 @@ pub struct AnswerChannel {
 }
 
 pub type AnswerMap = Arc<Mutex<HashMap<String, AnswerChannel>>>;
+pub type StoredAnswerSenderMap =
+    Arc<Mutex<HashMap<String, std::sync::mpsc::SyncSender<AnswerPayload>>>>;
+pub type StoredAnswerReceiverMap =
+    Arc<Mutex<HashMap<String, std::sync::mpsc::Receiver<AnswerPayload>>>>;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum AnswerSendResult {
@@ -193,6 +197,13 @@ pub enum AnswerSendResult {
     ChannelUnavailable,
 }
 
+#[derive(Debug, PartialEq, Eq)]
+pub enum StoredAnswerCreateResult {
+    Created,
+    AlreadyPendingHttp,
+    OwnedByRuntime,
+}
+
 #[derive(Clone)]
 pub struct AppState {
     pub db: Arc<Mutex<Connection>>,
@@ -201,6 +212,8 @@ pub struct AppState {
     pub bus: ConvBus,
     pub sessions: SessionMap,
     pub answer_txs: AnswerMap,
+    pub stored_answer_txs: StoredAnswerSenderMap,
+    pub stored_answer_rxs: StoredAnswerReceiverMap,
     pub plugin_manager: Arc<PluginManager>,
 }
 
@@ -218,6 +231,8 @@ impl AppState {
             bus: Arc::new(Mutex::new(HashMap::new())),
             sessions: Arc::new(Mutex::new(HashMap::new())),
             answer_txs: Arc::new(Mutex::new(HashMap::new())),
+            stored_answer_txs: Arc::new(Mutex::new(HashMap::new())),
+            stored_answer_rxs: Arc::new(Mutex::new(HashMap::new())),
             plugin_manager,
         }
     }
@@ -244,9 +259,60 @@ impl AppState {
         rx
     }
 
+    /// Create an answer channel whose receiver can be claimed later by HTTP GET /answer.
+    pub fn create_stored_answer_channel(
+        &self,
+        conv_id: &str,
+        ask_id: &str,
+    ) -> StoredAnswerCreateResult {
+        let (tx, rx) = std::sync::mpsc::sync_channel(1);
+        let key = answer_receiver_key(conv_id, ask_id);
+        let answer_txs = self.answer_txs.lock().unwrap();
+        if answer_txs
+            .get(conv_id)
+            .and_then(|channel| channel.pending_ask_id.as_deref())
+            == Some(ask_id)
+        {
+            return StoredAnswerCreateResult::OwnedByRuntime;
+        }
+        let mut txs = self.stored_answer_txs.lock().unwrap();
+        let mut rxs = self.stored_answer_rxs.lock().unwrap();
+        if txs.contains_key(&key) || rxs.contains_key(&key) {
+            return StoredAnswerCreateResult::AlreadyPendingHttp;
+        }
+        txs.insert(key.clone(), tx);
+        rxs.insert(key, rx);
+        StoredAnswerCreateResult::Created
+    }
+
+    pub fn take_stored_answer_receiver(
+        &self,
+        conv_id: &str,
+        ask_id: &str,
+    ) -> Option<std::sync::mpsc::Receiver<AnswerPayload>> {
+        self.stored_answer_rxs
+            .lock()
+            .unwrap()
+            .remove(&answer_receiver_key(conv_id, ask_id))
+    }
+
+    pub fn remove_stored_answer_channel(&self, conv_id: &str, ask_id: &str) {
+        self.stored_answer_txs
+            .lock()
+            .unwrap()
+            .remove(&answer_receiver_key(conv_id, ask_id));
+        self.stored_answer_rxs
+            .lock()
+            .unwrap()
+            .remove(&answer_receiver_key(conv_id, ask_id));
+    }
+
     pub fn begin_waiting_answer(&self, conv_id: &str, ask_id: &str) {
         let mut txs = self.answer_txs.lock().unwrap();
         if let Some(channel) = txs.get_mut(conv_id) {
+            let key = answer_receiver_key(conv_id, ask_id);
+            self.stored_answer_txs.lock().unwrap().remove(&key);
+            self.stored_answer_rxs.lock().unwrap().remove(&key);
             channel.pending_ask_id = Some(ask_id.to_string());
         }
     }
@@ -264,6 +330,39 @@ impl AppState {
     /// Returns a structured status so callers can avoid marking stale answers as delivered.
     pub fn send_answer(&self, conv_id: &str, answer: AnswerPayload) -> AnswerSendResult {
         let txs = self.answer_txs.lock().unwrap();
+        if let Some(channel) = txs.get(conv_id) {
+            if channel.pending_ask_id.as_deref() == Some(answer._ask_id.as_str()) {
+                return match channel.tx.try_send(answer) {
+                    Ok(()) => AnswerSendResult::Accepted,
+                    Err(e) => {
+                        warn!(
+                            conv_id = %conv_id,
+                            reason = ?e,
+                            "answer_send_failed"
+                        );
+                        AnswerSendResult::ChannelUnavailable
+                    }
+                };
+            }
+        }
+
+        let ask_id = answer._ask_id.clone();
+        let stored_txs = self.stored_answer_txs.lock().unwrap();
+        let key = answer_receiver_key(conv_id, &ask_id);
+        if let Some(tx) = stored_txs.get(&key) {
+            return match tx.try_send(answer) {
+                Ok(()) => AnswerSendResult::Accepted,
+                Err(e) => {
+                    warn!(
+                        conv_id = %conv_id,
+                        reason = ?e,
+                        "stored_answer_send_failed"
+                    );
+                    AnswerSendResult::ChannelUnavailable
+                }
+            };
+        }
+
         match txs.get(conv_id) {
             None => {
                 let registered: Vec<String> = txs.keys().cloned().collect();
@@ -276,36 +375,26 @@ impl AppState {
             }
             Some(channel) => {
                 let Some(expected) = channel.pending_ask_id.as_deref() else {
-                    warn!(conv_id = %conv_id, ask_id = %answer._ask_id, "answer_no_pending_ask");
+                    warn!(conv_id = %conv_id, ask_id = %ask_id, "answer_no_pending_ask");
                     return AnswerSendResult::NoPendingAsk;
                 };
-                if expected != answer._ask_id {
-                    warn!(
-                        conv_id = %conv_id,
-                        expected = %expected,
-                        actual = %answer._ask_id,
-                        "answer_ask_mismatch"
-                    );
-                    return AnswerSendResult::AskMismatch {
-                        expected: expected.to_string(),
-                        actual: answer._ask_id,
-                    };
-                }
-
-                match channel.tx.try_send(answer) {
-                    Ok(()) => AnswerSendResult::Accepted,
-                    Err(e) => {
-                        warn!(
-                            conv_id = %conv_id,
-                            reason = ?e,
-                            "answer_send_failed"
-                        );
-                        AnswerSendResult::ChannelUnavailable
-                    }
+                warn!(
+                    conv_id = %conv_id,
+                    expected = %expected,
+                    actual = %ask_id,
+                    "answer_ask_mismatch"
+                );
+                AnswerSendResult::AskMismatch {
+                    expected: expected.to_string(),
+                    actual: ask_id,
                 }
             }
         }
     }
+}
+
+fn answer_receiver_key(conv_id: &str, ask_id: &str) -> String {
+    format!("{conv_id}\n{ask_id}")
 }
 
 #[cfg(test)]

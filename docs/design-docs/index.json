@@ -32,7 +32,7 @@
         },
         {
           "path": "cli/src/serve/state.rs",
-          "sha256": "9010536dd28ffe10cb8db3b9399ab13b813eb636e6626603dee7c4a65cbae80d",
+          "sha256": "49392840f7055fa1618d28b5d9723d23a48d05d49319ab71c4d38e22d34ed180",
           "reason": "AppState、SessionMessage 与 runtime worker 通信结构由文档核心数据结构章节引用。"
         },
         {
@@ -94,7 +94,7 @@
         },
         {
           "path": "cli/src/serve/runtime/claude/stream.rs",
-          "sha256": "7d59bd134adfacb967d7f7be7b87fe144bb374e7e2984736427bdb0911d2b0de",
+          "sha256": "bf5bcfba4f5902690e2bb015e740c6e7841e0a0438e5a6dff82ea0e6da559045",
           "reason": "Claude AskUserQuestion 触发问答推送的时机由本文档定义。"
         },
         {

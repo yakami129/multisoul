@@ -404,6 +404,8 @@ Codex 使用 `codex exec` / `codex exec resume <thread_id>` 命令；`full-auto`
 > **2026-05-26（codex model + reasoning effort）**：Codex builtin 模型更新为 `gpt-5.5` / `gpt-5.4-mini`（符合 OpenAI 官方命名）。Codex adapter 支持复合 ID `model:effort`（如 `gpt-5.5:high`），`build_codex_args` 通过 `split_model_effort()` 拆分后分别传递 `--model gpt-5.5` 和 `-c model_reasoning_effort=high`。Claude 模型更新为 `claude-sonnet-4-6` / `claude-opus-4-6`。正文架构描述不变——模型参数传递机制与 §Step 4 / §Codex adapter 一致。
 >
 > **2026-05-26（runtime directory restructure）**：`cli/src/serve/runtime/` 扁平文件迁移至子目录：`claude/`、`codex/`、`cursor/`。各 adapter 主逻辑入口为 `<runtime>/mod.rs`，内部子模块去掉冗余前缀（`claude_stream.rs` → `claude/stream.rs`、`codex_turn.rs` → `codex/turn.rs` 等）。所有 `#[path = "..."]` 指令替换为标准 Rust 子模块约定。文档中引用路径同步更新。
+>
+> **2026-05-31（cli question-card push）**：`AppState` 新增 `stored_answer_txs` / `stored_answer_rxs` 与 `create_stored_answer_channel`、`take_stored_answer_receiver`、`remove_stored_answer_channel`，供 `GET /api/v1/conversations/:id/ask-questions/:ask_id/answer` 长轮询在 runtime 尚未登记 `pending_ask_id` 时暂存 answer channel。`send_answer` 先匹配 runtime `AnswerChannel`，再匹配 stored channel。`record_ask_question` 从 `claude/stream.rs` 抽到 `serve/ask_question.rs`，runtime 与 HTTP dispatch 共用；§3.1 架构职责不变。
 
 完成实现后，按 `CLAUDE.md §5` 跑：
 

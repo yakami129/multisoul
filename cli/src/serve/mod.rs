@@ -1,3 +1,4 @@
+pub mod ask_question;
 pub mod auth;
 pub mod daemon;
 pub mod interactive;
@@ -9,6 +10,8 @@ pub mod relay;
 pub mod routes;
 pub mod runtime;
 pub mod state;
+#[cfg(test)]
+mod state_tests;
 
 use anyhow::Result;
 use axum::{middleware, Router};
@@ -43,6 +46,14 @@ pub async fn build_router(state: AppState) -> Router {
             axum::routing::post(activity::mark_done_read),
         )
         .route("/api/v1/agents", axum::routing::get(agents::list_agents))
+        .route(
+            "/api/v1/ask-question",
+            axum::routing::post(ask_question::post_ask_question),
+        )
+        .route(
+            "/api/v1/answer/:ask_id",
+            axum::routing::get(ask_question::get_answer),
+        )
         .route(
             "/api/v1/runtime-models",
             axum::routing::get(runtime_models::list_runtime_models),

@@ -3,6 +3,10 @@
   "version": 1,
   "documents": [
     {
+      "file": "2026-05-31-cli-question-card-push.md",
+      "title": "CLI Question Card Push Implementation Plan"
+    },
+    {
       "file": "2026-05-29-ios-payment.md",
       "title": "iOS 付费机制 Implementation Plan (Phase 2)"
     },
