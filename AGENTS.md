@@ -34,7 +34,7 @@ Monorepo 两大件：
 - 不要碰 `~/.config/msctl/*` —— 用户本地数据
 - DB schema 改动走 migration —— 不允许运行时 `CREATE TABLE`
 - REST/WS 强制 Bearer auth —— 唯一例外 `GET /api/v1/healthz`
-- 决策用 `AskUserQuestion` 工具调用 —— 不在自由文本问选择题
+- 结构化决策见 §7 **Ask User Question** —— 禁止自由文本列选项或让用户打字回答
 - **CI 未通过禁止合并 PR** —— 强约束，见 [`docs/runbooks/github-pr-merge-policy.md`](docs/runbooks/github-pr-merge-policy.md)
 - 同一用户流程只保留一个权威实现 —— 详见 [`CLAUDE.md`](CLAUDE.md) §2/§7
 
@@ -92,11 +92,8 @@ pnpm test -- --watchAll=false        # 单跑测试
 cd cli && cargo build
 cargo test
 cargo run -- serve                   # 启动本地 HTTP/WS
-# Runtime 推送 AskUserQuestion 卡片
-cargo run -- ask-question \
-  --conversation-id "$CONV_ID" \
-  --questions '[{"id":"0","text":"选择方案","options":[{"id":"0","label":"A"},{"id":"1","label":"B"}],"multi_select":false}]' \
-  --output json                      # --ask-id 可省略，自动生成 UUID；返回 pending
+# Runtime 推送问答卡片（详见 §7；示例见 `msctl ask-question -h`）
+cargo run -- ask-question --conversation-id "$CONV_ID" --questions '[...]' --output json
 
 # 本地 iOS（本机 Xcode；一条命令即可，脚本内含依赖与构建；详见 mobile/docs/ios-publish.md）
 cd mobile && ./scripts/publish-ios-local.sh
@@ -107,7 +104,17 @@ cd mobile && ./scripts/publish-ios.sh
 
 ## 7. 给 Agent 的协作约定
 
-- 用户场景常常 **不便打字**。涉及决策（方案选择、是否继续、风险权衡）一律用 `AskUserQuestion` 工具给 2-5 个结构化选项，**不要让用户敲字回答**
+### Ask User Question (`msctl ask-question`)
+
+**MANDATORY**
+
+- For structured decisions (approach, continue/stop, risk trade-offs, etc.), **prefer** the `AskUserQuestion` tool when available.
+- **If the current runtime does not expose `AskUserQuestion`, you MUST call `msctl ask-question` to push a question card to iOS.** Never list options in free text or ask the user to type an answer.
+- After pushing, continue other work. Do not poll; iOS answers are injected into the same conversation automatically.
+
+Run `msctl ask-question -h` for flags, JSON shape, and copy-paste examples.
+
+- 用户场景常常 **不便打字**。涉及决策一律按上文 MANDATORY 执行；有 `AskUserQuestion` 时用该工具给 2-5 个结构化选项，**不要让用户敲字回答**
 - 行动前先检索本地文件，不要凭记忆回答
 - 修改代码后必须按 §5 跑验证；引入了 lint error **必须修根本原因，禁止用 `#[allow]` / `// eslint-disable` / `@ts-ignore` 抑制**
 - **文档落盘**：产品 / 功能规格（要做什么、验收）→ **只** [`docs/product-specs/`](docs/product-specs/)（`YYYY-MM-DD-SPEC-<feature>.md`）；实施 / 执行计划 → **只** [`docs/exec-plans/`](docs/exec-plans/)（`YYYY-MM-DD-<feature>.md`）；设计权衡 → `docs/design-docs/YYYY-MM-DD-<feature>-design.md`（命名见 [`docs/design-docs/README.md`](docs/design-docs/README.md)）。**勿**在 [`docs/specs/`](docs/specs/)、[`docs/superpowers/`](docs/superpowers/) 新增权威内容。**Superpowers skills**（`writing-plans`、`executing-plans`、`brainstorming` 等）在本仓库写规格或计划时**必须**使用上述 canonical 路径 · [`docs/superpowers/README.md`](docs/superpowers/README.md)
