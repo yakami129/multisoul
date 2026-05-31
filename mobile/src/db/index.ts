@@ -41,6 +41,28 @@ export async function initDb(): Promise<SQLite.SQLiteDatabase> {
       choice_id       TEXT,
       choice_ids      TEXT
     );
+    CREATE TABLE IF NOT EXISTS specs (
+      id                      TEXT PRIMARY KEY,
+      title                   TEXT NOT NULL,
+      slug                    TEXT NOT NULL,
+      status                  TEXT NOT NULL,
+      target_agent_id         TEXT NOT NULL,
+      target_endpoint_id      TEXT NOT NULL,
+      target_repo_path        TEXT NOT NULL,
+      target_agent_name       TEXT NOT NULL,
+      target_runtime          TEXT NOT NULL,
+      questions_json          TEXT NOT NULL,
+      answers_json            TEXT NOT NULL,
+      markdown_preview        TEXT,
+      repo_spec_path          TEXT,
+      linked_conversation_id  TEXT,
+      linked_activity_item_id TEXT,
+      error_message           TEXT,
+      created_at              INTEGER NOT NULL,
+      updated_at              INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_specs_status_updated
+      ON specs(status, updated_at DESC);
   `);
   // Migrate: add choice columns if upgrading from an older schema
   await _db

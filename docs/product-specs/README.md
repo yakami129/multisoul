@@ -11,7 +11,7 @@
 ## 命名约定
 
 - 总规格：`SPEC.md`
-- 单 feature：`SPEC-<kebab-case-feature>.md`，例如 `SPEC-list-refresh.md`
+- 单 feature：新规格优先使用 `YYYY-MM-DD-SPEC-<kebab-case-feature>.md`；历史规格保留 `SPEC-<kebab-case-feature>.md`
 - **目录清单（机器可读）**：[`index.json`](index.json) + [`index.schema.json`](index.schema.json) —— 新增/重命名规格文件后必须更新 `index.json`；[`scripts/check-docs-indices.py`](../../scripts/check-docs-indices.py) 与 CI 会校验磁盘与清单双射（注册见 [`scripts/docs-indices.json`](../../scripts/docs-indices.json)）
 
 **Superpowers**（如 `writing-plans`）产出的「规格 / PRD / 要做什么」**必须**写入本目录上述命名，**不得**默认写入 `docs/specs/` 或 `docs/superpowers/specs/`。规约总述：[`../superpowers/README.md`](../superpowers/README.md)。

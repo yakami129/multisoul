@@ -55,6 +55,10 @@ pub async fn build_router(state: AppState) -> Router {
                 .post(conversations::create_conversation),
         )
         .route(
+            "/api/v1/agents/:id/specs/dispatch",
+            axum::routing::post(specs::dispatch_spec),
+        )
+        .route(
             "/api/v1/conversations/:id",
             axum::routing::delete(conversations::delete_conversation),
         )
