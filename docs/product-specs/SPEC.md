@@ -326,9 +326,17 @@ tailscale funnel --https=443 8765        # 转发公网 443 HTTPS 到本机默�
 msctl serve                              # 监听 127.0.0.1:8765(仅本机)
 msctl serve --tailnet                    # 监听 tailnet 接口(仅 tailnet 内可达)
 msctl serve --funnel                     # 自动调 `tailscale funnel` 开 443 公网(推荐)
+msctl serve --relay                      # 自动启动 Cloudflare Tunnel，上报到 Workers KV
 msctl serve --token <bearer>             # 指定 token(默认随机生成并打印)
 msctl serve --port 8765
 ```
+
+**`--relay` 模式说明**：
+- 自动下载 `cloudflared` 二进制（缓存于 `~/.config/msctl/cloudflared`）
+- 启动 Cloudflare Tunnel，获得临时公网 URL（如 `https://abc-def-ghi.trycloudflare.com`）
+- 每 30 秒上报 tunnel URL 到 Cloudflare Workers KV
+- 移动端在 Settings 中选择 "Auto Tunnel" 模式，输入 Bearer token，应用轮询 KV 直到获得 tunnel URL
+- 详见 `docs/design-docs/2026-05-29-cloudflare-tunnel-relay-design.md`
 
 ### 7.3 移除的命令
 - `msctl daemon start/stop/status` —— 旧版 daemon 概念被 `msctl serve` 取代

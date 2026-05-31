@@ -27,6 +27,17 @@ pub struct ServeArgs {
     /// Bind to 0.0.0.0 instead of localhost
     #[arg(long)]
     pub tailnet: bool,
+
+    /// Enable Cloudflare Tunnel relay (auto-downloads cloudflared)
+    #[arg(long)]
+    pub relay: bool,
+
+    /// Cloudflare Workers KV service URL for relay
+    #[arg(
+        long,
+        default_value = "https://multisoul-tunnel.berrymeryl6.workers.dev"
+    )]
+    pub relay_url: String,
 }
 
 pub fn generate_token() -> String {
@@ -87,6 +98,19 @@ pub async fn handle(args: ServeArgs) -> Result<()> {
     println!("Bearer token: {}", token);
     println!();
     print_qr(&token, &base_url);
+
+    if args.relay {
+        let relay_url = args.relay_url.clone();
+        let token_for_relay = token.clone();
+        let port_for_relay = args.port;
+        tokio::spawn(async move {
+            if let Err(e) =
+                crate::serve::relay::run_relay(relay_url, token_for_relay, port_for_relay).await
+            {
+                tracing::error!(err = %e, "relay_failed");
+            }
+        });
+    }
 
     run_server(state, bind_addr).await
 }

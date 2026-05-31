@@ -12,7 +12,13 @@ interface SettingsState {
 }
 
 export const useSettingsStore = create<SettingsState>((set) => ({
-  settings: { serverUrl: 'http://localhost:8080', apiKey: '' },
+  settings: {
+    serverUrl: 'http://localhost:8080',
+    apiKey: '',
+    connectionMode: 'custom',
+    relayToken: '',
+    relayWorkerUrl: 'https://multisoul-tunnel.PLACEHOLDER.workers.dev',
+  },
   load: async () => {
     const settings = await loadSettings();
     set({ settings });

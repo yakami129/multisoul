@@ -3,6 +3,10 @@
   "version": 1,
   "documents": [
     {
+      "file": "2026-05-29-cloudflare-tunnel-relay-design.md",
+      "title": "Cloudflare Tunnel Relay 设计（Auto Tunnel 模式）"
+    },
+    {
       "file": "2026-05-11-bugfix-bot-design.md",
       "title": "bugfix-bot Plugin Agent 技术设计"
     },
