@@ -1,7 +1,7 @@
 use crate::db::now_ms;
 use crate::serve::{push, state::AppState};
 use serde_json::Value;
-use tracing::debug;
+use tracing::{debug, info};
 use uuid::Uuid;
 
 pub fn record_ask_question(state: &AppState, conv_id: &str, payload: Value) -> bool {
@@ -35,6 +35,13 @@ fn record_ask_question_with_runtime_waiter(
         push::send_ask_question_push(&db, conv_id, &payload);
         drop(db);
         broadcast(state, conv_id, seq, "ask_question", payload);
+        info!(
+            conv_id = %conv_id,
+            ask_id = %ask_id,
+            seq,
+            runtime_waiter = arm_runtime_waiter,
+            "ask_question_recorded"
+        );
         return true;
     }
     false

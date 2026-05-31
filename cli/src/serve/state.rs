@@ -183,10 +183,6 @@ pub struct AnswerChannel {
 }
 
 pub type AnswerMap = Arc<Mutex<HashMap<String, AnswerChannel>>>;
-pub type StoredAnswerSenderMap =
-    Arc<Mutex<HashMap<String, std::sync::mpsc::SyncSender<AnswerPayload>>>>;
-pub type StoredAnswerReceiverMap =
-    Arc<Mutex<HashMap<String, std::sync::mpsc::Receiver<AnswerPayload>>>>;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum AnswerSendResult {
@@ -197,13 +193,6 @@ pub enum AnswerSendResult {
     ChannelUnavailable,
 }
 
-#[derive(Debug, PartialEq, Eq)]
-pub enum StoredAnswerCreateResult {
-    Created,
-    AlreadyPendingHttp,
-    OwnedByRuntime,
-}
-
 #[derive(Clone)]
 pub struct AppState {
     pub db: Arc<Mutex<Connection>>,
@@ -212,8 +201,6 @@ pub struct AppState {
     pub bus: ConvBus,
     pub sessions: SessionMap,
     pub answer_txs: AnswerMap,
-    pub stored_answer_txs: StoredAnswerSenderMap,
-    pub stored_answer_rxs: StoredAnswerReceiverMap,
     pub plugin_manager: Arc<PluginManager>,
 }
 
@@ -231,8 +218,6 @@ impl AppState {
             bus: Arc::new(Mutex::new(HashMap::new())),
             sessions: Arc::new(Mutex::new(HashMap::new())),
             answer_txs: Arc::new(Mutex::new(HashMap::new())),
-            stored_answer_txs: Arc::new(Mutex::new(HashMap::new())),
-            stored_answer_rxs: Arc::new(Mutex::new(HashMap::new())),
             plugin_manager,
         }
     }
@@ -259,60 +244,9 @@ impl AppState {
         rx
     }
 
-    /// Create an answer channel whose receiver can be claimed later by HTTP GET /answer.
-    pub fn create_stored_answer_channel(
-        &self,
-        conv_id: &str,
-        ask_id: &str,
-    ) -> StoredAnswerCreateResult {
-        let (tx, rx) = std::sync::mpsc::sync_channel(1);
-        let key = answer_receiver_key(conv_id, ask_id);
-        let answer_txs = self.answer_txs.lock().unwrap();
-        if answer_txs
-            .get(conv_id)
-            .and_then(|channel| channel.pending_ask_id.as_deref())
-            == Some(ask_id)
-        {
-            return StoredAnswerCreateResult::OwnedByRuntime;
-        }
-        let mut txs = self.stored_answer_txs.lock().unwrap();
-        let mut rxs = self.stored_answer_rxs.lock().unwrap();
-        if txs.contains_key(&key) || rxs.contains_key(&key) {
-            return StoredAnswerCreateResult::AlreadyPendingHttp;
-        }
-        txs.insert(key.clone(), tx);
-        rxs.insert(key, rx);
-        StoredAnswerCreateResult::Created
-    }
-
-    pub fn take_stored_answer_receiver(
-        &self,
-        conv_id: &str,
-        ask_id: &str,
-    ) -> Option<std::sync::mpsc::Receiver<AnswerPayload>> {
-        self.stored_answer_rxs
-            .lock()
-            .unwrap()
-            .remove(&answer_receiver_key(conv_id, ask_id))
-    }
-
-    pub fn remove_stored_answer_channel(&self, conv_id: &str, ask_id: &str) {
-        self.stored_answer_txs
-            .lock()
-            .unwrap()
-            .remove(&answer_receiver_key(conv_id, ask_id));
-        self.stored_answer_rxs
-            .lock()
-            .unwrap()
-            .remove(&answer_receiver_key(conv_id, ask_id));
-    }
-
     pub fn begin_waiting_answer(&self, conv_id: &str, ask_id: &str) {
         let mut txs = self.answer_txs.lock().unwrap();
         if let Some(channel) = txs.get_mut(conv_id) {
-            let key = answer_receiver_key(conv_id, ask_id);
-            self.stored_answer_txs.lock().unwrap().remove(&key);
-            self.stored_answer_rxs.lock().unwrap().remove(&key);
             channel.pending_ask_id = Some(ask_id.to_string());
         }
     }
@@ -345,24 +279,7 @@ impl AppState {
                 };
             }
         }
-
         let ask_id = answer._ask_id.clone();
-        let stored_txs = self.stored_answer_txs.lock().unwrap();
-        let key = answer_receiver_key(conv_id, &ask_id);
-        if let Some(tx) = stored_txs.get(&key) {
-            return match tx.try_send(answer) {
-                Ok(()) => AnswerSendResult::Accepted,
-                Err(e) => {
-                    warn!(
-                        conv_id = %conv_id,
-                        reason = ?e,
-                        "stored_answer_send_failed"
-                    );
-                    AnswerSendResult::ChannelUnavailable
-                }
-            };
-        }
-
         match txs.get(conv_id) {
             None => {
                 let registered: Vec<String> = txs.keys().cloned().collect();
@@ -391,10 +308,6 @@ impl AppState {
             }
         }
     }
-}
-
-fn answer_receiver_key(conv_id: &str, ask_id: &str) -> String {
-    format!("{conv_id}\n{ask_id}")
 }
 
 #[cfg(test)]

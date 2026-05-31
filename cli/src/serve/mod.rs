@@ -1,3 +1,4 @@
+pub mod answer_markdown;
 pub mod ask_question;
 pub mod auth;
 pub mod daemon;
@@ -10,8 +11,6 @@ pub mod relay;
 pub mod routes;
 pub mod runtime;
 pub mod state;
-#[cfg(test)]
-mod state_tests;
 
 use anyhow::Result;
 use axum::{middleware, Router};
@@ -49,10 +48,6 @@ pub async fn build_router(state: AppState) -> Router {
         .route(
             "/api/v1/ask-question",
             axum::routing::post(ask_question::post_ask_question),
-        )
-        .route(
-            "/api/v1/answer/:ask_id",
-            axum::routing::get(ask_question::get_answer),
         )
         .route(
             "/api/v1/runtime-models",

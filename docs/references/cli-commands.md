@@ -126,7 +126,7 @@ Pushes a structured question card to the paired MultiSoul mobile app through a r
 
 | 参数 | 默认值 | 说明 |
 |------|--------|------|
-| `--ask-id <ID>` | 必填 | Runtime tool call/question id; also used as the answer lookup key |
+| `--ask-id <ID>` | auto-generated UUID | Runtime tool call/question id; also used as the answer lookup key |
 | `--questions <JSON>` | 必填 | Structured question array JSON, including question ids, text, options, and `multi_select` |
 | `--conversation-id <ID>` | 必填 | Conversation that should receive the question card |
 | `--output <text\|json>` | `json` | Output format; JSON includes the submitted `ask_id` and `pending` status |
@@ -137,6 +137,13 @@ Pushes a structured question card to the paired MultiSoul mobile app through a r
 Submit a question card and return immediately:
 
 ```bash
+# omit --ask-id to auto-generate a UUID (logged to stderr)
+msctl ask-question \
+  --conversation-id "conv_456" \
+  --questions '[{"id":"0","text":"选择方案","options":[{"id":"0","label":"A"},{"id":"1","label":"B"}],"multi_select":false}]' \
+  --output json
+
+# or pass an explicit runtime tool call id
 msctl ask-question \
   --ask-id "call_123" \
   --conversation-id "conv_456" \
@@ -144,12 +151,7 @@ msctl ask-question \
   --output json
 ```
 
-Runtime integrations that need to block can wait for the answer after the command returns:
-
-```bash
-curl -X GET "http://localhost:8765/api/v1/answer/call_123?conversation_id=conv_456&timeout=600" \
-  -H "Authorization: Bearer <token>"
-```
+When the iOS user answers, `msctl serve` marks the card answered and injects a structured Markdown `user_text` message into the same conversation. There is no separate HTTP answer polling step.
 
 ---
 

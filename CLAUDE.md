@@ -185,7 +185,15 @@ cargo test <test_name>
 
 # Local HTTP/WS
 cargo run -- serve
+
+# Runtime AskUserQuestion push (local dev; use installed `msctl ask-question` outside source)
+cargo run -- ask-question \
+  --conversation-id "$CONV_ID" \
+  --questions '[{"id":"0","text":"选择方案","options":[{"id":"0","label":"A"},{"id":"1","label":"B"}],"multi_select":false}]' \
+  --output json
 ```
+
+`ask-question` 只负责把问题卡片推给正在运行的 `msctl serve`，成功时立即返回 `{"ask_id":"...","status":"pending"}`。`--ask-id` 可省略，CLI 会自动生成 UUID 并写入 stderr 日志；runtime 集成时也可显式传入 tool call id。
 
 ### iOS 发布
 

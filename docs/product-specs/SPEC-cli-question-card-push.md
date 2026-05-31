@@ -21,7 +21,7 @@
 ### 2.1 In Scope
 - 创建 `msctl ask-question` 命令（或类似名称）
 - 命令支持推送问答卡片给 iOS，并立即返回 pending 状态
-- 在注入式 runtime 指南中添加两步集成说明：先调用 `msctl ask-question`，再调用 HTTP answer API 等待答案
+- 在注入式 runtime 指南中说明：调用 `msctl ask-question` 后，iOS answer 会自动注入为同一 conversation 的 user message
 - 支持单选、多选、填空三种问题类型
 - 确保 iOS 端能正确接收、展示、回答卡片
 - 建立可扩展的交互工具框架
@@ -68,9 +68,8 @@
 ### 4.2 重要状态与状态流转
 
 - **pending**：问题已推送，等待用户回答
-- **answered**：用户已回答，msctl 已返回答案给 Runtime CLI
-- **timeout**：用户未在规定时间内回答（可选）
-- **cancelled**：用户取消回答（可选）
+- **answered**：用户已回答，MultiSoul 已将答案写回同一 conversation
+- **cancelled**：用户取消回答，卡片关闭但不启动 runtime
 
 ### 4.3 主要模块与关系
 
@@ -87,11 +86,7 @@
 │  │ ↓                                                │  │
 │  │ 立即返回 pending 状态                            │  │
 │  │ ↓                                                │  │
-│  │ 调用: HTTP GET /api/v1/answer/{ask_id}?conversation_id=<id> │
-│  │ ↓                                                │  │
-│  │ 阻塞等待答案                                      │  │
-│  │ ↓                                                │  │
-│  │ 将答案返回给 Agent                               │  │
+│  │ 等待 MultiSoul 将 iOS answer 注入为 user message │  │
 │  └──────────────────────────────────────────────────┘  │
 │                          ↕ 命令行调用 + HTTP
 │  ┌──────────────────────────────────────────────────┐  │
@@ -104,8 +99,8 @@
 │  ┌──────────────────────────────────────────────────┐  │
 │  │ msctl serve (HTTP API)                           │  │
 │  │ - POST /api/v1/ask-question: 接收并推送卡片      │  │
-│  │ - GET /api/v1/answer/{ask_id}?conversation_id=<id>: 等待答案 │
-│  │ - 接收 answer 消息，通过 answer_txs 发送         │  │
+│  │ - 接收 iOS answer 并渲染为 Markdown user_text    │  │
+│  │ - 复用现有 user message dispatch 触发 runtime    │  │
 │  └──────────────────────────────────────────────────┘  │
 └─────────────────────────────────────────────────────────┘
                           ↕ WebSocket
@@ -196,50 +191,26 @@ msctl ask-question \
 }
 ```
 
-### 5.3 HTTP API 端点：等待答案
+### 5.3 iOS answer → user message
 
-**GET /api/v1/answer/{ask_id}?conversation_id={conv_id}**
+`msctl ask-question` 创建的卡片带有：
 
-返回（阻塞直到有答案）：
 ```json
 {
-  "ask_id": "tool_call_id",
-  "status": "answered",
-  "answers": {
-    "0": "方案 A"
-  }
+  "response_mode": "user_message"
 }
 ```
 
-或（多问题）：
-```json
-{
-  "ask_id": "tool_call_id",
-  "status": "answered",
-  "answers": {
-    "0": "是",
-    "1": "否",
-    "2": "staging"
-  }
-}
-```
+iOS 仍通过 WebSocket 发送 `type=answer`。当后端发现该 ask 不属于正在等待的 runtime `AskUserQuestion`，且 `response_mode == "user_message"` 时，会将答案渲染为结构化 Markdown，写入同一 conversation 的 `user_text`，并触发现有 runtime dispatch。
 
-**错误返回**：
-```json
-{
-  "ask_id": "tool_call_id",
-  "status": "error",
-  "error": "timeout"
-}
-```
+示例注入文本：
 
-或：
-```json
-{
-  "ask_id": "tool_call_id",
-  "status": "cancelled",
-  "error": "user cancelled"
-}
+```markdown
+用户已回答问题卡片：
+
+1. 选择方案
+   - 选择：方案 A
+   - 输入：补充说明
 ```
 
 ### 5.4 ask_question 消息（msctl serve → iOS）
@@ -289,18 +260,19 @@ msctl ask-question \
 2. 创建 HTTP API 端点：`POST /api/v1/ask-question`
    - 接收推送请求，调用 `interactive::build_ask_payload()` 构建消息
    - 推送卡片给 iOS
-3. 创建 HTTP API 端点：`GET /api/v1/answer/{ask_id}?conversation_id={conv_id}`
-   - 阻塞等待答案（利用现有 `answer_txs` 机制）
-   - 返回答案给 Runtime CLI
+3. 扩展 WebSocket answer 处理
+   - runtime-owned ask 继续走 `answer_txs`
+   - `response_mode=user_message` 的 ask 渲染为 Markdown `user_text`
+   - 取消仅标记 answered，不注入 user message
 4. 在注入式 runtime 指南中添加 runtime 集成说明
-5. Runtime CLI 按照指南调用 `msctl ask-question` 命令和 HTTP API
+5. Runtime CLI 按照指南调用 `msctl ask-question` 命令
 
 ### 6.2 关键技术决策
 
 | 决策 | 理由 |
 |------|------|
-| msctl ask-question 仅推送，不等待 | 简化命令逻辑，Runtime CLI 自己管理等待 |
-| 通过 HTTP API 等待答案 | 复用现有 `answer_txs` 架构，简单可靠 |
+| msctl ask-question 仅推送，不等待 | 保持命令快速返回，答案由 MultiSoul 注入同一 conversation |
+| iOS answer 转 user message | 对 Codex/Cursor 等 runtime 最自然，不需要额外 long-poll 协议 |
 | 复用 `interactive.rs` 中的通用逻辑 | 避免代码重复，便于维护 |
 | 在注入式 runtime 指南中提供集成说明 | 让 runtime CLI 开发者清楚如何集成 |
 
@@ -355,7 +327,6 @@ msctl ask-question \
 - **问题数量**：支持 1-50 个问题（超过 50 个建议分批）
 - **选项数量**：支持 1-20 个选项（超过 20 个建议分组）
 - **响应时间**：iOS 端收到 ask_question 后，应在 100ms 内展示卡片
-- **等待时间**：HTTP API `GET /api/v1/answer/{ask_id}?conversation_id={conv_id}` 默认超时为 600 秒（10 分钟）
 - **命令行响应**：`msctl ask-question` 命令应在 1 秒内返回 pending 状态
 
 ### 9.2 安全/权限
@@ -377,7 +348,7 @@ msctl ask-question \
 |------|---------|
 | Runtime CLI 无法调用 `msctl` 命令 | 需要确保 `msctl` 在 PATH 中；或提供替代的 HTTP 调用方式 |
 | `msctl serve` 未运行 | 命令返回清晰的错误提示 |
-| 用户长时间不回答 | 设置超时机制，超时后自动取消或重试 |
+| 用户长时间不回答 | 卡片保持 pending，用户可稍后在 iOS 处理 |
 | iOS 端网络不稳定 | 实现重连机制，确保 answer 消息最终能送达 |
 
 ### 10.2 已做的 trade-off
@@ -385,14 +356,14 @@ msctl ask-question \
 | Trade-off | 理由 |
 |-----------|------|
 | 命令行调用 vs 直接 HTTP | 命令行更简单，易于 runtime CLI 集成 |
-| 同步等待 vs 异步处理 | 同步等待更简单，与 runtime CLI 的执行模型一致 |
+| 同步等待 vs 异步注入 | 异步注入复用现有 user message 流程，避免额外 HTTP answer 协议 |
 | 统一格式 vs 分化实现 | 统一格式便于维护和扩展 |
 
 ### 10.3 仍未决策的问题
 
 - [ ] 是否允许用户重新回答？
 - [ ] 是否需要实现问题的持久化和重放机制？
-- [ ] HTTP API `GET /api/v1/answer/{ask_id}?conversation_id={conv_id}` 的超时时间是否可配置？
+- [ ] 是否需要在 iOS 上展示长期未回答卡片的过期提示？
 
 ## 11. 验收标准与示例
 
@@ -400,133 +371,74 @@ msctl ask-question \
 
 - [ ] `msctl ask-question` 命令能正确推送问题给 iOS（立即返回 pending）
 - [ ] HTTP API `POST /api/v1/ask-question` 能正确推送问题给 iOS
-- [ ] HTTP API `GET /api/v1/answer/{ask_id}?conversation_id={conv_id}` 能正确等待并返回答案
+- [ ] iOS answer 能转换为 Markdown `user_text` 并触发 runtime
 - [ ] iOS 端能正确接收、展示、回答卡片
 - [ ] Claude Code runtime 能通过调用 `msctl ask-question` 支持 AskUserQuestion
 - [ ] Codex runtime 能通过调用 `msctl ask-question` 支持 AskUserQuestion
 - [ ] Cursor runtime 能通过调用 `msctl ask-question` 支持 AskUserQuestion
 - [ ] 日志中记录所有 ask_question 和 answer 事件
 - [ ] 单选、多选、填空三种问题类型都能正常工作
-- [ ] 超时、取消等边界情况都能正确处理
+- [ ] 取消等边界情况都能正确处理
 - [ ] 代码通过 `cargo test` 和 `cargo clippy`
 - [ ] 注入式 runtime 指南中有清晰的两步集成说明
 
 ### 11.2 代表性用例
 
-**用例 1：Claude Code 调用 msctl（JSON 字符串）**
+**用例 1：推送单选卡片并注入 user message**
 ```bash
-# 步骤 1：推送卡片
 msctl ask-question \
   --ask-id "call_123" \
-  --questions '[{"id":"0","text":"选择方案","options":[{"id":"0","label":"A"},{"id":"1","label":"B"}],"multi_select":false}]' \
+  --questions '[{"id":"0","text":"选择方案","options":[{"id":"0","label":"方案 A"},{"id":"1","label":"方案 B"}],"multi_select":false}]' \
   --conversation-id "conv_456" \
   --output json
 
 # 返回（立即）
 {"ask_id":"call_123","status":"pending"}
-
-# 步骤 2：等待答案
-curl -X GET "http://localhost:8765/api/v1/answer/call_123?conversation_id=conv_456" \
-  -H "Authorization: Bearer <token>"
-
-# 返回（阻塞直到有答案）
-{"ask_id":"call_123","status":"answered","answers":{"0":"A"}}
 ```
 
-**用例 2：Codex 调用 msctl**
-```bash
-# 步骤 1：推送卡片
-msctl ask-question \
-  --ask-id "call_789" \
-  --questions '[
-    {
-      "id": "0",
-      "text": "选择部署环境",
-      "options": [
-        {"id": "0", "label": "staging"},
-        {"id": "1", "label": "production"}
-      ],
-      "multi_select": false
-    }
-  ]' \
-  --conversation-id "conv_456" \
-  --output json
+iOS 用户选择“方案 A”后，MultiSoul 写入同一 conversation：
 
-# 返回（立即）
-{"ask_id":"call_789","status":"pending"}
+```markdown
+用户已回答问题卡片：
 
-# 步骤 2：等待答案
-curl -X GET "http://localhost:8765/api/v1/answer/call_789?conversation_id=conv_456" \
-  -H "Authorization: Bearer <token>"
-
-# 返回
-{"ask_id":"call_789","status":"answered","answers":{"0":"staging"}}
+1. 选择方案
+   - 选择：方案 A
 ```
 
-**用例 3：多问题场景**
+**用例 2：多选 + 自定义输入**
 ```bash
-# 步骤 1：推送卡片
 msctl ask-question \
   --ask-id "call_multi" \
-  --questions '[
-    {"id":"0","text":"删除文件?","options":[{"id":"0","label":"是"},{"id":"1","label":"否"}],"multi_select":false},
-    {"id":"1","text":"上传云端?","options":[{"id":"0","label":"是"},{"id":"1","label":"否"}],"multi_select":false},
-    {"id":"2","text":"输入备注","options":[],"multi_select":false}
-  ]' \
+  --questions '[{"id":"0","text":"选择要执行的步骤","options":[{"id":"a","label":"Alpha"},{"id":"b","label":"Beta"}],"multi_select":true}]' \
   --conversation-id "conv_456" \
   --output json
 
 # 返回（立即）
 {"ask_id":"call_multi","status":"pending"}
-
-# 步骤 2：等待答案
-curl -X GET "http://localhost:8765/api/v1/answer/call_multi?conversation_id=conv_456" \
-  -H "Authorization: Bearer <token>"
-
-# 返回
-{"ask_id":"call_multi","status":"answered","answers":{"0":"是","1":"否","2":"备注内容"}}
 ```
 
-**用例 4：超时场景**
-```bash
-# 步骤 1：推送卡片
-msctl ask-question \
-  --ask-id "call_timeout" \
-  --questions '[...]' \
-  --conversation-id "conv_456" \
-  --output json
+iOS 用户选择 Alpha 并输入补充内容后，MultiSoul 注入：
 
-# 返回（立即）
-{"ask_id":"call_timeout","status":"pending"}
+```markdown
+用户已回答问题卡片：
 
-# 步骤 2：等待答案（30 秒后超时）
-curl -X GET "http://localhost:8765/api/v1/answer/call_timeout?conversation_id=conv_456&timeout=30" \
-  -H "Authorization: Bearer <token>"
-
-# 返回（超时）
-{"ask_id":"call_timeout","status":"error","error":"timeout"}
+1. 选择要执行的步骤
+   - 选择：Alpha
+   - 输入：补充内容
 ```
 
-**用例 5：用户取消**
-```bash
-# 用户在 iOS 上点击「取消」
+**用例 3：用户取消**
 
-# 步骤 2：等待答案
-curl -X GET "http://localhost:8765/api/v1/answer/call_cancel?conversation_id=conv_456" \
-  -H "Authorization: Bearer <token>"
-
-# 返回
-{"ask_id":"call_cancel","status":"cancelled","error":"user cancelled"}
-```
+用户在 iOS 上点击取消/关闭时，MultiSoul 只标记卡片 answered 并清除 pending 状态，不写入 `user_text`，也不启动 runtime。
 
 ### 11.3 测试覆盖
 
 - 单元测试：`msctl ask-question` 命令的参数解析和验证
 - 单元测试：HTTP API 端点的请求验证和响应格式
 - 集成测试：`msctl ask-question` 命令与 `msctl serve` 的交互
-- 集成测试：HTTP API `GET /api/v1/answer/{ask_id}?conversation_id={conv_id}` 与 `answer_txs` 的交互
-- 端到端测试：从 Runtime CLI 调用到 iOS 回答的完整流程
-- 各 runtime 集成测试：Claude Code、Codex、Cursor 分别调用 `msctl ask-question` 和 HTTP API
+- 集成测试：iOS answer 被渲染为 Markdown `user_text` 并进入 runtime queue
+- 集成测试：runtime-owned AskUserQuestion 仍优先走 `answer_txs`
+- 各 runtime 集成测试：Claude Code、Codex、Cursor 分别通过同一 conversation 收到注入的 user message
 
 ---
 
@@ -550,7 +462,7 @@ msctl ask-question \
   --output json
 ```
 
-命令返回 `pending` 后，再调用 `GET /api/v1/answer/{ask_id}?conversation_id=<conv_id>` 等待答案，并将 HTTP 返回的答案转换为 tool_result。
+命令返回 `pending` 后无需再轮询。iOS 用户提交答案时，MultiSoul 会把答案注入为同一 conversation 的 Markdown user message，Codex runtime 按普通用户消息继续执行。
 
 #### Cursor
 同 Codex。在处理 tool_use 事件时，检测 `AskUserQuestion` 工具调用，调用 `msctl ask-question` 命令。
@@ -560,87 +472,47 @@ msctl ask-question \
 1. **检测工具调用**：在 runtime 的事件处理中，检测 `tool_name == "AskUserQuestion"`
 2. **构建命令**：将工具参数转换为 `msctl ask-question` 命令参数
 3. **执行命令**：调用 `msctl ask-question` 命令，确认返回 `pending`
-4. **等待答案**：调用 `GET /api/v1/answer/{ask_id}?conversation_id=<conv_id>`，等待 HTTP answer API 返回答案
-5. **处理结果**：将 HTTP 返回的答案转换为 tool_result，继续执行
-6. **错误处理**：如果推送、等待、超时或取消失败，返回相应的错误信息给 Agent
+4. **继续 conversation**：等待 MultiSoul 在 iOS 提交后注入下一条 user message
+5. **错误处理**：如果推送失败，返回相应的错误信息给 Agent
 
 ### 示例代码（伪代码）
 
 ```python
 def handle_tool_use(tool_name, tool_input, tool_call_id):
-    if tool_name == "AskUserQuestion":
-        # 步骤 1：调用 msctl ask-question 推送卡片
-        questions_json = json.dumps(tool_input.get("questions", []))
-        cmd = [
-            "msctl", "ask-question",
-            "--ask-id", tool_call_id,
-            "--questions", questions_json,
-            "--conversation-id", conversation_id,
-            "--output", "json"
-        ]
-        
-        result = subprocess.run(cmd, capture_output=True, text=True)
-        
-        if result.returncode != 0:
-            return {
-                "type": "tool_result",
-                "tool_use_id": tool_call_id,
-                "is_error": True,
-                "content": f"Failed to push question: {result.stderr}"
-            }
-        
-        push_result = json.loads(result.stdout)
-        if push_result["status"] != "pending":
-            return {
-                "type": "tool_result",
-                "tool_use_id": tool_call_id,
-                "is_error": True,
-                "content": f"Failed to push question: {push_result.get('error', 'Unknown error')}"
-            }
-        
-        # 步骤 2：通过 HTTP API 等待答案
-        try:
-            response = requests.get(
-                f"http://localhost:8765/api/v1/answer/{tool_call_id}",
-                params={"conversation_id": conversation_id},
-                headers={"Authorization": f"Bearer {token}"},
-                timeout=600
-            )
-            response.raise_for_status()
-            answer_data = response.json()
-            
-            if answer_data["status"] == "answered":
-                # 返回答案给 Agent
-                return {
-                    "type": "tool_result",
-                    "tool_use_id": tool_call_id,
-                    "content": json.dumps(answer_data["answers"])
-                }
-            else:
-                # 处理错误或取消
-                return {
-                    "type": "tool_result",
-                    "tool_use_id": tool_call_id,
-                    "is_error": True,
-                    "content": answer_data.get("error", "Unknown error")
-                }
-        except requests.exceptions.Timeout:
-            return {
-                "type": "tool_result",
-                "tool_use_id": tool_call_id,
-                "is_error": True,
-                "content": "Timeout waiting for user answer"
-            }
-        except Exception as e:
-            return {
-                "type": "tool_result",
-                "tool_use_id": tool_call_id,
-                "is_error": True,
-                "content": f"Failed to get answer: {str(e)}"
-            }
-    else:
-        # 处理其他工具
-        pass
+    if tool_name != "AskUserQuestion":
+        return handle_other_tool(tool_name, tool_input, tool_call_id)
+
+    questions_json = json.dumps(tool_input.get("questions", []))
+    result = subprocess.run([
+        "msctl", "ask-question",
+        "--ask-id", tool_call_id,
+        "--questions", questions_json,
+        "--conversation-id", conversation_id,
+        "--output", "json",
+    ], capture_output=True, text=True)
+
+    if result.returncode != 0:
+        return {
+            "type": "tool_result",
+            "tool_use_id": tool_call_id,
+            "is_error": True,
+            "content": f"Failed to push question: {result.stderr}",
+        }
+
+    push_result = json.loads(result.stdout)
+    if push_result["status"] != "pending":
+        return {
+            "type": "tool_result",
+            "tool_use_id": tool_call_id,
+            "is_error": True,
+            "content": f"Failed to push question: {push_result.get('error', 'Unknown error')}",
+        }
+
+    return {
+        "type": "tool_result",
+        "tool_use_id": tool_call_id,
+        "content": "Question card sent. MultiSoul will continue this conversation when the user answers on iOS.",
+    }
 ```
 
 ---

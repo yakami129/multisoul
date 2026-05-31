@@ -91,6 +91,10 @@ let message = runtime::DispatchMessage { text: user_text, file_id, model_id, seq
 
 conversation 级模型切换把 `model_id` 加入 `DispatchMessage` / `SessionMessage`，由各 runtime adapter 转为底层 CLI 的 `--model` 参数。该字段不改变本文的图片策略：Codex 仍直接消费 `file_id` 并追加 `--image`，Cursor 仍接收已经注入图片路径的文本且不再携带 `file_id`。
 
+### 2026-05-31 更新
+
+runtime dispatch 会先注入 `<multisoul-context>` conversation-id 块，再拼接 runtime-specific 的提示文本。该上下文块不改变本文的图片策略：Codex 仍通过原生 `file_id` / `--image` 传图，Cursor 仍在上下文块之后接收图片路径提示。
+
 ## 测试覆盖
 
 在 `runtime/mod.rs` 的单元测试中验证 Cursor 路径注入格式；在 `runtime/codex_tests.rs` 中验证：

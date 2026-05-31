@@ -92,6 +92,11 @@ pnpm test -- --watchAll=false        # 单跑测试
 cd cli && cargo build
 cargo test
 cargo run -- serve                   # 启动本地 HTTP/WS
+# Runtime 推送 AskUserQuestion 卡片
+cargo run -- ask-question \
+  --conversation-id "$CONV_ID" \
+  --questions '[{"id":"0","text":"选择方案","options":[{"id":"0","label":"A"},{"id":"1","label":"B"}],"multi_select":false}]' \
+  --output json                      # --ask-id 可省略，自动生成 UUID；返回 pending
 
 # 本地 iOS（本机 Xcode；一条命令即可，脚本内含依赖与构建；详见 mobile/docs/ios-publish.md）
 cd mobile && ./scripts/publish-ios-local.sh

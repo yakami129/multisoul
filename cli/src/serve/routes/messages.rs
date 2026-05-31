@@ -228,43 +228,15 @@ pub async fn post_message(
 
     drop(db);
 
-    // Fetch project_path, runtime, mode, and selected model; trigger runtime adapter.
-    let agent_info: Option<(String, String, String, Option<String>)> = {
-        let db2 = state
-            .db
-            .lock()
-            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-        db2.query_row(
-            "SELECT a.project_path, a.runtime, a.mode, c.model_id FROM agents a
-             JOIN conversations c ON c.agent_id = a.id
-             WHERE c.id = ?1",
-            [&conv_id],
-            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)),
-        )
-        .ok()
-    };
-    if let Some((path, rt, mode, model_id)) = agent_info {
-        runtime::send_to_session(
-            &state,
-            &conv_id,
-            runtime::DispatchMessage {
-                text: &body.text,
-                file_id: body.file_id.as_deref(),
-                model_id: model_id.as_deref(),
-                seq: next_seq,
-            },
-            &path,
-            &rt,
-            &mode,
-        );
-    }
+    dispatch_user_message(
+        &state,
+        &conv_id,
+        &body.text,
+        body.file_id.as_deref(),
+        next_seq,
+    )?;
 
-    let envelope = serde_json::json!({
-        "type": "message", "seq": next_seq, "role": "user_text",
-        "payload": payload, "created_at": now
-    });
-    let sender = state.get_or_create_sender(&conv_id);
-    let _ = sender.send(envelope.to_string());
+    broadcast_user_message(&state, &conv_id, next_seq, &payload, now);
 
     Ok((
         StatusCode::CREATED,
@@ -280,6 +252,60 @@ pub async fn post_message(
             answered_choice_ids: None,
         }),
     ))
+}
+
+pub(super) fn dispatch_user_message(
+    state: &AppState,
+    conv_id: &str,
+    text: &str,
+    file_id: Option<&str>,
+    seq: i64,
+) -> Result<(), StatusCode> {
+    let agent_info: Option<(String, String, String, Option<String>)> = {
+        let db = state
+            .db
+            .lock()
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        db.query_row(
+            "SELECT a.project_path, a.runtime, a.mode, c.model_id FROM agents a
+             JOIN conversations c ON c.agent_id = a.id
+             WHERE c.id = ?1",
+            [conv_id],
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)),
+        )
+        .ok()
+    };
+    if let Some((path, rt, mode, model_id)) = agent_info {
+        runtime::send_to_session(
+            state,
+            conv_id,
+            runtime::DispatchMessage {
+                text,
+                file_id,
+                model_id: model_id.as_deref(),
+                seq,
+            },
+            &path,
+            &rt,
+            &mode,
+        );
+    }
+    Ok(())
+}
+
+pub(super) fn broadcast_user_message(
+    state: &AppState,
+    conv_id: &str,
+    seq: i64,
+    payload: &serde_json::Value,
+    created_at: i64,
+) {
+    let envelope = serde_json::json!({
+        "type": "message", "seq": seq, "role": "user_text",
+        "payload": payload, "created_at": created_at
+    });
+    let sender = state.get_or_create_sender(conv_id);
+    let _ = sender.send(envelope.to_string());
 }
 
 pub(super) fn insert_user_message_and_mark_running(

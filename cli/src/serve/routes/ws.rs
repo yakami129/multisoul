@@ -1,6 +1,9 @@
 use crate::db::now_ms;
-use crate::serve::interactive::AnswerPayload;
 use crate::serve::state::{AnswerSendResult, AppState};
+use crate::serve::{
+    answer_markdown::{is_cancelled_answer, render_answer_markdown},
+    interactive::AnswerPayload,
+};
 use axum::extract::ws::{Message, WebSocket};
 use axum::{
     extract::{Path, State, WebSocketUpgrade},
@@ -107,34 +110,49 @@ pub(super) async fn handle_client_message(state: &AppState, conv_id: &str, text:
                     info!(conv_id = %conv_id, "answer_routed");
                 }
                 AnswerSendResult::NoSession => {
-                    send_answer_status(
-                        state,
-                        conv_id,
-                        &answer._ask_id,
-                        false,
-                        Some("no_waiting_session"),
-                    );
-                    warn!(conv_id = %conv_id, "answer_dropped_no_session");
+                    if handle_user_message_mode_answer(state, conv_id, &answer).is_ok() {
+                        send_answer_status(state, conv_id, &answer._ask_id, true, None);
+                        info!(conv_id = %conv_id, "answer_routed");
+                    } else {
+                        send_answer_status(
+                            state,
+                            conv_id,
+                            &answer._ask_id,
+                            false,
+                            Some("no_waiting_session"),
+                        );
+                        warn!(conv_id = %conv_id, "answer_dropped_no_session");
+                    }
                 }
                 AnswerSendResult::NoPendingAsk => {
-                    send_answer_status(
-                        state,
-                        conv_id,
-                        &answer._ask_id,
-                        false,
-                        Some("no_pending_ask"),
-                    );
-                    warn!(conv_id = %conv_id, "answer_dropped_no_pending_ask");
+                    if handle_user_message_mode_answer(state, conv_id, &answer).is_ok() {
+                        send_answer_status(state, conv_id, &answer._ask_id, true, None);
+                        info!(conv_id = %conv_id, "answer_routed");
+                    } else {
+                        send_answer_status(
+                            state,
+                            conv_id,
+                            &answer._ask_id,
+                            false,
+                            Some("no_pending_ask"),
+                        );
+                        warn!(conv_id = %conv_id, "answer_dropped_no_pending_ask");
+                    }
                 }
                 AnswerSendResult::AskMismatch { .. } => {
-                    send_answer_status(
-                        state,
-                        conv_id,
-                        &answer._ask_id,
-                        false,
-                        Some("ask_mismatch"),
-                    );
-                    warn!(conv_id = %conv_id, "answer_dropped_ask_mismatch");
+                    if handle_user_message_mode_answer(state, conv_id, &answer).is_ok() {
+                        send_answer_status(state, conv_id, &answer._ask_id, true, None);
+                        info!(conv_id = %conv_id, "answer_routed");
+                    } else {
+                        send_answer_status(
+                            state,
+                            conv_id,
+                            &answer._ask_id,
+                            false,
+                            Some("ask_mismatch"),
+                        );
+                        warn!(conv_id = %conv_id, "answer_dropped_ask_mismatch");
+                    }
                 }
                 AnswerSendResult::ChannelUnavailable => {
                     send_answer_status(
@@ -150,6 +168,62 @@ pub(super) async fn handle_client_message(state: &AppState, conv_id: &str, text:
         }
         _ => {}
     }
+}
+
+fn handle_user_message_mode_answer(
+    state: &AppState,
+    conv_id: &str,
+    answer: &AnswerPayload,
+) -> Result<(), ()> {
+    let ask_payload = find_user_message_mode_ask(state, conv_id, &answer._ask_id).ok_or(())?;
+    persist_answer(state, conv_id, answer).map_err(|_| ())?;
+    if is_cancelled_answer(answer) {
+        mark_cancelled_idle(state, conv_id);
+        return Ok(());
+    }
+
+    let markdown = render_answer_markdown(&ask_payload, answer);
+    let body = super::messages::PostMessageBody {
+        text: markdown.clone(),
+        file_id: None,
+    };
+    let (seq, _id, now, payload) = {
+        let db = state.db.lock().map_err(|_| ())?;
+        super::messages::insert_user_message_and_mark_running(&db, conv_id, &body)
+            .map_err(|_| ())?
+    };
+    super::messages::dispatch_user_message(state, conv_id, &markdown, None, seq).map_err(|_| ())?;
+    super::messages::broadcast_user_message(state, conv_id, seq, &payload, now);
+    Ok(())
+}
+
+fn find_user_message_mode_ask(
+    state: &AppState,
+    conv_id: &str,
+    ask_id: &str,
+) -> Option<serde_json::Value> {
+    let db = state.db.lock().ok()?;
+    let payload: String = db
+        .query_row(
+            "SELECT payload FROM messages
+             WHERE conversation_id = ?1
+               AND role = 'ask_question'
+               AND json_extract(payload, '$.ask_id') = ?2
+               AND json_extract(payload, '$.response_mode') = 'user_message'
+             ORDER BY seq DESC LIMIT 1",
+            rusqlite::params![conv_id, ask_id],
+            |row| row.get(0),
+        )
+        .ok()?;
+    serde_json::from_str(&payload).ok()
+}
+
+fn mark_cancelled_idle(state: &AppState, conv_id: &str) {
+    let db = state.db.lock().unwrap();
+    let _ = db.execute(
+        "UPDATE conversations SET status = 'idle' WHERE id = ?1",
+        [conv_id],
+    );
 }
 
 fn persist_answer(state: &AppState, conv_id: &str, answer: &AnswerPayload) -> rusqlite::Result<()> {

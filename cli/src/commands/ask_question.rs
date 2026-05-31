@@ -4,6 +4,7 @@ use clap::{Args, ValueEnum};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::time::Duration;
+use uuid::Uuid;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, ValueEnum)]
 pub enum OutputFormat {
@@ -12,10 +13,40 @@ pub enum OutputFormat {
 }
 
 #[derive(Args, Debug)]
+#[command(after_help = "\
+Requires a running `msctl serve` and Bearer token (`msctl auth login` or --token).
+Returns {\"ask_id\":\"...\",\"status\":\"pending\"} immediately. iOS answers inject
+into the same conversation as Markdown user_text; do not poll for answers.
+
+Question JSON shape: non-empty array of
+  {id, text, options:[{id,label}], multi_select?}
+
+Examples:
+
+  # Single choice (omit --ask-id to auto-generate UUID)
+  msctl ask-question \\
+    --conversation-id \"$CONV_ID\" \\
+    --questions '[{\"id\":\"0\",\"text\":\"Pick an approach\",\"options\":[{\"id\":\"0\",\"label\":\"A\"},{\"id\":\"1\",\"label\":\"B\"}],\"multi_select\":false}]'
+
+  # Single choice with explicit runtime tool call id
+  msctl ask-question \\
+    --ask-id \"$TOOL_CALL_ID\" \\
+    --conversation-id \"$CONV_ID\" \\
+    --questions '[{\"id\":\"0\",\"text\":\"Pick an approach\",\"options\":[{\"id\":\"0\",\"label\":\"A\"},{\"id\":\"1\",\"label\":\"B\"}],\"multi_select\":false}]'
+
+  # Multi-select
+  msctl ask-question \\
+    --conversation-id \"$CONV_ID\" \\
+    --questions '[{\"id\":\"0\",\"text\":\"Which checks before merge?\",\"options\":[{\"id\":\"lint\",\"label\":\"Lint\"},{\"id\":\"test\",\"label\":\"Unit tests\"}],\"multi_select\":true}]'
+
+  # Multiple questions in one card
+  msctl ask-question \\
+    --conversation-id \"$CONV_ID\" \\
+    --questions '[{\"id\":\"env\",\"text\":\"Target environment?\",\"options\":[{\"id\":\"dev\",\"label\":\"Dev\"},{\"id\":\"prod\",\"label\":\"Prod\"}]},{\"id\":\"risk\",\"text\":\"Continue migration?\",\"options\":[{\"id\":\"yes\",\"label\":\"Continue\"},{\"id\":\"no\",\"label\":\"Stop\"}]}]'")]
 pub struct AskQuestionArgs {
-    /// Stable ask id used to match the eventual mobile answer.
+    /// Stable ask id used to match the eventual mobile answer. Auto-generated when omitted.
     #[arg(long)]
-    pub ask_id: String,
+    pub ask_id: Option<String>,
 
     /// JSON array of question objects to render in the mobile question card.
     #[arg(long)]
@@ -63,6 +94,8 @@ pub fn handle(args: AskQuestionArgs) -> Result<()> {
 fn run(args: AskQuestionArgs) -> Result<String> {
     let questions = parse_questions(&args.questions)?;
     let config = config_for(&args)?;
+    let ask_id = resolve_ask_id(args.ask_id);
+    let conversation_id = args.conversation_id.trim().to_string();
     let token = resolve_token(args.token, config.as_ref())?;
     let port = args.port.unwrap_or_else(|| {
         config
@@ -72,10 +105,15 @@ fn run(args: AskQuestionArgs) -> Result<String> {
     });
     let url = format!("http://{}:{}/api/v1/ask-question", args.host.trim(), port);
     let request = AskQuestionRequest {
-        ask_id: args.ask_id,
+        ask_id: ask_id.clone(),
         questions,
-        conversation_id: args.conversation_id,
+        conversation_id: conversation_id.clone(),
     };
+
+    eprintln!(
+        "[ask-question] posting conv={conversation_id} ask_id={ask_id} questions={} url={url}",
+        request.questions.len()
+    );
 
     let response = build_http_client()?
         .post(&url)
@@ -89,6 +127,9 @@ fn run(args: AskQuestionArgs) -> Result<String> {
         .context("failed to read ask-question response body")?;
 
     if !status.is_success() {
+        eprintln!(
+            "[ask-question] failed conv={conversation_id} ask_id={ask_id} status={status} body={body}"
+        );
         anyhow::bail!("ask-question request failed with HTTP {status}: {body}");
     }
 
@@ -102,7 +143,26 @@ fn run(args: AskQuestionArgs) -> Result<String> {
             format!("{} {}", response.ask_id, response.status)
         }
     };
+    eprintln!(
+        "[ask-question] pending conv={conversation_id} ask_id={ask_id} output={}",
+        match args.output {
+            OutputFormat::Json => "json",
+            OutputFormat::Text => "text",
+        }
+    );
     Ok(output)
+}
+
+fn resolve_ask_id(ask_id: Option<String>) -> String {
+    if let Some(ask_id) = ask_id {
+        let trimmed = ask_id.trim();
+        if !trimmed.is_empty() {
+            return trimmed.to_string();
+        }
+    }
+    let generated = Uuid::new_v4().to_string();
+    eprintln!("[ask-question] auto-generated ask_id={generated}");
+    generated
 }
 
 fn build_http_client() -> Result<reqwest::blocking::Client> {
