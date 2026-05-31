@@ -3,20 +3,29 @@
   "version": 1,
   "documents": [
     {
+      "file": "2026-05-31-spec-management-module.md",
+      "title": "Spec Management Module Implementation Plan",
+      "lastCompletedCommit": "4a4b0ca6a8c95892bb837d879e3405c25570ab87"
+    },
+    {
+      "file": "2026-05-31-settings-long-press-release-logs.md",
+      "title": "Settings Long-Press Release Logs Implementation Plan"
+    },
+    {
       "file": "2026-05-31-cli-question-card-push.md",
       "title": "CLI Question Card Push Implementation Plan"
     },
     {
       "file": "2026-05-29-ios-payment.md",
-      "title": "iOS 付费机制 Implementation Plan (Phase 2)"
+      "title": "iOS \u4ed8\u8d39\u673a\u5236 Implementation Plan (Phase 2)"
     },
     {
       "file": "2026-05-29-cloudflare-tunnel.md",
-      "title": "Cloudflare Tunnel 自动隧道 Implementation Plan (Phase 1)"
+      "title": "Cloudflare Tunnel \u81ea\u52a8\u96a7\u9053 Implementation Plan (Phase 1)"
     },
     {
       "file": "2026-05-27-ios-payment-implementation.md",
-      "title": "iOS 付费机制实施计划"
+      "title": "iOS \u4ed8\u8d39\u673a\u5236\u5b9e\u65bd\u8ba1\u5212"
     },
     {
       "file": "2026-05-27-agent-quick-register.md",
@@ -74,20 +83,20 @@
     },
     {
       "file": "2026-05-17-agents-workspace-filter.md",
-      "title": "Agents 工作空间筛选功能实施计划"
+      "title": "Agents \u5de5\u4f5c\u7a7a\u95f4\u7b5b\u9009\u529f\u80fd\u5b9e\u65bd\u8ba1\u5212"
     },
     {
       "file": "2026-05-11-ui-redesign-pencil.md",
-      "title": "UI 重构：迁移到 Pencil 设计系统（深色+橙色）",
+      "title": "UI \u91cd\u6784\uff1a\u8fc1\u79fb\u5230 Pencil \u8bbe\u8ba1\u7cfb\u7edf\uff08\u6df1\u8272+\u6a59\u8272\uff09",
       "lastCompletedCommit": "d41abce6c09f82d4b5daf74ba48cb928ca4b835c"
     },
     {
       "file": "2026-05-11-bugfix-bot.md",
-      "title": "bugfix-bot Plugin Agent 实施计划"
+      "title": "bugfix-bot Plugin Agent \u5b9e\u65bd\u8ba1\u5212"
     },
     {
       "file": "2026-05-03-ios-permission-guard.md",
-      "title": "iOS 权限声明守护",
+      "title": "iOS \u6743\u9650\u58f0\u660e\u5b88\u62a4",
       "lastCompletedCommit": "8c32f547d9b8792f3036cf452adb0425994b912a"
     },
     {
@@ -96,7 +105,7 @@
     },
     {
       "file": "2026-05-03-chat-ios-ux.md",
-      "title": "Chat iOS UX 改造 Implementation Plan"
+      "title": "Chat iOS UX \u6539\u9020 Implementation Plan"
     },
     {
       "file": "2026-05-03-agent-card-chat-entry.md",
@@ -108,7 +117,7 @@
     },
     {
       "file": "2026-05-02-chat-media.md",
-      "title": "Chat 图片上传 Implementation Plan"
+      "title": "Chat \u56fe\u7247\u4e0a\u4f20 Implementation Plan"
     },
     {
       "file": "2026-05-01-inbox-askquestion-regression.md",
@@ -124,7 +133,7 @@
     },
     {
       "file": "2026-04-28-inbox-delete.md",
-      "title": "Inbox 条目删除 Implementation Plan"
+      "title": "Inbox \u6761\u76ee\u5220\u9664 Implementation Plan"
     },
     {
       "file": "2026-04-27-swipe-to-delete-recent.md",
@@ -132,7 +141,7 @@
     },
     {
       "file": "2026-04-27-recent-conversation-preview.md",
-      "title": "Recent 会话列表预览优化 SPEC"
+      "title": "Recent \u4f1a\u8bdd\u5217\u8868\u9884\u89c8\u4f18\u5316 SPEC"
     },
     {
       "file": "2026-04-27-msctl-daemon.md",
@@ -140,7 +149,7 @@
     },
     {
       "file": "2026-04-27-askquestion-sync.md",
-      "title": "AskQuestion Card 双向同步修复 Implementation Plan"
+      "title": "AskQuestion Card \u53cc\u5411\u540c\u6b65\u4fee\u590d Implementation Plan"
     },
     {
       "file": "2026-04-27-ask-question-multiselect.md",
@@ -148,7 +157,7 @@
     },
     {
       "file": "2026-04-26-multisoul-runtime-longrunning.md",
-      "title": "MultiSoul Runtime 长驻进程重构计划"
+      "title": "MultiSoul Runtime \u957f\u9a7b\u8fdb\u7a0b\u91cd\u6784\u8ba1\u5212"
     },
     {
       "file": "2026-04-26-multisoul-phase2.md",

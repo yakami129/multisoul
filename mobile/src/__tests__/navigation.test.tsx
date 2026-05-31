@@ -1,7 +1,16 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen } from '@testing-library/react-native';
-// eslint-disable-next-line import/order
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import * as Clipboard from 'expo-clipboard';
 import type React from 'react';
+import { Alert } from 'react-native';
+import TabLayout, {
+  TAB_BAR_HEIGHT,
+  TAB_BAR_SAFE_AREA_BOTTOM,
+  tabScreenOptions,
+} from '../../app/(tabs)/_layout';
+import { clearDiagnosticsEntries, recordDiagnosticsEvent } from '../services/diagnosticsLog';
+import { useEndpointStore } from '../store/endpointStore';
+
 jest.mock('expo-router', () => {
   const React = require('react');
   const { View, Text, TouchableOpacity } = require('react-native');
@@ -10,16 +19,24 @@ jest.mock('expo-router', () => {
     const screens = React.Children.toArray(children).map((child: any) => ({
       name: child.props.name,
       title: child.props.options?.title ?? child.props.name,
+      listeners: child.props.listeners,
     }));
     const [tab, setTab] = React.useState('index');
     return (
       <View>
         <View testID="tab-bar">
-          {screens.map((screen: { name: string; title: string }) => (
+          {screens.map((screen: { name: string; title: string; listeners?: any }) => (
             <TouchableOpacity
               key={screen.name}
               testID={`tab-${screen.name}`}
               onPress={() => setTab(screen.name)}
+              onLongPress={() => {
+                const listeners =
+                  typeof screen.listeners === 'function'
+                    ? screen.listeners({ navigation: {}, route: { name: screen.name } })
+                    : screen.listeners;
+                listeners?.tabLongPress?.({ navigation: {}, route: { name: screen.name } });
+              }}
             >
               <Text>{screen.title}</Text>
             </TouchableOpacity>
@@ -43,8 +60,11 @@ jest.mock('lucide-react-native', () => {
   const { Text } = require('react-native');
 
   return {
+    Activity: ({ color }: { color: string }) => <Text>{`Activity ${color}`}</Text>,
+    FileText: ({ color }: { color: string }) => <Text>{`FileText ${color}`}</Text>,
     Inbox: ({ color }: { color: string }) => <Text>{`Inbox ${color}`}</Text>,
     Layers: ({ color }: { color: string }) => <Text>{`Layers ${color}`}</Text>,
+    LayoutGrid: ({ color }: { color: string }) => <Text>{`LayoutGrid ${color}`}</Text>,
     Settings: ({ color }: { color: string }) => <Text>{`Settings ${color}`}</Text>,
   };
 });
@@ -59,18 +79,50 @@ jest.mock('@react-native-async-storage/async-storage', () =>
   require('@react-native-async-storage/async-storage/jest/async-storage-mock'),
 );
 
-import TabLayout, {
-  TAB_BAR_HEIGHT,
-  TAB_BAR_SAFE_AREA_BOTTOM,
-  tabScreenOptions,
-} from '../../app/(tabs)/_layout';
+class MockReleaseLogWebSocket {
+  static instances: MockReleaseLogWebSocket[] = [];
+  static OPEN = 1;
+  url: string;
+  readyState = MockReleaseLogWebSocket.OPEN;
+  onopen: (() => void) | null = null;
+  onmessage: ((event: { data: string }) => void) | null = null;
+  onerror: (() => void) | null = null;
+  onclose: ((event: { code?: number }) => void) | null = null;
+  close = jest.fn(() => {
+    this.readyState = 3;
+    this.onclose?.({ code: 1000 });
+  });
+
+  constructor(url: string) {
+    this.url = url;
+    MockReleaseLogWebSocket.instances.push(this);
+  }
+
+  emit(data: string) {
+    this.onmessage?.({ data });
+  }
+
+  emitErrorThenClose(code: number) {
+    this.onerror?.();
+    this.readyState = 3;
+    this.onclose?.({ code });
+  }
+}
+
+global.WebSocket = MockReleaseLogWebSocket as unknown as typeof WebSocket;
 
 function wrapper({ children }: { children: React.ReactNode }) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return <QueryClientProvider client={qc}>{children}</QueryClientProvider>;
 }
 
-/// Tab navigation: Agents, Activity, and Settings tabs are accessible
+async function openReleaseLogsFromSettingsTab() {
+  await act(async () => {
+    fireEvent(screen.getByTestId('tab-settings'), 'longPress');
+  });
+}
+
+/// Tab navigation: Agents, Specs, Activity, and Settings tabs are accessible
 ///
 /// Execution:
 ///   1. Render TabLayout
@@ -81,13 +133,47 @@ function wrapper({ children }: { children: React.ReactNode }) {
 ///
 /// Expected:
 ///   - 'Agents' tab label visible
+///   - 'Specs' tab label visible
 ///   - 'Activity' tab label visible
 ///   - 'Settings' tab label visible
 ///   - 'Projects', 'Chat', and 'Inbox' tab labels hidden
 describe('Tab navigation', () => {
-  it('renders only Agents, Activity, and Settings tabs', () => {
+  beforeEach(async () => {
+    jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+    (Clipboard.setStringAsync as jest.Mock).mockClear();
+    MockReleaseLogWebSocket.instances = [];
+    await clearDiagnosticsEntries();
+    useEndpointStore.setState({
+      endpoints: [
+        {
+          id: 'ep-1',
+          label: 'Home Server',
+          base_url: 'http://192.168.1.1:8765',
+          token: 'tok',
+          last_seen_at: null,
+        },
+        {
+          id: 'ep-2',
+          label: 'Mac Mini',
+          base_url: 'http://10.0.0.2:8765/',
+          token: 'tok two',
+          last_seen_at: null,
+        },
+      ],
+    });
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+    act(() => {
+      useEndpointStore.setState({ endpoints: [] });
+    });
+  });
+
+  it('renders only Agents, Specs, Activity, and Settings tabs', () => {
     render(<TabLayout />, { wrapper });
     expect(screen.getByText('Agents')).toBeTruthy();
+    expect(screen.getByText('Specs')).toBeTruthy();
     expect(screen.getByText('Activity')).toBeTruthy();
     expect(screen.getByText('Settings')).toBeTruthy();
 
@@ -100,6 +186,149 @@ describe('Tab navigation', () => {
     render(<TabLayout />, { wrapper });
     fireEvent.press(screen.getByTestId('tab-activity'));
     expect(screen.getByTestId('active-tab').props.children).toBe('activity');
+  });
+
+  /// Settings tab diagnostics: long-press opens release logs without changing normal tab press
+  ///
+  /// Data construction:
+  ///   endpoints = Home Server + Mac Mini seeded into endpointStore
+  ///   active tab starts as "index"
+  ///
+  /// Execution:
+  ///   1. Render TabLayout
+  ///   2. Long-press Settings tab
+  ///
+  /// Expected:
+  ///   - Positive: Release logs modal title appears
+  ///   - Positive: endpoint choices appear inside the modal
+  ///   - Negative: active tab remains index because long-press is a diagnostics shortcut
+  it('opens release logs from a Settings tab long press', async () => {
+    render(<TabLayout />, { wrapper });
+
+    await openReleaseLogsFromSettingsTab();
+
+    expect(screen.getByText('Release logs')).toBeTruthy();
+    expect(screen.getAllByText('Mac Mini').length).toBeGreaterThan(0);
+    expect(screen.getByTestId('active-tab').props.children).toBe('index');
+  });
+
+  /// Settings tab diagnostics: release logs modal streams formatted msctl text
+  ///
+  /// Data construction:
+  ///   endpoints         = Home Server + Mac Mini
+  ///   selected endpoint = Mac Mini（token 含空格，用于验证 query encode）
+  ///   websocket line    = "2026-05-24T10:00:00 INFO  [serve] http_request status=200"
+  ///
+  /// Execution:
+  ///   1. Render TabLayout
+  ///   2. Long-press Settings tab to open the modal
+  ///   3. Select Mac Mini
+  ///   4. Emit one plain text websocket message
+  ///
+  /// Expected:
+  ///   - Positive: websocket URL points at /ws/logs with encoded token
+  ///   - Positive: formatted msctl text appears as-is
+  ///   - Negative: rendered text is not JSON envelope content
+  it('streams selected endpoint release logs after Settings tab long press', async () => {
+    render(<TabLayout />, { wrapper });
+
+    await openReleaseLogsFromSettingsTab();
+    fireEvent.press(screen.getByTestId('release-logs-endpoint-ep-2'));
+
+    await waitFor(() => {
+      expect(MockReleaseLogWebSocket.instances.length).toBe(1);
+    });
+    expect(MockReleaseLogWebSocket.instances[0]?.url).toBe(
+      'ws://10.0.0.2:8765/ws/logs?token=tok%20two&tail=200&level=trace',
+    );
+
+    act(() => {
+      MockReleaseLogWebSocket.instances[0]?.emit(
+        '2026-05-24T10:00:00 INFO  [serve] http_request status=200',
+      );
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('release-logs-text').props.children).toContain('http_request');
+    });
+    expect(screen.getByTestId('release-logs-text').props.children).not.toContain('{"type":"log"');
+  });
+
+  /// Settings tab diagnostics: copy exports combined msctl and iOS release logs as plain text
+  ///
+  /// Data construction:
+  ///   diagnostics entry = warn / chat.image / "image load failed"
+  ///   websocket line    = "2026-05-24T10:00:01 WARN  [uploads] image_failed status=404"
+  ///   copied payload    = modal text buffer = iOS diagnostics + msctl websocket text
+  ///
+  /// Execution:
+  ///   1. Seed one iOS diagnostics event before rendering TabLayout
+  ///   2. Long-press Settings tab and select Home Server
+  ///   3. Emit one formatted msctl text line
+  ///   4. Press Copy logs inside the modal
+  ///
+  /// Expected:
+  ///   - Positive: Clipboard receives iOS diagnostics text
+  ///   - Positive: Clipboard receives msctl formatted text
+  ///   - Negative: Clipboard does not receive JSON envelope text
+  ///   - Negative: placeholder-only "No diagnostics yet." is not copied
+  it('copies combined release logs after Settings tab long press', async () => {
+    recordDiagnosticsEvent('warn', 'chat.image', 'image load failed', { file_id: 'file-1.jpg' });
+    render(<TabLayout />, { wrapper });
+
+    await openReleaseLogsFromSettingsTab();
+    fireEvent.press(screen.getByTestId('release-logs-endpoint-ep-1'));
+
+    await waitFor(() => {
+      expect(MockReleaseLogWebSocket.instances.length).toBe(1);
+    });
+    act(() => {
+      MockReleaseLogWebSocket.instances[0]?.emit(
+        '2026-05-24T10:00:01 WARN  [uploads] image_failed status=404',
+      );
+    });
+
+    fireEvent.press(screen.getByTestId('release-logs-copy-btn'));
+
+    await waitFor(() => {
+      expect(Clipboard.setStringAsync).toHaveBeenCalledWith(expect.stringContaining('chat.image'));
+    });
+    expect(Clipboard.setStringAsync).toHaveBeenCalledWith(expect.stringContaining('image_failed'));
+    expect(Clipboard.setStringAsync).not.toHaveBeenCalledWith(expect.stringContaining('{"type"'));
+    expect(Clipboard.setStringAsync).not.toHaveBeenCalledWith('No diagnostics yet.');
+  });
+
+  /// Settings tab diagnostics: websocket error status is not overwritten by the close event
+  ///
+  /// Data construction:
+  ///   selected endpoint = Home Server
+  ///   websocket error   = synthetic error followed by close code 1006
+  ///   msctl lines       = 0 lines
+  ///
+  /// Execution:
+  ///   1. Long-press Settings tab to open Release logs modal
+  ///   2. Select Home Server
+  ///   3. Emit websocket error, then close
+  ///
+  /// Expected:
+  ///   - Positive: status shows "Could not stream logs"
+  ///   - Negative: status is not overwritten by generic "Log stream closed."
+  it('keeps websocket error status when close follows error after Settings tab long press', async () => {
+    render(<TabLayout />, { wrapper });
+
+    await openReleaseLogsFromSettingsTab();
+    fireEvent.press(screen.getByTestId('release-logs-endpoint-ep-1'));
+
+    await waitFor(() => {
+      expect(MockReleaseLogWebSocket.instances.length).toBe(1);
+    });
+
+    act(() => {
+      MockReleaseLogWebSocket.instances[0]?.emitErrorThenClose(1006);
+    });
+
+    expect(screen.getByText('Could not stream logs from Home Server.')).toBeTruthy();
+    expect(screen.queryByText('Log stream closed.')).toBeNull();
   });
 
   /// iOS tab bar labels: safe-area padding must not consume the 62px content rail
