@@ -11,6 +11,9 @@ pub mod relay;
 pub mod routes;
 pub mod runtime;
 pub mod state;
+pub mod workflows;
+#[cfg(test)]
+mod workflows_tests;
 
 use anyhow::Result;
 use axum::{middleware, Router};
@@ -52,6 +55,26 @@ pub async fn build_router(state: AppState) -> Router {
         .route(
             "/api/v1/runtime-models",
             axum::routing::get(runtime_models::list_runtime_models),
+        )
+        .route(
+            "/api/v1/workflows",
+            axum::routing::get(workflows::list_workflows).post(workflows::create_workflow),
+        )
+        .route(
+            "/api/v1/workflows/:id",
+            axum::routing::patch(workflows::update_workflow),
+        )
+        .route(
+            "/api/v1/workflows/:id/disable",
+            axum::routing::post(workflows::disable_workflow),
+        )
+        .route(
+            "/api/v1/workflows/:id/enable",
+            axum::routing::post(workflows::enable_workflow),
+        )
+        .route(
+            "/api/v1/workflows/:id/runs",
+            axum::routing::get(workflows::list_workflow_runs),
         )
         .route("/ws/logs", axum::routing::get(logs::logs_ws_handler))
         .route("/api/v1/agents/:id", axum::routing::get(agents::get_agent))
@@ -116,10 +139,23 @@ pub async fn run_server(state: AppState, addr: std::net::SocketAddr) -> Result<(
     let listener = tokio::net::TcpListener::bind(addr).await?;
     println!("Listening on http://{}", addr);
     tracing::info!(addr = %addr, "serve_listening");
+    start_workflow_scheduler(state.clone());
     axum::serve(listener, router).await?;
     // serve が終了したら全 plugin agent の status を stopped に更新
     state.plugin_manager.shutdown();
     Ok(())
+}
+
+fn start_workflow_scheduler(state: AppState) {
+    tokio::spawn(async move {
+        let mut interval = tokio::time::interval(std::time::Duration::from_secs(30));
+        loop {
+            interval.tick().await;
+            if let Err(err) = workflows::run_due_workflows_once(&state) {
+                tracing::warn!(error = %err, "workflow_scheduler_tick_failed");
+            }
+        }
+    });
 }
 
 mod http_trace {

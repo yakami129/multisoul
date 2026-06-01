@@ -83,6 +83,36 @@ fn init_schema(conn: &Connection) -> Result<()> {
             conversation_id TEXT PRIMARY KEY REFERENCES conversations(id) ON DELETE CASCADE,
             read_at         INTEGER NOT NULL
         );
+        CREATE TABLE IF NOT EXISTS workflows (
+            id              TEXT PRIMARY KEY,
+            name            TEXT NOT NULL,
+            agent_id        TEXT NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
+            prompt          TEXT NOT NULL,
+            enabled         INTEGER NOT NULL DEFAULT 1,
+            schedule_kind   TEXT NOT NULL,
+            time_of_day     TEXT NOT NULL,
+            day_of_week     INTEGER,
+            next_run_at     INTEGER,
+            last_run_at     INTEGER,
+            created_at      INTEGER NOT NULL,
+            updated_at      INTEGER NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_workflows_enabled_next_run
+            ON workflows(enabled, next_run_at);
+        CREATE TABLE IF NOT EXISTS workflow_runs (
+            id              TEXT PRIMARY KEY,
+            workflow_id     TEXT NOT NULL REFERENCES workflows(id) ON DELETE CASCADE,
+            conversation_id TEXT REFERENCES conversations(id) ON DELETE SET NULL,
+            status          TEXT NOT NULL,
+            scheduled_for   INTEGER NOT NULL,
+            started_at      INTEGER,
+            ended_at        INTEGER,
+            summary         TEXT,
+            error_message   TEXT,
+            created_at      INTEGER NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_workflow_runs_workflow_created
+            ON workflow_runs(workflow_id, created_at DESC);
     "#,
     )?;
     // Migrate existing DBs: add claude_session_id if missing

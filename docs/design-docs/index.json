@@ -57,7 +57,7 @@
         },
         {
           "path": "cli/src/db.rs",
-          "sha256": "dda85aa573059d3edcf4a132328a94e61e7b6422eb15662c9ffec6c431569bfd",
+          "sha256": "06fb2e1d85a969c801d0cf3fb27b2ab92df6bc5b1e70cbfd76a7372d5c48d7fe",
           "reason": "文档说明 runtime 持久化字段和 migration 纪律；DB schema 演进会影响该章节。"
         },
         {
@@ -94,7 +94,7 @@
         },
         {
           "path": "cli/src/serve/runtime/claude/stream.rs",
-          "sha256": "bf5bcfba4f5902690e2bb015e740c6e7841e0a0438e5a6dff82ea0e6da559045",
+          "sha256": "d9603f9007465036ec3a712d450fd4eb27845697a652c1f21ea76b5bd4b25772",
           "reason": "Claude AskUserQuestion 触发问答推送的时机由本文档定义。"
         },
         {
