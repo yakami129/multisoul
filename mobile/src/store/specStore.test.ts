@@ -186,6 +186,51 @@ test('completed draft generates preview, approves, and reloads from storage', as
 });
 
 /**
+ * 场景：删除一个本地 spec 时，应同时从 SQLite mock rows 和内存 store 移除目标草稿。
+ *
+ * 数据构造：
+ *   specA.title = Offline First Spec Manager，删除目标。
+ *   specB.title = Cloud Relay Setup，非目标，应保留。
+ *   SQLite rows 初始包含 specA + specB。
+ *
+ * 执行过程：
+ *   1. 连续 createSpec 创建 specA 和 specB。
+ *   2. 调用 deleteSpec(specA.id)。
+ *   3. 检查内存 store。
+ *   4. 清空内存后 load，从 SQLite mock rows 重新加载。
+ *
+ * 预期结果：
+ *   - 正断言：specB 仍存在，说明删除没有误删其他 spec。
+ *   - 负断言：specA 不存在，说明目标 spec 已从内存删除。
+ *   - 正断言：reload 后 specB 仍存在，说明 DB 删除只影响目标 row。
+ *   - 负断言：reload 后 specA 不存在，说明 SQLite 删除已持久化。
+ */
+test('deleteSpec removes only the selected spec from memory and storage', async () => {
+  specRows = [];
+  useSpecStore.setState({ specs: [] });
+  const specA = await useSpecStore.getState().createSpec({
+    title: 'Offline First Spec Manager',
+    targetAgent: agent,
+  });
+  const specB = await useSpecStore.getState().createSpec({
+    title: 'Cloud Relay Setup',
+    targetAgent: agent,
+  });
+
+  await useSpecStore.getState().deleteSpec(specA.id);
+
+  const memorySpecs = useSpecStore.getState().specs;
+  expect(memorySpecs.some((spec) => spec.id === specB.id)).toBe(true);
+  expect(memorySpecs.some((spec) => spec.id === specA.id)).toBe(false);
+
+  useSpecStore.setState({ specs: [] });
+  await useSpecStore.getState().load();
+  const reloadedSpecs = useSpecStore.getState().specs;
+  expect(reloadedSpecs.some((spec) => spec.id === specB.id)).toBe(true);
+  expect(reloadedSpecs.some((spec) => spec.id === specA.id)).toBe(false);
+});
+
+/**
  * 场景：Approved spec 派发成功后，store 应调用 CLI dispatch endpoint 并持久化 conversation 关联。
  *
  * 数据构造：

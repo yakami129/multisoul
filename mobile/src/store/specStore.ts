@@ -7,7 +7,11 @@ import {
   SPEC_INTERVIEW_QUESTIONS,
 } from '@/features/specs/services/specInterview';
 import { buildSpecMarkdown, buildSpecSlug } from '@/features/specs/services/specMarkdown';
-import { loadSpecs, saveSpec } from '@/features/specs/services/specRepository';
+import {
+  deleteSpec as deleteStoredSpec,
+  loadSpecs,
+  saveSpec,
+} from '@/features/specs/services/specRepository';
 import {
   type CreateSpecInput,
   type DispatchSpecResult,
@@ -28,6 +32,7 @@ interface SpecState {
   dispatchSpec: (specId: string, endpoint: Endpoint) => Promise<DispatchSpecResult>;
   markDispatched: (specId: string, result: DispatchSpecResult) => Promise<void>;
   markFailed: (specId: string, errorMessage: string) => Promise<void>;
+  deleteSpec: (specId: string) => Promise<void>;
 }
 
 function upsertAnswer(answers: SpecAnswer[], answer: SpecAnswer): SpecAnswer[] {
@@ -192,5 +197,10 @@ export const useSpecStore = create<SpecState>((set, get) => ({
       updatedAt: Date.now(),
     }));
     set({ specs });
+  },
+
+  deleteSpec: async (specId) => {
+    await deleteStoredSpec(specId);
+    set((state) => ({ specs: state.specs.filter((spec) => spec.id !== specId) }));
   },
 }));

@@ -233,4 +233,84 @@ describe('AgentCard', () => {
     expect(codexGenericIcon).toBeNull();
     expect(cursorGenericIcon).toBeNull();
   });
+
+  /// Running card breathing: AgentCard places life chrome behind existing row content.
+  ///
+  /// Data construction:
+  ///   agent.runtime       = codex
+  ///   showBreathingEffect = true
+  ///   codex accent color  = #FF6B35 from runtime avatar canvas
+  ///
+  /// Execution process:
+  ///   1. Render AgentCard with showBreathingEffect=true.
+  ///   2. Query the breathing layer and existing avatar/name/chevron.
+  ///   3. Inspect row geometry.
+  ///
+  /// Expected result:
+  ///   - Positive: breathing layer renders when the caller opts in.
+  ///   - Positive: normal card content still renders above the effect.
+  ///   - Negative: the effect does not replace the runtime pixel avatar.
+  it('renders breathing chrome behind content when opted in', () => {
+    const { getByTestId, getByText } = render(
+      <AgentCard
+        agent={{ ...agent, runtime: 'codex' }}
+        onPress={() => {}}
+        index={0}
+        metaVariant="status"
+        statusLabel="Running"
+        isActive
+        showBreathingEffect
+      />,
+    );
+
+    const rowStyle = StyleSheet.flatten(getByTestId('project-row').props.style);
+
+    expect(getByTestId('running-agent-breath')).toBeTruthy();
+    expect(getByTestId('runtime-pixel-codex')).toBeTruthy();
+    expect(getByText('My Agent')).toBeTruthy();
+    expect(getByTestId('project-chevron')).toBeTruthy();
+    expectEqualWithReason(
+      rowStyle.position,
+      'relative',
+      'project row should become a positioning context for absolute breathing chrome',
+    );
+    expectEqualWithReason(
+      rowStyle.height,
+      68,
+      'breathing chrome must not change the established project row height',
+    );
+  });
+
+  /// Idle card breathing: AgentCard does not add life chrome unless the list explicitly opts in.
+  ///
+  /// Data construction:
+  ///   showBreathingEffect = false by default
+  ///   isActive            = true to prove active alone is not enough
+  ///
+  /// Execution process:
+  ///   1. Render AgentCard without showBreathingEffect.
+  ///   2. Query the breathing layer and existing active status dot.
+  ///
+  /// Expected result:
+  ///   - Positive: active status metadata can still render.
+  ///   - Negative: breathing chrome is absent without the explicit prop.
+  it('does not render breathing chrome from isActive alone', () => {
+    const { getByText, queryByTestId } = render(
+      <AgentCard
+        agent={agent}
+        onPress={() => {}}
+        index={0}
+        metaVariant="status"
+        statusLabel="Running"
+        isActive
+      />,
+    );
+
+    expect(getByText('Running')).toBeTruthy();
+    expectEqualWithReason(
+      queryByTestId('running-agent-breath') === null,
+      true,
+      'AgentCard should require showBreathingEffect so awaiting-question rows can remain static',
+    );
+  });
 });

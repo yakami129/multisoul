@@ -11,6 +11,10 @@
       "title": "Spec 管理模块 SPEC"
     },
     {
+      "file": "2026-06-01-SPEC-workflow-module.md",
+      "title": "Workflow 模块 SPEC"
+    },
+    {
       "file": "SPEC-activity-pagination.md",
       "title": "Activity 模块分页滚动加载优化 SPEC"
     },

@@ -1,0 +1,271 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080">
+  <defs>
+    <style>
+      .bg { fill: #0D0D0D; }
+      .surface { fill: #1A1A1A; }
+      .surface2 { fill: #252525; }
+      .line { stroke: #1E1E1E; stroke-width: 1; }
+      .phone { fill: #0D0D0D; stroke: #2A2A2A; stroke-width: 2; }
+      .orange { fill: #FF6B35; }
+      .green { fill: #4CAF50; }
+      .red { fill: #FF4444; }
+      .muted-dot { fill: #555555; }
+      .text { fill: #FFFFFF; font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+      .sub { fill: #888888; font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+      .muted { fill: #555555; font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+      .tiny { font-size: 10px; }
+      .small { font-size: 12px; }
+      .body { font-size: 14px; }
+      .title { font-size: 30px; font-weight: 700; }
+      .h1 { font-size: 34px; font-weight: 700; }
+      .bold { font-weight: 700; }
+      .semi { font-weight: 600; }
+      .chip { fill: #252525; stroke: #1E1E1E; stroke-width: 1; }
+      .chip-active { fill: #2A2A2A; }
+      .cta { fill: #FF6B35; }
+      .toggle-track { fill: #2A2A2A; }
+      .tabbar { fill: #161616; stroke: #1E1E1E; stroke-width: 1; }
+      .flow-box { fill: #111111; stroke: #2A2A2A; stroke-width: 1.2; }
+      .flow-branch { fill: #111111; stroke: #FF6B35; stroke-width: 1.5; stroke-dasharray: 5 4; }
+      .arrow { stroke: #888888; stroke-width: 1.8; fill: none; marker-end: url(#arrowhead); }
+      .arrow-orange { stroke: #FF6B35; stroke-width: 1.8; fill: none; marker-end: url(#arrowhead-orange); }
+    </style>
+    <marker id="arrowhead" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <path d="M0,0 L8,3 L0,6 Z" fill="#888888"/>
+    </marker>
+    <marker id="arrowhead-orange" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <path d="M0,0 L8,3 L0,6 Z" fill="#FF6B35"/>
+    </marker>
+  </defs>
+
+  <rect class="bg" x="0" y="0" width="1920" height="1080"/>
+  <text class="text title" x="32" y="44">MultiSoul</text>
+  <text class="text title orange" x="170" y="44">Workflow</text>
+  <text class="sub body" x="315" y="44">iOS prototype aligned to current Activity and design system</text>
+
+  <!-- Phone frame helper dimensions: 270x560 -->
+
+  <!-- Workflow list -->
+  <g transform="translate(32,86)">
+    <text class="text bold body" x="0" y="-12">1  Workflow List</text>
+    <rect class="phone" x="0" y="0" width="270" height="560" rx="30"/>
+    <rect class="bg" x="9" y="9" width="252" height="542" rx="24"/>
+    <text class="text small" x="26" y="35">9:41</text>
+    <text class="text h1" x="22" y="78">Workflows</text>
+    <text class="orange" x="238" y="76" font-family="Inter" font-size="30">+</text>
+    <rect class="cta" x="22" y="102" width="226" height="42" rx="10"/>
+    <text class="text bold body" x="88" y="128">New Workflow</text>
+    <line x1="104" y1="123" x2="120" y2="123" stroke="#fff" stroke-width="2"/>
+    <line x1="112" y1="115" x2="112" y2="131" stroke="#fff" stroke-width="2"/>
+    <rect class="surface" x="22" y="158" width="226" height="36" rx="10"/>
+    <rect class="surface2" x="25" y="161" width="72" height="30" rx="8"/>
+    <text class="text small" x="55" y="181" text-anchor="middle">All</text>
+    <text class="sub small" x="136" y="181" text-anchor="middle">On</text>
+    <text class="sub small" x="211" y="181" text-anchor="middle">Off</text>
+
+    <g transform="translate(22,215)">
+      <rect x="0" y="0" width="32" height="32" rx="9" fill="#FF6B35"/>
+      <rect x="8" y="9" width="5" height="5" fill="#0D0D0D"/><rect x="19" y="9" width="5" height="5" fill="#0D0D0D"/><rect x="10" y="20" width="12" height="4" fill="#0D0D0D"/>
+      <text class="text semi body" x="44" y="13">Daily Market Brief</text>
+      <text class="sub small" x="44" y="31">MarketAnalyst · Next Today 08:30</text>
+      <text class="green small bold" x="172" y="18">OK</text>
+      <rect class="orange" x="210" y="6" width="36" height="20" rx="10"/><circle cx="236" cy="16" r="8" fill="#fff"/>
+      <line class="line" x1="0" y1="50" x2="226" y2="50"/>
+    </g>
+    <g transform="translate(22,276)">
+      <rect x="0" y="0" width="32" height="32" rx="9" fill="#7C3AED"/>
+      <rect x="7" y="8" width="6" height="6" fill="#0D0D0D"/><rect x="19" y="8" width="6" height="6" fill="#0D0D0D"/><rect x="9" y="21" width="15" height="3" fill="#0D0D0D"/>
+      <text class="text semi body" x="44" y="13">News Digest</text>
+      <text class="sub small" x="44" y="31">NewsAgent · Next Today 09:00</text>
+      <text class="red small bold" x="168" y="18">Failed</text>
+      <rect class="orange" x="210" y="6" width="36" height="20" rx="10"/><circle cx="236" cy="16" r="8" fill="#fff"/>
+      <line class="line" x1="0" y1="50" x2="226" y2="50"/>
+    </g>
+    <g transform="translate(22,337)">
+      <rect x="0" y="0" width="32" height="32" rx="9" fill="#059669"/>
+      <rect x="8" y="10" width="16" height="5" fill="#0D0D0D"/><rect x="11" y="20" width="10" height="4" fill="#0D0D0D"/>
+      <text class="text semi body" x="44" y="13">Social Listening</text>
+      <text class="sub small" x="44" y="31">SocialAgent · Next Today 10:00</text>
+      <text class="green small bold" x="157" y="18">Running</text>
+      <rect class="orange" x="210" y="6" width="36" height="20" rx="10"/><circle cx="236" cy="16" r="8" fill="#fff"/>
+      <line class="line" x1="0" y1="50" x2="226" y2="50"/>
+    </g>
+    <g transform="translate(22,398)">
+      <rect x="0" y="0" width="32" height="32" rx="9" fill="#555555"/>
+      <rect x="8" y="10" width="16" height="5" fill="#0D0D0D"/><rect x="11" y="20" width="10" height="4" fill="#0D0D0D"/>
+      <text class="text semi body" x="44" y="13">GitHub Watch</text>
+      <text class="sub small" x="44" y="31">CodeObserver · Off</text>
+      <text class="muted small bold" x="176" y="18">-</text>
+      <rect class="toggle-track" x="210" y="6" width="36" height="20" rx="10"/><circle cx="220" cy="16" r="8" fill="#ddd"/>
+    </g>
+    <rect class="tabbar" x="0" y="498" width="270" height="62"/>
+    <text class="muted tiny" x="38" y="534" text-anchor="middle">Agents</text>
+    <text class="orange tiny bold" x="103" y="534" text-anchor="middle">Workflows</text>
+    <text class="muted tiny" x="169" y="534" text-anchor="middle">Activity</text>
+    <text class="muted tiny" x="232" y="534" text-anchor="middle">Settings</text>
+  </g>
+
+  <!-- Create edit -->
+  <g transform="translate(333,86)">
+    <text class="text bold body" x="0" y="-12">2  Create / Edit Workflow</text>
+    <rect class="phone" x="0" y="0" width="270" height="560" rx="30"/>
+    <rect class="bg" x="9" y="9" width="252" height="542" rx="24"/>
+    <text class="text small" x="26" y="35">9:41</text>
+    <text class="orange small bold" x="22" y="68">Cancel</text>
+    <text class="text bold body" x="84" y="68">Create Workflow</text>
+    <text class="orange small bold" x="226" y="68">Save</text>
+    <text class="sub tiny bold" x="22" y="100">BASIC</text>
+    <rect class="surface" x="22" y="112" width="226" height="36" rx="8"/>
+    <text class="sub small" x="34" y="134">Name</text><text class="text small" x="92" y="134">Daily Market Brief</text>
+    <rect class="surface" x="22" y="158" width="226" height="38" rx="8"/>
+    <text class="sub small" x="34" y="181">Agent</text><text class="text small" x="92" y="181">MarketAnalyst</text><text class="muted body" x="230" y="181">›</text>
+    <text class="sub tiny bold" x="22" y="222">FIXED PROMPT</text>
+    <rect class="surface" x="22" y="234" width="226" height="104" rx="8"/>
+    <text class="text small" x="34" y="258">Summarize global market overview</text>
+    <text class="text small" x="34" y="278">including major indices, crypto,</text>
+    <text class="text small" x="34" y="298">commodities and key news.</text>
+    <text class="text small" x="34" y="318">Keep it concise.</text>
+    <text class="muted tiny" x="206" y="332">92 / 2000</text>
+    <text class="sub tiny bold" x="22" y="366">SCHEDULE</text>
+    <rect class="surface" x="22" y="378" width="226" height="36" rx="8"/>
+    <rect class="surface2" x="25" y="381" width="110" height="30" rx="7"/>
+    <text class="text small" x="80" y="401" text-anchor="middle">Daily</text><text class="sub small" x="190" y="401" text-anchor="middle">Weekly</text>
+    <rect class="surface" x="22" y="424" width="226" height="36" rx="8"/>
+    <text class="sub small" x="34" y="446">Time</text><text class="text small" x="202" y="446">08:30</text><text class="muted body" x="230" y="446">›</text>
+    <text class="sub tiny bold" x="22" y="478">WEEKDAY</text>
+    <g transform="translate(22,492)">
+      <rect class="orange" x="0" y="0" width="28" height="28" rx="14"/><text class="text tiny bold" x="14" y="18" text-anchor="middle">Mon</text>
+      <rect class="surface2" x="34" y="0" width="28" height="28" rx="14"/><text class="sub tiny" x="48" y="18" text-anchor="middle">Tue</text>
+      <rect class="surface2" x="68" y="0" width="28" height="28" rx="14"/><text class="sub tiny" x="82" y="18" text-anchor="middle">Wed</text>
+      <rect class="surface2" x="102" y="0" width="28" height="28" rx="14"/><text class="sub tiny" x="116" y="18" text-anchor="middle">Thu</text>
+      <rect class="surface2" x="136" y="0" width="28" height="28" rx="14"/><text class="sub tiny" x="150" y="18" text-anchor="middle">Fri</text>
+      <text class="sub tiny" x="113" y="52" text-anchor="middle">daemon local timezone</text>
+    </g>
+  </g>
+
+  <!-- Detail -->
+  <g transform="translate(634,86)">
+    <text class="text bold body" x="0" y="-12">3  Workflow Detail</text>
+    <rect class="phone" x="0" y="0" width="270" height="560" rx="30"/>
+    <rect class="bg" x="9" y="9" width="252" height="542" rx="24"/>
+    <text class="text small" x="26" y="35">9:41</text><text class="text body" x="22" y="68">‹</text>
+    <text class="text bold body" x="83" y="68">Workflow Detail</text><text class="orange small bold" x="226" y="68">Edit</text>
+    <rect class="surface" x="22" y="92" width="226" height="64" rx="12"/>
+    <circle cx="50" cy="124" r="18" fill="#252525"/><text x="50" y="131" text-anchor="middle" font-size="22">▥</text>
+    <text class="text semi body" x="78" y="116">Daily Market Brief</text>
+    <text class="sub small" x="78" y="136">MarketAnalyst</text>
+    <rect class="orange" x="208" y="114" width="34" height="20" rx="10"/><circle cx="232" cy="124" r="8" fill="#fff"/>
+    <rect class="surface" x="22" y="170" width="226" height="112" rx="10"/>
+    <text class="text small" x="34" y="194">Next Run</text><text class="sub small" x="164" y="194">Today 08:30</text>
+    <line class="line" x1="34" y1="209" x2="236" y2="209"/>
+    <text class="text small" x="34" y="231">Schedule</text><text class="sub small" x="162" y="231">Daily at 08:30</text>
+    <line class="line" x1="34" y1="246" x2="236" y2="246"/>
+    <text class="text small" x="34" y="268">Prompt</text><text class="sub small" x="146" y="268">Market overview...</text>
+    <text class="sub tiny bold" x="22" y="314">RECENT RUNS</text>
+    <g transform="translate(22,330)">
+      <circle class="green" cx="6" cy="14" r="4"/><text class="text small bold" x="18" y="13">Completed</text><text class="sub tiny" x="18" y="29">Today 08:30</text><text class="orange tiny" x="148" y="22">Open Conversation</text><line class="line" x1="0" y1="44" x2="226" y2="44"/>
+      <circle class="green" cx="6" cy="62" r="4"/><text class="text small bold" x="18" y="61">Completed</text><text class="sub tiny" x="18" y="77">May 30 08:30</text><text class="orange tiny" x="148" y="70">Open Conversation</text><line class="line" x1="0" y1="92" x2="226" y2="92"/>
+      <circle class="red" cx="6" cy="110" r="4"/><text class="text small bold" x="18" y="109">Failed</text><text class="sub tiny" x="18" y="125">May 29 08:30</text><text class="orange tiny" x="148" y="118">Open Conversation</text><line class="line" x1="0" y1="140" x2="226" y2="140"/>
+      <circle class="orange" cx="6" cy="158" r="4"/><text class="text small bold" x="18" y="157">Skipped Overlap</text><text class="sub tiny" x="18" y="173">May 28 08:30</text><text class="muted tiny" x="148" y="166">No conversation</text>
+    </g>
+    <rect class="tabbar" x="0" y="498" width="270" height="62"/>
+    <text class="muted tiny" x="38" y="534" text-anchor="middle">Agents</text><text class="orange tiny bold" x="103" y="534" text-anchor="middle">Workflows</text><text class="muted tiny" x="169" y="534" text-anchor="middle">Activity</text><text class="muted tiny" x="232" y="534" text-anchor="middle">Settings</text>
+  </g>
+
+  <!-- Activity current design -->
+  <g transform="translate(935,86)">
+    <text class="text bold body" x="0" y="-12">4  Activity - current iOS structure</text>
+    <rect class="phone" x="0" y="0" width="270" height="560" rx="30"/>
+    <rect class="bg" x="9" y="9" width="252" height="542" rx="24"/>
+    <text class="text small" x="26" y="35">9:41</text>
+    <text class="text h1" x="22" y="78">Activity</text>
+    <text class="sub body" x="230" y="76">≡</text>
+    <rect class="surface" x="22" y="104" width="226" height="36" rx="8"/>
+    <rect class="chip-active" x="25" y="107" width="53" height="30" rx="6"/>
+    <text class="text tiny bold" x="51" y="126" text-anchor="middle">All 8</text>
+    <text class="sub tiny" x="107" y="126" text-anchor="middle">Pending 1</text>
+    <text class="sub tiny" x="163" y="126" text-anchor="middle">Running 2</text>
+    <text class="sub tiny" x="218" y="126" text-anchor="middle">Done 5</text>
+    <line class="line" x1="22" y1="158" x2="248" y2="158"/>
+    <g transform="translate(22,176)">
+      <circle class="orange" cx="4" cy="12" r="4"/><text class="text semi body" x="18" y="13">AskQuestion · Daily Brief</text><text class="muted small" x="196" y="13">now</text><text class="sub small" x="18" y="31">MultiSoul · Needs approval</text><text class="orange small bold" x="190" y="31">Pending</text><text class="muted body" x="220" y="24">›</text><line class="line" x1="0" y1="54" x2="226" y2="54"/>
+      <circle class="green" cx="4" cy="74" r="4"/><text class="text semi body" x="18" y="75">Daily Market Brief</text><text class="muted small" x="188" y="75">2m</text><text class="sub small" x="18" y="93">MarketAnalyst · Running workflow</text><text class="green small bold" x="190" y="93">Running</text><text class="muted body" x="220" y="86">›</text><line class="line" x1="0" y1="116" x2="226" y2="116"/>
+      <circle class="green" cx="4" cy="136" r="4"/><text class="text semi body" x="18" y="137">Social Listening</text><text class="muted small" x="188" y="137">8m</text><text class="sub small" x="18" y="155">SocialAgent · Streaming reply</text><text class="green small bold" x="190" y="155">Running</text><text class="muted body" x="220" y="148">›</text><line class="line" x1="0" y1="178" x2="226" y2="178"/>
+      <circle class="red" cx="4" cy="198" r="4"/><text class="text semi body" x="18" y="199">News Digest</text><text class="muted small" x="176" y="199">1h</text><text class="sub small" x="18" y="217">NewsAgent · API timeout</text><text class="red small bold" x="196" y="217">Failed</text><text class="muted body" x="220" y="210">›</text><line class="line" x1="0" y1="240" x2="226" y2="240"/>
+      <circle class="muted-dot" cx="4" cy="260" r="4"/><text class="text semi body" x="18" y="261">Weekly Report</text><text class="muted small" x="158" y="261">Yesterday</text><text class="sub small" x="18" y="279">ReportAgent · Summary ready</text><text class="sub small bold" x="196" y="279">Done</text><text class="muted body" x="220" y="272">›</text>
+    </g>
+    <rect class="tabbar" x="0" y="498" width="270" height="62"/>
+    <text class="muted tiny" x="38" y="534" text-anchor="middle">Agents</text><text class="muted tiny" x="103" y="534" text-anchor="middle">Specs</text><text class="orange tiny bold" x="169" y="534" text-anchor="middle">Activity</text><text class="muted tiny" x="232" y="534" text-anchor="middle">Settings</text>
+  </g>
+
+  <!-- Conversation -->
+  <g transform="translate(1236,86)">
+    <text class="text bold body" x="0" y="-12">5  New conversation per run</text>
+    <rect class="phone" x="0" y="0" width="270" height="560" rx="30"/>
+    <rect class="bg" x="9" y="9" width="252" height="542" rx="24"/>
+    <text class="text small" x="26" y="35">9:41</text><text class="text body" x="22" y="68">‹</text><text class="text bold body" x="75" y="62">Daily Market Brief</text><text class="sub tiny" x="88" y="78">Run · Today 08:30</text>
+    <rect class="surface" x="44" y="110" width="204" height="92" rx="14"/>
+    <text class="sub tiny bold" x="58" y="130">You · Fixed Prompt</text><text class="text small" x="58" y="152">Summarize global market overview</text><text class="text small" x="58" y="170">including major indices, crypto,</text><text class="text small" x="58" y="188">commodities and key news.</text>
+    <rect class="surface" x="22" y="222" width="214" height="112" rx="14"/>
+    <text class="sub tiny bold" x="38" y="242">MarketAnalyst</text><text class="text small" x="38" y="264">Here is today’s market overview:</text><text class="text small" x="38" y="284">US stocks mixed. BTC trades near</text><text class="text small" x="38" y="304">$67.1k. More details in report.</text>
+    <rect class="surface" x="22" y="354" width="226" height="48" rx="10"/>
+    <text class="text small" x="38" y="376">Task Status</text><text class="green small bold" x="124" y="376">Completed</text><text class="sub tiny" x="38" y="394">Started 08:30 · Finished 08:31</text>
+    <rect x="22" y="420" width="226" height="70" rx="10" fill="#1A1A1A" stroke="#2A2A2A"/>
+    <text class="text small bold" x="38" y="442">Ask for input</text><text class="sub small" x="38" y="462">Review and choose next step.</text>
+    <rect class="cta" x="38" y="472" width="78" height="24" rx="7"/><text class="text tiny bold" x="77" y="488" text-anchor="middle">Approve</text>
+    <rect class="surface2" x="124" y="472" width="78" height="24" rx="7"/><text class="text tiny bold" x="163" y="488" text-anchor="middle">Modify</text>
+  </g>
+
+  <!-- Callouts -->
+  <g transform="translate(1548,100)">
+    <rect class="surface" x="0" y="0" width="320" height="118" rx="16" stroke="#FF6B35"/>
+    <circle class="orange" cx="34" cy="34" r="14"/><text class="text bold body" x="62" y="34">Workflow shows only ON/OFF</text>
+    <text class="sub body" x="62" y="60">Run status lives in History and</text>
+    <text class="sub body" x="62" y="80">Activity, not in the Workflow row.</text>
+    <rect class="surface" x="0" y="148" width="320" height="118" rx="16" stroke="#FF6B35"/>
+    <circle class="orange" cx="34" cy="182" r="14"/><text class="text bold body" x="62" y="182">Every trigger creates NEW chat</text>
+    <text class="sub body" x="62" y="208">Never reuse previous conversation</text>
+    <text class="sub body" x="62" y="228">history for scheduled runs.</text>
+    <rect class="surface" x="0" y="296" width="320" height="118" rx="16" stroke="#FF6B35"/>
+    <circle class="orange" cx="34" cy="330" r="14"/><text class="text bold body" x="62" y="330">Activity stays current design</text>
+    <text class="sub body" x="62" y="356">Same title, filters, row dots,</text>
+    <text class="sub body" x="62" y="376">status labels, and chevrons.</text>
+  </g>
+
+  <!-- Flow area -->
+  <g transform="translate(32,720)">
+    <rect x="0" y="0" width="1856" height="318" rx="18" fill="#0D0D0D" stroke="#1E1E1E"/>
+    <text class="text bold body" x="22" y="30">6  System Interaction Flow</text>
+    <g transform="translate(22,56)">
+      <rect class="flow-box" x="0" y="0" width="130" height="78" rx="10"/><text class="text small bold" x="65" y="24" text-anchor="middle">Mobile</text><text class="sub tiny" x="65" y="44" text-anchor="middle">Create/Edit</text><text class="sub tiny" x="65" y="60" text-anchor="middle">ON/OFF</text>
+      <path class="arrow" d="M138 39 H168"/>
+      <rect class="flow-box" x="178" y="0" width="130" height="78" rx="10"/><text class="text small bold" x="243" y="24" text-anchor="middle">REST API</text><text class="sub tiny" x="243" y="44" text-anchor="middle">Bearer Auth</text>
+      <path class="arrow" d="M316 39 H346"/>
+      <rect class="flow-box" x="356" y="0" width="130" height="78" rx="10"/><text class="text small bold" x="421" y="24" text-anchor="middle">msctl serve</text><text class="sub tiny" x="421" y="44" text-anchor="middle">Store config</text><text class="sub tiny" x="421" y="60" text-anchor="middle">SQLite</text>
+      <path class="arrow" d="M494 39 H524"/>
+      <rect class="flow-box" x="534" y="0" width="150" height="78" rx="10"/><text class="text small bold" x="609" y="24" text-anchor="middle">Daemon Scheduler</text><text class="sub tiny" x="609" y="44" text-anchor="middle">local timezone</text><text class="sub tiny" x="609" y="60" text-anchor="middle">evaluate next_run_at</text>
+      <path class="arrow" d="M692 39 H722"/>
+      <rect class="flow-box" x="732" y="0" width="116" height="78" rx="10"/><text class="text small bold" x="790" y="24" text-anchor="middle">Due?</text><text class="sub tiny" x="790" y="46" text-anchor="middle">next_run_at</text>
+      <path class="arrow-orange" d="M856 39 H886"/>
+      <rect class="flow-box" x="896" y="0" width="138" height="78" rx="10"/><text class="text small bold" x="965" y="24" text-anchor="middle">Create NEW</text><text class="sub tiny" x="965" y="44" text-anchor="middle">conversation</text><text class="sub tiny" x="965" y="60" text-anchor="middle">for this run</text>
+      <path class="arrow" d="M1042 39 H1072"/>
+      <rect class="flow-box" x="1082" y="0" width="138" height="78" rx="10"/><text class="text small bold" x="1151" y="24" text-anchor="middle">Dispatch Prompt</text><text class="sub tiny" x="1151" y="44" text-anchor="middle">as first user</text><text class="sub tiny" x="1151" y="60" text-anchor="middle">message</text>
+      <path class="arrow" d="M1228 39 H1258"/>
+      <rect class="flow-box" x="1268" y="0" width="150" height="78" rx="10"/><text class="text small bold" x="1343" y="24" text-anchor="middle">Save Results</text><text class="sub tiny" x="1343" y="44" text-anchor="middle">workflow_run</text><text class="sub tiny" x="1343" y="60" text-anchor="middle">task_status</text>
+      <path class="arrow" d="M1426 39 H1456"/>
+      <rect class="flow-box" x="1466" y="0" width="150" height="78" rx="10"/><text class="text small bold" x="1541" y="24" text-anchor="middle">Push Result</text><text class="sub tiny" x="1541" y="44" text-anchor="middle">completed / failed</text><text class="sub tiny" x="1541" y="60" text-anchor="middle">to phone</text>
+
+      <rect class="flow-branch" x="312" y="128" width="420" height="92" rx="12"/>
+      <text class="orange small bold" x="332" y="154">Previous run still running</text>
+      <text class="text small" x="332" y="178">Skip new trigger and log skipped_overlap.</text>
+      <text class="sub small" x="332" y="200">No new conversation is created.</text>
+      <path class="arrow-orange" d="M790 78 V118 H522 V128"/>
+
+      <rect class="flow-branch" x="810" y="128" width="420" height="92" rx="12"/>
+      <text class="orange small bold" x="830" y="154">Daemon offline at trigger time</text>
+      <text class="text small" x="830" y="178">Missed trigger skipped. No catch-up run.</text>
+      <text class="sub small" x="830" y="200">Recalculate next future next_run_at.</text>
+      <path class="arrow-orange" d="M790 78 V118 H1020 V128"/>
+    </g>
+  </g>
+</svg>

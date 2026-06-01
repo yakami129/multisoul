@@ -257,6 +257,20 @@ Projects 列表中的 Agent Avatar 为 40×40px、9px 圆角的像素图标画�
 - 时间戳：Inter 12px，`#555555`
 - 未读状态：行背景 `#111111`，时间戳旁显示橙色徽章
 
+### 6.3.1 Active Now Running Breath
+
+- 仅 `Agents > Active Now` 中状态为 `Running` 的 Agent 行显示呼吸生命感；同一 Agent 在 `All Agents` 中的重复行不显示该特效。
+- `awaiting_question` 不使用呼吸特效，继续使用 pending badge 和 `Running · Awaiting answer` 文案表达需要用户关注。
+- 视觉母题采用 `C. Liquid Status`：以一条柔和流动的横向状态光带作为主动画，低透明暖色池与状态色池作为辅助层。
+- 实现不新增渐变依赖，使用 React Native `Animated` 与叠层 View 模拟：
+  - 主光带从 Avatar 右侧向状态区域缓慢漂移和伸缩；
+  - 低透明暖色池保留运行中的生命感，但不围绕头像做强光晕；
+  - `#4CAF50` 状态色池贴近 Running 状态点，强化“正在运行”的语义；
+  - 1px 呼吸边框保持卡片轮廓，不使用小粒子。
+- 节奏为慢速有机呼吸，约 2.6 秒一次完整呼吸，避免抢占列表阅读注意力。
+- 跟随系统 Reduce Motion；开启时关闭循环动画，仅保留静态高亮边框与状态点。
+- 色彩必须使用 §2 已列入白名单的 runtime/强调色，通过 `opacity` 做层次，不新增非白名单色值。
+
 ### 6.4 未读徽章
 
 - 背景：`#FF6B35`，cornerRadius 10px，padding `[2, 6]`
