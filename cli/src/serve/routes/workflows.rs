@@ -204,26 +204,49 @@ pub async fn enable_workflow(
     State(state): State<AppState>,
     Path(id): Path<String>,
 ) -> Result<Json<WorkflowRow>, StatusCode> {
-    let existing = load_workflow(&state, &id)?;
-    let spec = WorkflowScheduleSpec {
-        kind: parse_schedule_kind(&existing.schedule_kind)?,
-        time_of_day: existing.time_of_day.clone(),
-        day_of_week: existing.day_of_week.map(|day| day as u32),
-    };
     let now = now_ms();
-    let next_run_at = next_run_after_ms(&spec, now).map_err(|_| StatusCode::BAD_REQUEST)?;
     {
         let db = state
             .db
             .lock()
             .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-        db.execute(
-            "UPDATE workflows
-             SET enabled = 1, next_run_at = ?1, updated_at = ?2
-             WHERE id = ?3",
-            rusqlite::params![next_run_at, now, id],
-        )
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        // Read and write in a single lock scope to avoid TOCTOU.
+        let row = db
+            .query_row(
+                "SELECT schedule_kind, time_of_day, day_of_week FROM workflows WHERE id = ?1",
+                [&id],
+                |row| {
+                    Ok((
+                        row.get::<_, String>(0)?,
+                        row.get::<_, String>(1)?,
+                        row.get::<_, Option<i64>>(2)?,
+                    ))
+                },
+            )
+            .map_err(|err| match err {
+                rusqlite::Error::QueryReturnedNoRows => StatusCode::NOT_FOUND,
+                _ => StatusCode::INTERNAL_SERVER_ERROR,
+            })?;
+        let spec = WorkflowScheduleSpec {
+            kind: parse_schedule_kind(&row.0)?,
+            time_of_day: row.1,
+            day_of_week: row.2.map(|d| d as u32),
+        };
+        let next_run_at = next_run_after_ms(&spec, now).map_err(|_| StatusCode::BAD_REQUEST)?;
+        let changed = db
+            .execute(
+                "UPDATE workflows
+                 SET enabled = 1, next_run_at = ?1, updated_at = ?2
+                 WHERE id = ?3 AND enabled = 0",
+                rusqlite::params![next_run_at, now, id],
+            )
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        if changed == 0 {
+            // Either not found or already enabled — load to return current state.
+            let _ = db
+                .query_row("SELECT 1 FROM workflows WHERE id = ?1", [&id], |_| Ok(()))
+                .map_err(|_| StatusCode::NOT_FOUND)?;
+        }
     }
     load_workflow(&state, &id).map(Json)
 }
@@ -236,6 +259,18 @@ pub async fn list_workflow_runs(
         .db
         .lock()
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    // Verify workflow exists before returning an empty list.
+    let exists = db
+        .query_row(
+            "SELECT EXISTS(SELECT 1 FROM workflows WHERE id = ?1)",
+            [&id],
+            |row| row.get::<_, i64>(0),
+        )
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+        != 0;
+    if !exists {
+        return Err(StatusCode::NOT_FOUND);
+    }
     let mut stmt = db
         .prepare(
             "SELECT id, workflow_id, conversation_id, status, scheduled_for, started_at,
