@@ -149,6 +149,9 @@ pub async fn run_server(state: AppState, addr: std::net::SocketAddr) -> Result<(
 fn start_workflow_scheduler(state: AppState) {
     tokio::spawn(async move {
         let mut interval = tokio::time::interval(std::time::Duration::from_secs(30));
+        // Consume the immediate first tick so the scheduler doesn't fire on startup.
+        // Missed runs while the daemon was down are intentionally skipped per spec.
+        interval.tick().await;
         loop {
             interval.tick().await;
             if let Err(err) = workflows::run_due_workflows_once(&state) {
