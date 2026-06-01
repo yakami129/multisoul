@@ -15,6 +15,9 @@ pub mod runtime_models;
 pub mod specs;
 pub mod uploads;
 pub mod webhook;
+pub mod workflows;
+#[cfg(test)]
+mod workflows_tests;
 pub mod ws;
 #[cfg(test)]
 mod ws_tests;

@@ -26,6 +26,9 @@ export interface ActivityItem {
   conversationId: string;
   agentId: string;
   agentName: string;
+  workflowId?: string;
+  workflowRunId?: string;
+  workflowName?: string;
   readAt?: number | null;
   askId?: string;
 }
@@ -164,7 +167,9 @@ function ActivityRow({
             <Text style={s.timeText}>{formatRelativeTime(item.timestamp)}</Text>
           </View>
           <Text style={s.subtitle} numberOfLines={2}>
-            {item.projectName} · {item.subtitle}
+            {item.workflowName
+              ? `${item.projectName} · ${item.workflowName} · ${item.subtitle}`
+              : `${item.projectName} · ${item.subtitle}`}
           </Text>
         </View>
         <View style={s.rowRight}>

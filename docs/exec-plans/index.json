@@ -3,6 +3,10 @@
   "version": 1,
   "documents": [
     {
+      "file": "2026-06-01-workflow-module.md",
+      "title": "Workflow Module Implementation Plan"
+    },
+    {
       "file": "2026-05-31-spec-management-module.md",
       "title": "Spec Management Module Implementation Plan",
       "lastCompletedCommit": "4a4b0ca6a8c95892bb837d879e3405c25570ab87"
