@@ -1,7 +1,9 @@
 import { ChevronRight } from 'lucide-react-native';
 import React from 'react';
 import { Image, type ImageSourcePropType, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useReduceMotionPreference } from '@/hooks/useReduceMotionPreference';
 import { type Agent } from '@/types';
+import { RunningAgentBreath } from './RunningAgentBreath';
 import claudeCodeIcon from '../../../../assets/agent-icons/runtime-claude-code.png';
 import codexIcon from '../../../../assets/agent-icons/runtime-codex.png';
 import cursorCliIcon from '../../../../assets/agent-icons/runtime-cursor-cli.png';
@@ -14,6 +16,7 @@ interface Props {
   isActive?: boolean;
   pendingCount?: number;
   metaVariant?: 'status' | 'machine';
+  showBreathingEffect?: boolean;
 }
 
 type RuntimeMascotSpec = {
@@ -65,6 +68,14 @@ function RuntimeMascotIcon({
   );
 }
 
+function AgentCardBreath({ accentColor }: { accentColor: string }) {
+  const reduceMotionEnabled = useReduceMotionPreference();
+
+  return (
+    <RunningAgentBreath enabled reducedMotion={reduceMotionEnabled} accentColor={accentColor} />
+  );
+}
+
 function relativeAge(ts: number) {
   if (ts <= 0) {
     return 'now';
@@ -87,10 +98,12 @@ export function AgentCard({
   isActive = false,
   pendingCount = 0,
   metaVariant = 'machine',
+  showBreathingEffect = false,
 }: Props) {
   const mascot = runtimeMascots[agent.runtime];
   const avatarColor =
     mascot?.backgroundColor ?? fallbackAvatarColors[index % fallbackAvatarColors.length];
+  const accentColor = agent.runtime === 'claude-code' ? ORANGE : avatarColor;
   const metaLabel =
     metaVariant === 'status'
       ? statusLabel
@@ -105,6 +118,7 @@ export function AgentCard({
       accessibilityRole="button"
       accessibilityLabel={`Open ${agent.name}`}
     >
+      {showBreathingEffect ? <AgentCardBreath accentColor={accentColor} /> : null}
       <View testID="project-avatar" style={[s.avatar, { backgroundColor: avatarColor }]}>
         {mascot ? <RuntimeMascotIcon runtime={agent.runtime} spec={mascot} /> : null}
       </View>
@@ -140,6 +154,8 @@ const s = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 14,
+    position: 'relative',
+    borderRadius: 14,
   },
   avatar: {
     width: 40,

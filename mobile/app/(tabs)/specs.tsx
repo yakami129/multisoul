@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import React from 'react';
+import { Alert } from 'react-native';
 import { SpecsListScreen } from '@/features/specs/components/SpecsListScreen';
 import { fetchAllAgents } from '../../src/features/agents/services/agentService';
 import { useEndpointStore } from '../../src/store/endpointStore';
@@ -11,6 +12,7 @@ export default function SpecsTab() {
   const endpoints = useEndpointStore((s) => s.endpoints);
   const specs = useSpecStore((s) => s.specs);
   const createSpec = useSpecStore((s) => s.createSpec);
+  const deleteSpec = useSpecStore((s) => s.deleteSpec);
 
   const { data: agents = [] } = useQuery({
     queryKey: ['agents', endpoints.map((endpoint) => endpoint.id), 'spec-create'],
@@ -26,6 +28,24 @@ export default function SpecsTab() {
     router.push(`/spec/${encodeURIComponent(spec.id)}` as `/${string}`);
   }, [agents, createSpec, router]);
 
+  const handleDeleteSpec = React.useCallback(
+    (id: string) => {
+      const spec = specs.find((item) => item.id === id);
+      if (!spec) return;
+      Alert.alert('Delete Spec', `Delete "${spec.title}"? This cannot be undone.`, [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            void deleteSpec(id);
+          },
+        },
+      ]);
+    },
+    [deleteSpec, specs],
+  );
+
   return (
     <SpecsListScreen
       specs={specs}
@@ -34,6 +54,7 @@ export default function SpecsTab() {
         void handleCreateSpec();
       }}
       onOpenSpec={(id) => router.push(`/spec/${encodeURIComponent(id)}` as `/${string}`)}
+      onDeleteSpec={handleDeleteSpec}
     />
   );
 }

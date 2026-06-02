@@ -31,6 +31,9 @@ function toScreenItem(item: AggregatedActivityItem): ActivityItem {
     conversationId: item.conversation_id,
     agentId: item.agent_id,
     agentName: item.agent_name,
+    workflowId: item.workflow_id,
+    workflowRunId: item.workflow_run_id,
+    workflowName: item.workflow_name,
     askId: item.ask_id,
     readAt: item.read_at ?? null,
   };

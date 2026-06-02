@@ -318,6 +318,18 @@ fn handle_result_event(raw: &Value, state: &AppState, conv_id: &str, turn_seq: i
     });
     let db = state.db.lock().unwrap();
     if let Ok(seq) = insert_message(&db, conv_id, "task_status", &payload) {
+        let _ = crate::serve::workflows::finalize_workflow_run_for_conversation(
+            &db,
+            conv_id,
+            status,
+            Some(&summary),
+            if status == "failed" {
+                Some(&summary)
+            } else {
+                None
+            },
+            crate::db::now_ms(),
+        );
         push::send_task_status_push(&db, conv_id, status, &summary);
         drop(db);
         broadcast(state, conv_id, seq, "task_status", payload);

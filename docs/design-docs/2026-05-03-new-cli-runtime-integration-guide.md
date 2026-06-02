@@ -420,6 +420,8 @@ KodaX 使用 `kodax --mode json --session <conversation_id> --agent-mode ama <pr
 >
 > **2026-05-31（cli question-card push）**：`msctl ask-question` 创建的 HTTP ask 不再暴露 GET answer 长轮询。HTTP ask payload 标记 `response_mode=user_message`；iOS answer 若未命中 runtime-owned `pending_ask_id`，会由 `serve/answer_markdown.rs` 渲染为 Markdown `user_text`，并复用 `serve/routes/messages.rs` 的入库、广播与 runtime dispatch。runtime-owned `AskUserQuestion` 仍使用 `AnswerMap` / `pending_ask_id` 优先路由；§3.1 的 AppState 主职责不变，旧 stored answer map 已移除。
 >
+> **2026-06-01（workflow schedule storage）**：`cli/src/db.rs` 新增 `workflows` 与 `workflow_runs` 表，用于本机 daemon 调度固定 prompt 并记录每次运行。每次实际触发都会创建新的 conversation；`workflow_runs.conversation_id` 允许为空，以支持重叠触发被跳过时仅记录 `skipped_overlap` 日志。该 schema 属于 workflow 调度层，不改变 runtime adapter 的接入契约。
+>
 > **2026-06-02（KodaX runtime）**：新增 `kodax` runtime adapter 和 dispatch match arm。KodaX V1 以 `kodax --mode json --session <conversation_id> --agent-mode ama <prompt>` 单次子进程执行，`provider:model` 拆分为 `-m <provider> --model <model>`，图片输入沿用 dispatch 层路径前缀注入，abort 复用 `SessionHandle` pid kill 路径。
 
 完成实现后，按 `CLAUDE.md §5` 跑：

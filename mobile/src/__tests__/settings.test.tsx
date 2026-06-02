@@ -70,7 +70,7 @@ describe('SettingsScreen', () => {
   it('renders settings screen with endpoint list', () => {
     render(<SettingsScreen />);
 
-    expect(screen.getByText('SETTINGS')).toBeTruthy();
+    expect(screen.getByText('Settings')).toBeTruthy();
     expect(screen.getByText('ENDPOINTS')).toBeTruthy();
     expect(screen.getByText('Home Server')).toBeTruthy();
     expect(screen.queryByText('DIAGNOSTICS')).toBeNull();

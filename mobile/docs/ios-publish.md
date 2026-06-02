@@ -15,6 +15,16 @@ cd mobile
 
 须在 **macOS** 上运行，且本机已安装 Xcode / CocoaPods 等脚本会检查的工具链。
 
+### Agent / 自动化注意
+
+在 Codex / Claude 等 Agent 运行环境中，`APP_STORE_CONNECT_*` 可能按仓库根目录注入。此时不要把工具的 `workdir` 直接设为 `mobile/` 后运行脚本；应从仓库根目录启动同一个 shell 命令：
+
+```bash
+cd mobile && ./scripts/publish-ios-local.sh
+```
+
+如果直接以 `mobile/` 为启动目录，脚本可能误报 `Missing env var: APP_STORE_CONNECT_API_KEY_ID`，即使这些变量在仓库根目录环境中实际存在。
+
 ---
 
 ## 云端发布（EAS Build + TestFlight）

@@ -30,6 +30,12 @@ pub struct ActivityItem {
     pub timestamp: i64,
     pub ask_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub workflow_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub workflow_run_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub workflow_name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub read_at: Option<Option<i64>>,
 }
 
@@ -153,10 +159,15 @@ fn load_attention_items(
                 'Pending' AS status_label,
                 'attention' AS tone,
                 m.created_at AS timestamp,
-                json_extract(m.payload, '$.ask_id') AS ask_id
+                json_extract(m.payload, '$.ask_id') AS ask_id,
+                w.id AS workflow_id,
+                wr.id AS workflow_run_id,
+                w.name AS workflow_name
              FROM messages m
              JOIN conversations c ON c.id = m.conversation_id
              JOIN agents a ON a.id = c.agent_id
+             LEFT JOIN workflow_runs wr ON wr.conversation_id = c.id
+             LEFT JOIN workflows w ON w.id = wr.workflow_id
              LEFT JOIN ask_answers aa
                ON aa.conversation_id = c.id
               AND aa.ask_id = json_extract(m.payload, '$.ask_id')
@@ -200,9 +211,14 @@ fn load_running_items(
                 'Running' AS status_label,
                 'running' AS tone,
                 c.last_message_at AS timestamp,
-                NULL AS ask_id
+                NULL AS ask_id,
+                w.id AS workflow_id,
+                wr.id AS workflow_run_id,
+                w.name AS workflow_name
              FROM conversations c
              JOIN agents a ON a.id = c.agent_id
+             LEFT JOIN workflow_runs wr ON wr.conversation_id = c.id
+             LEFT JOIN workflows w ON w.id = wr.workflow_id
              WHERE c.status = 'running'
              ORDER BY c.last_message_at DESC
              LIMIT ?1",
@@ -266,9 +282,14 @@ fn load_done_items(db: &rusqlite::Connection, limit: i64) -> Result<Vec<Activity
                 END AS tone,
                 c.last_message_at AS timestamp,
                 NULL AS ask_id,
+                w.id AS workflow_id,
+                wr.id AS workflow_run_id,
+                w.name AS workflow_name,
                 ar.read_at AS read_at
              FROM conversations c
              JOIN agents a ON a.id = c.agent_id
+             LEFT JOIN workflow_runs wr ON wr.conversation_id = c.id
+             LEFT JOIN workflows w ON w.id = wr.workflow_id
              LEFT JOIN activity_reads ar ON ar.conversation_id = c.id
              WHERE c.status IN ('completed', 'failed')
                 OR (
@@ -312,6 +333,9 @@ fn row_to_activity_item(row: &rusqlite::Row<'_>) -> rusqlite::Result<ActivityIte
         tone: row.get(8)?,
         timestamp: row.get(9)?,
         ask_id: row.get(10)?,
+        workflow_id: row.get(11)?,
+        workflow_run_id: row.get(12)?,
+        workflow_name: row.get(13)?,
         read_at: None,
     })
 }
@@ -329,7 +353,10 @@ fn row_to_done_activity_item(row: &rusqlite::Row<'_>) -> rusqlite::Result<Activi
         tone: row.get(8)?,
         timestamp: row.get(9)?,
         ask_id: row.get(10)?,
-        read_at: Some(row.get(11)?),
+        workflow_id: row.get(11)?,
+        workflow_run_id: row.get(12)?,
+        workflow_name: row.get(13)?,
+        read_at: Some(row.get(14)?),
     })
 }
 

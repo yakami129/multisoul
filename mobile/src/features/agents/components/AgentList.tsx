@@ -28,6 +28,7 @@ interface Props {
 
 type ProjectStatus = {
   label: string;
+  kind: 'idle' | 'running' | 'awaiting_question' | 'failed';
   isActive: boolean;
   pendingCount: number;
 };
@@ -40,15 +41,20 @@ type ProjectItem = {
 function projectStatus(conversations: Conversation[]): ProjectStatus {
   const pendingCount = conversations.filter((conv) => conv.status === 'awaiting_question').length;
   if (pendingCount > 0) {
-    return { label: 'Running · Awaiting answer', isActive: true, pendingCount };
+    return {
+      label: 'Running · Awaiting answer',
+      kind: 'awaiting_question',
+      isActive: true,
+      pendingCount,
+    };
   }
   if (conversations.some((conv) => conv.status === 'running')) {
-    return { label: 'Running', isActive: true, pendingCount: 0 };
+    return { label: 'Running', kind: 'running', isActive: true, pendingCount: 0 };
   }
   if (conversations.some((conv) => conv.status === 'failed')) {
-    return { label: 'Failed', isActive: false, pendingCount: 0 };
+    return { label: 'Failed', kind: 'failed', isActive: false, pendingCount: 0 };
   }
-  return { label: 'Idle', isActive: false, pendingCount: 0 };
+  return { label: 'Idle', kind: 'idle', isActive: false, pendingCount: 0 };
 }
 
 export function AgentList({
@@ -117,6 +123,7 @@ export function AgentList({
         isActive={project.status.isActive}
         pendingCount={project.status.pendingCount}
         metaVariant={metaVariant}
+        showBreathingEffect={metaVariant === 'status' && project.status.kind === 'running'}
         onPress={() =>
           onAgentPress(project.agent.id, project.agent.endpoint_id, project.agent.name)
         }

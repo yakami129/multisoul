@@ -45,6 +45,14 @@ pub(super) fn mark_failed(state: &AppState, conv_id: &str) {
     let payload = serde_json::json!({ "task_id": conv_id, "status": "failed", "importance": "normal", "summary": "" });
     let db2 = state.db.lock().unwrap();
     if let Ok(seq) = insert_message(&db2, conv_id, "task_status", &payload) {
+        let _ = crate::serve::workflows::finalize_workflow_run_for_conversation(
+            &db2,
+            conv_id,
+            "failed",
+            Some(""),
+            Some(""),
+            crate::db::now_ms(),
+        );
         push::send_task_status_push(&db2, conv_id, "failed", "");
         drop(db2);
         broadcast(state, conv_id, seq, "task_status", payload);

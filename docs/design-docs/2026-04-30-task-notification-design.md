@@ -17,6 +17,8 @@ Notification ownership is centralized in the CLI to avoid duplicate local + remo
 
 2026-05-24 chat performance update: `useWebSocket` now accepts a bounded catch-up cursor from the Chat screen so reconnects fetch only messages newer than the loaded window instead of replaying full history. This keeps the notification ownership rule unchanged: the hook still mirrors state and inbox items only, and does not schedule mobile-side completion notifications.
 
+2026-06-01 workflow update: runtime task completion now also finalizes any matching `workflow_runs` row for the conversation before sending the existing task status push. This records workflow run status and summary, while preserving the notification ownership rule and the task completion payload shape.
+
 ---
 
 ## Architecture
