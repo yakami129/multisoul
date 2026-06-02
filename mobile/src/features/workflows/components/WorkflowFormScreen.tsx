@@ -1,5 +1,14 @@
 import React, { useState } from 'react';
-import { ScrollView, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import {
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  Switch,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { type Agent } from '@/types';
 import { type WorkflowInput, type WorkflowScheduleKind } from '../types';
@@ -14,6 +23,16 @@ const WEEKDAYS = [
   { label: 'Sat', value: 6 },
   { label: 'Sun', value: 7 },
 ];
+
+function normalizeTimeOfDay(value: string): string | null {
+  const match = value.trim().match(/^(\d{1,2}):(\d{1,2})$/);
+  if (!match) return null;
+  const hour = Number(match[1]);
+  const minute = Number(match[2]);
+  if (!Number.isInteger(hour) || !Number.isInteger(minute)) return null;
+  if (hour < 0 || hour > 23 || minute < 0 || minute > 59) return null;
+  return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+}
 
 interface Props {
   agents: Agent[];
@@ -33,22 +52,30 @@ export function WorkflowFormScreen({ agents, initialValues, onSave, onCancel }: 
   const [timeOfDay, setTimeOfDay] = useState(initialValues?.time_of_day ?? '09:00');
   const [dayOfWeek, setDayOfWeek] = useState<number>(initialValues?.day_of_week ?? 1);
 
-  const canSave = name.trim().length > 0 && prompt.trim().length > 0 && agentId.length > 0;
+  const normalizedTimeOfDay = normalizeTimeOfDay(timeOfDay);
+  const canSave =
+    name.trim().length > 0 &&
+    prompt.trim().length > 0 &&
+    agentId.length > 0 &&
+    normalizedTimeOfDay !== null;
 
   function handleSave() {
-    if (!canSave) return;
+    if (!canSave || normalizedTimeOfDay === null) return;
     onSave({
       name: name.trim(),
       agent_id: agentId,
       prompt: prompt.trim(),
       schedule_kind: scheduleKind,
-      time_of_day: timeOfDay,
+      time_of_day: normalizedTimeOfDay,
       day_of_week: scheduleKind === 'weekly' ? dayOfWeek : null,
     });
   }
 
   return (
-    <View style={[s.formRoot, { paddingTop: insets.top }]}>
+    <KeyboardAvoidingView
+      style={[s.formRoot, { paddingTop: insets.top }]}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
       <View style={s.formHeader}>
         <TouchableOpacity onPress={onCancel} accessibilityRole="button">
           <Text style={s.formCancel}>Cancel</Text>
@@ -59,7 +86,12 @@ export function WorkflowFormScreen({ agents, initialValues, onSave, onCancel }: 
         </TouchableOpacity>
       </View>
 
-      <ScrollView contentContainerStyle={s.formContent}>
+      <ScrollView
+        contentContainerStyle={[s.formContent, { paddingBottom: insets.bottom + 120 }]}
+        automaticallyAdjustKeyboardInsets
+        keyboardDismissMode="interactive"
+        keyboardShouldPersistTaps="handled"
+      >
         <Text style={s.fieldLabel}>Name</Text>
         <TextInput
           style={s.textInput}
@@ -111,6 +143,7 @@ export function WorkflowFormScreen({ agents, initialValues, onSave, onCancel }: 
           onChangeText={setTimeOfDay}
           placeholder="HH:MM"
           placeholderTextColor="#555555"
+          keyboardType="numbers-and-punctuation"
         />
 
         {scheduleKind === 'weekly' && (
@@ -143,6 +176,6 @@ export function WorkflowFormScreen({ agents, initialValues, onSave, onCancel }: 
           multiline
         />
       </ScrollView>
-    </View>
+    </KeyboardAvoidingView>
   );
 }

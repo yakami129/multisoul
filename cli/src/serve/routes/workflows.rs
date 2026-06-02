@@ -369,3 +369,21 @@ fn parse_schedule_kind(value: &str) -> Result<WorkflowScheduleKind, StatusCode> 
         _ => Err(StatusCode::BAD_REQUEST),
     }
 }
+
+pub async fn delete_workflow(
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+) -> Result<StatusCode, StatusCode> {
+    let db = state
+        .db
+        .lock()
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let changed = db
+        .execute("DELETE FROM workflows WHERE id = ?1", [&id])
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    if changed == 0 {
+        Err(StatusCode::NOT_FOUND)
+    } else {
+        Ok(StatusCode::NO_CONTENT)
+    }
+}

@@ -51,7 +51,7 @@ async fn make_workflow_app(token: &str) -> (axum::Router, String) {
             state.clone(),
             bearer_auth,
         ))
-        .with_state(state);
+        .with_state(state.clone());
     (app, agent_id)
 }
 

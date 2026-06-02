@@ -47,6 +47,7 @@ Monorepo 两大件：
 - **CI 失败自动修复** —— 读取 `gh run view --log-failed` 日志，修复 lint/type/fmt 错误后 re-push；**修复 = 解决根本原因**（重构代码、删未用项、修类型），绝不用 `#[allow]` / `// eslint-disable` / `@ts-ignore` 压制；逻辑错误上报用户
 - **CI 未通过禁止合并（强约束）** —— PR 须等 GitHub Actions 全部通过后再合并；不得在红 CI 下合并，不得以管理员选项绕过硬闸；配置核对见 [`docs/runbooks/github-pr-merge-policy.md`](docs/runbooks/github-pr-merge-policy.md)
 - **同一用户流程只能有一个权威实现** —— 不要为同一 screen / route / protocol 复制并行实现；新增入口必须复用既有权威组件或抽共享模块。发现旧版分叉时，迁移入口并删除旧实现，测试覆盖入口收敛。
+- **Agent 本地 iOS 发布从仓库根启动** —— 不要把工具 `workdir` 直接设为 `mobile/` 后运行 `./scripts/publish-ios-local.sh`；当前运行环境可能按仓库根目录注入 `APP_STORE_CONNECT_*`，直接以 `mobile/` 启动会导致脚本误报缺少 ASC API Key。应在仓库根目录执行同一条 `cd mobile && ./scripts/publish-ios-local.sh`。
 
 ---
 
@@ -206,7 +207,9 @@ See §7 **Ask User Question** for MANDATORY rules. Run `msctl ask-question -h` f
 
 #### 本地（本机 Xcode，日常默认）
 
-在 `mobile` 下 **只需执行** `./scripts/publish-ios-local.sh`：脚本内会 `pnpm install`、`pod install`、archive、export；上传 App Store Connect / TestFlight 需在环境中配置脚本文件头注释中的 `APP_STORE_CONNECT_*`（见 `mobile/scripts/publish-ios-local.sh`）。**无需**再单独跑 `eas login` 或把 `pnpm typecheck` 当作发布前置步骤（发版前质量闸仍以 PR / `CLAUDE.md` §5 为准）。
+人类终端在 `mobile` 下 **只需执行** `./scripts/publish-ios-local.sh`：脚本内会 `pnpm install`、`pod install`、archive、export；上传 App Store Connect / TestFlight 需在环境中配置脚本文件头注释中的 `APP_STORE_CONNECT_*`（见 `mobile/scripts/publish-ios-local.sh`）。**无需**再单独跑 `eas login` 或把 `pnpm typecheck` 当作发布前置步骤（发版前质量闸仍以 PR / `CLAUDE.md` §5 为准）。
+
+Agent / 自动化运行时必须从仓库根目录启动，并在同一个 shell 里 `cd mobile` 后执行。不要把工具 `workdir` 设成 `mobile/` 再运行脚本；否则按仓库根目录注入的 `APP_STORE_CONNECT_*` 可能不会进入脚本进程。
 
 ```bash
 cd mobile
@@ -234,6 +237,8 @@ cd mobile
 ```bash
 cd mobile && ./scripts/publish-ios-local.sh > /tmp/publish-ios-local.log 2>&1
 ```
+
+关键点：命令的启动目录必须是仓库根目录；`cd mobile && ...` 要写在同一个命令字符串里。不要用工具参数把 `workdir` 改成 `mobile/` 后直接跑 `./scripts/publish-ios-local.sh`。
 
 **当用户明确要云端 EAS / 沿用历史一键脚本时**：
 

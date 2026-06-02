@@ -7,6 +7,18 @@ jest.mock('react-native-safe-area-context', () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
 }));
 
+jest.mock('react-native-gesture-handler', () => {
+  const { View } = require('react-native');
+  return {
+    Swipeable: ({ children, renderRightActions }: any) => (
+      <View>
+        {children}
+        {renderRightActions?.()}
+      </View>
+    ),
+  };
+});
+
 const baseWorkflow: Workflow = {
   id: 'wf-1',
   name: 'Morning Report',
@@ -107,4 +119,48 @@ test('tapping switch calls onToggleEnabled with workflow id and new state', () =
   fireEvent(getByTestId('workflow-toggle-wf-1'), 'valueChange', false);
 
   expect(onToggle).toHaveBeenCalledWith('wf-1', false, 'ep-1');
+});
+
+/// 场景：左滑露出的删除按钮调用 onDeleteWorkflow 回调。
+///
+/// 数据构造：
+///   workflow = wf-1 enabled daily 09:15 from Office Mac。
+///   mocked Swipeable = 直接渲染 renderRightActions()，等价于用户左滑后露出删除按钮。
+///
+/// 执行过程：
+///   1. 渲染 WorkflowListScreen 含一个 workflow。
+///   2. 点击 mocked Swipeable 渲染出的删除按钮。
+///   3. 检查 onDeleteWorkflow 收到的 workflow。
+///
+/// 预期结果：
+///   - 正断言：onDeleteWorkflow 被调用一次且参数为 wf-1。
+///   - 负断言：onToggleEnabled 不应被调用，删除动作不能误触 ON/OFF。
+test('pressing delete action calls onDeleteWorkflow without toggling', () => {
+  const onDelete = jest.fn();
+  const onToggle = jest.fn();
+  const { getByText } = render(
+    <WorkflowListScreen
+      workflows={[baseWorkflow]}
+      hasEndpoints
+      onCreateWorkflow={() => {}}
+      onToggleEnabled={onToggle}
+      onOpenWorkflow={() => {}}
+      onDeleteWorkflow={onDelete}
+    />,
+  );
+
+  fireEvent.press(getByText('DELETE'));
+
+  expect({
+    actual: onDelete.mock.calls.length,
+    reason: 'delete action should invoke onDeleteWorkflow exactly once',
+  }).toEqual({ actual: 1, reason: expect.any(String) });
+  expect({
+    actual: onDelete.mock.calls[0][0].id,
+    reason: 'delete action should pass the workflow row being swiped',
+  }).toEqual({ actual: 'wf-1', reason: expect.any(String) });
+  expect({
+    actual: onToggle.mock.calls.length,
+    reason: 'delete action should not toggle workflow enabled state',
+  }).toEqual({ actual: 0, reason: expect.any(String) });
 });

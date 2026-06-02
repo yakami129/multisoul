@@ -7,6 +7,7 @@ import { WorkflowFormScreen } from '@/features/workflows/components/WorkflowForm
 import { WorkflowListScreen } from '@/features/workflows/components/WorkflowListScreen';
 import {
   createWorkflow,
+  deleteWorkflow,
   disableWorkflow,
   enableWorkflow,
   fetchWorkflows,
@@ -76,6 +77,17 @@ export default function WorkflowsTab() {
     },
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: async (wf: Workflow) => {
+      const ep = endpoints.find((e) => e.id === wf.endpoint_id);
+      if (!ep) throw new Error('Endpoint not found');
+      await deleteWorkflow(ep, wf.id);
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['workflows'] });
+    },
+  });
+
   return (
     <>
       <WorkflowListScreen
@@ -89,6 +101,7 @@ export default function WorkflowsTab() {
         onOpenWorkflow={(wf) =>
           router.push(`/workflow/${encodeURIComponent(wf.id)}` as `/${string}`)
         }
+        onDeleteWorkflow={(wf) => deleteMutation.mutate(wf)}
       />
       <Modal visible={showForm} animationType="slide" presentationStyle="pageSheet">
         <View style={{ flex: 1, backgroundColor: '#0D0D0D' }}>

@@ -76,3 +76,11 @@ export async function fetchWorkflowRuns(
   const res = await client.get<WorkflowRunApiRow[]>(`/api/v1/workflows/${workflowId}/runs`);
   return res.data.map((row) => withWorkflowRunEndpoint(row, endpoint));
 }
+
+export async function deleteWorkflow(
+  endpoint: WorkflowEndpoint,
+  workflowId: string,
+): Promise<void> {
+  const client = getEndpointClient(endpoint.base_url, endpoint.token);
+  await client.delete(`/api/v1/workflows/${workflowId}`);
+}

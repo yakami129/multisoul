@@ -62,7 +62,7 @@ pub async fn build_router(state: AppState) -> Router {
         )
         .route(
             "/api/v1/workflows/:id",
-            axum::routing::patch(workflows::update_workflow),
+            axum::routing::patch(workflows::update_workflow).delete(workflows::delete_workflow),
         )
         .route(
             "/api/v1/workflows/:id/disable",

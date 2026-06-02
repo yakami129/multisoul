@@ -17,6 +17,8 @@ pub mod uploads;
 pub mod webhook;
 pub mod workflows;
 #[cfg(test)]
+mod workflows_delete_tests;
+#[cfg(test)]
 mod workflows_tests;
 pub mod ws;
 #[cfg(test)]

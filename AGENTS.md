@@ -37,6 +37,7 @@ Monorepo 两大件：
 - 结构化决策见 §7 **Ask User Question** —— 禁止自由文本列选项或让用户打字回答
 - **CI 未通过禁止合并 PR** —— 强约束，见 [`docs/runbooks/github-pr-merge-policy.md`](docs/runbooks/github-pr-merge-policy.md)
 - 同一用户流程只保留一个权威实现 —— 详见 [`CLAUDE.md`](CLAUDE.md) §2/§7
+- Agent 执行本地 iOS 发布时必须从仓库根目录启动同一条 `cd mobile && ./scripts/publish-ios-local.sh` 命令，禁止把工具 `workdir` 直接设为 `mobile/`（ASC 环境变量可能按根目录注入）
 
 ## 3. 技术栈速览
 
@@ -95,7 +96,7 @@ cargo run -- serve                   # 启动本地 HTTP/WS
 # Runtime 推送问答卡片（详见 §7；示例见 `msctl ask-question -h`）
 cargo run -- ask-question --conversation-id "$CONV_ID" --questions '[...]' --output json
 
-# 本地 iOS（本机 Xcode；一条命令即可，脚本内含依赖与构建；详见 mobile/docs/ios-publish.md）
+# 本地 iOS（本机 Xcode；Agent 从仓库根启动；详见 mobile/docs/ios-publish.md）
 cd mobile && ./scripts/publish-ios-local.sh
 
 # 云端 EAS + TestFlight（一键）

@@ -14,7 +14,7 @@ export const workflowScreenStyles = StyleSheet.create({
   },
   headerTitle: {
     fontFamily: 'Inter',
-    fontSize: 28,
+    fontSize: 34,
     fontWeight: '700',
     color: '#FFFFFF',
   },
