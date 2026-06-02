@@ -62,7 +62,7 @@
         },
         {
           "path": "mobile/src/types.ts",
-          "sha256": "22669471c6a3d7e46686b0312ad6635788a7c4f2ede0ae148ff242575b49b745",
+          "sha256": "166a8fb64259d8170dbafd524bd0826fa78a81f4ed82f56049f3246a42c7c83e",
           "reason": "文档说明 mobile Agent.runtime 类型展示联动；类型变化会影响该说明。"
         }
       ]
