@@ -8,15 +8,16 @@
 
 ## 1. 概述
 
-MultiSoul CLI（`msctl`）通过 **Runtime 适配层** 驱动 AI agent 子进程。当前内置三个 runtime：
+MultiSoul CLI（`msctl`）通过 **Runtime 适配层** 驱动 AI agent 子进程。当前内置四个 runtime：
 
 | runtime 标识 | 实现文件 | 驱动的子进程 |
 |---|---|---|
 | `claude-code`（默认） | `cli/src/serve/runtime/claude/mod.rs` | `claude` 可执行文件（Claude Code SDK） |
 | `codex` | `cli/src/serve/runtime/codex/mod.rs` | `codex` 可执行文件（OpenAI Codex CLI） |
 | `cursor-cli` | `cli/src/serve/runtime/cursor/mod.rs` | `agent`（Cursor Agent CLI，`CURSOR_AGENT_BIN` 可覆盖） |
+| `kodax` | `cli/src/serve/runtime/kodax/mod.rs` | `kodax`（KodaX CLI，`KODAX_BIN` 可覆盖） |
 
-本文档说明如何接入第三个（或更多）runtime，复用已有骨架，只需实现差异部分。
+本文档说明如何接入更多 runtime，复用已有骨架，只需实现差异部分。
 
 ---
 
@@ -33,6 +34,7 @@ serve/runtime/mod.rs              ← send_to_session()，按 agent.runtime 字�
         │
         ├── "codex"       ──▶  codex.rs   :: send_to_session()
         ├── "cursor-cli"  ──▶  cursor.rs  :: send_to_session()
+        ├── "kodax"       ──▶  kodax.rs   :: send_to_session()
         └── _             ──▶  claude.rs  :: send_to_session()
 ```
 
@@ -303,7 +305,7 @@ pub fn send_to_session(...) {
 }
 ```
 
-> **注意：** `claude` runtime 直接传递 `file_id` 以发送 base64 image block；`codex` runtime 直接传递 `file_id` 并在 adapter 内追加 `--image <path>`；不原生支持图片 content block / image flag 的 runtime（如 `cursor-cli` 及新接入的 runtime）才应加入路径前缀注入分支。
+> **注意：** `claude` runtime 直接传递 `file_id` 以发送 base64 image block；`codex` runtime 直接传递 `file_id` 并在 adapter 内追加 `--image <path>`；不原生支持图片 content block / image flag 的 runtime（如 `cursor-cli`、`kodax` 及新接入的 runtime）才应加入路径前缀注入分支。
 
 ---
 
@@ -363,9 +365,20 @@ Codex 使用 `codex exec` / `codex exec resume <thread_id>` 命令；`full-auto`
 - **单测位置**：`codex.rs` 旁的 `codex_tests.rs`（`#[path = "codex_tests.rs"] mod tests`），用于满足仓库单文件行数上限。
 - **模型参数**：conversation 有具体 `model_id` 时，fresh 与 resume 都追加 `--model <model_id>`；Default/`NULL` 不追加。预热进程必须绑定当前模型，模型变化后丢弃旧模型预热进程。
 
+## 7. KodaX 实现要点（供参考）
+
+KodaX 使用 `kodax --mode json --session <conversation_id> --agent-mode ama <prompt>` 命令；V1 每条用户消息启动一次子进程，不做预热。
+
+- **Session ID**：MultiSoul `conversation_id` 直接作为 KodaX `--session`，不新增 `kodax_session_id` 字段。
+- **模型参数**：conversation 有具体 `model_id` 时使用 `provider:model` 编码，adapter 拆分为 `-m <provider> --model <model>`；Default/`NULL` 不传 provider/model。
+- **图片输入**：与 Cursor 一样在 dispatch 层注入图片路径提示，并在传入 adapter 前清空 `file_id`。
+- **模式标志**：MultiSoul `suggest` / `auto-edit` / `full-auto` / `yolo` 不映射为 KodaX 权限语义；KodaX 固定 `--agent-mode ama`，不传 `--reasoning`，使用 KodaX 默认 auto。
+- **事件映射**：`text.delta` / `thinking.delta` / `thinking.end` 写 `agent_text`；`tool.start` 写 `tool_call`；`tool.result` 写 `tool_result`；`complete` / `run.result` 写 `task_status`；非 JSON stdout 合并为纯文本 fallback。
+- **Abort**：与其他 runtime 一样登记当前子进程 pid，`POST .../abort` 通过 `SessionHandle` kill 进程组。
+
 ---
 
-## 7. 常见陷阱
+## 8. 常见陷阱
 
 | 陷阱 | 原因 | 解决方法 |
 |---|---|---|
@@ -379,7 +392,7 @@ Codex 使用 `codex exec` / `codex exec resume <thread_id>` 命令；`full-auto`
 
 ---
 
-## 8. 验证清单
+## 9. 验证清单
 
 > **2026-05-03 更新**：`cursor.rs` 中 `match "system"` arm 改为 guard pattern（`"system" if … =>`），消除 Clippy `collapsible_match` 警告，逻辑不变。
 >
@@ -406,6 +419,8 @@ Codex 使用 `codex exec` / `codex exec resume <thread_id>` 命令；`full-auto`
 > **2026-05-26（runtime directory restructure）**：`cli/src/serve/runtime/` 扁平文件迁移至子目录：`claude/`、`codex/`、`cursor/`。各 adapter 主逻辑入口为 `<runtime>/mod.rs`，内部子模块去掉冗余前缀（`claude_stream.rs` → `claude/stream.rs`、`codex_turn.rs` → `codex/turn.rs` 等）。所有 `#[path = "..."]` 指令替换为标准 Rust 子模块约定。文档中引用路径同步更新。
 >
 > **2026-05-31（cli question-card push）**：`msctl ask-question` 创建的 HTTP ask 不再暴露 GET answer 长轮询。HTTP ask payload 标记 `response_mode=user_message`；iOS answer 若未命中 runtime-owned `pending_ask_id`，会由 `serve/answer_markdown.rs` 渲染为 Markdown `user_text`，并复用 `serve/routes/messages.rs` 的入库、广播与 runtime dispatch。runtime-owned `AskUserQuestion` 仍使用 `AnswerMap` / `pending_ask_id` 优先路由；§3.1 的 AppState 主职责不变，旧 stored answer map 已移除。
+>
+> **2026-06-02（KodaX runtime）**：新增 `kodax` runtime adapter 和 dispatch match arm。KodaX V1 以 `kodax --mode json --session <conversation_id> --agent-mode ama <prompt>` 单次子进程执行，`provider:model` 拆分为 `-m <provider> --model <model>`，图片输入沿用 dispatch 层路径前缀注入，abort 复用 `SessionHandle` pid kill 路径。
 
 完成实现后，按 `CLAUDE.md §5` 跑：
 

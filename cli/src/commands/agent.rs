@@ -16,7 +16,8 @@ use crate::commands::agent_quick_register;
 #[command(after_help = "Quick register current workspace:
   msctl agent codex
   msctl agent claude-code
-  msctl agent cursor-cli")]
+  msctl agent cursor-cli
+  msctl agent kodax")]
 pub enum AgentCommands {
     /// Register a new agent. Use --type plugin for plugin agents.
     Register {
@@ -25,7 +26,7 @@ pub enum AgentCommands {
         /// Required for runtime agents; omit for plugin agents
         #[arg(long)]
         project: Option<String>,
-        /// Runtime: claude-code | codex | cursor-cli
+        /// Runtime: claude-code | codex | cursor-cli | kodax
         #[arg(long, default_value = "claude-code")]
         runtime: String,
         /// Permission mode: suggest | auto-edit | full-auto | yolo
@@ -66,7 +67,7 @@ pub enum AgentCommands {
     Uninstall { name: String },
     /// Restart a failed plugin agent process (resets DB status)
     Restart { id: String },
-    /// Quick register current directory with a runtime: codex | claude-code | cursor-cli
+    /// Quick register current directory with a runtime: codex | claude-code | cursor-cli | kodax
     #[command(external_subcommand)]
     QuickRegister(Vec<String>),
 }
@@ -405,6 +406,22 @@ mod tests {
             )
             .unwrap();
         assert_eq!(rt, "cursor-cli");
+    }
+
+    /// kodax runtime string is stored like any other runtime.
+    #[test]
+    fn test_insert_agent_kodax_runtime() {
+        let dir = tempfile::tempdir().unwrap();
+        let conn = crate::db::open_at(&dir.path().join("test.db")).unwrap();
+        insert_agent(&conn, "kodax-agent", "/tmp/proj", "kodax", "full-auto").unwrap();
+        let rt: String = conn
+            .query_row(
+                "SELECT runtime FROM agents WHERE name = 'kodax-agent'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(rt, "kodax");
     }
 
     /// register --type plugin 写入 plugin_agents 表，不写 agents 表

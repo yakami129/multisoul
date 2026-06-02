@@ -5,7 +5,7 @@ use anyhow::{Context, Result};
 use rusqlite::Connection;
 use std::path::{Path, PathBuf};
 
-const QUICK_REGISTER_RUNTIMES: &[&str] = &["claude-code", "codex", "cursor-cli"];
+const QUICK_REGISTER_RUNTIMES: &[&str] = &["claude-code", "codex", "cursor-cli", "kodax"];
 const DEFAULT_RUNTIME_MODE: &str = "full-auto";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -23,7 +23,7 @@ pub(crate) struct QuickRegisterPreflight {
 }
 
 pub(crate) fn valid_runtime_values() -> &'static str {
-    "claude-code, codex, cursor-cli"
+    "claude-code, codex, cursor-cli, kodax"
 }
 
 pub(crate) fn validate_quick_register_runtime(runtime: &str) -> Result<()> {

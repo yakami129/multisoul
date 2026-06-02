@@ -97,6 +97,66 @@ fn test_codex_builtin_models_include_default_first() {
     );
 }
 
+/// KodaX provider: builtin models expose Default first and provider:model entries.
+///
+/// 数据构造（含关键数值的推导过程）：
+///   runtime        = "kodax"
+///   expected[0]    = Default（虚拟项，PATCH null 语义）
+///   expected[1..]  = 常用 KodaX provider:model 内置项
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. 调用 list_models("kodax")
+///   2. 检查 Default 虚拟项排在第一位
+///   3. 检查 KodaX concrete 模型使用 provider:model 格式
+///
+/// 预期结果：
+///   - 正断言：Default 是第一项且可用
+///   - 正断言：内置列表包含 KodaX 常用 provider:model 项
+///   - 负断言：concrete 模型不应被标记为 default
+#[test]
+fn test_kodax_builtin_models_include_default_first_and_provider_models() {
+    let models = list_models("kodax").expect("kodax should list builtin models");
+    let default = &models[0];
+    let concrete_ids: Vec<&str> = models
+        .iter()
+        .filter(|model| !model.is_default)
+        .map(|model| model.id.as_str())
+        .collect();
+
+    assert_eq!(
+        default.id, "default",
+        "KodaX first model id should be the virtual default item"
+    );
+    assert!(
+        default.available,
+        "KodaX Default should be available for switching back to runtime default"
+    );
+    for expected in [
+        "openai:gpt-5.3-codex",
+        "openai:gpt-5.4",
+        "openai:gpt-5.3-codex-spark",
+        "anthropic:claude-sonnet-4-6",
+        "deepseek:deepseek-chat",
+        "kimi:k2.5",
+        "kimi-code:k2.5",
+        "qwen:qwen3.5-plus",
+        "zhipu:glm-5",
+        "zhipu-coding:glm-5",
+        "minimax-coding:MiniMax-M2.7",
+    ] {
+        assert!(
+            concrete_ids.contains(&expected),
+            "KodaX builtin models should include {expected}"
+        );
+    }
+    assert!(
+        models[1..].iter().all(|model| {
+            !model.is_default && model.source == ModelSource::Builtin && model.id.contains(':')
+        }),
+        "KodaX concrete models should be builtin provider:model entries"
+    );
+}
+
 /// Cursor provider: dynamic `agent models` output wins over builtin fallback.
 ///
 /// 数据构造（含关键数值的推导过程）：
@@ -245,6 +305,56 @@ fn test_validate_unsupported_model_for_supported_runtime() {
         },
         "unsupported model errors should include the runtime and rejected model id"
     );
+}
+
+/// validate_model accepts only builtin KodaX provider:model entries.
+///
+/// 数据构造（含关键数值的推导过程）：
+///   runtime            = "kodax"（受支持 runtime）
+///   persisted default  = None（数据库 NULL 表示默认模型）
+///   valid model        = "openai:gpt-5.4"（内置 provider:model）
+///   invalid values     = default / openai / openai: / :gpt-5.4 / gpt-5.4
+///
+/// 执行过程（逐步说明系统如何处理）：
+///   1. validate_model("kodax", None)
+///   2. validate_model("kodax", Some("openai:gpt-5.4"))
+///   3. 校验虚拟 default 和非内置或格式不完整的字符串
+///
+/// 预期结果：
+///   - 正断言：None 和内置 provider:model 校验通过
+///   - 负断言：literal default 仍返回 InvalidDefaultString
+///   - 负断言：格式不完整或非内置 model 返回 UnsupportedModel
+#[test]
+fn test_validate_kodax_builtin_provider_models_only() {
+    assert!(
+        validate_model("kodax", None).is_ok(),
+        "None should be accepted as the persisted default KodaX model semantics"
+    );
+    assert!(
+        validate_model("kodax", Some("openai:gpt-5.4")).is_ok(),
+        "KodaX builtin provider:model entries should validate"
+    );
+
+    let default_err = validate_model("kodax", Some("default"))
+        .expect_err("literal default should be rejected for KodaX persistence");
+    assert_eq!(
+        default_err,
+        ModelProviderError::InvalidDefaultString,
+        "KodaX literal default must be rejected so storage uses None"
+    );
+
+    for invalid in ["openai", "openai:", ":gpt-5.4", "gpt-5.4"] {
+        let err = validate_model("kodax", Some(invalid))
+            .expect_err("malformed or unknown KodaX model should be rejected");
+        assert_eq!(
+            err,
+            ModelProviderError::UnsupportedModel {
+                runtime: "kodax".to_string(),
+                model_id: invalid.to_string(),
+            },
+            "KodaX unsupported model errors should identify the rejected id"
+        );
+    }
 }
 
 /// validate_model accepts dynamically discovered Cursor models and rejects absent ones.
