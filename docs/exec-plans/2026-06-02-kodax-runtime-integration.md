@@ -231,8 +231,8 @@ cargo test kodax -- --nocapture
 - [x] Run CLI build.
 - [x] Review tracked code changes and update design-doc code hashes only where a referenced code excerpt changed.
 - [x] Before final commit, run the required code review workflow and address Critical/Important feedback.
-- [ ] Make one final commit for the entire plan.
-- [ ] Update `docs/exec-plans/index.json` with the final 40-character `lastCompletedCommit`.
+- [x] Make one final commit for the entire plan.
+- [x] Update `docs/exec-plans/index.json` with the final 40-character `lastCompletedCommit`.
 
 **Verification:**
 
