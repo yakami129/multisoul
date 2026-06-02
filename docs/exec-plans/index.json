@@ -3,6 +3,11 @@
   "version": 1,
   "documents": [
     {
+      "file": "2026-06-02-kodax-runtime-integration.md",
+      "title": "KodaX Runtime Integration Implementation Plan",
+      "lastCompletedCommit": "bc5fcfc5b445f6ac2310f9cc75449c9746ff7b45"
+    },
+    {
       "file": "2026-06-01-workflow-module.md",
       "title": "Workflow Module Implementation Plan",
       "lastCompletedCommit": "3cfdc99c306751705563c437c369bcb0a50a62c9"
