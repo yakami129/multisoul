@@ -29,8 +29,12 @@ fn record_ask_question_with_runtime_waiter(
             "UPDATE conversations SET status = 'awaiting_question' WHERE id = ?1",
             [conv_id],
         );
-        if arm_runtime_waiter && !ask_id.is_empty() {
-            state.begin_waiting_answer(conv_id, &ask_id);
+        if !ask_id.is_empty() {
+            if arm_runtime_waiter {
+                state.begin_waiting_answer(conv_id, &ask_id);
+            } else {
+                state.begin_waiting_answer_user_message(conv_id, &ask_id);
+            }
         }
         push::send_ask_question_push(&db, conv_id, &payload);
         drop(db);

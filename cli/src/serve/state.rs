@@ -177,9 +177,26 @@ fn kill_single_process(pid: u32) -> bool {
 pub type ConvBus = Arc<Mutex<HashMap<String, broadcast::Sender<String>>>>;
 pub type SessionMap = Arc<Mutex<HashMap<String, SessionHandle>>>;
 
+/// Distinguishes how the active ask_question is waiting for an answer.
+///
+/// `Runtime`     — Claude Code `AskUserQuestion`; answer must go through the
+///                 mpsc channel so the runtime thread unblocks and writes
+///                 `control_response` back to Claude's stdin.
+/// `UserMessage` — `msctl ask-question` HTTP command; answer is converted to a
+///                 markdown user-message that is injected into the conversation.
+/// `None`        — No active ask is pending.
+#[derive(Clone, PartialEq, Eq, Debug)]
+pub enum AnswerMode {
+    Runtime,
+    UserMessage,
+    None,
+}
+
 pub struct AnswerChannel {
     pub tx: std::sync::mpsc::SyncSender<AnswerPayload>,
     pub pending_ask_id: Option<String>,
+    /// Which routing path is currently active for this channel.
+    pub pending_mode: AnswerMode,
 }
 
 pub type AnswerMap = Arc<Mutex<HashMap<String, AnswerChannel>>>;
@@ -191,6 +208,9 @@ pub enum AnswerSendResult {
     NoPendingAsk,
     AskMismatch { expected: String, actual: String },
     ChannelUnavailable,
+    /// The pending ask is for a different mode (e.g. UserMessage ask answered
+    /// via the runtime channel path). Callers should route to the correct path.
+    WrongMode { actual_mode: AnswerMode },
 }
 
 #[derive(Clone)]
@@ -239,15 +259,32 @@ impl AppState {
             AnswerChannel {
                 tx,
                 pending_ask_id: None,
+                pending_mode: AnswerMode::None,
             },
         );
         rx
     }
 
+    /// Mark the channel as actively waiting for a Runtime (Claude AskUserQuestion) answer.
     pub fn begin_waiting_answer(&self, conv_id: &str, ask_id: &str) {
         let mut txs = self.answer_txs.lock().unwrap();
         if let Some(channel) = txs.get_mut(conv_id) {
             channel.pending_ask_id = Some(ask_id.to_string());
+            channel.pending_mode = AnswerMode::Runtime;
+        }
+    }
+
+    /// Mark the channel as actively waiting for a UserMessage (msctl ask-question) answer.
+    /// No mpsc receiver is blocked; the answer will be injected as a user-text message.
+    ///
+    /// NOTE: If no AnswerChannel exists for `conv_id` (no active runtime session),
+    /// this is a no-op. The WS handler falls back to NoSession → UserMessage path,
+    /// which is correct for HTTP-only asks.
+    pub fn begin_waiting_answer_user_message(&self, conv_id: &str, ask_id: &str) {
+        let mut txs = self.answer_txs.lock().unwrap();
+        if let Some(channel) = txs.get_mut(conv_id) {
+            channel.pending_ask_id = Some(ask_id.to_string());
+            channel.pending_mode = AnswerMode::UserMessage;
         }
     }
 
@@ -256,29 +293,18 @@ impl AppState {
         if let Some(channel) = txs.get_mut(conv_id) {
             if channel.pending_ask_id.as_deref() == Some(ask_id) {
                 channel.pending_ask_id = None;
+                channel.pending_mode = AnswerMode::None;
             }
         }
     }
 
     /// Send a user answer to the session waiting for it.
-    /// Returns a structured status so callers can avoid marking stale answers as delivered.
+    ///
+    /// Routes **only** when `pending_mode == Runtime` and ask_id matches.
+    /// Returns `WrongMode` when the channel is in `UserMessage` mode so the WS
+    /// handler can dispatch directly without falling into the Runtime path.
     pub fn send_answer(&self, conv_id: &str, answer: AnswerPayload) -> AnswerSendResult {
         let txs = self.answer_txs.lock().unwrap();
-        if let Some(channel) = txs.get(conv_id) {
-            if channel.pending_ask_id.as_deref() == Some(answer._ask_id.as_str()) {
-                return match channel.tx.try_send(answer) {
-                    Ok(()) => AnswerSendResult::Accepted,
-                    Err(e) => {
-                        warn!(
-                            conv_id = %conv_id,
-                            reason = ?e,
-                            "answer_send_failed"
-                        );
-                        AnswerSendResult::ChannelUnavailable
-                    }
-                };
-            }
-        }
         let ask_id = answer._ask_id.clone();
         match txs.get(conv_id) {
             None => {
@@ -295,15 +321,38 @@ impl AppState {
                     warn!(conv_id = %conv_id, ask_id = %ask_id, "answer_no_pending_ask");
                     return AnswerSendResult::NoPendingAsk;
                 };
-                warn!(
-                    conv_id = %conv_id,
-                    expected = %expected,
-                    actual = %ask_id,
-                    "answer_ask_mismatch"
-                );
-                AnswerSendResult::AskMismatch {
-                    expected: expected.to_string(),
-                    actual: ask_id,
+                if expected != ask_id {
+                    warn!(
+                        conv_id = %conv_id,
+                        expected = %expected,
+                        actual = %ask_id,
+                        "answer_ask_mismatch"
+                    );
+                    return AnswerSendResult::AskMismatch {
+                        expected: expected.to_string(),
+                        actual: ask_id,
+                    };
+                }
+                // ask_id matches — now check mode
+                if channel.pending_mode != AnswerMode::Runtime {
+                    debug_assert!(
+                        channel.pending_mode != AnswerMode::None,
+                        "ask_id matched but pending_mode is None — invariant violation"
+                    );
+                    return AnswerSendResult::WrongMode {
+                        actual_mode: channel.pending_mode.clone(),
+                    };
+                }
+                match channel.tx.try_send(answer) {
+                    Ok(()) => AnswerSendResult::Accepted,
+                    Err(e) => {
+                        warn!(
+                            conv_id = %conv_id,
+                            reason = ?e,
+                            "answer_send_failed"
+                        );
+                        AnswerSendResult::ChannelUnavailable
+                    }
                 }
             }
         }
@@ -394,6 +443,117 @@ mod tests {
         assert_eq!(
             text_only.seq, 2,
             "seq should carry the user_text message seq"
+        );
+    }
+
+    // ─── Answer-channel routing tests ─────────────────────────────────────────
+
+    /// Helper: build a minimal AppState backed by a temp DB.
+    fn make_state() -> AppState {
+        use crate::db;
+        let dir = tempdir().unwrap();
+        let conn = db::open_at(&dir.path().join("t.db")).unwrap();
+        AppState::new(
+            conn,
+            "ms_v2_tok".to_string(),
+            dir.path().join("uploads"),
+            crate::serve::plugin::PluginManager::empty(std::sync::Arc::new(
+                std::sync::Mutex::new(db::open_at(&dir.path().join("pm.db")).unwrap()),
+            )),
+        )
+    }
+
+    fn make_payload(ask_id: &str) -> crate::serve::interactive::AnswerPayload {
+        crate::serve::interactive::AnswerPayload {
+            _ask_id: ask_id.to_string(),
+            choice_id: Some("opt1".to_string()),
+            choice_ids: None,
+            freeform: None,
+        }
+    }
+
+    /// Runtime ask 进行中时，UserMessage ask 的回答不会干扰 Runtime channel。
+    ///
+    /// 执行过程：
+    ///   1. 创建 AnswerChannel，注册为 Runtime 模式（ask_id = "ask-runtime"）
+    ///   2. 向同一 conv_id 发送 answer，_ask_id = "ask-runtime"
+    ///   3. pending_mode 是 Runtime，所以通道接受（Accepted）
+    ///   4. 另构造一个 _ask_id = "ask-user" 来模拟 UserMessage 回答尝试
+    ///      实际上在此路径下会 AskMismatch，而非 WrongMode；但验证
+    ///      WrongMode 场景需要把 mode 设为 UserMessage 后再回答。
+    ///
+    /// 专项：当 channel 处于 UserMessage 模式，send_answer 应返回 WrongMode { UserMessage }。
+    ///
+    /// 预期结果：
+    ///   - Runtime 模式回答正确的 ask_id → Accepted
+    ///   - UserMessage 模式回答正确的 ask_id → WrongMode { actual_mode: UserMessage }
+    #[test]
+    fn test_send_answer_wrong_mode_user_message() {
+        let state = make_state();
+        let conv_id = "conv-abc";
+
+        // 创建 channel（tx 存 state，rx 在这里）
+        let rx = state.create_answer_channel(conv_id);
+
+        // ── 场景 A: Runtime 模式，正确 ask_id → Accepted ──────────────────────
+        state.begin_waiting_answer(conv_id, "ask-rt");
+        let result = state.send_answer(conv_id, make_payload("ask-rt"));
+        assert_eq!(result, AnswerSendResult::Accepted);
+        // 把 rx 里的消息取走，避免 channel full
+        let _ = rx.try_recv().unwrap();
+
+        // ── 场景 B: UserMessage 模式，正确 ask_id → WrongMode { UserMessage } ─
+        state.begin_waiting_answer_user_message(conv_id, "ask-um");
+        let result = state.send_answer(conv_id, make_payload("ask-um"));
+        assert_eq!(
+            result,
+            AnswerSendResult::WrongMode {
+                actual_mode: AnswerMode::UserMessage
+            },
+            "Runtime send_answer path must return WrongMode when channel is in UserMessage mode"
+        );
+    }
+
+    /// UserMessage ask 进行中时，用错误的 ask_id 来回答 → AskMismatch。
+    ///
+    /// 执行过程：
+    ///   1. 注册 UserMessage ask（ask_id = "ask-um"）
+    ///   2. 用 ask_id = "ask-wrong" 调用 send_answer
+    ///
+    /// 预期结果：AskMismatch { expected: "ask-um", actual: "ask-wrong" }
+    #[test]
+    fn test_send_answer_mismatch_during_user_message_ask() {
+        let state = make_state();
+        let conv_id = "conv-def";
+
+        let _rx = state.create_answer_channel(conv_id);
+        state.begin_waiting_answer_user_message(conv_id, "ask-um");
+
+        let result = state.send_answer(conv_id, make_payload("ask-wrong"));
+        assert_eq!(
+            result,
+            AnswerSendResult::AskMismatch {
+                expected: "ask-um".to_string(),
+                actual: "ask-wrong".to_string(),
+            },
+            "Mismatched ask_id should return AskMismatch regardless of mode"
+        );
+    }
+
+    /// NoSession 回退：无 AnswerChannel 时 send_answer 返回 NoSession。
+    ///
+    /// 执行过程：
+    ///   1. 不创建 AnswerChannel，直接 send_answer
+    ///
+    /// 预期结果：NoSession
+    #[test]
+    fn test_send_answer_no_session() {
+        let state = make_state();
+        let result = state.send_answer("conv-nosession", make_payload("ask-x"));
+        assert_eq!(
+            result,
+            AnswerSendResult::NoSession,
+            "send_answer must return NoSession when no AnswerChannel is registered"
         );
     }
 }
