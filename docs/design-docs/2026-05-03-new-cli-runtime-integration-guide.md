@@ -425,6 +425,8 @@ KodaX 使用 `kodax --mode json --session <conversation_id> --agent-mode ama <pr
 > **2026-06-01（workflow schedule storage）**：`cli/src/db.rs` 新增 `workflows` 与 `workflow_runs` 表，用于本机 daemon 调度固定 prompt 并记录每次运行。每次实际触发都会创建新的 conversation；`workflow_runs.conversation_id` 允许为空，以支持重叠触发被跳过时仅记录 `skipped_overlap` 日志。该 schema 属于 workflow 调度层，不改变 runtime adapter 的接入契约。
 >
 > **2026-06-02（KodaX runtime）**：新增 `kodax` runtime adapter 和 dispatch match arm。KodaX V1 以 `kodax --mode json --session <conversation_id> --agent-mode ama <prompt>` 单次子进程执行，`provider:model` 拆分为 `-m <provider> --model <model>`，图片输入沿用 dispatch 层路径前缀注入，abort 复用 `SessionHandle` pid kill 路径。
+>
+> **2026-06-03（state.rs CI split）**：`cli/src/serve/state.rs` 将内联测试迁移到相邻 `state/tests.rs`，并应用 `cargo fmt` 输出，解除单文件行数与格式化 CI 闸；`AppState`、`AnswerMap`、`SessionHandle` 运行时设计正文无需变更。
 
 完成实现后，按 `CLAUDE.md §5` 跑：
 
