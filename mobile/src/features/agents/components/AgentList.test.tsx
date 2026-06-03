@@ -79,11 +79,11 @@ describe('AgentList', () => {
     const searchInput = UNSAFE_getByType(TextInput);
 
     expect(rootStyle.backgroundColor).toBe('#F6F3EC');
-    expect(searchStyle.borderRadius).toBe(28);
+    expect(searchStyle.borderRadius).toBe(21);
     expect(searchStyle.borderColor).toBe('#E6E6E8');
     expect(searchInput.props.placeholderTextColor).toBe('#555555');
-    expect(groupStyle.borderRadius).toBe(22);
-    expect(groupStyle.borderColor).toBe('#E6E6E8');
+    expect(groupStyle.gap).toBe(6);
+    expect(groupStyle.borderColor).toBeUndefined();
   });
 
   it('calls route callbacks for add endpoint and workflow shortcuts', () => {
@@ -109,6 +109,25 @@ describe('AgentList', () => {
 
     expect(onAddEndpoint).toHaveBeenCalledTimes(2);
     expect(onOpenWorkflows).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps workflow shortcut copy on a single line', () => {
+    const { getByText } = render(
+      <AgentList
+        agents={agents}
+        isLoading={false}
+        isError={false}
+        error={null}
+        isFetching={false}
+        onRefetch={() => {}}
+        onAgentPress={() => {}}
+      />,
+    );
+
+    expect(getByText('Daily Standup').props.numberOfLines).toBe(1);
+    expect(getByText('Connect Machine').props.numberOfLines).toBe(1);
+    expect(getByText('Get updates from all agents and tasks.').props.numberOfLines).toBe(1);
+    expect(getByText('Add a new machine and start commanding.').props.numberOfLines).toBe(1);
   });
 
   it('calls onAgentPress with project id, endpoint id, and name', () => {
@@ -165,6 +184,85 @@ describe('AgentList', () => {
     expect(queryByText('Alpha')).toBeNull();
   });
 
+  it('filters projects by endpoint from the filter button', () => {
+    const { getByLabelText, getByText, queryByText } = render(
+      <AgentList
+        agents={agents}
+        isLoading={false}
+        isError={false}
+        error={null}
+        isFetching={false}
+        onRefetch={() => {}}
+        onAgentPress={() => {}}
+      />,
+    );
+
+    fireEvent.press(getByLabelText('Filter agents by endpoint'));
+    expect(getByText('Filter by Machine')).toBeTruthy();
+    expect(getByText('All Machines')).toBeTruthy();
+    expect(getByText('Mac')).toBeTruthy();
+    expect(getByText('Workstation')).toBeTruthy();
+
+    fireEvent.press(getByLabelText('Workstation, 1 agent'));
+
+    expect(getByText('Beta')).toBeTruthy();
+    expect(queryByText('Alpha')).toBeNull();
+    expect(getByText('Workstation · 1 agent')).toBeTruthy();
+  });
+
+  it('clears the endpoint filter back to the full fleet', () => {
+    const { getByLabelText, getByText } = render(
+      <AgentList
+        agents={agents}
+        isLoading={false}
+        isError={false}
+        error={null}
+        isFetching={false}
+        onRefetch={() => {}}
+        onAgentPress={() => {}}
+      />,
+    );
+
+    fireEvent.press(getByLabelText('Filter agents by endpoint'));
+    fireEvent.press(getByLabelText('Workstation, 1 agent'));
+    fireEvent.press(getByLabelText('Clear endpoint filter'));
+
+    expect(getByText('Alpha')).toBeTruthy();
+    expect(getByText('Beta')).toBeTruthy();
+  });
+
+  it('keeps running agents at the top of the fleet', () => {
+    useChatStore.setState({
+      conversations: [
+        {
+          id: 'conv-running',
+          agent_id: 'a2',
+          title: 'Running work',
+          created_at: 1,
+          last_message_at: 2,
+          status: 'running',
+          endpoint_id: 'ep-2',
+          agent_name: 'Beta',
+        },
+      ],
+      messages: {},
+    });
+
+    const { getAllByTestId } = render(
+      <AgentList
+        agents={agents}
+        isLoading={false}
+        isError={false}
+        error={null}
+        isFetching={false}
+        onRefetch={() => {}}
+        onAgentPress={() => {}}
+      />,
+    );
+
+    expect(getAllByTestId('project-row')[0].props.accessibilityLabel).toBe('Open Beta');
+  });
+
   it('shows loading and error states', () => {
     const loading = render(
       <AgentList
@@ -177,7 +275,11 @@ describe('AgentList', () => {
         onAgentPress={() => {}}
       />,
     );
+    expect(loading.getByText('MultiSoul')).toBeTruthy();
+    expect(loading.getByText(/Your agents/)).toBeTruthy();
+    expect(loading.getByText('Agent Fleet')).toBeTruthy();
     expect(loading.getByText('Loading agents...')).toBeTruthy();
+    expect(loading.getByText('Quick Workflows')).toBeTruthy();
     loading.unmount();
 
     const error = render(

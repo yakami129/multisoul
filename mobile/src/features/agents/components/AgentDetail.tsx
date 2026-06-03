@@ -242,7 +242,8 @@ const s = StyleSheet.create({
   errorTitle: {
     fontFamily: brandTypography.display,
     fontSize: 22,
-    fontWeight: '900',
+    lineHeight: 27,
+    fontWeight: '700',
     color: brandColors.error,
   },
   backBtn: {
@@ -257,8 +258,9 @@ const s = StyleSheet.create({
   hero: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 14, gap: 8 },
   projectName: {
     fontFamily: brandTypography.display,
-    fontSize: 44,
-    fontWeight: '900',
+    fontSize: 28,
+    lineHeight: 34,
+    fontWeight: '700',
     color: brandColors.ink,
   },
   workspacePath: {
@@ -301,7 +303,7 @@ const s = StyleSheet.create({
     height: 38,
     paddingHorizontal: 20,
     paddingTop: 14,
-    fontFamily: 'Inter',
+    fontFamily: brandTypography.display,
     fontSize: 20,
     fontWeight: '700',
     color: brandColors.ink,
@@ -331,7 +333,7 @@ const s = StyleSheet.create({
   chatDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: brandColors.textMuted },
   chatDotActive: { backgroundColor: brandColors.coral },
   chatInfo: { flex: 1, gap: 3 },
-  chatTitle: { fontFamily: 'Inter', fontSize: 14, fontWeight: '700', color: brandColors.ink },
+  chatTitle: { fontFamily: 'Inter', fontSize: 15, fontWeight: '700', color: brandColors.ink },
   chatSummary: { fontFamily: 'Inter', fontSize: 12, color: brandColors.textSoft },
   chatMeta: { alignItems: 'flex-end', gap: 4 },
   chatTime: { fontFamily: 'Inter', fontSize: 12, color: brandColors.textMuted },

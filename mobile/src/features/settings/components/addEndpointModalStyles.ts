@@ -37,8 +37,9 @@ export const addEndpointModalStyles = StyleSheet.create({
   },
   fullTitle: {
     fontFamily: brandTypography.display,
-    fontSize: 34,
-    fontWeight: '900',
+    fontSize: 28,
+    lineHeight: 34,
+    fontWeight: '700',
     color: brandColors.ink,
   },
   contentCloseButton: {
@@ -153,8 +154,9 @@ export const addEndpointModalStyles = StyleSheet.create({
   sheetTitleBlock: { flex: 1, gap: 4 },
   sheetTitle: {
     fontFamily: brandTypography.display,
-    fontSize: 22,
-    fontWeight: '900',
+    fontSize: 20,
+    lineHeight: 24,
+    fontWeight: '700',
     color: brandColors.ink,
   },
   sheetSubtitle: { fontFamily: 'Inter', fontSize: 12, lineHeight: 16, color: brandColors.textSoft },

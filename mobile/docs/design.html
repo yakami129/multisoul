@@ -410,14 +410,14 @@
   }
 
   .mobile-header h3 {
-    font-size: 32px;
-    line-height: 1;
+    font-size: 22px;
+    line-height: 26px;
   }
 
   .mobile-header p {
     margin: 4px 0 0;
     color: var(--muted);
-    font-size: 13px;
+    font-size: 12px;
   }
 
   .rail {
@@ -446,17 +446,17 @@
 
   .agent-row {
     display: grid;
-    grid-template-columns: 44px 1fr auto;
-    gap: 12px;
+    grid-template-columns: 40px 1fr auto;
+    gap: 9px;
     align-items: center;
-    min-height: 72px;
-    padding: 0 18px;
+    min-height: 62px;
+    padding: 0 16px;
     border-top: 1px solid var(--line);
   }
 
   .avatar {
-    width: 40px;
-    height: 40px;
+    width: 30px;
+    height: 30px;
     border-radius: 9px;
     display: grid;
     place-items: center;
@@ -466,18 +466,21 @@
 
   .agent-row b {
     display: block;
-    font-size: 15px;
+    font-size: 13px;
+    line-height: 17px;
   }
 
   .agent-row small {
     display: block;
     margin-top: 2px;
     color: var(--muted);
+    font-size: 11px;
   }
 
   .badge {
-    min-width: 58px;
-    padding: 4px 8px;
+    min-width: 48px;
+    min-height: 22px;
+    padding: 3px 7px;
     border-radius: 999px;
     color: var(--ink);
     text-align: center;
@@ -496,7 +499,7 @@
 
   .question .label {
     color: var(--coral);
-    font-size: 11px;
+    font-size: 10px;
     font-weight: 900;
     letter-spacing: .08em;
   }
@@ -504,7 +507,7 @@
   .question p {
     margin: 10px 0 14px;
     color: var(--white);
-    font-size: 15px;
+    font-size: 13px;
     font-weight: 600;
   }
 
@@ -513,7 +516,7 @@
     border-radius: 10px;
     background: var(--option);
     color: var(--text);
-    font-size: 13px;
+    font-size: 12px;
   }
 
   .option + .option { margin-top: 8px; }
@@ -525,16 +528,16 @@
   }
 
   .tabbar {
-    height: 62px;
-    margin: 24px 20px 18px;
-    border-radius: 36px;
+    height: 50px;
+    margin: 20px 20px 18px;
+    border-radius: 30px;
     background: var(--raised);
     border: 1px solid var(--line);
     display: flex;
     align-items: center;
     justify-content: space-around;
     color: var(--dim);
-    font-size: 11px;
+    font-size: 10px;
     font-weight: 700;
   }
 
@@ -764,19 +767,34 @@
         <div class="spec">
           <h3>Typography</h3>
           <ul>
-            <li>品牌 / 页面标题：Space Grotesk</li>
-            <li>导航 / 正文 / 按钮：Inter</li>
+            <li>品牌标题：24-28px；工具页内品牌不超过 22px</li>
+            <li>页面标题：22-24px Space Grotesk</li>
+            <li>列表标题：13px Inter</li>
+            <li>正文 / 问题：13-14px Inter</li>
+            <li>摘要：12px；时间戳：10-11px</li>
+            <li>标签 / chip：9-11px</li>
             <li>命令 / token / 日志：SF Mono</li>
+            <li>Agents header：18/22 + 22/26</li>
             <li>正文 lineHeight：1.35-1.45</li>
+          </ul>
+        </div>
+        <div class="spec">
+          <h3>Agents Type</h3>
+          <ul>
+            <li>Hero：title 18/22，body 12/17，chip 10/14</li>
+            <li>Stats：number 17/19，label 9/11</li>
+            <li>Search：Inter 14</li>
+            <li>Fleet：name 13/17，meta 11，path 10，status 10</li>
+            <li>Workflow：title 13/16，subtitle 11/14</li>
           </ul>
         </div>
         <div class="spec">
           <h3>Shape</h3>
           <ul>
-            <li>Runtime avatar：40×40，9px radius</li>
+            <li>Runtime avatar：30×30 tile，40×40 frame</li>
             <li>标准卡片：12px radius</li>
             <li>Question card：16px radius</li>
-            <li>Tab Bar：62px / 36px radius</li>
+            <li>Tab Bar：50px rail + 28px safe padding / 30px radius</li>
           </ul>
         </div>
         <div class="spec">
@@ -822,9 +840,9 @@
         <li>Signal 色只表达状态，不做无语义装饰。</li>
         <li>字体只使用 Space Grotesk / Inter / SF Mono。</li>
         <li>页面仍是可扫描的工具界面，而不是营销页。</li>
-        <li>Tab Bar 为 62px 高、36px radius。</li>
-        <li>输入框为 52px 高、26px radius。</li>
-        <li>列表行稳定在 72px 左右。</li>
+        <li>Tab Bar 为 50px rail + 28px safe padding、30px radius。</li>
+        <li>Agents 搜索框为 42-46px 高、21-23px radius。</li>
+        <li>Agent Fleet 行稳定在 62-70px，名称 13px，meta 11px，path/status 10px。</li>
         <li>AskQuestion 明确突出用户决策。</li>
         <li>Bottom Sheet 有 handle、scrim、顶部圆角和安全区处理。</li>
         <li>动效遵守 Reduce Motion。</li>

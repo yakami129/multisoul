@@ -75,7 +75,7 @@ MultiSoul 是个人 AI Agent 随身控制台。它不是营销页，也不是普
 
 ### 2.5 Runtime Avatar / Mascot
 
-Projects 列表中的 Agent Avatar 为 40×40px、9px 圆角的像素/mascot 画布。优先按 runtime 显示第一组生成的 mascot PNG：
+Agent Fleet 中的 runtime tile 为 30×30px、9px 圆角，外层 frame 为 40×40px。优先按 runtime 显示第一组生成的 mascot PNG：
 
 | Runtime | 背景语义 | 资产 | 用途 |
 |---------|----------|------|------|
@@ -102,16 +102,16 @@ Fallback 色板：`#FF5A3C`、`#00E5FF`、`#C6FF00`、`#B7C9AE`、`#7C3AED`、`#
 
 | 场景 | 字号 | 字体 | 字重 | 用途 |
 |------|------|------|------|------|
-| App 品牌标题 | 32px | Space Grotesk | 700 | Home / Splash 品牌名 |
-| 页面标题 | 28px | Space Grotesk | 700 | Inbox、Agents、Settings |
-| Sheet 标题 | 20px | Space Grotesk | 700 | Bottom Sheet / Modal |
-| 空状态标题 | 22px | Space Grotesk | 700 | 空状态主文字 |
-| 列表主标题 | 15px | Inter | 600/700 | Agent / Conversation 名称 |
-| 正文 / 问题 | 15-16px | Inter | 400/600 | AskQuestion、Inbox 问题 |
-| 摘要 | 14px | Inter | 400 | 列表 preview、说明文案 |
-| 标签 / Chip | 12-13px | Inter | 600/700 | 状态标签、section 标签 |
-| 时间戳 | 12px | Inter | 400 | 列表时间、事件时间 |
-| 徽章文字 | 11px | Inter | 700 | 未读数、状态短词 |
+| App 品牌标题 | 24-28px | Space Grotesk | 700 | Home / Splash 品牌名；工具页内不超过 22px |
+| 页面标题 | 22-24px | Space Grotesk | 700 | Agents、Inbox、Settings 等一级页 |
+| Sheet 标题 | 18px | Space Grotesk | 700 | Bottom Sheet / Modal |
+| 空状态标题 | 20px | Space Grotesk | 700 | 空状态主文字 |
+| 列表主标题 | 13px | Inter | 600/700 | Agent / Conversation 名称 |
+| 正文 / 问题 | 13-14px | Inter | 400/600 | AskQuestion、Inbox 问题 |
+| 摘要 | 12px | Inter | 400 | 列表 preview、说明文案 |
+| 标签 / Chip | 9-11px | Inter | 600/700 | Hero stats、状态标签、section 标签 |
+| 时间戳 | 10-11px | Inter | 400 | 列表时间、事件时间 |
+| 徽章文字 | 9-10px | Inter | 700 | 未读数、状态短词 |
 
 ### 3.3 排版规则
 
@@ -152,7 +152,7 @@ Fallback 色板：`#FF5A3C`、`#00E5FF`、`#C6FF00`、`#B7C9AE`、`#7C3AED`、`#
 | 导航栏 | `[0, 16]` | 左右安全区内对齐 |
 | 聊天区域 | `[12, 16]` 或 `16px` | 消息区 |
 | 输入框区域 | `[8, 16, 34, 16]` | 包含 Home Indicator |
-| Tab 包装 | `[0, 20, 34, 20]` | 浮动胶囊 |
+| Tab 包装 | `[0, 14, 28, 14]` | 紧凑浮动胶囊 |
 | AskQuestion 卡片 | `24px` | 高优先级决策容器 |
 | AskQuestion 选项 | `[12, 16]` | 便于触控 |
 | Inbox 卡片 | `16px` | 信息密度适中 |
@@ -171,8 +171,8 @@ Fallback 色板：`#FF5A3C`、`#00E5FF`、`#C6FF00`、`#B7C9AE`、`#7C3AED`、`#
 | 标准卡片 | 12px | `surface.panel` + 1px line |
 | 高优先级卡片 | 16px | `surface.raised` + signal 边 |
 | 按钮 | 8-12px | 根据密度决定，不超过 12px |
-| 输入框 | 26px | 胶囊 |
-| Tab Bar | 36px | 浮动胶囊 |
+| 输入框 | 21-26px | 胶囊 |
+| Tab Bar | 30-32px | 浮动胶囊 |
 | Bottom Sheet | `[20, 20, 0, 0]` | 仅顶部圆角 |
 
 材质规则：
@@ -194,13 +194,13 @@ Fallback 色板：`#FF5A3C`、`#00E5FF`、`#C6FF00`、`#B7C9AE`、`#7C3AED`、`#
 
 ```text
 Status Bar (44)
-Header: mascot + MultiSoul + Agents + search/add round controls
-Hero: cyan wash card, mascot, connection chip, Running / Needs You / Done stats
-Search / Filter row
+Header (68): mascot + MultiSoul + Agents + compact search/add round controls
+Hero (226): cyan wash card, mascot, connection chip, Running / Needs You / Done stats
+Search / Filter row (42)
 Section: Agent Fleet
-Agent row (96): runtime tile, name, machine, repo path, status pill, overflow
+Agent row (62): runtime tile, name, machine, repo path, status pill, overflow
 Section: Quick Workflows
-Workflow cards: Daily Standup → Workflows, Connect Machine → Add Endpoint QR
+Workflow rows: Daily Standup → Workflows, Connect Machine → Add Endpoint QR；标题与说明保持单行
 Floating Ink Tab Bar
 ```
 
@@ -247,32 +247,53 @@ Floating Tab Bar
 
 ### 7.1 Tab Bar
 
-- 高度：62px，cornerRadius 36px
+- 高度：50px visible rail + 28px safe-area padding，cornerRadius 30px
 - 背景：`brand.ink`
-- 位置：浮动胶囊，左右约 28px，底部避开 Home Indicator
-- 布局：horizontal，space_between，padding `[0, 28]`
-- 图标：Lucide 或 brand-refresh transparent icon，24-38px
-- 标签：Inter 11px/600
+- 位置：浮动胶囊，左右约 20px，底部避开 Home Indicator
+- 布局：horizontal，space_between，padding `[0, 14]`
+- 图标：Lucide 或 brand-refresh transparent icon，20-31px
+- 标签：Inter 10px/600
 - 激活：浅蓝圆形托盘 + `text.onCream`
 - 非激活：白色 70% 或 muted 图标
 
 ### 7.2 搜索框
 
-- 高度：56-62px，cornerRadius 28-31px
+- 高度：42-46px，cornerRadius 21-23px
 - 背景：白色 70-88% + `surface.line`
-- 图标：lucide `search`，16×16px，`text.disabled`
-- 占位文字：Inter 16px，`text.disabled`
+- 图标：lucide `search`，19-21px，`text.disabled`
+- 占位文字：Inter 14-15px，`text.disabled`
 - 聚焦态：1px `signal.live` 边界；不改变高度
 
-### 7.3 Agent / Conversation Row
+### 7.3 Agent Fleet Row
 
-- 高度：96px 左右，padding `[12, 14]`
-- 布局：horizontal，alignItems center，gap 12px
-- Avatar：40×40px、12px 圆角，按 runtime 使用 Cyan/Lime/Sage tile
-- 名称：Inter 20px/800，`text.onCream`
-- 机器 / 时间：Inter 14px，`text.dim`
-- 路径：Lucide folder + Inter 14px，`text.muted`
-- 状态：右侧 pill，Running=Cyan、Needs Decision=Coral、Idle=muted
+- 高度：62-70px，padding `[7, 9]` 起步
+- 布局：horizontal，alignItems center，gap 7-9px
+- Avatar：30×30px runtime tile，外层 40×40px frame，按 runtime 使用 Cyan/Lime/Sage tile
+- 名称：Inter 13px/700，`text.onCream`
+- 机器 / 时间：Inter 11px，`text.dim`
+- 路径：Lucide folder + Inter 10px，`text.muted`
+- 状态：右侧 22px pill，Inter 10px/700；Running=Cyan、Needs Decision=Coral、Idle=muted
+
+#### Agents 字号速查
+
+| 区域 | 字号 / 行高 | 字体 / 字重 | 说明 |
+|------|-------------|-------------|------|
+| Header 品牌名 | 18 / 22 | Space Grotesk 800 | `MultiSoul` |
+| Header 页面名 | 22 / 26 | Space Grotesk 700 | `Agents` |
+| Hero 标题 | 18 / 22 | Space Grotesk 700 | `Your agents in your hand` |
+| Hero 正文 | 12 / 17 | Inter 400 | 说明文案 |
+| 连接 chip | 10 / 14 | Inter 400 | 单行截断 |
+| Hero stats 数字 | 17 / 19 | Space Grotesk 900 | Running / Needs You / Done 数字 |
+| Hero stats 标签 | 9 / 11 | Inter 400 | Running / Needs You / Done label |
+| Search input | 14 | Inter 400 | 占位和输入文字 |
+| Section title | 17 / 21 | Space Grotesk 700 | Agent Fleet / Quick Workflows |
+| View All | 13 | Inter 400 | section action |
+| Agent 名称 | 13 / 17 | Inter 700 | 单行截断 |
+| Agent machine / age | 11 | Inter 400 | 单行截断 |
+| Agent path | 10 | Inter 400 | 单行截断 |
+| Agent status | 10 | Inter 700 | pill 内单行截断 |
+| Quick Workflow 标题 | 13 / 16 | Inter 800 | 单行截断 |
+| Quick Workflow 说明 | 11 / 14 | Inter 400 | 单行截断 |
 
 ### 7.3.1 Active Now Running Breath
 
@@ -286,7 +307,7 @@ Floating Tab Bar
 
 - 高度：20-24px，cornerRadius 10-12px
 - Padding：`[2, 6]` 或 `[4, 8]`
-- 文案：Inter 11px/700，全大写短词
+- 文案：Inter 10px/700，全大写短词
 - `LIVE` / `STREAM`：`signal.live`
 - `DECIDE` / `PENDING`：`signal.decide`
 - `DONE` / `READY`：`signal.done`
@@ -303,9 +324,9 @@ Floating Tab Bar
 ### 7.6 AskQuestion 卡片
 
 - 背景：`surface.raised`，cornerRadius 16px，padding 24px，gap 16px
-- 顶部 label：`DECISION REQUIRED`，Inter 11px/700，`signal.decide`
-- 问题文字：Inter 16px/600，`text.primary`
-- 提示：Inter 13px，`text.disabled`
+- 顶部 label：`DECISION REQUIRED`，Inter 10px/700，`signal.decide`
+- 问题文字：Inter 13-14px/600，`text.primary`
+- 提示：Inter 11-12px，`text.disabled`
 - 选项行：cornerRadius 10px，padding `[12, 16]`
 - 已选中：背景 `#1F2A1F` 或低透明 `signal.done`，边框 `signal.done`
 - 未选中：背景 `surface.option`
@@ -322,9 +343,9 @@ Floating Tab Bar
 
 - 背景：`surface.app` 或 `surface.panel`，padding 16px，gap 10px
 - 顶部：Agent 名称 + 时间 + 状态 chip
-- 问题文字：Inter 15px，`text.secondary`，lineHeight 1.4
-- Dismiss：Inter 13px，`text.disabled`
-- Answer：Inter 13px/600，`signal.decide`
+- 问题文字：Inter 13px，`text.secondary`，lineHeight 1.4
+- Dismiss：Inter 11px，`text.disabled`
+- Answer：Inter 12px/600，`signal.decide`
 - 已完成：Answer 替换为 `DONE` chip，使用 `signal.done`
 
 ### 7.9 Bottom Sheet
@@ -342,8 +363,8 @@ Floating Tab Bar
 - 使用 Cream 或 Ink 两种模式：
   - 深色页内：`surface.panel` 图标容器 + mascot line icon
   - 品牌/引导：`brand.cream` 背景 + Ink mascot
-- 标题：Space Grotesk 22px/700
-- 副标题：Inter 15px，`text.muted`，textAlign center，maxWidth 260px
+- 标题：Space Grotesk 20px/700
+- 副标题：Inter 13px，`text.muted`，textAlign center，maxWidth 260px
 - Hint 行：cornerRadius 12px，背景 `surface.raised` 或 `brand.silver`
 
 ---
@@ -405,9 +426,9 @@ Floating Tab Bar
 - [ ] Signal 色是否只表达状态，不做无语义装饰？
 - [ ] 字体是否只使用 Space Grotesk / Inter / SF Mono？
 - [ ] 页面是否仍是可扫描的工具界面，而非营销页？
-- [ ] Tab Bar 是否 62px 高、cornerRadius 36px？
-- [ ] 输入框是否 52px 高、cornerRadius 26px？
-- [ ] Agent Fleet 列表行是否稳定在 96px 左右，动态内容不会撑开布局？
+- [ ] Tab Bar 是否保持 50px visible rail + 28px safe-area padding、cornerRadius 30px？
+- [ ] 输入框是否在 42-46px 高、cornerRadius 21-23px 范围内？
+- [ ] Agent Fleet 列表行是否稳定在 62-70px 范围内，动态内容不会撑开布局？
 - [ ] AskQuestion 是否明确突出“需要用户决策”？
 - [ ] Bottom Sheet 是否有 handle、scrim、顶部圆角和安全区处理？
 - [ ] 动效是否遵守 Reduce Motion？

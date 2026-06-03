@@ -141,8 +141,10 @@ export function AgentCard({
       accessibilityLabel={`Open ${agent.name}`}
     >
       {showBreathingEffect ? <AgentCardBreath accentColor={accentColor} /> : null}
-      <View testID="project-avatar" style={[s.avatar, { backgroundColor: avatarColor }]}>
-        <RuntimeIcon size={28} color={brandColors.white} strokeWidth={2.4} />
+      <View style={s.avatarFrame}>
+        <View testID="project-avatar" style={[s.avatar, { backgroundColor: avatarColor }]}>
+          <RuntimeIcon size={20} color={brandColors.white} strokeWidth={2.4} />
+        </View>
       </View>
       <View testID="project-body" style={s.body}>
         <View style={s.titleRow}>
@@ -170,7 +172,7 @@ export function AgentCard({
           </Text>
         </View>
         <View testID="project-chevron" style={s.moreButton}>
-          <MoreHorizontal size={20} color={brandColors.ink} />
+          <MoreHorizontal size={16} color={brandColors.ink} />
         </View>
       </View>
     </Pressable>
@@ -180,62 +182,80 @@ export function AgentCard({
 const s = StyleSheet.create({
   row: {
     width: '100%',
-    minHeight: 88,
+    minHeight: 62,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+    paddingHorizontal: 9,
+    paddingVertical: 7,
     position: 'relative',
-    borderRadius: 26,
+    borderRadius: 18,
+    backgroundColor: brandRgba.white88,
+    borderWidth: 1,
+    borderColor: brandColors.silver,
+    shadowColor: brandColors.ink,
+    shadowOpacity: 0.08,
+    shadowRadius: 9,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 2,
   },
-  avatar: {
+  avatarFrame: {
     width: 40,
     height: 40,
-    borderRadius: 12,
+    borderRadius: 14,
+    backgroundColor: brandRgba.white70,
+    borderWidth: 1,
+    borderColor: brandColors.silver,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 10,
+    marginRight: 9,
+  },
+  avatar: {
+    width: 30,
+    height: 30,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   body: { flex: 1, minWidth: 0 },
   titleRow: { flexDirection: 'row', alignItems: 'center', minWidth: 0 },
   agentName: {
     flex: 1,
     fontFamily: 'Inter',
-    fontSize: 17,
-    lineHeight: 22,
-    fontWeight: '800',
+    fontSize: 13,
+    lineHeight: 17,
+    fontWeight: '700',
     color: brandColors.ink,
   },
-  metaRow: { flexDirection: 'row', alignItems: 'center', marginTop: 4 },
-  metaText: { flex: 1, fontFamily: 'Inter', fontSize: 13, color: brandColors.textSoft },
+  metaRow: { flexDirection: 'row', alignItems: 'center', marginTop: 2 },
+  metaText: { flex: 1, fontFamily: 'Inter', fontSize: 11, color: brandColors.textSoft },
   pathRow: {
-    marginTop: 4,
+    marginTop: 2,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
   },
-  pathText: { flex: 1, fontFamily: 'Inter', fontSize: 12, color: brandColors.textMuted },
+  pathText: { flex: 1, fontFamily: 'Inter', fontSize: 10, color: brandColors.textMuted },
   trailing: {
-    marginLeft: 10,
+    marginLeft: 7,
     alignItems: 'flex-end',
-    gap: 10,
+    gap: 5,
   },
   statusPill: {
-    minHeight: 30,
-    maxWidth: 150,
+    minHeight: 22,
+    maxWidth: 112,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 15,
-    paddingHorizontal: 11,
-    gap: 6,
+    borderRadius: 11,
+    paddingHorizontal: 7,
+    gap: 4,
   },
-  statusDot: { width: 7, height: 7, borderRadius: 3.5 },
-  statusText: { fontFamily: 'Inter', fontSize: 12, fontWeight: '700' },
+  statusDot: { width: 5, height: 5, borderRadius: 2.5 },
+  statusText: { flexShrink: 1, fontFamily: 'Inter', fontSize: 10, fontWeight: '700' },
   moreButton: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     backgroundColor: brandRgba.ink08,
     alignItems: 'center',
     justifyContent: 'center',

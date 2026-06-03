@@ -214,8 +214,9 @@ const s = StyleSheet.create({
   },
   headerTitle: {
     fontFamily: brandTypography.display,
-    fontSize: 48,
-    fontWeight: '900',
+    fontSize: 28,
+    lineHeight: 34,
+    fontWeight: '700',
     color: brandColors.ink,
   },
   addButton: {
@@ -268,8 +269,9 @@ const s = StyleSheet.create({
   emptyWrap: { alignItems: 'center', gap: 8 },
   emptyTitle: {
     fontFamily: brandTypography.display,
-    fontSize: 24,
-    fontWeight: '900',
+    fontSize: 22,
+    lineHeight: 27,
+    fontWeight: '700',
     color: brandColors.ink,
   },
   emptyDesc: {

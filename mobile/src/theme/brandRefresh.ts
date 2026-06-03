@@ -1,5 +1,4 @@
 import type { ImageSourcePropType, ViewStyle } from 'react-native';
-
 import iconActivity from '../../assets/brand-refresh/icon-activity.png';
 import iconAgent from '../../assets/brand-refresh/icon-agent.png';
 import iconChat from '../../assets/brand-refresh/icon-chat.png';

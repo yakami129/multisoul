@@ -13,9 +13,9 @@ export const s = StyleSheet.create({
   },
   navTitle: {
     fontFamily: brandTypography.display,
-    fontSize: 46,
-    lineHeight: 48,
-    fontWeight: '900',
+    fontSize: 28,
+    lineHeight: 34,
+    fontWeight: '700',
     color: brandColors.ink,
   },
   addButton: {
@@ -43,9 +43,9 @@ export const s = StyleSheet.create({
   heroContent: { flex: 1, minWidth: 0 },
   heroTitle: {
     fontFamily: brandTypography.display,
-    fontSize: 28,
-    lineHeight: 32,
-    fontWeight: '900',
+    fontSize: 20,
+    lineHeight: 24,
+    fontWeight: '700',
     color: brandColors.ink,
   },
   heroMeta: {
@@ -76,9 +76,9 @@ export const s = StyleSheet.create({
   },
   sectionLabel: {
     fontFamily: brandTypography.display,
-    fontSize: 24,
-    lineHeight: 29,
-    fontWeight: '900',
+    fontSize: 20,
+    lineHeight: 24,
+    fontWeight: '700',
     color: brandColors.ink,
   },
   manageWrap: { flexDirection: 'row', alignItems: 'center', gap: 2 },
@@ -108,7 +108,7 @@ export const s = StyleSheet.create({
     marginRight: 12,
   },
   rowCopy: { flex: 1, minWidth: 0 },
-  rowTitle: { fontFamily: 'Inter', fontSize: 16, fontWeight: '800', color: brandColors.ink },
+  rowTitle: { fontFamily: 'Inter', fontSize: 15, fontWeight: '700', color: brandColors.ink },
   rowSubtitle: {
     marginTop: 3,
     fontFamily: 'Inter',

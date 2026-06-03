@@ -117,3 +117,46 @@ test('does not render the older-loading header while idle', () => {
       'idle transcript must pass no FlatList header so contentContainerStyle gap adds no top space',
   }).toEqual({ actual: null, reason: expect.any(String) });
 });
+
+test('passes matching tool_result payload into tool call cards', () => {
+  const toolCall: WsMessage = {
+    type: 'message',
+    seq: 10,
+    role: 'tool_call',
+    payload: { tool: 'Bash', args: '{"command":"pwd"}', call_id: 'call-10' },
+    created_at: 10,
+  };
+  const toolResult: WsMessage = {
+    type: 'message',
+    seq: 11,
+    role: 'tool_result',
+    payload: { call_id: 'call-10', ok: true, summary: '/Users/openclawd/Documents/code' },
+    created_at: 11,
+  };
+
+  const { getByText, getByTestId, queryByText } = render(
+    <ChatTranscriptList
+      listRef={{ current: null }}
+      messages={[toolCall]}
+      toolResultMessages={[toolCall, toolResult]}
+      isLoadingOlder={false}
+      isAgentRunning={false}
+      incomingAgentActivitySeq={null}
+      activeTypewriterSeq={null}
+      shouldForceComplete={false}
+      serverUrl="http://localhost:8080"
+      token="token"
+      onAnswer={jest.fn()}
+      onAnswerMulti={jest.fn()}
+      imageUriForMessage={() => undefined}
+      onScroll={jest.fn()}
+      onScrollBeginDrag={jest.fn()}
+      onContentSizeChange={jest.fn()}
+      onScrollToIndexFailed={jest.fn()}
+    />,
+  );
+
+  expect(getByText('pwd')).toBeTruthy();
+  expect(getByTestId('tool-call-status-label').props.children).toBe('Done');
+  expect(queryByText('/Users/openclawd/Documents/code')).toBeNull();
+});

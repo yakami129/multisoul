@@ -148,8 +148,9 @@ const s = StyleSheet.create({
   },
   headerTitle: {
     fontFamily: brandTypography.display,
-    fontSize: 42,
-    fontWeight: '900',
+    fontSize: 32,
+    lineHeight: 38,
+    fontWeight: '700',
     color: brandColors.ink,
   },
   searchWrap: { height: 76, backgroundColor: brandColors.cream, padding: 12 },

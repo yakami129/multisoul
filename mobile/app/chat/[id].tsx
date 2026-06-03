@@ -13,8 +13,8 @@ import {
 } from '@/features/chat/utils/chatRenderState';
 import { useWebSocket } from '@/hooks/useWebSocket';
 import { useChatStore } from '@/store/chatStore';
-import { brandColors, brandRgba } from '@/theme/brandRefresh';
 import { useEndpointStore } from '@/store/endpointStore';
+import { brandColors, brandRgba } from '@/theme/brandRefresh';
 import { type WsMessage } from '@/types';
 import ChatHeader from './ChatHeader';
 import ChatTranscriptList from './ChatTranscriptList';
@@ -221,6 +221,7 @@ export default function ChatDetailScreen() {
           shouldForceComplete={shouldForceComplete}
           serverUrl={endpoint?.base_url ?? ''}
           token={endpoint?.token ?? ''}
+          toolResultMessages={messages}
           onAnswer={sendAnswer}
           onAnswerMulti={sendAnswerMulti}
           imageUriForMessage={imageUriForMessage}

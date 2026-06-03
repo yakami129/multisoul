@@ -1,6 +1,7 @@
 import { Bot, Info } from 'lucide-react-native';
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { brandColors, brandRgba, brandTypography } from '@/theme/brandRefresh';
 import QuestionOption from './QuestionOption';
 import SelectedOption from './SelectedOption';
 
@@ -226,14 +227,14 @@ export default function MultiAskQuestionCard({
       {/* Header */}
       <View style={s.header}>
         <View style={s.headerLeft}>
-          <Bot size={16} color="#FF6B35" />
+          <Bot size={16} color={brandColors.coral} />
           <Text style={s.headerLabel}>{answered ? 'ANSWERED' : 'AGENT IS ASKING'}</Text>
         </View>
         <View style={s.headerRight}>
           <Text style={s.progress}>
             {answeredCount} / {total}
           </Text>
-          <Info size={16} color="#555555" />
+          <Info size={16} color={brandColors.textSoft} />
         </View>
       </View>
 
@@ -257,7 +258,7 @@ export default function MultiAskQuestionCard({
               style={[s.section, idx < questions.length - 1 && s.sectionBorder, { opacity }]}
             >
               <View style={s.qHeader}>
-                <Bot size={14} color="#FF6B35" />
+                <Bot size={14} color={brandColors.coral} />
                 <Text style={s.qText}>
                   Q{idx + 1}: {q.text}
                 </Text>
@@ -392,83 +393,108 @@ export default function MultiAskQuestionCard({
 
 const s = StyleSheet.create({
   card: {
-    backgroundColor: '#1A1A1A',
+    backgroundColor: brandRgba.white88,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#FF6B35',
+    borderColor: brandColors.coral,
     width: '100%',
     overflow: 'hidden',
   },
   header: {
-    height: 44,
+    height: 40,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#1E1E1E',
+    borderBottomColor: brandRgba.ink12,
+    backgroundColor: brandRgba.coralSoft,
   },
   headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   headerRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  headerLabel: { fontFamily: 'Inter', fontSize: 12, fontWeight: '600', color: '#FF6B35' },
-  progress: { fontFamily: 'Inter', fontSize: 12, color: '#666666' },
-  progressBarBg: { height: 3, backgroundColor: '#252525' },
-  progressBarFill: { height: 3, backgroundColor: '#FF6B35' },
+  headerLabel: {
+    fontFamily: brandTypography.body,
+    fontSize: 12,
+    fontWeight: '700',
+    color: brandColors.coral,
+  },
+  progress: { fontFamily: brandTypography.body, fontSize: 12, color: brandColors.textSoft },
+  progressBarBg: { height: 2, backgroundColor: brandColors.silver },
+  progressBarFill: { height: 2, backgroundColor: brandColors.lime },
   body: {},
-  section: { paddingVertical: 4 },
-  sectionBorder: { borderBottomWidth: 1, borderBottomColor: '#1E1E1E' },
+  section: { paddingVertical: 2 },
+  sectionBorder: { borderBottomWidth: 1, borderBottomColor: brandRgba.ink12 },
   qHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    height: 40,
+    height: 36,
     paddingHorizontal: 14,
     gap: 8,
   },
-  qText: { fontFamily: 'Inter', fontSize: 14, fontWeight: '600', color: '#FFFFFF', flex: 1 },
-  opts: { paddingHorizontal: 14, paddingBottom: 12, paddingTop: 8, gap: 6 },
+  qText: {
+    fontFamily: brandTypography.body,
+    fontSize: 14,
+    fontWeight: '700',
+    color: brandColors.ink,
+    flex: 1,
+  },
+  opts: { paddingHorizontal: 14, paddingBottom: 10, paddingTop: 6, gap: 6 },
   nextRow: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
     paddingHorizontal: 14,
-    paddingBottom: 12,
+    paddingBottom: 10,
   },
   nextBtn: {
-    height: 36,
+    height: 34,
     minWidth: 96,
     borderRadius: 10,
-    backgroundColor: '#FF6B35',
+    backgroundColor: brandColors.lime,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 16,
   },
-  nextText: { fontFamily: 'Inter', fontSize: 14, fontWeight: '600', color: '#FFFFFF' },
+  nextText: {
+    fontFamily: brandTypography.body,
+    fontSize: 14,
+    fontWeight: '700',
+    color: brandColors.ink,
+  },
   actions: {
     flexDirection: 'row',
     gap: 10,
     paddingHorizontal: 14,
-    paddingVertical: 12,
+    paddingVertical: 10,
     borderTopWidth: 1,
-    borderTopColor: '#1E1E1E',
+    borderTopColor: brandRgba.ink12,
   },
   cancelBtn: {
     flex: 1,
-    height: 44,
-    borderRadius: 12,
-    backgroundColor: '#252525',
-    borderWidth: 1,
-    borderColor: '#333333',
+    height: 40,
+    borderRadius: 10,
+    backgroundColor: brandColors.coral,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  cancelText: { fontFamily: 'Inter', fontSize: 15, fontWeight: '500', color: '#888888' },
+  cancelText: {
+    fontFamily: brandTypography.body,
+    fontSize: 15,
+    fontWeight: '700',
+    color: brandColors.white,
+  },
   confirmBtn: {
     flex: 1,
-    height: 44,
-    borderRadius: 12,
-    backgroundColor: '#FF6B35',
+    height: 40,
+    borderRadius: 10,
+    backgroundColor: brandColors.lime,
     alignItems: 'center',
     justifyContent: 'center',
   },
   confirmBtnDisabled: { opacity: 0.4 },
-  confirmText: { fontFamily: 'Inter', fontSize: 15, fontWeight: '600', color: '#FFFFFF' },
+  confirmText: {
+    fontFamily: brandTypography.body,
+    fontSize: 15,
+    fontWeight: '700',
+    color: brandColors.ink,
+  },
 });

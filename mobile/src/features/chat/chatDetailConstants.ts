@@ -1,5 +1,5 @@
-import { type WsMessage } from '@/types';
 import { brandColors, brandRgba } from '@/theme/brandRefresh';
+import { type WsMessage } from '@/types';
 
 export const EMPTY_MESSAGES: WsMessage[] = [];
 

@@ -23,7 +23,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useChatStore } from '@/store/chatStore';
 import { brandAssets, brandColors } from '@/theme/brandRefresh';
 import { type Agent, type Conversation } from '@/types';
+import { getEndpointFilterOptions } from '../utils/endpointFilterUtils';
 import { AgentCard } from './AgentCard';
+import { AgentEndpointFilterSheet } from './AgentEndpointFilterSheet';
 import { s } from './AgentList.styles';
 
 interface Props {
@@ -48,6 +50,13 @@ type ProjectStatus = {
 type ProjectItem = {
   agent: Agent;
   status: ProjectStatus;
+};
+
+const PROJECT_STATUS_RANK: Record<ProjectStatus['kind'], number> = {
+  awaiting_question: 0,
+  running: 1,
+  failed: 2,
+  idle: 3,
 };
 
 function projectStatus(conversations: Conversation[]): ProjectStatus {
@@ -120,11 +129,15 @@ function QuickWorkflowCard({
     >
       <Image source={image} style={s.workflowImage} resizeMode="contain" />
       <View style={s.workflowCopy}>
-        <Text style={s.workflowTitle}>{title}</Text>
-        <Text style={s.workflowSubtitle}>{subtitle}</Text>
+        <Text style={s.workflowTitle} numberOfLines={1} ellipsizeMode="tail">
+          {title}
+        </Text>
+        <Text style={s.workflowSubtitle} numberOfLines={1} ellipsizeMode="tail">
+          {subtitle}
+        </Text>
       </View>
       <View style={s.workflowArrow}>
-        <ChevronRight size={20} color={brandColors.ink} />
+        <ChevronRight size={18} color={brandColors.ink} />
       </View>
     </TouchableOpacity>
   );
@@ -149,6 +162,8 @@ export function AgentList({
   const searchRef = React.useRef<TextInput>(null);
   const [isRefreshing, setIsRefreshing] = React.useState(false);
   const [query, setQuery] = React.useState('');
+  const [selectedEndpointId, setSelectedEndpointId] = React.useState('all');
+  const [isFilterSheetVisible, setIsFilterSheetVisible] = React.useState(false);
   const conversations = useChatStore((state) => state.conversations);
 
   const handleRefresh = React.useCallback(async () => {
@@ -170,18 +185,45 @@ export function AgentList({
       }),
     [agents, conversations],
   );
+  const sortedProjects = React.useMemo(
+    () =>
+      [...projects].sort(
+        (left, right) =>
+          PROJECT_STATUS_RANK[left.status.kind] - PROJECT_STATUS_RANK[right.status.kind],
+      ),
+    [projects],
+  );
+
+  const filterOptions = React.useMemo(() => getEndpointFilterOptions(agents), [agents]);
+  const selectedEndpoint = filterOptions.find((option) => option.id === selectedEndpointId);
+  const hasEndpointFilter = selectedEndpointId !== 'all';
+
+  React.useEffect(() => {
+    if (!filterOptions.some((option) => option.id === selectedEndpointId)) {
+      setSelectedEndpointId('all');
+    }
+  }, [filterOptions, selectedEndpointId]);
 
   const filteredProjects = React.useMemo(() => {
     const needle = query.trim().toLowerCase();
-    if (!needle) return projects;
-    return projects.filter(({ agent }) => {
+    return sortedProjects.filter(({ agent }) => {
+      if (hasEndpointFilter && agent.endpoint_id !== selectedEndpointId) {
+        return false;
+      }
+      if (!needle) return true;
       return (
         agent.name.toLowerCase().includes(needle) ||
         agent.project_path.toLowerCase().includes(needle) ||
-        agent.runtime.toLowerCase().includes(needle)
+        agent.runtime.toLowerCase().includes(needle) ||
+        agent.endpoint_label.toLowerCase().includes(needle)
       );
     });
-  }, [projects, query]);
+  }, [hasEndpointFilter, query, selectedEndpointId, sortedProjects]);
+
+  const selectEndpointFilter = React.useCallback((endpointId: string) => {
+    setSelectedEndpointId(endpointId);
+    setIsFilterSheetVisible(false);
+  }, []);
 
   const stats = React.useMemo(() => {
     const running = projects.filter((project) => project.status.kind === 'running').length;
@@ -191,6 +233,18 @@ export function AgentList({
   }, [conversations, projects]);
 
   const renderContent = () => {
+    if (isLoading) {
+      return (
+        <>
+          <SectionTitle title="Agent Fleet" />
+          <View testID="projects-group" style={s.fleetLoadingCard}>
+            <ActivityIndicator size="small" color={brandColors.cyan} />
+            <Text style={s.loadingText}>Loading agents...</Text>
+          </View>
+        </>
+      );
+    }
+
     if (filteredProjects.length === 0) {
       return (
         <View style={s.emptyWrap}>
@@ -209,7 +263,9 @@ export function AgentList({
           ) : (
             <>
               <Text style={s.emptyTitle}>No agents found</Text>
-              <Text style={s.emptyDesc}>Try a different agent name, path, or runtime.</Text>
+              <Text style={s.emptyDesc}>
+                Try a different agent name, path, runtime, or machine.
+              </Text>
             </>
           )}
         </View>
@@ -229,7 +285,7 @@ export function AgentList({
         />
         <View testID="projects-group" style={s.projectGroup}>
           {filteredProjects.map((project, index) => (
-            <View key={project.agent.id} style={s.projectItem}>
+            <View key={project.agent.id}>
               <AgentCard
                 agent={project.agent}
                 index={index}
@@ -242,25 +298,12 @@ export function AgentList({
                   onAgentPress(project.agent.id, project.agent.endpoint_id, project.agent.name)
                 }
               />
-              {index < filteredProjects.length - 1 ? <View style={s.rowDivider} /> : null}
             </View>
           ))}
         </View>
       </>
     );
   };
-
-  if (isLoading) {
-    return (
-      <View style={[s.root, { paddingTop: insets.top }]}>
-        <Text style={s.pageTitle}>Agents</Text>
-        <View style={s.centered}>
-          <ActivityIndicator size="large" color={brandColors.cyan} />
-          <Text style={s.loadingText}>Loading agents...</Text>
-        </View>
-      </View>
-    );
-  }
 
   if (isError) {
     return (
@@ -316,10 +359,11 @@ export function AgentList({
             <TouchableOpacity
               accessibilityLabel="Focus agent search"
               accessibilityRole="button"
+              hitSlop={10}
               style={s.roundButton}
               onPress={() => searchRef.current?.focus()}
             >
-              <Search size={28} color={brandColors.ink} />
+              <Search size={22} color={brandColors.ink} />
             </TouchableOpacity>
             <TouchableOpacity
               accessibilityLabel="Add endpoint"
@@ -328,12 +372,16 @@ export function AgentList({
               onPress={onAddEndpoint}
               style={s.roundButton}
             >
-              <Plus size={30} color={brandColors.ink} />
+              <Plus size={24} color={brandColors.ink} />
             </TouchableOpacity>
           </View>
         </View>
 
         <View style={s.heroCard}>
+          <View style={s.heroOrbit} />
+          <View style={s.heroSparkle}>
+            <Sparkles size={15} color={brandColors.white} />
+          </View>
           <View style={s.heroCopy}>
             <Text style={s.heroTitle}>Your agents{'\n'}in your hand</Text>
             <Text style={s.heroText}>
@@ -341,7 +389,9 @@ export function AgentList({
             </Text>
             <View style={s.connectionChip}>
               <View style={s.connectionDot} />
-              <Text style={s.connectionText}>Connected to {endpointName(agents)}</Text>
+              <Text style={s.connectionText} numberOfLines={1} ellipsizeMode="tail">
+                Connected to {endpointName(agents)}
+              </Text>
             </View>
           </View>
           <Image
@@ -354,7 +404,7 @@ export function AgentList({
               value={stats.running}
               label="Running"
               color={brandColors.cyan}
-              icon={<Play size={18} color={brandColors.white} fill={brandColors.white} />}
+              icon={<Play size={11} color={brandColors.white} fill={brandColors.white} />}
             />
             <StatCell
               value={stats.needsYou}
@@ -375,7 +425,7 @@ export function AgentList({
 
         <View style={s.searchSection}>
           <View testID="projects-search-box" style={s.searchBox}>
-            <Search size={24} color={brandColors.textSoft} />
+            <Search size={19} color={brandColors.textSoft} />
             <TextInput
               ref={searchRef}
               value={query}
@@ -387,10 +437,34 @@ export function AgentList({
               autoCorrect={false}
             />
           </View>
-          <View style={s.filterButton} accessibilityElementsHidden>
-            <Filter size={24} color={brandColors.ink} />
-          </View>
+          <TouchableOpacity
+            accessibilityLabel="Filter agents by endpoint"
+            accessibilityRole="button"
+            accessibilityState={{ selected: hasEndpointFilter }}
+            hitSlop={10}
+            onPress={() => setIsFilterSheetVisible(true)}
+            style={[s.filterButton, hasEndpointFilter && s.filterButtonActive]}
+          >
+            <Filter size={19} color={brandColors.ink} />
+            {hasEndpointFilter ? <View style={s.filterDot} /> : null}
+          </TouchableOpacity>
         </View>
+        {hasEndpointFilter && selectedEndpoint ? (
+          <View style={s.filterSummary}>
+            <Text style={s.filterSummaryText} numberOfLines={1} ellipsizeMode="tail">
+              {selectedEndpoint.label} · {selectedEndpoint.count}{' '}
+              {selectedEndpoint.count === 1 ? 'agent' : 'agents'}
+            </Text>
+            <TouchableOpacity
+              accessibilityLabel="Clear endpoint filter"
+              accessibilityRole="button"
+              onPress={() => setSelectedEndpointId('all')}
+              style={s.filterClearButton}
+            >
+              <Text style={s.filterClearText}>Clear</Text>
+            </TouchableOpacity>
+          </View>
+        ) : null}
 
         {renderContent()}
 
@@ -410,6 +484,13 @@ export function AgentList({
           />
         </View>
       </ScrollView>
+      <AgentEndpointFilterSheet
+        visible={isFilterSheetVisible}
+        options={filterOptions}
+        selectedEndpointId={selectedEndpointId}
+        onSelect={selectEndpointFilter}
+        onClose={() => setIsFilterSheetVisible(false)}
+      />
     </View>
   );
 }

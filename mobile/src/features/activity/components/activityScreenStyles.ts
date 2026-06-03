@@ -7,8 +7,9 @@ export const activityScreenStyles = StyleSheet.create({
   titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   title: {
     fontFamily: brandTypography.display,
-    fontSize: 56,
-    fontWeight: '900',
+    fontSize: 28,
+    lineHeight: 34,
+    fontWeight: '700',
     color: brandColors.ink,
   },
   segment: {
@@ -104,12 +105,12 @@ export const activityScreenStyles = StyleSheet.create({
   itemTitle: {
     flex: 1,
     fontFamily: 'Inter',
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '600',
     color: brandColors.ink,
-    lineHeight: 22,
+    lineHeight: 21,
   },
-  itemTitleUnread: { color: brandColors.ink, fontWeight: '800' },
+  itemTitleUnread: { color: brandColors.ink, fontWeight: '700' },
   timeText: { fontFamily: 'Inter', fontSize: 12, color: brandColors.textMuted, paddingTop: 2 },
   subtitle: { fontFamily: 'Inter', fontSize: 13, color: brandColors.textSoft, lineHeight: 18 },
   rowRight: { alignItems: 'flex-end', justifyContent: 'center', gap: 6 },
@@ -170,8 +171,9 @@ export const activityScreenStyles = StyleSheet.create({
   },
   emptyTitle: {
     fontFamily: brandTypography.display,
-    fontSize: 24,
-    fontWeight: '900',
+    fontSize: 22,
+    lineHeight: 27,
+    fontWeight: '700',
     color: brandColors.ink,
   },
   emptyDesc: {

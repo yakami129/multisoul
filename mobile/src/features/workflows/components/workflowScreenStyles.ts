@@ -15,8 +15,9 @@ export const workflowScreenStyles = StyleSheet.create({
   },
   headerTitle: {
     fontFamily: brandTypography.display,
-    fontSize: 48,
-    fontWeight: '900',
+    fontSize: 28,
+    lineHeight: 34,
+    fontWeight: '700',
     color: brandColors.ink,
   },
   addButton: {
@@ -85,8 +86,9 @@ export const workflowScreenStyles = StyleSheet.create({
   },
   formTitle: {
     fontFamily: brandTypography.display,
-    fontSize: 24,
-    fontWeight: '900',
+    fontSize: 20,
+    lineHeight: 24,
+    fontWeight: '700',
     color: brandColors.ink,
   },
   formCancel: {

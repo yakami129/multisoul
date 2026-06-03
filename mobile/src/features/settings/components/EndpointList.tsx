@@ -155,7 +155,7 @@ const s = StyleSheet.create({
     marginRight: 14,
   },
   info: { flex: 1, minWidth: 0 },
-  label: { fontFamily: 'Inter', fontSize: 16, fontWeight: '800', color: brandColors.ink },
+  label: { fontFamily: 'Inter', fontSize: 15, fontWeight: '700', color: brandColors.ink },
   url: { marginTop: 4, fontFamily: 'Inter', fontSize: 13, color: brandColors.textMuted },
   statusWrap: { flexDirection: 'row', alignItems: 'center', gap: 6, marginLeft: 8 },
   statusDot: { width: 8, height: 8, borderRadius: 4 },

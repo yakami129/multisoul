@@ -58,14 +58,14 @@ describe('AgentCard', () => {
 
     expect(typeof row.props.style).toBe('object');
     expect(rowStyle.flexDirection).toBe('row');
-    expect(rowStyle.minHeight).toBe(88);
-    expect(rowStyle.borderRadius).toBe(26);
-    expect(avatarStyle.width).toBe(40);
-    expect(avatarStyle.height).toBe(40);
-    expect(avatarStyle.borderRadius).toBe(12);
+    expect(rowStyle.minHeight).toBe(62);
+    expect(rowStyle.borderRadius).toBe(18);
+    expect(avatarStyle.width).toBe(30);
+    expect(avatarStyle.height).toBe(30);
+    expect(avatarStyle.borderRadius).toBe(9);
     expect(avatarStyle.backgroundColor).toBe('#C6FF00');
     expect(bodyStyle.flex).toBe(1);
-    expect(moreStyle.width).toBe(34);
+    expect(moreStyle.width).toBe(28);
   });
 
   it('maps supported runtimes to prototype tile colors', () => {

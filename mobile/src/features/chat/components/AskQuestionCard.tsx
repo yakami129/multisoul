@@ -1,6 +1,7 @@
 import { Bot, Info } from 'lucide-react-native';
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, TextInput, StyleSheet } from 'react-native';
+import { brandColors, brandRgba, brandTypography } from '@/theme/brandRefresh';
 import { type AskQuestionOption } from '../types';
 
 const CUSTOM_ID = '__custom__';
@@ -106,10 +107,10 @@ export default function AskQuestionCard({
       {/* Header */}
       <View style={s.header}>
         <View style={s.headerLeft}>
-          <Bot size={16} color="#FF6B35" />
+          <Bot size={16} color={brandColors.coral} />
           <Text style={s.headerLabel}>{answered ? 'ANSWERED' : 'AGENT IS ASKING'}</Text>
         </View>
-        <Info size={16} color="#555555" />
+        <Info size={16} color={brandColors.textSoft} />
       </View>
 
       {/* Body */}
@@ -143,7 +144,7 @@ export default function AskQuestionCard({
                     <TextInput
                       style={s.customInput}
                       placeholder="Type your answer..."
-                      placeholderTextColor="#555555"
+                      placeholderTextColor={brandColors.textSoft}
                       value={customText}
                       onChangeText={handleCustomTextChange}
                       maxLength={200}
@@ -196,100 +197,136 @@ export default function AskQuestionCard({
 }
 
 const s = StyleSheet.create({
-  card: { backgroundColor: '#1A1A1A', borderRadius: 16, width: '100%', overflow: 'hidden' },
+  card: {
+    backgroundColor: brandRgba.white88,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: brandColors.coral,
+    width: '100%',
+    overflow: 'hidden',
+  },
   header: {
-    height: 44,
+    height: 40,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
+    paddingHorizontal: 14,
     borderBottomWidth: 1,
-    borderBottomColor: '#1E1E1E',
+    borderBottomColor: brandRgba.ink12,
+    backgroundColor: brandRgba.coralSoft,
   },
   headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  headerLabel: { fontFamily: 'Inter', fontSize: 12, fontWeight: '600', color: '#FF6B35' },
-  body: { padding: 16, gap: 12 },
-  question: {
-    fontFamily: 'Inter',
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FFFFFF',
-    lineHeight: 22,
+  headerLabel: {
+    fontFamily: brandTypography.body,
+    fontSize: 12,
+    fontWeight: '700',
+    color: brandColors.coral,
   },
-  subtitle: { fontFamily: 'Inter', fontSize: 13, color: '#888888' },
-  hint: { fontFamily: 'Inter', fontSize: 13, color: '#666666' },
-  optsList: { gap: 8 },
+  body: { padding: 14, gap: 10 },
+  question: {
+    fontFamily: brandTypography.body,
+    fontSize: 15,
+    fontWeight: '700',
+    color: brandColors.ink,
+    lineHeight: 21,
+  },
+  subtitle: { fontFamily: brandTypography.body, fontSize: 12, color: brandColors.textSoft },
+  hint: { fontFamily: brandTypography.body, fontSize: 12, color: brandColors.textMuted },
+  optsList: { gap: 6 },
   option: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 10,
-    backgroundColor: '#252525',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    gap: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: brandColors.silver,
+    backgroundColor: brandRgba.white70,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 10,
   },
-  optionSelected: { backgroundColor: '#1F2A1F', borderWidth: 1.5, borderColor: '#4CAF50' },
+  optionSelected: { backgroundColor: brandRgba.limeSoft, borderColor: brandColors.lime },
   optionReadonly: { opacity: 0.6 },
-  optionLabelMuted: { color: '#666666' },
+  optionLabelMuted: { color: brandColors.textDisabled },
   radio: {
     width: 16,
     height: 16,
     borderRadius: 8,
     borderWidth: 1.5,
-    borderColor: '#555555',
-    backgroundColor: '#252525',
+    borderColor: brandColors.textSoft,
+    backgroundColor: brandRgba.white70,
   },
-  radioSelected: { borderColor: '#4CAF50', backgroundColor: '#4CAF50' },
+  radioSelected: { borderColor: brandColors.lime, backgroundColor: brandColors.lime },
   checkbox: {
     width: 16,
     height: 16,
     borderRadius: 4,
     borderWidth: 1.5,
-    borderColor: '#555555',
-    backgroundColor: '#252525',
+    borderColor: brandColors.textSoft,
+    backgroundColor: brandRgba.white70,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  checkboxSelected: { borderColor: '#4CAF50', backgroundColor: '#4CAF50' },
-  checkboxTick: { width: 8, height: 8, backgroundColor: '#FFFFFF', borderRadius: 1 },
-  optionLabel: { fontFamily: 'Inter', fontSize: 15, color: '#FFFFFF' },
+  checkboxSelected: { borderColor: brandColors.lime, backgroundColor: brandColors.lime },
+  checkboxTick: { width: 8, height: 8, backgroundColor: brandColors.ink, borderRadius: 1 },
+  optionLabel: { fontFamily: brandTypography.body, fontSize: 14, color: brandColors.ink },
   customEditor: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 },
-  customInput: { flex: 1, fontFamily: 'Inter', fontSize: 14, color: '#FFFFFF', paddingVertical: 0 },
+  customInput: {
+    flex: 1,
+    fontFamily: brandTypography.body,
+    fontSize: 14,
+    color: brandColors.ink,
+    paddingVertical: 0,
+  },
   useAnswerBtn: {
     height: 28,
     borderRadius: 6,
-    backgroundColor: '#FF6B35',
+    backgroundColor: brandColors.lime,
     paddingHorizontal: 10,
     alignItems: 'center',
     justifyContent: 'center',
   },
   useAnswerBtnOff: { opacity: 0.4 },
-  useAnswerText: { fontFamily: 'Inter', fontSize: 12, fontWeight: '600', color: '#FFFFFF' },
+  useAnswerText: {
+    fontFamily: brandTypography.body,
+    fontSize: 12,
+    fontWeight: '700',
+    color: brandColors.ink,
+  },
   actions: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 10,
     justifyContent: 'flex-end',
-    paddingTop: 8,
+    paddingTop: 6,
     borderTopWidth: 1,
-    borderTopColor: '#1E1E1E',
+    borderTopColor: brandRgba.ink12,
   },
   cancelBtn: {
-    borderRadius: 8,
-    backgroundColor: '#252525',
+    borderRadius: 10,
+    backgroundColor: brandColors.coral,
     paddingHorizontal: 20,
     paddingVertical: 10,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  cancelText: { fontFamily: 'Inter', fontSize: 14, color: '#888888' },
+  cancelText: {
+    fontFamily: brandTypography.body,
+    fontSize: 14,
+    fontWeight: '700',
+    color: brandColors.white,
+  },
   confirmBtn: {
-    borderRadius: 8,
-    backgroundColor: '#FF6B35',
+    borderRadius: 10,
+    backgroundColor: brandColors.lime,
     paddingHorizontal: 20,
     paddingVertical: 10,
     alignItems: 'center',
     justifyContent: 'center',
   },
   confirmBtnDisabled: { opacity: 0.4 },
-  confirmText: { fontFamily: 'Inter', fontSize: 14, fontWeight: '600', color: '#FFFFFF' },
+  confirmText: {
+    fontFamily: brandTypography.body,
+    fontSize: 14,
+    fontWeight: '700',
+    color: brandColors.ink,
+  },
 });

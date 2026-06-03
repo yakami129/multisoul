@@ -1,8 +1,8 @@
+import fs from 'fs';
+import path from 'path';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import * as Clipboard from 'expo-clipboard';
-import fs from 'fs';
-import path from 'path';
 import type React from 'react';
 import { Alert } from 'react-native';
 import TabLayout, {
@@ -21,13 +21,20 @@ jest.mock('expo-router', () => {
     const screens = React.Children.toArray(children).map((child: any) => ({
       name: child.props.name,
       title: child.props.options?.title ?? child.props.name,
+      href: child.props.options?.href,
       listeners: child.props.listeners,
     }));
+    const visibleScreens = screens.filter(
+      (screen: { href?: string | null }) => screen.href !== null,
+    );
     const [tab, setTab] = React.useState('index');
     return (
       <View>
+        <Text testID="registered-tabs">
+          {screens.map((screen: { name: string }) => screen.name)}
+        </Text>
         <View testID="tab-bar">
-          {screens.map((screen: { name: string; title: string; listeners?: any }) => (
+          {visibleScreens.map((screen: { name: string; title: string; listeners?: any }) => (
             <TouchableOpacity
               key={screen.name}
               testID={`tab-${screen.name}`}
@@ -124,7 +131,7 @@ async function openReleaseLogsFromSettingsTab() {
   });
 }
 
-/// Tab navigation: Agents, Specs, Activity, Workflows, and Settings tabs are accessible
+/// Tab navigation: Agents, Specs, Activity, and Settings tabs are accessible
 ///
 /// Execution:
 ///   1. Render TabLayout
@@ -137,7 +144,8 @@ async function openReleaseLogsFromSettingsTab() {
 ///   - 'Agents' tab label visible
 ///   - 'Specs' tab label visible
 ///   - 'Activity' tab label visible
-///   - 'Workflows' and 'Settings' tab labels visible
+///   - 'Settings' tab label visible
+///   - 'Workflows' route registered but hidden from the tab rail
 ///   - 'Projects', 'Chat', and 'Inbox' tab labels hidden
 describe('Tab navigation', () => {
   beforeEach(async () => {
@@ -177,8 +185,9 @@ describe('Tab navigation', () => {
     expect(screen.getByText('Agents')).toBeTruthy();
     expect(screen.getByText('Specs')).toBeTruthy();
     expect(screen.getByText('Activity')).toBeTruthy();
-    expect(screen.getByText('Workflows')).toBeTruthy();
     expect(screen.getByText('Settings')).toBeTruthy();
+    expect(screen.queryByText('Workflows')).toBeNull();
+    expect(screen.getByTestId('registered-tabs').props.children).toContain('workflows');
 
     expect(screen.queryByText('Projects')).toBeNull();
     expect(screen.queryByText('Chat')).toBeNull();
@@ -338,12 +347,12 @@ describe('Tab navigation', () => {
     expect(screen.queryByText('Log stream closed.')).toBeNull();
   });
 
-  /// iOS tab bar labels: safe-area padding must not consume the 62px content rail
+  /// iOS tab bar labels: safe-area padding must not consume the 50px content rail
   ///
   /// Data construction:
-  ///   visible rail = 62px, matching mobile/docs/design.md §6.1
-  ///   iOS home indicator inset = 34px, matching the previous hard-coded marginBottom
-  ///   total height must be 62 + 34 = 96px so labels keep their own vertical space
+  ///   visible rail = 50px, keeping the brand refresh capsule compact
+  ///   iOS home indicator inset = 28px, preserving room without over-covering content
+  ///   total height must be 50 + 28 = 78px so labels keep their own vertical space
   ///
   /// Execution:
   ///   1. Read the exported tab screen options used by expo-router Tabs
@@ -357,14 +366,14 @@ describe('Tab navigation', () => {
   it('keeps iOS tab labels visible above the home indicator inset', () => {
     const style = tabScreenOptions.tabBarStyle;
 
-    expect(TAB_BAR_HEIGHT).toBe(62, 'visible tab rail should remain the documented 62px');
+    expect(TAB_BAR_HEIGHT).toBe(50, 'visible tab rail should remain compact at 50px');
     expect(TAB_BAR_SAFE_AREA_BOTTOM).toBe(
-      34,
+      28,
       'bottom inset should preserve the iOS home indicator area',
     );
     expect(style.height).toBe(
-      96,
-      'tabBarStyle.height should be 62 + 34 so iOS safe-area padding does not clip labels',
+      78,
+      'tabBarStyle.height should be 50 + 28 so iOS safe-area padding does not clip labels',
     );
     expect(style.marginBottom).toBe(
       undefined,
@@ -381,7 +390,7 @@ describe('Tab navigation', () => {
   ///
   /// Data construction:
   ///   Target source = brand refresh prototype:
-  ///     background #0D0D0D, no divider, active white, inactive soft white, label size 11
+  ///     background #0D0D0D, no divider, active white, inactive soft white, label size 10
   ///
   /// Execution:
   ///   1. Read exported tabScreenOptions.
@@ -423,7 +432,7 @@ describe('Tab navigation', () => {
       actual: tabScreenOptions.tabBarLabelStyle.fontSize,
       reason: 'tab labels should match the brand refresh caption size',
     }).toEqual({
-      actual: 11,
+      actual: 10,
       reason: 'tab labels should match the brand refresh caption size',
     });
   });
