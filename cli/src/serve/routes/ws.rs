@@ -135,13 +135,7 @@ pub(super) async fn handle_client_message(state: &AppState, conv_id: &str, text:
                         mode = ?actual_mode,
                         "answer_wrong_mode_unhandled"
                     );
-                    send_answer_status(
-                        state,
-                        conv_id,
-                        &answer._ask_id,
-                        false,
-                        Some("wrong_mode"),
-                    );
+                    send_answer_status(state, conv_id, &answer._ask_id, false, Some("wrong_mode"));
                 }
                 // No session channel registered at all — no active runtime turn,
                 // so try UserMessage path as a last resort.
