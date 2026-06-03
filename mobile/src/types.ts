@@ -94,6 +94,7 @@ export interface ToolResultPayload {
 }
 export interface AskQuestionPayload {
   ask_id: string;
+  response_mode?: 'user_message';
   questions: Array<{
     id: string;
     text: string;

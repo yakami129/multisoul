@@ -13,6 +13,7 @@ import {
   getLatestAgentTextSeq,
   isRenderableInChatTranscript,
 } from '@/features/chat/utils/chatRenderState';
+import { placeMsctlQuestionCardsAtBottom } from '@/features/chat/utils/msctlQuestionPlacement';
 import { loadAnsweredAsks } from '@/features/inbox/services/inboxService';
 import { mirrorAskQuestionsToInbox } from '@/features/inbox/utils/mirrorAskQuestionsToInbox';
 import { recordDiagnosticsEvent } from '@/services/diagnosticsLog';
@@ -112,7 +113,7 @@ export function useChatDetailHistory({
   }, [messages, visibleMinSeq]);
 
   const transcriptMessages = React.useMemo(
-    () => visibleMessages.filter(isRenderableInChatTranscript),
+    () => placeMsctlQuestionCardsAtBottom(visibleMessages.filter(isRenderableInChatTranscript)),
     [visibleMessages],
   );
 

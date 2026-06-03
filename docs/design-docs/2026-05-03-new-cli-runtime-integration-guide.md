@@ -18,6 +18,8 @@ MultiSoul CLI（`msctl`）通过 **Runtime 适配层** 驱动 AI agent 子进程
 
 本文档说明如何接入第三个（或更多）runtime，复用已有骨架，只需实现差异部分。
 
+> **注**：Agent.runtime 类型已扩展为 `'claude-code' | 'codex' | 'cursor-cli' | 'custom'`；`'custom'` 为向后兼容的 fallback，无实现文件，设计和三大主流 runtime 的原理不变。
+
 ---
 
 ## 2. 架构速览
