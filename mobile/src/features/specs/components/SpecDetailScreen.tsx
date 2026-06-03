@@ -2,6 +2,7 @@ import { ChevronLeft, FileText } from 'lucide-react-native';
 import React from 'react';
 import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { brandColors, brandRgba } from '@/theme/brandRefresh';
 import {
   getFirstOpenQuestionId,
   isSpecInterviewReady,
@@ -83,7 +84,7 @@ export function SpecDetailScreen({
       <ScrollView contentContainerStyle={s.content}>
         <View style={s.hero}>
           <View style={s.heroIcon}>
-            <FileText size={18} color="#FF6B35" />
+            <FileText size={18} color={brandColors.coral} />
           </View>
           <View style={s.heroBody}>
             <Text style={s.title}>{spec.title}</Text>
@@ -133,7 +134,7 @@ export function SpecDetailScreen({
                       value={otherText}
                       onChangeText={setOtherText}
                       placeholder="Other"
-                      placeholderTextColor="#666666"
+                      placeholderTextColor={brandColors.textDisabled}
                       style={s.otherInput}
                     />
                     <TouchableOpacity
@@ -258,7 +259,7 @@ function Header({ title, onBack }: { title: string; onBack: () => void }) {
         onPress={onBack}
         style={s.backLink}
       >
-        <ChevronLeft size={20} color="#FF6B35" />
+        <ChevronLeft size={20} color={brandColors.ink} />
         <Text style={s.backText}>{title}</Text>
       </TouchableOpacity>
     </View>
@@ -266,23 +267,25 @@ function Header({ title, onBack }: { title: string; onBack: () => void }) {
 }
 
 const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#0D0D0D' },
+  root: { flex: 1, backgroundColor: brandColors.cream },
   nav: {
     height: 44,
-    backgroundColor: '#0D0D0D',
+    backgroundColor: brandColors.cream,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
   },
   backLink: { flexDirection: 'row', alignItems: 'center', gap: 2 },
-  backText: { fontFamily: 'Inter', fontSize: 15, color: '#FF6B35' },
+  backText: { fontFamily: 'Inter', fontSize: 15, fontWeight: '700', color: brandColors.ink },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  emptyTitle: { fontFamily: 'Inter', fontSize: 22, fontWeight: '700', color: '#FFFFFF' },
+  emptyTitle: { fontFamily: 'Inter', fontSize: 22, fontWeight: '800', color: brandColors.ink },
   content: { padding: 16, paddingBottom: 40, gap: 14 },
   hero: {
     minHeight: 78,
-    borderRadius: 12,
-    backgroundColor: '#1A1A1A',
+    borderRadius: 18,
+    backgroundColor: brandRgba.white88,
+    borderWidth: 1,
+    borderColor: brandColors.silver,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
@@ -292,42 +295,53 @@ const s = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 10,
-    backgroundColor: '#252525',
+    backgroundColor: brandRgba.cyanSoft,
     alignItems: 'center',
     justifyContent: 'center',
   },
   heroBody: { flex: 1, minWidth: 0 },
-  title: { fontFamily: 'Inter', fontSize: 18, fontWeight: '700', color: '#FFFFFF' },
-  subtitle: { marginTop: 4, fontFamily: 'Inter', fontSize: 12, color: '#888888' },
-  status: { fontFamily: 'Inter', fontSize: 12, fontWeight: '700', color: '#FF6B35' },
-  card: { borderRadius: 12, backgroundColor: '#1A1A1A', padding: 16, gap: 14 },
+  title: { fontFamily: 'Inter', fontSize: 18, fontWeight: '800', color: brandColors.ink },
+  subtitle: { marginTop: 4, fontFamily: 'Inter', fontSize: 12, color: brandColors.textSoft },
+  status: { fontFamily: 'Inter', fontSize: 12, fontWeight: '700', color: brandColors.coral },
+  card: {
+    borderRadius: 18,
+    backgroundColor: brandRgba.white88,
+    borderWidth: 1,
+    borderColor: brandColors.silver,
+    padding: 16,
+    gap: 14,
+  },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  cardLabel: { fontFamily: 'Inter', fontSize: 12, fontWeight: '700', color: '#FF6B35' },
-  progress: { fontFamily: 'Inter', fontSize: 12, color: '#888888' },
+  cardLabel: { fontFamily: 'Inter', fontSize: 12, fontWeight: '700', color: brandColors.coral },
+  progress: { fontFamily: 'Inter', fontSize: 12, color: brandColors.textSoft },
   question: {
     fontFamily: 'Inter',
     fontSize: 16,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: brandColors.ink,
     lineHeight: 22,
   },
   options: { gap: 8 },
   option: {
     minHeight: 44,
     borderRadius: 10,
-    backgroundColor: '#252525',
+    backgroundColor: brandRgba.ink08,
     justifyContent: 'center',
     paddingHorizontal: 14,
   },
-  optionSelected: { backgroundColor: '#1F2A1F', borderWidth: 1, borderColor: '#FF6B35' },
-  optionText: { fontFamily: 'Inter', fontSize: 14, color: '#FFFFFF' },
+  optionSelected: {
+    backgroundColor: brandRgba.limeSoft,
+    borderWidth: 1,
+    borderColor: brandColors.lime,
+  },
+  optionText: { fontFamily: 'Inter', fontSize: 14, color: brandColors.ink },
   otherRow: { flexDirection: 'row', gap: 8 },
   otherInput: {
     flex: 1,
     minHeight: 44,
     borderRadius: 10,
-    backgroundColor: '#252525',
-    color: '#FFFFFF',
+    backgroundColor: brandRgba.ink08,
+    color: brandColors.ink,
     fontFamily: 'Inter',
     fontSize: 14,
     paddingHorizontal: 14,
@@ -336,37 +350,37 @@ const s = StyleSheet.create({
     width: 72,
     minHeight: 44,
     borderRadius: 10,
-    backgroundColor: '#FF6B35',
+    backgroundColor: brandColors.ink,
     alignItems: 'center',
     justifyContent: 'center',
   },
   primaryButton: {
     height: 46,
     borderRadius: 10,
-    backgroundColor: '#FF6B35',
+    backgroundColor: brandColors.ink,
     alignItems: 'center',
     justifyContent: 'center',
   },
   primaryButtonDisabled: { opacity: 0.45 },
-  primaryText: { fontFamily: 'Inter', fontSize: 14, fontWeight: '700', color: '#FFFFFF' },
-  markdown: { fontFamily: 'Inter', fontSize: 13, lineHeight: 20, color: '#DDDDDD' },
+  primaryText: { fontFamily: 'Inter', fontSize: 14, fontWeight: '700', color: brandColors.white },
+  markdown: { fontFamily: 'Inter', fontSize: 13, lineHeight: 20, color: brandColors.ink },
   actions: { flexDirection: 'row', gap: 10 },
   secondaryButton: {
     flex: 1,
     height: 44,
     borderRadius: 10,
-    backgroundColor: '#252525',
+    backgroundColor: brandRgba.ink08,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  secondaryText: { fontFamily: 'Inter', fontSize: 14, fontWeight: '700', color: '#FFFFFF' },
+  secondaryText: { fontFamily: 'Inter', fontSize: 14, fontWeight: '700', color: brandColors.ink },
   primaryButtonInline: {
     flex: 1,
     height: 44,
     borderRadius: 10,
-    backgroundColor: '#FF6B35',
+    backgroundColor: brandColors.ink,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  errorText: { fontFamily: 'Inter', fontSize: 13, color: '#FF4444' },
+  errorText: { fontFamily: 'Inter', fontSize: 13, color: brandColors.error },
 });

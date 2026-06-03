@@ -5,6 +5,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Modal, View, Text, TouchableOpacity, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { getEndpointClient } from '@/api/endpointClient';
+import { brandColors } from '@/theme/brandRefresh';
 import { addEndpointModalStyles as s } from './addEndpointModalStyles';
 
 type SetupCommand = {
@@ -176,7 +177,7 @@ export function AddEndpointModal({ visible, onClose, onAdd }: Props) {
           onPress={() => setHelpVisible(true)}
           style={s.fullHelpButton}
         >
-          <Info size={13} color="#FFFFFF" />
+          <Info size={13} color={brandColors.white} />
         </TouchableOpacity>
       </View>
     </View>
@@ -220,7 +221,7 @@ export function AddEndpointModal({ visible, onClose, onAdd }: Props) {
         style={s.commandHint}
         onPress={() => setHelpVisible(true)}
       >
-        <Terminal size={16} color="#FF6B35" />
+        <Terminal size={16} color={brandColors.coral} />
         <Text style={s.commandHintText}>Need commands? Tap the help icon next to SCAN QR.</Text>
       </TouchableOpacity>
     </>
@@ -250,7 +251,7 @@ export function AddEndpointModal({ visible, onClose, onAdd }: Props) {
               style={s.sheetCloseButton}
               onPress={() => setHelpVisible(false)}
             >
-              <X size={16} color="#DDDDDD" />
+              <X size={16} color={brandColors.ink} />
             </TouchableOpacity>
           </View>
           <ScrollView
@@ -296,7 +297,7 @@ export function AddEndpointModal({ visible, onClose, onAdd }: Props) {
             accessibilityRole="button"
             accessibilityLabel="Back to Agents"
           >
-            <ChevronLeft size={18} color="#FF6B35" />
+            <ChevronLeft size={18} color={brandColors.ink} />
             <Text style={s.backText}>Agents</Text>
           </TouchableOpacity>
           <Text style={s.fullNavTitle}>Add Endpoint</Text>
@@ -318,7 +319,7 @@ export function AddEndpointModal({ visible, onClose, onAdd }: Props) {
                 onClose();
               }}
             >
-              <X size={18} color="#DDDDDD" />
+              <X size={18} color={brandColors.ink} />
             </TouchableOpacity>
           </View>
           <Text style={s.fullSubtitle}>Scan the QR code from msctl quickstart.</Text>
@@ -368,7 +369,11 @@ function CommandBlock({
           }}
           style={s.copyButton}
         >
-          {copied ? <Text style={s.copiedText}>COPIED</Text> : <Copy size={13} color="#888888" />}
+          {copied ? (
+            <Text style={s.copiedText}>COPIED</Text>
+          ) : (
+            <Copy size={13} color={brandColors.textMuted} />
+          )}
         </TouchableOpacity>
       </View>
       <Text style={s.commandText}>{command.command}</Text>

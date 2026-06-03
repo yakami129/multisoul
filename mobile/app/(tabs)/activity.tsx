@@ -13,6 +13,7 @@ import { abortConversation, deleteConversation } from '@/features/chat/services/
 import { buildChatDetailPath } from '@/features/chat/utils/chatRoutes';
 import { useChatStore } from '@/store/chatStore';
 import { useEndpointStore } from '@/store/endpointStore';
+import { brandColors } from '@/theme/brandRefresh';
 
 const POLL_INTERVAL_MS = 15_000;
 
@@ -269,5 +270,5 @@ export default function ActivityTab() {
 }
 
 const s = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#0D0D0D' },
+  safe: { flex: 1, backgroundColor: brandColors.cream },
 });

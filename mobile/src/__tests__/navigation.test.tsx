@@ -1,6 +1,8 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import * as Clipboard from 'expo-clipboard';
+import fs from 'fs';
+import path from 'path';
 import type React from 'react';
 import { Alert } from 'react-native';
 import TabLayout, {
@@ -122,7 +124,7 @@ async function openReleaseLogsFromSettingsTab() {
   });
 }
 
-/// Tab navigation: Agents, Specs, Activity, and Settings tabs are accessible
+/// Tab navigation: Agents, Specs, Activity, Workflows, and Settings tabs are accessible
 ///
 /// Execution:
 ///   1. Render TabLayout
@@ -135,7 +137,7 @@ async function openReleaseLogsFromSettingsTab() {
 ///   - 'Agents' tab label visible
 ///   - 'Specs' tab label visible
 ///   - 'Activity' tab label visible
-///   - 'Settings' tab label visible
+///   - 'Workflows' and 'Settings' tab labels visible
 ///   - 'Projects', 'Chat', and 'Inbox' tab labels hidden
 describe('Tab navigation', () => {
   beforeEach(async () => {
@@ -170,16 +172,21 @@ describe('Tab navigation', () => {
     });
   });
 
-  it('renders only Agents, Specs, Activity, and Settings tabs', () => {
+  it('renders only the public app tabs', () => {
     render(<TabLayout />, { wrapper });
     expect(screen.getByText('Agents')).toBeTruthy();
     expect(screen.getByText('Specs')).toBeTruthy();
     expect(screen.getByText('Activity')).toBeTruthy();
+    expect(screen.getByText('Workflows')).toBeTruthy();
     expect(screen.getByText('Settings')).toBeTruthy();
 
     expect(screen.queryByText('Projects')).toBeNull();
     expect(screen.queryByText('Chat')).toBeNull();
     expect(screen.queryByText('Inbox')).toBeNull();
+  });
+
+  it('keeps stylesheets out of the tabs route directory', () => {
+    expect(fs.existsSync(path.join(process.cwd(), 'app/(tabs)/settings.styles.ts'))).toBe(false);
   });
 
   it('switches to Activity tab on press', () => {
@@ -370,55 +377,54 @@ describe('Tab navigation', () => {
     expect(tabScreenOptions.tabBarShowLabel).toBe(true, 'tab labels should be explicitly enabled');
   });
 
-  /// Pencli Projects tab rail: bottom navigation uses orange accent and dark surfaces.
+  /// Brand refresh tab rail: bottom navigation uses the black floating capsule.
   ///
   /// Data construction:
-  ///   Target source = user-provided pencli Projects image:
-  ///     background #161616, divider #1E1E1E
-  ///     active #FF6B35, inactive #555555, label size 10
+  ///   Target source = brand refresh prototype:
+  ///     background #0D0D0D, no divider, active white, inactive soft white, label size 11
   ///
   /// Execution:
   ///   1. Read exported tabScreenOptions.
   ///   2. Compare surface, divider, tint, and label sizing values.
   ///
   /// Expected:
-  ///   - Positive: tab rail matches the orange pencli visual tokens.
-  ///   - Negative: the blue Pro Dark tab state does not remain on the Projects tab.
-  it('matches the orange pencli Projects tab rail tokens', () => {
+  ///   - Positive: tab rail matches the brand refresh visual tokens.
+  ///   - Negative: the old orange pencli tab state does not remain.
+  it('matches the brand refresh floating tab rail tokens', () => {
     expect({
       actual: tabScreenOptions.tabBarStyle.backgroundColor,
-      reason: 'tab rail should use the user-provided pencli sheet surface',
+      reason: 'tab rail should use the brand refresh ink capsule',
     }).toEqual({
-      actual: '#161616',
-      reason: 'tab rail should use the user-provided pencli sheet surface',
+      actual: '#0D0D0D',
+      reason: 'tab rail should use the brand refresh ink capsule',
     });
     expect({
-      actual: tabScreenOptions.tabBarStyle.borderTopColor,
-      reason: 'tab rail divider should use the original pencli divider',
+      actual: tabScreenOptions.tabBarStyle.borderTopWidth,
+      reason: 'floating tab rail should not draw a top divider',
     }).toEqual({
-      actual: '#1E1E1E',
-      reason: 'tab rail divider should use the original pencli divider',
+      actual: 0,
+      reason: 'floating tab rail should not draw a top divider',
     });
     expect({
       actual: tabScreenOptions.tabBarActiveTintColor,
-      reason: 'active Projects tab should use orange from the supplied mock',
+      reason: 'active tab text should use white on the ink capsule',
     }).toEqual({
-      actual: '#FF6B35',
-      reason: 'active Projects tab should use orange from the supplied mock',
+      actual: '#FFFFFF',
+      reason: 'active tab text should use white on the ink capsule',
     });
     expect({
       actual: tabScreenOptions.tabBarInactiveTintColor,
-      reason: 'inactive tab icons should use pencli muted gray',
+      reason: 'inactive tab icons should use soft white',
     }).toEqual({
-      actual: '#555555',
-      reason: 'inactive tab icons should use pencli muted gray',
+      actual: 'rgba(255, 255, 255, 0.70)',
+      reason: 'inactive tab icons should use soft white',
     });
     expect({
       actual: tabScreenOptions.tabBarLabelStyle.fontSize,
-      reason: 'tab labels should match the 10px pencli caption size',
+      reason: 'tab labels should match the brand refresh caption size',
     }).toEqual({
-      actual: 10,
-      reason: 'tab labels should match the 10px pencli caption size',
+      actual: 11,
+      reason: 'tab labels should match the brand refresh caption size',
     });
   });
 });

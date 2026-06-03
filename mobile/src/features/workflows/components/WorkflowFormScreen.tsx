@@ -10,6 +10,7 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { brandColors, brandRgba } from '@/theme/brandRefresh';
 import { type Agent } from '@/types';
 import { type WorkflowInput, type WorkflowScheduleKind } from '../types';
 import { workflowScreenStyles as s } from './workflowScreenStyles';
@@ -98,7 +99,7 @@ export function WorkflowFormScreen({ agents, initialValues, onSave, onCancel }: 
           value={name}
           onChangeText={setName}
           placeholder="e.g. Morning Report"
-          placeholderTextColor="#555555"
+          placeholderTextColor={brandColors.textMuted}
         />
 
         <Text style={s.fieldLabel}>Agent</Text>
@@ -115,7 +116,11 @@ export function WorkflowFormScreen({ agents, initialValues, onSave, onCancel }: 
               <Text style={s.agentEndpoint}>{agent.endpoint_label}</Text>
             </View>
             {agentId === agent.id && (
-              <Switch value disabled trackColor={{ false: '#333333', true: '#FF6B35' }} />
+              <Switch
+                value
+                disabled
+                trackColor={{ false: brandRgba.ink18, true: brandColors.cyan }}
+              />
             )}
           </TouchableOpacity>
         ))}
@@ -142,7 +147,7 @@ export function WorkflowFormScreen({ agents, initialValues, onSave, onCancel }: 
           value={timeOfDay}
           onChangeText={setTimeOfDay}
           placeholder="HH:MM"
-          placeholderTextColor="#555555"
+          placeholderTextColor={brandColors.textMuted}
           keyboardType="numbers-and-punctuation"
         />
 
@@ -172,7 +177,7 @@ export function WorkflowFormScreen({ agents, initialValues, onSave, onCancel }: 
           value={prompt}
           onChangeText={setPrompt}
           placeholder="What should the agent do?"
-          placeholderTextColor="#555555"
+          placeholderTextColor={brandColors.textMuted}
           multiline
         />
       </ScrollView>

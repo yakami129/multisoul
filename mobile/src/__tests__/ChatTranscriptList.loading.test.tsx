@@ -57,7 +57,7 @@ function renderList(isLoadingOlder: boolean) {
 ///
 /// Expected result:
 ///   - Positive: older loading wrapper exists and is 40 px tall.
-///   - Positive: ActivityIndicator uses #FF6B35.
+///   - Positive: ActivityIndicator uses signal live cyan.
 ///   - Negative: the list position lock is not removed.
 test('renders the top older-loading header while loading older messages', () => {
   const { getByTestId, UNSAFE_getByType } = renderList(true);
@@ -76,7 +76,7 @@ test('renders the top older-loading header while loading older messages', () => 
   expect({
     actual: indicator.props.color,
     reason: 'older loading spinner must use the chat accent color',
-  }).toEqual({ actual: '#FF6B35', reason: expect.any(String) });
+  }).toEqual({ actual: '#00E5FF', reason: expect.any(String) });
   expect({
     actual: list.props.maintainVisibleContentPosition,
     reason: 'top loading header must keep FlatList visible-position locking enabled',

@@ -10,6 +10,7 @@ import {
   RefreshControl,
 } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
+import { brandColors, brandRgba, brandTypography } from '@/theme/brandRefresh';
 import { type Conversation } from '@/types';
 
 const truncate = (s: string, max = 50) => (s.length > max ? s.slice(0, max) + '...' : s);
@@ -52,17 +53,17 @@ export default function ChatHomeScreen({
       <View style={s.header}>
         <Text style={s.headerTitle}>MULTISOUL</Text>
         <TouchableOpacity onPress={onPressNewChat}>
-          <Pencil size={20} color="#FFFFFF" />
+          <Pencil size={22} color={brandColors.ink} />
         </TouchableOpacity>
       </View>
 
       <View style={s.searchWrap}>
         <View style={s.searchBar}>
-          <Search size={16} color="#666666" />
+          <Search size={18} color={brandColors.textSoft} />
           <TextInput
             style={s.searchInput}
             placeholder="Search..."
-            placeholderTextColor="#666666"
+            placeholderTextColor={brandColors.textSoft}
             value={search}
             onChangeText={setSearch}
           />
@@ -79,7 +80,11 @@ export default function ChatHomeScreen({
         style={s.list}
         contentContainerStyle={s.listContent}
         refreshControl={
-          <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor="#FF6B35" />
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={onRefresh}
+            tintColor={brandColors.cyan}
+          />
         }
         renderItem={({ item }) => {
           const initials = item.agent_name.slice(0, 2).toUpperCase();
@@ -131,35 +136,41 @@ export default function ChatHomeScreen({
 }
 
 const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#0D0D0D' },
+  root: { flex: 1, backgroundColor: brandColors.cream },
   header: {
-    height: 52,
-    backgroundColor: '#0D0D0D',
+    minHeight: 92,
+    backgroundColor: brandColors.cream,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#1E1E1E',
+    borderBottomWidth: 0,
   },
-  headerTitle: { fontFamily: 'Anton', fontSize: 32, color: '#FFFFFF' },
-  searchWrap: { height: 68, backgroundColor: '#0D0D0D', padding: 12 },
+  headerTitle: {
+    fontFamily: brandTypography.display,
+    fontSize: 42,
+    fontWeight: '900',
+    color: brandColors.ink,
+  },
+  searchWrap: { height: 76, backgroundColor: brandColors.cream, padding: 12 },
   searchBar: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#1A1A1A',
-    borderRadius: 12,
+    backgroundColor: brandRgba.white70,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: brandColors.silver,
     paddingHorizontal: 12,
     gap: 8,
   },
-  searchInput: { flex: 1, fontFamily: 'Inter', fontSize: 16, color: '#FFFFFF', height: 44 },
+  searchInput: { flex: 1, fontFamily: 'Inter', fontSize: 16, color: brandColors.ink, height: 44 },
   sectionWrap: { height: 36, justifyContent: 'center', paddingHorizontal: 16 },
   sectionLabel: {
     fontFamily: 'Inter',
     fontSize: 13,
     fontWeight: '600',
-    color: '#666666',
+    color: brandColors.textSoft,
     letterSpacing: 1,
   },
   list: { flex: 1 },
@@ -170,18 +181,21 @@ const s = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 16,
     gap: 12,
-    backgroundColor: '#0D0D0D',
+    backgroundColor: brandRgba.white88,
+    borderRadius: 20,
+    marginHorizontal: 16,
+    marginBottom: 8,
   },
   avatarWrap: { position: 'relative' },
   avatar: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#FF6B35',
+    backgroundColor: brandColors.cyan,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  avatarText: { fontFamily: 'Anton', fontSize: 14, color: '#FFFFFF' },
+  avatarText: { fontFamily: 'Inter', fontSize: 14, fontWeight: '800', color: brandColors.white },
   unreadDot: {
     position: 'absolute',
     top: -2,
@@ -189,21 +203,21 @@ const s = StyleSheet.create({
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: '#FF6B35',
+    backgroundColor: brandColors.coral,
   },
   rowContent: { flex: 1, gap: 3 },
   rowTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  agentName: { fontFamily: 'Inter', fontSize: 15, fontWeight: '600', color: '#FFFFFF' },
-  timestamp: { fontFamily: 'Inter', fontSize: 12, color: '#555555' },
-  lastMessage: { fontFamily: 'Inter', fontSize: 14, color: '#888888' },
-  description: { fontFamily: 'Inter', fontSize: 13, color: '#666666' },
+  agentName: { fontFamily: 'Inter', fontSize: 15, fontWeight: '700', color: brandColors.ink },
+  timestamp: { fontFamily: 'Inter', fontSize: 12, color: brandColors.textMuted },
+  lastMessage: { fontFamily: 'Inter', fontSize: 14, color: brandColors.textSoft },
+  description: { fontFamily: 'Inter', fontSize: 13, color: brandColors.textMuted },
   deleteAction: {
     width: 80,
-    backgroundColor: '#1A1A1A',
+    backgroundColor: brandColors.white,
     borderLeftWidth: 1,
-    borderLeftColor: '#FF4444',
+    borderLeftColor: brandColors.error,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  deleteText: { fontFamily: 'Inter', fontSize: 13, fontWeight: '600', color: '#FF4444' },
+  deleteText: { fontFamily: 'Inter', fontSize: 13, fontWeight: '600', color: brandColors.error },
 });

@@ -1,4 +1,5 @@
 import { type WsMessage } from '@/types';
+import { brandColors, brandRgba } from '@/theme/brandRefresh';
 
 export const EMPTY_MESSAGES: WsMessage[] = [];
 
@@ -11,9 +12,9 @@ export const WAITING_MESSAGE: WsMessage = {
 };
 
 export const STATUS_BADGE: Record<string, { label: string; bg: string; dot: string }> = {
-  running: { label: 'RUNNING', bg: '#1A1A1A', dot: '#FF6B35' },
-  awaiting_question: { label: 'AWAITING', bg: '#1A1A1A', dot: '#FF6B35' },
-  completed: { label: 'COMPLETED', bg: '#1A1A1A', dot: '#4CAF50' },
-  failed: { label: 'FAILED', bg: '#1A1A1A', dot: '#FF4444' },
-  idle: { label: 'IDLE', bg: '#1A1A1A', dot: '#555555' },
+  running: { label: 'RUNNING', bg: brandRgba.white88, dot: brandColors.cyan },
+  awaiting_question: { label: 'AWAITING', bg: brandRgba.white88, dot: brandColors.coral },
+  completed: { label: 'COMPLETED', bg: brandRgba.white88, dot: brandColors.lime },
+  failed: { label: 'FAILED', bg: brandRgba.white88, dot: brandColors.error },
+  idle: { label: 'IDLE', bg: brandRgba.white88, dot: brandColors.textMuted },
 };

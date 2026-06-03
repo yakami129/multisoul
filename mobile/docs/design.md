@@ -1,17 +1,18 @@
 # MultiSoul — Mobile UI Design System
 
-本文档定义 MultiSoul iOS App 的视觉语言与交互规范。它以 `docs/brand-design/02-identity-system.png` 为品牌源头，把品牌手册中的 Logo、Color、Type、Signal Kit 转译为移动端可执行规则。
+本文档定义 MultiSoul iOS App 的视觉语言与交互规范。它以 `docs/brand-design/02-identity-system.png` 为品牌源头，并以 `docs/prototypes/multisoul-brand-refresh/` 的移动端原型为当前产品界面优先参考，把品牌手册中的 Logo、Color、Type、Signal Kit 转译为移动端可执行规则。
 
 ---
 
 ## 1. 设计哲学
 
-MultiSoul 是个人 AI Agent 随身控制台。它不是营销页，也不是普通聊天 App；它是一块可以远程操控本机 Agent 的小型任务仪表盘。
+MultiSoul 是个人 AI Agent 随身控制台。它不是营销页，也不是普通聊天 App；它是一块可以远程操控本机 Agent 的小型任务仪表盘。当前移动端以品牌刷新原型为准：页面主体是 Cream Console，关键控制和底部导航使用 Ink，信号色只负责状态。
 
-1. **Ink Console.** 主界面以 Ink Black 为底，像一块随身控制台，信息密度高但不压迫。
-2. **Cream as Breath.** Cream 只用于品牌露出、空状态、说明性容器和高价值确认场景，让黑色界面有呼吸感。
+1. **Cream Console.** 主界面以 Cream 纸感底为基础，承载 Agents、Settings、Activity、Specs、Workflows 等工具界面。
+2. **Ink as Control.** Ink 用于底部浮动 Tab、主操作按钮、重要控制区和高对比确认，不再作为所有页面的大面积底色。
 3. **Signal, Not Decoration.** Cyan、Coral、Lime 是状态信号，不做大面积装饰；每次出现都必须回答“发生了什么”。
 4. **Friendly Machine.** 图标和 mascot 可以有手绘感，但控件结构必须像 Apple 工具：直接、稳定、可扫描。
+5. **Prototype Wins.** Agents / Settings 若与本文旧版 Ink Console 文案冲突，以 `01-agent-page.png`、`04-settings-page.png` 为准，并同步修正文档。
 
 ---
 
@@ -23,8 +24,8 @@ MultiSoul 是个人 AI Agent 随身控制台。它不是营销页，也不是普
 
 | Token | 色值 | 语义 | 使用场景 |
 |------|------|------|----------|
-| `brand.cream` | `#F6F3EC` | 纸感底色 / 品牌呼吸 | 品牌区、空状态、说明卡、浅色 icon variant |
-| `brand.ink` | `#0D0D0D` | 主背景 / 主文字 | App 背景、深色表面、浅底文字 |
+| `brand.cream` | `#F6F3EC` | App 主底色 / 纸感控制台 | 页面背景、品牌区、空状态、浅色 surface |
+| `brand.ink` | `#0D0D0D` | 主文字 / 高对比控制 | 浅底文字、底部 Tab、主按钮、深色浮层 |
 | `brand.cyan` | `#00E5FF` | 直播流 / 消息 / 连接 | stream、message、同步、网络可达 |
 | `brand.coral` | `#FF5A3C` | 决策 / 注意 / 中断 | AskQuestion、需要用户判断、危险前置提示 |
 | `brand.lime` | `#C6FF00` | 完成 / 可执行 / 远程控制 | Done、primary ready、成功完成、远程在线 |
@@ -35,13 +36,15 @@ MultiSoul 是个人 AI Agent 随身控制台。它不是营销页，也不是普
 
 | Token | 色值 | 用途 |
 |------|------|------|
-| `surface.app` | `#0D0D0D` | 页面底色、状态栏底色 |
-| `surface.panel` | `#141414` | 主内容卡片、列表行、输入框 |
-| `surface.raised` | `#1A1A1A` | 浮层、Tab Bar、底部 Sheet |
-| `surface.deep` | `#111111` | 未读行、压暗区域、代码块 |
-| `surface.option` | `#252525` | 未选中选项、次级按钮 |
-| `surface.line` | `#1E1E1E` | 列表分割线、卡片描边 |
-| `surface.lineStrong` | `#2A2A2A` | Sheet 分割线、强边界 |
+| `surface.app` | `#F6F3EC` | 页面底色、状态栏底色 |
+| `surface.card` | `#FFFFFF` / 70-88% | 主内容卡片、列表行、输入框 |
+| `surface.brandWash` | `signal.live` 14-24% | Hero、快捷工作流、轻提示 |
+| `surface.panel` | `#141414` | 深色工具卡、代码块、需要高对比的局部区域 |
+| `surface.raised` | `#1A1A1A` | 深色浮层、兼容旧 Bottom Sheet |
+| `surface.deep` | `#111111` | 压暗区域、代码块 |
+| `surface.option` | `#252525` | 深色未选中选项、次级按钮 |
+| `surface.line` | `#E6E6E8` | 浅色卡片描边、列表分割线 |
+| `surface.lineStrong` | `#2A2A2A` | 深色 Sheet 分割线、强边界 |
 | `surface.handle` | `#333333` | Bottom Sheet handle |
 | `surface.scrim` | `#000000` 55% | Modal / Sheet 背景遮罩 |
 
@@ -174,8 +177,9 @@ Fallback 色板：`#FF5A3C`、`#00E5FF`、`#C6FF00`、`#B7C9AE`、`#7C3AED`、`#
 
 材质规则：
 
-- 深色表面通过明度差和 1px 线分层，不依赖重阴影。
-- Cream / Silver 容器需要 1px `brand.silver` 或 `surface.line` 边界。
+- Cream 页面通过白色半透明卡片、`brand.silver` 描边和轻阴影分层，不依赖营销式大留白。
+- Ink 表面通过明度差和 1px 线分层，不依赖重阴影。
+- White / Cream / Silver 容器需要 1px `brand.silver` 或 `surface.line` 边界。
 - Lime 和 Cyan 可做小面积 fill；大面积使用时必须降低饱和占比或只做描边/状态条。
 
 ---
@@ -190,17 +194,32 @@ Fallback 色板：`#FF5A3C`、`#00E5FF`、`#C6FF00`、`#B7C9AE`、`#7C3AED`、`#
 
 ```text
 Status Bar (44)
-Header: MultiSoul + compose/control
-Connection rail: Local / Remote / Live signal
+Header: mascot + MultiSoul + Agents + search/add round controls
+Hero: cyan wash card, mascot, connection chip, Running / Needs You / Done stats
 Search / Filter row
-Section: ACTIVE NOW
-Agent row (72): avatar, name, runtime, status, action
-Section: RECENT
-Conversation rows
-Floating Tab Bar (62 + Home Indicator)
+Section: Agent Fleet
+Agent row (96): runtime tile, name, machine, repo path, status pill, overflow
+Section: Quick Workflows
+Workflow cards: Daily Standup → Workflows, Connect Machine → Add Endpoint QR
+Floating Ink Tab Bar
 ```
 
-### 6.3 Chat Detail
+### 6.3 Settings
+
+```text
+Status Bar
+Header: Settings + add round control
+Hero: mascot + command console summary + Scan setup QR
+Section: Endpoints
+Endpoint rows + Add Endpoint row
+Section: Preferences
+Static disabled rows for not-yet-backed preferences
+Section: Security
+Static disabled rows for token/local-data/delete affordances
+Floating Ink Tab Bar
+```
+
+### 6.4 Chat Detail
 
 ```text
 Status Bar (44)
@@ -211,11 +230,11 @@ Composer: input capsule + send / inject controls
 Home Indicator
 ```
 
-### 6.4 Activity / Inbox
+### 6.5 Activity / Inbox
 
 ```text
 Status Bar
-Header: Inbox / Activity + filters
+Header: Activity + filters
 Segmented control: Attention / Done or Running / All
 Question or event list
 Bottom action sheet for answering
@@ -229,34 +248,35 @@ Floating Tab Bar
 ### 7.1 Tab Bar
 
 - 高度：62px，cornerRadius 36px
-- 背景：`surface.raised`
+- 背景：`brand.ink`
+- 位置：浮动胶囊，左右约 28px，底部避开 Home Indicator
 - 布局：horizontal，space_between，padding `[0, 28]`
-- 图标：Lucide，16×16px
+- 图标：Lucide 或 brand-refresh transparent icon，24-38px
 - 标签：Inter 11px/600
-- 激活：`text.primary` + 可选 2px `signal.done` 指示点
-- 非激活：`text.dim`
+- 激活：浅蓝圆形托盘 + `text.onCream`
+- 非激活：白色 70% 或 muted 图标
 
 ### 7.2 搜索框
 
-- 高度：44px，cornerRadius 12px
-- 背景：`surface.panel`
+- 高度：56-62px，cornerRadius 28-31px
+- 背景：白色 70-88% + `surface.line`
 - 图标：lucide `search`，16×16px，`text.disabled`
 - 占位文字：Inter 16px，`text.disabled`
 - 聚焦态：1px `signal.live` 边界；不改变高度
 
 ### 7.3 Agent / Conversation Row
 
-- 高度：72px，padding `[0, 16]`
+- 高度：96px 左右，padding `[12, 14]`
 - 布局：horizontal，alignItems center，gap 12px
-- Avatar：40×40px、9px 圆角，使用 runtime mascot
-- 名称：Inter 15px/600，`text.primary`
-- 摘要：Inter 14px，`text.muted`
-- 时间戳：Inter 12px，`text.dim`
-- 未读 / attention：行背景 `surface.deep`，右侧显示 `signal.decide` 徽章
+- Avatar：40×40px、12px 圆角，按 runtime 使用 Cyan/Lime/Sage tile
+- 名称：Inter 20px/800，`text.onCream`
+- 机器 / 时间：Inter 14px，`text.dim`
+- 路径：Lucide folder + Inter 14px，`text.muted`
+- 状态：右侧 pill，Running=Cyan、Needs Decision=Coral、Idle=muted
 
 ### 7.3.1 Active Now Running Breath
 
-- 仅 `Agents > Active Now` 中状态为 `running` 的 Agent 行显示呼吸生命感；同一 Agent 在 `All Agents` 中的重复行不显示。
+- 仅 `Agents > Agent Fleet` 中状态为 `running` 的 Agent 行显示呼吸生命感。
 - `awaiting_question` 不使用呼吸特效，使用 pending badge 和 `Running · Awaiting answer` 文案表达需要用户关注。
 - 动画母题：`Signal Ribbon`。一条低透明横向光带从 Avatar 右侧向状态区域缓慢漂移。
 - `running` 用 `signal.live` 或兼容 `signal.successCompat`；`awaiting_question` 用 `signal.decide`；`completed` 用 `signal.done`。
@@ -367,7 +387,7 @@ Floating Tab Bar
 | 禁止 | 原因 | 替代 |
 |------|------|------|
 | 大面积使用 Cyan / Lime / Coral | 信号色失去语义 | 只用于状态、边、徽章、按钮 |
-| 把 Cream 当普通页面背景 | App 会变成品牌页而非控制台 | Cream 用于品牌呼吸和高价值说明 |
+| Cream 页面无结构铺满 | App 会失去控制台层级 | Cream 做页面底，白色卡片 / Ink 控制 / Signal 状态分层 |
 | 所有状态都用同一种橙色 | 无法区分 live / decide / done | 使用 Signal Palette |
 | 纯营销式 hero 布局进入 App 首屏 | App 是工具，不是 landing page | 首屏直接展示可操作控制台 |
 | 卡片套卡片 | 层级混乱 | 用分割线、section、状态条 |
@@ -387,8 +407,8 @@ Floating Tab Bar
 - [ ] 页面是否仍是可扫描的工具界面，而非营销页？
 - [ ] Tab Bar 是否 62px 高、cornerRadius 36px？
 - [ ] 输入框是否 52px 高、cornerRadius 26px？
-- [ ] 列表行是否稳定在 72px 左右，动态内容不会撑开布局？
+- [ ] Agent Fleet 列表行是否稳定在 96px 左右，动态内容不会撑开布局？
 - [ ] AskQuestion 是否明确突出“需要用户决策”？
 - [ ] Bottom Sheet 是否有 handle、scrim、顶部圆角和安全区处理？
 - [ ] 动效是否遵守 Reduce Motion？
-- [ ] Cream / mascot 是否用于品牌呼吸，而不是到处填充？
+- [ ] Cream / mascot 是否按原型用于品牌呼吸，并通过卡片/Ink 控制保持工具层级？

@@ -9,6 +9,7 @@ import {
 import { WAITING_MESSAGE } from '@/features/chat/chatDetailConstants';
 import { MessageBubble } from '@/features/chat/components/MessageBubble';
 import { getAskId } from '@/features/chat/utils/chatMessageWindows';
+import { brandColors } from '@/theme/brandRefresh';
 import { type WsMessage } from '@/types';
 import { s } from './styles';
 
@@ -71,7 +72,7 @@ export default function ChatTranscriptList({
   const renderOlderLoading = () =>
     isLoadingOlder ? (
       <View testID="older-messages-loading" style={s.olderMessagesLoading}>
-        <ActivityIndicator testID="older-messages-loading-indicator" color="#FF6B35" />
+        <ActivityIndicator testID="older-messages-loading-indicator" color={brandColors.cyan} />
       </View>
     ) : null;
 

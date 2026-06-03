@@ -1,6 +1,7 @@
 import { ChevronLeft } from 'lucide-react-native';
 import React from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
+import { brandColors } from '@/theme/brandRefresh';
 import { s } from './styles';
 
 interface Props {
@@ -13,7 +14,7 @@ export default function ChatHeader({ title, badge, onBack }: Props) {
   return (
     <View style={s.nav}>
       <TouchableOpacity onPress={onBack}>
-        <ChevronLeft size={24} color="#FFFFFF" />
+        <ChevronLeft size={24} color={brandColors.ink} />
       </TouchableOpacity>
       <View style={s.navCenter}>
         <Text style={s.navTitle} numberOfLines={1}>

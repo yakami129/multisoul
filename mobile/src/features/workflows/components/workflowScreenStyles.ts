@@ -1,9 +1,10 @@
 import { StyleSheet } from 'react-native';
+import { brandColors, brandRgba, brandTypography } from '@/theme/brandRefresh';
 
 export const workflowScreenStyles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: '#0D0D0D',
+    backgroundColor: brandColors.cream,
   },
   header: {
     flexDirection: 'row',
@@ -13,10 +14,10 @@ export const workflowScreenStyles = StyleSheet.create({
     paddingVertical: 12,
   },
   headerTitle: {
-    fontFamily: 'Inter',
-    fontSize: 34,
-    fontWeight: '700',
-    color: '#FFFFFF',
+    fontFamily: brandTypography.display,
+    fontSize: 48,
+    fontWeight: '900',
+    color: brandColors.ink,
   },
   addButton: {
     padding: 4,
@@ -30,23 +31,25 @@ export const workflowScreenStyles = StyleSheet.create({
   emptyText: {
     fontFamily: 'Inter',
     fontSize: 16,
-    color: '#888888',
+    color: brandColors.textSoft,
     textAlign: 'center',
     marginBottom: 8,
   },
   emptySubtext: {
     fontFamily: 'Inter',
     fontSize: 13,
-    color: '#555555',
+    color: brandColors.textMuted,
     textAlign: 'center',
   },
   listContent: {
     paddingHorizontal: 16,
-    paddingBottom: 120,
+    paddingBottom: 126,
   },
   row: {
-    backgroundColor: '#1A1A1A',
-    borderRadius: 12,
+    backgroundColor: brandRgba.white88,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: brandColors.silver,
     padding: 14,
     marginBottom: 8,
     flexDirection: 'row',
@@ -60,18 +63,18 @@ export const workflowScreenStyles = StyleSheet.create({
     fontFamily: 'Inter',
     fontSize: 15,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: brandColors.ink,
     marginBottom: 2,
   },
   rowMeta: {
     fontFamily: 'Inter',
     fontSize: 12,
-    color: '#888888',
+    color: brandColors.textSoft,
   },
   // Form styles
   formRoot: {
     flex: 1,
-    backgroundColor: '#0D0D0D',
+    backgroundColor: brandColors.cream,
   },
   formHeader: {
     flexDirection: 'row',
@@ -81,46 +84,46 @@ export const workflowScreenStyles = StyleSheet.create({
     paddingVertical: 12,
   },
   formTitle: {
-    fontFamily: 'Inter',
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#FFFFFF',
+    fontFamily: brandTypography.display,
+    fontSize: 24,
+    fontWeight: '900',
+    color: brandColors.ink,
   },
   formCancel: {
     fontFamily: 'Inter',
     fontSize: 15,
-    color: '#888888',
+    color: brandColors.textSoft,
   },
   formSave: {
     fontFamily: 'Inter',
     fontSize: 15,
     fontWeight: '600',
-    color: '#FF6B35',
+    color: brandColors.coral,
   },
   formSaveDisabled: {
-    color: '#555555',
+    color: brandColors.textMuted,
   },
   formContent: {
     paddingHorizontal: 16,
-    paddingBottom: 120,
+    paddingBottom: 126,
   },
   fieldLabel: {
     fontFamily: 'Inter',
     fontSize: 12,
-    color: '#888888',
+    color: brandColors.textSoft,
     marginBottom: 6,
     marginTop: 16,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
   textInput: {
-    backgroundColor: '#1A1A1A',
+    backgroundColor: brandRgba.white88,
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontFamily: 'Inter',
     fontSize: 15,
-    color: '#FFFFFF',
+    color: brandColors.ink,
   },
   textInputMultiline: {
     minHeight: 80,
@@ -128,7 +131,7 @@ export const workflowScreenStyles = StyleSheet.create({
   },
   segment: {
     flexDirection: 'row',
-    backgroundColor: '#1A1A1A',
+    backgroundColor: brandRgba.white88,
     borderRadius: 12,
     padding: 4,
   },
@@ -139,19 +142,19 @@ export const workflowScreenStyles = StyleSheet.create({
     borderRadius: 10,
   },
   segmentItemActive: {
-    backgroundColor: '#FF6B35',
+    backgroundColor: brandColors.ink,
   },
   segmentText: {
     fontFamily: 'Inter',
     fontSize: 14,
-    color: '#888888',
+    color: brandColors.textSoft,
   },
   segmentTextActive: {
-    color: '#FFFFFF',
+    color: brandColors.white,
     fontWeight: '600',
   },
   agentRow: {
-    backgroundColor: '#1A1A1A',
+    backgroundColor: brandRgba.white88,
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 12,
@@ -162,16 +165,16 @@ export const workflowScreenStyles = StyleSheet.create({
   },
   agentRowSelected: {
     borderWidth: 1,
-    borderColor: '#FF6B35',
+    borderColor: brandColors.coral,
   },
   agentName: {
     fontFamily: 'Inter',
     fontSize: 15,
-    color: '#FFFFFF',
+    color: brandColors.ink,
   },
   agentEndpoint: {
     fontFamily: 'Inter',
     fontSize: 12,
-    color: '#888888',
+    color: brandColors.textSoft,
   },
 });

@@ -254,7 +254,7 @@ describe('ActivityTab DB-backed aggregation', () => {
     expect(screen.queryByText('Needs Attention')).toBeNull();
   });
 
-  /// Activity tabs visual hierarchy: top filter uses the prototype's raised pill surface.
+  /// Activity tabs visual hierarchy: top filter uses the cream console raised pill surface.
   ///
   /// Data construction:
   ///   needsAttention = 1 row
@@ -268,10 +268,10 @@ describe('ActivityTab DB-backed aggregation', () => {
   ///   3. Read the active All tab button style and inactive Pending label style.
   ///
   /// Expected result:
-  ///   - Positive: outer segmented control uses #1A1A1A, matching the prototype surface.
-  ///   - Positive: selected tab uses #2A2A2A so it remains visibly raised.
-  ///   - Positive: selected label is white.
-  ///   - Negative: inactive Pending label is not promoted to white.
+  ///   - Positive: outer segmented control uses a white raised surface.
+  ///   - Positive: selected tab uses the cyan wash active state.
+  ///   - Positive: selected label is ink.
+  ///   - Negative: inactive Pending label is not promoted to ink.
   it('uses the prototype color hierarchy for the Activity top filter', async () => {
     await renderActivity();
 
@@ -283,10 +283,10 @@ describe('ActivityTab DB-backed aggregation', () => {
     const allTextStyle = StyleSheet.flatten(screen.getByText('All 3').props.style);
     const pendingTextStyle = StyleSheet.flatten(screen.getByText('Pending 1').props.style);
 
-    expect(segmentStyle.backgroundColor).toBe('#1A1A1A');
-    expect(allTabStyle.backgroundColor).toBe('#2A2A2A');
-    expect(allTextStyle.color).toBe('#FFFFFF');
-    expect(pendingTextStyle.color).toBe('#888888');
+    expect(segmentStyle.backgroundColor).toBe('rgba(255, 255, 255, 0.88)');
+    expect(allTabStyle.backgroundColor).toBe('rgba(0, 229, 255, 0.24)');
+    expect(allTextStyle.color).toBe('#0D0D0D');
+    expect(pendingTextStyle.color).toBe('#555555');
   });
 
   /// Done filter: Done-only view splits unread and read completion results.

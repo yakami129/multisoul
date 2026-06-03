@@ -13,6 +13,7 @@ import {
 } from '@/features/chat/utils/chatRenderState';
 import { useWebSocket } from '@/hooks/useWebSocket';
 import { useChatStore } from '@/store/chatStore';
+import { brandColors, brandRgba } from '@/theme/brandRefresh';
 import { useEndpointStore } from '@/store/endpointStore';
 import { type WsMessage } from '@/types';
 import ChatHeader from './ChatHeader';
@@ -191,7 +192,7 @@ export default function ChatDetailScreen() {
     updateConversation,
   });
   const badge = isOffline
-    ? { label: 'OFFLINE', bg: '#1A1A1A', dot: '#FF4444' }
+    ? { label: 'OFFLINE', bg: brandRgba.white88, dot: brandColors.error }
     : (STATUS_BADGE[conversation?.status ?? 'idle'] ?? STATUS_BADGE.idle);
 
   return (

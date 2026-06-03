@@ -232,9 +232,9 @@ it('renders a visually framed Agents back button that closes the full-screen flo
   const backButton = screen.getByLabelText('Back to Agents');
   const buttonStyle = StyleSheet.flatten(backButton.props.style);
 
-  expect(buttonStyle.backgroundColor).toBe('#1A1A1A');
+  expect(buttonStyle.backgroundColor).toBe('rgba(255, 255, 255, 0.88)');
   expect(buttonStyle.borderWidth).toBe(1);
-  expect(buttonStyle.borderColor).toBe('#2A2A2A');
+  expect(buttonStyle.borderColor).toBe('#E6E6E8');
 
   fireEvent.press(backButton);
 
@@ -267,9 +267,9 @@ it('renders an explicit content-level close button for the QR-only flow', () => 
   const closeButton = screen.getByLabelText('Close Add Endpoint');
   const closeStyle = StyleSheet.flatten(closeButton.props.style);
 
-  expect(closeStyle.backgroundColor).toBe('#1A1A1A');
+  expect(closeStyle.backgroundColor).toBe('rgba(255, 255, 255, 0.88)');
   expect(closeStyle.borderWidth).toBe(1);
-  expect(closeStyle.borderColor).toBe('#2A2A2A');
+  expect(closeStyle.borderColor).toBe('#E6E6E8');
 
   fireEvent.press(closeButton);
 

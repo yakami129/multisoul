@@ -3,6 +3,7 @@ import React from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { brandColors, brandRgba, brandTypography } from '@/theme/brandRefresh';
 import { type SpecDraft, type SpecStatus } from '../types';
 
 interface Props {
@@ -95,7 +96,7 @@ export function SpecsListScreen({
       style={s.row}
     >
       <View style={s.docIcon}>
-        <FileText size={17} color="#FF6B35" />
+        <FileText size={17} color={brandColors.coral} />
       </View>
       <View style={s.rowBody}>
         <Text style={s.rowTitle} numberOfLines={1}>
@@ -109,7 +110,7 @@ export function SpecsListScreen({
         <Text style={s.status}>{displayStatus(spec.status)}</Text>
         <Text style={s.age}>{relativeAge(spec.updatedAt)}</Text>
       </View>
-      <ChevronRight size={14} color="#666666" />
+      <ChevronRight size={14} color={brandColors.textSoft} />
     </TouchableOpacity>
   );
 
@@ -124,7 +125,7 @@ export function SpecsListScreen({
           onPress={onCreateSpec}
           style={[s.addButton, !canCreate && s.addButtonDisabled]}
         >
-          <Plus size={24} color={canCreate ? '#FF6B35' : '#555555'} />
+          <Plus size={24} color={canCreate ? brandColors.ink : brandColors.textMuted} />
         </TouchableOpacity>
       </View>
 
@@ -135,7 +136,7 @@ export function SpecsListScreen({
           onPress={onCreateSpec}
           style={[s.newSpecButton, !canCreate && s.newSpecButtonDisabled]}
         >
-          <FileText size={16} color={canCreate ? '#FFFFFF' : '#666666'} />
+          <FileText size={16} color={canCreate ? brandColors.white : brandColors.textDisabled} />
           <Text style={[s.newSpecText, !canCreate && s.newSpecTextDisabled]}>New Spec</Text>
         </TouchableOpacity>
       </View>
@@ -202,16 +203,21 @@ export function SpecsListScreen({
 }
 
 const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#0D0D0D' },
+  root: { flex: 1, backgroundColor: brandColors.cream },
   header: {
-    height: 52,
-    backgroundColor: '#0D0D0D',
+    minHeight: 92,
+    backgroundColor: brandColors.cream,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
   },
-  headerTitle: { fontFamily: 'Inter', fontSize: 34, fontWeight: '700', color: '#FFFFFF' },
+  headerTitle: {
+    fontFamily: brandTypography.display,
+    fontSize: 48,
+    fontWeight: '900',
+    color: brandColors.ink,
+  },
   addButton: {
     width: 44,
     height: 44,
@@ -224,21 +230,21 @@ const s = StyleSheet.create({
   newSpecButton: {
     height: 42,
     borderRadius: 10,
-    backgroundColor: '#FF6B35',
+    backgroundColor: brandColors.ink,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
   },
-  newSpecButtonDisabled: { backgroundColor: '#1A1A1A' },
-  newSpecText: { fontFamily: 'Inter', fontSize: 14, fontWeight: '700', color: '#FFFFFF' },
-  newSpecTextDisabled: { color: '#666666' },
+  newSpecButtonDisabled: { backgroundColor: brandRgba.ink18 },
+  newSpecText: { fontFamily: 'Inter', fontSize: 14, fontWeight: '700', color: brandColors.white },
+  newSpecTextDisabled: { color: brandColors.textDisabled },
   segment: {
     height: 36,
     marginHorizontal: 16,
     marginBottom: 12,
     borderRadius: 10,
-    backgroundColor: '#1A1A1A',
+    backgroundColor: brandRgba.white88,
     flexDirection: 'row',
     padding: 3,
   },
@@ -248,27 +254,38 @@ const s = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  segmentItemActive: { backgroundColor: '#252525' },
-  segmentText: { fontFamily: 'Inter', fontSize: 12, color: '#888888' },
-  segmentTextActive: { color: '#FFFFFF', fontWeight: '700' },
-  content: { paddingHorizontal: 16, paddingBottom: 110 },
+  segmentItemActive: { backgroundColor: brandRgba.cyanWash },
+  segmentText: { fontFamily: 'Inter', fontSize: 12, color: brandColors.textSoft },
+  segmentTextActive: { color: brandColors.ink, fontWeight: '700' },
+  content: { paddingHorizontal: 16, paddingBottom: 126 },
   emptyContent: {
     flexGrow: 1,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 24,
-    paddingBottom: 110,
+    paddingBottom: 126,
   },
   emptyWrap: { alignItems: 'center', gap: 8 },
-  emptyTitle: { fontFamily: 'Inter', fontSize: 22, fontWeight: '700', color: '#FFFFFF' },
+  emptyTitle: {
+    fontFamily: brandTypography.display,
+    fontSize: 24,
+    fontWeight: '900',
+    color: brandColors.ink,
+  },
   emptyDesc: {
     fontFamily: 'Inter',
     fontSize: 13,
-    color: '#888888',
+    color: brandColors.textSoft,
     textAlign: 'center',
     lineHeight: 19,
   },
-  group: { borderRadius: 12, backgroundColor: '#1A1A1A', overflow: 'hidden' },
+  group: {
+    borderRadius: 22,
+    backgroundColor: brandRgba.white88,
+    borderWidth: 1,
+    borderColor: brandColors.silver,
+    overflow: 'hidden',
+  },
   row: {
     minHeight: 72,
     flexDirection: 'row',
@@ -281,24 +298,24 @@ const s = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 9,
-    backgroundColor: '#252525',
+    backgroundColor: brandRgba.cyanSoft,
     alignItems: 'center',
     justifyContent: 'center',
   },
   rowBody: { flex: 1, minWidth: 0 },
-  rowTitle: { fontFamily: 'Inter', fontSize: 15, fontWeight: '700', color: '#FFFFFF' },
-  rowSubtitle: { marginTop: 4, fontFamily: 'Inter', fontSize: 12, color: '#888888' },
+  rowTitle: { fontFamily: 'Inter', fontSize: 15, fontWeight: '800', color: brandColors.ink },
+  rowSubtitle: { marginTop: 4, fontFamily: 'Inter', fontSize: 12, color: brandColors.textSoft },
   rowMeta: { alignItems: 'flex-end', gap: 4 },
-  status: { fontFamily: 'Inter', fontSize: 12, fontWeight: '700', color: '#FF6B35' },
-  age: { fontFamily: 'Inter', fontSize: 11, color: '#666666' },
-  divider: { height: 1, backgroundColor: '#1E1E1E', marginLeft: 60 },
+  status: { fontFamily: 'Inter', fontSize: 12, fontWeight: '700', color: brandColors.coral },
+  age: { fontFamily: 'Inter', fontSize: 11, color: brandColors.textMuted },
+  divider: { height: 1, backgroundColor: brandRgba.silver78, marginLeft: 60 },
   deleteAction: {
     width: 82,
-    backgroundColor: '#1A1A1A',
+    backgroundColor: brandColors.white,
     borderLeftWidth: 1,
-    borderLeftColor: '#FF4444',
+    borderLeftColor: brandColors.error,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  deleteText: { fontFamily: 'Inter', fontSize: 13, fontWeight: '700', color: '#FF4444' },
+  deleteText: { fontFamily: 'Inter', fontSize: 13, fontWeight: '700', color: brandColors.error },
 });

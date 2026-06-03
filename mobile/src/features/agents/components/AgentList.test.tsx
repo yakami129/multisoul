@@ -1,6 +1,6 @@
 import { render, fireEvent } from '@testing-library/react-native';
 import React from 'react';
-import { RefreshControl, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { RefreshControl, StyleSheet, TextInput } from 'react-native';
 import { useChatStore } from '@/store/chatStore';
 import { type Agent } from '@/types';
 import { AgentList } from './AgentList';
@@ -31,16 +31,12 @@ const agents: Agent[] = [
   },
 ];
 
-function expectEqualWithReason<T>(actual: T, expected: T, reason: string) {
-  expect({ actual, reason }).toEqual({ actual: expected, reason });
-}
-
 describe('AgentList', () => {
   beforeEach(() => {
     useChatStore.setState({ conversations: [], messages: {} });
   });
 
-  it('renders list of agents', () => {
+  it('renders the brand refresh agent fleet shell', () => {
     const { getByText, queryByText, UNSAFE_getByType } = render(
       <AgentList
         agents={agents}
@@ -52,66 +48,19 @@ describe('AgentList', () => {
         onAgentPress={() => {}}
       />,
     );
+
+    expect(getByText('MultiSoul')).toBeTruthy();
+    expect(getByText('Agents')).toBeTruthy();
+    expect(getByText(/Your agents/)).toBeTruthy();
+    expect(getByText('Agent Fleet')).toBeTruthy();
+    expect(getByText('Quick Workflows')).toBeTruthy();
     expect(getByText('Alpha')).toBeTruthy();
     expect(getByText('Beta')).toBeTruthy();
-    expect(getByText('Agents')).toBeTruthy();
-    expect(UNSAFE_getByType(TextInput).props.placeholder).toBe('Search agents');
-    expect(getByText('All Agents')).toBeTruthy();
-    expect(queryByText('Projects')).toBeNull();
+    expect(UNSAFE_getByType(TextInput).props.placeholder).toBe('Search agents...');
+    expect(queryByText('All Agents')).toBeNull();
   });
 
-  /// Agents add affordance: tapping the header plus delegates endpoint creation to the route.
-  ///
-  /// Data construction:
-  ///   agents        = Alpha + Beta, so the Agents header renders in a normal loaded state.
-  ///   onAddEndpoint = jest.fn callback owned by the route layer.
-  ///
-  /// Execution:
-  ///   1. Render AgentList with onAddEndpoint.
-  ///   2. Press the "Add endpoint" accessibility target in the header.
-  ///
-  /// Expected:
-  ///   - Positive: onAddEndpoint is called once.
-  ///   - Negative: onAgentPress is not called, because this is not a project row tap.
-  it('calls onAddEndpoint when the Agents header plus is pressed', () => {
-    const onAddEndpoint = jest.fn();
-    const onAgentPress = jest.fn();
-    const { getByLabelText } = render(
-      <AgentList
-        agents={agents}
-        isLoading={false}
-        isError={false}
-        error={null}
-        isFetching={false}
-        onRefetch={() => {}}
-        onAgentPress={onAgentPress}
-        onAddEndpoint={onAddEndpoint}
-      />,
-    );
-
-    fireEvent.press(getByLabelText('Add endpoint'));
-
-    expect(onAddEndpoint).toHaveBeenCalledTimes(1);
-    expect(onAgentPress).not.toHaveBeenCalled();
-  });
-
-  /// Pencli Projects surface: root, search, and project group match the orange Projects mock.
-  ///
-  /// Data construction:
-  ///   agents = 2 idle agents, so Active Now is absent and All Agents renders one group.
-  ///   Target source = user-provided pencli Projects image:
-  ///     root #0D0D0D, search/group #1A1A1A, search placeholder #666666
-  ///     search radius 10, group radius 12
-  ///
-  /// Execution:
-  ///   1. Render AgentList with two idle agents.
-  ///   2. Read testID-marked structural containers and TextInput props.
-  ///   3. Flatten RN style arrays to compare resolved values.
-  ///
-  /// Expected:
-  ///   - Positive: orange pencli colors/radii are present on root, search, and group.
-  ///   - Negative: the blue Pro Dark surface values (#000000/#1C1C1E/r=16/18) are not retained.
-  it('matches the orange pencli Projects surface tokens', () => {
+  it('uses the cream prototype surface tokens', () => {
     const { getByTestId, UNSAFE_getByType } = render(
       <AgentList
         agents={agents}
@@ -129,66 +78,37 @@ describe('AgentList', () => {
     const groupStyle = StyleSheet.flatten(getByTestId('projects-group').props.style);
     const searchInput = UNSAFE_getByType(TextInput);
 
-    expectEqualWithReason(
-      rootStyle.backgroundColor,
-      '#0D0D0D',
-      'Projects root should use the orange pencli near-black background',
-    );
-    expectEqualWithReason(
-      searchStyle.backgroundColor,
-      '#1A1A1A',
-      'search field should use the orange pencli card surface',
-    );
-    expectEqualWithReason(
-      searchStyle.borderRadius,
-      10,
-      'search field radius should match the user-provided pencli mock',
-    );
-    expectEqualWithReason(
-      searchInput.props.placeholderTextColor,
-      '#666666',
-      'search placeholder should use the pencli disabled text gray',
-    );
-    expectEqualWithReason(
-      groupStyle.backgroundColor,
-      '#1A1A1A',
-      'project list group should share the orange pencli card surface',
-    );
-    expectEqualWithReason(
-      groupStyle.borderRadius,
-      12,
-      'project list group should use the user-provided pencli 12px card radius',
-    );
+    expect(rootStyle.backgroundColor).toBe('#F6F3EC');
+    expect(searchStyle.borderRadius).toBe(28);
+    expect(searchStyle.borderColor).toBe('#E6E6E8');
+    expect(searchInput.props.placeholderTextColor).toBe('#555555');
+    expect(groupStyle.borderRadius).toBe(22);
+    expect(groupStyle.borderColor).toBe('#E6E6E8');
   });
 
-  it('shows loading text when isLoading', () => {
-    const { getByText } = render(
+  it('calls route callbacks for add endpoint and workflow shortcuts', () => {
+    const onAddEndpoint = jest.fn();
+    const onOpenWorkflows = jest.fn();
+    const { getByLabelText, getByText } = render(
       <AgentList
-        agents={[]}
-        isLoading
-        isFetching={false}
+        agents={agents}
+        isLoading={false}
         isError={false}
         error={null}
-        onRefetch={() => {}}
-        onAgentPress={() => {}}
-      />,
-    );
-    expect(getByText('Loading agents...')).toBeTruthy();
-  });
-
-  it('shows error state when isError', () => {
-    const { getByText } = render(
-      <AgentList
-        agents={[]}
-        isLoading={false}
         isFetching={false}
-        isError
-        error={new Error('net fail')}
         onRefetch={() => {}}
         onAgentPress={() => {}}
+        onAddEndpoint={onAddEndpoint}
+        onOpenWorkflows={onOpenWorkflows}
       />,
     );
-    expect(getByText('Failed to load')).toBeTruthy();
+
+    fireEvent.press(getByLabelText('Add endpoint'));
+    fireEvent.press(getByText('Connect Machine'));
+    fireEvent.press(getByText('Daily Standup'));
+
+    expect(onAddEndpoint).toHaveBeenCalledTimes(2);
+    expect(onOpenWorkflows).toHaveBeenCalledTimes(1);
   });
 
   it('calls onAgentPress with project id, endpoint id, and name', () => {
@@ -204,7 +124,9 @@ describe('AgentList', () => {
         onAgentPress={onAgentPress}
       />,
     );
+
     fireEvent.press(getByText('Alpha'));
+
     expect(onAgentPress).toHaveBeenCalledWith('a1', 'ep-1', 'Alpha');
   });
 
@@ -243,35 +165,33 @@ describe('AgentList', () => {
     expect(queryByText('Alpha')).toBeNull();
   });
 
-  /// Empty project list: the empty copy is fixed in place and cannot be dragged.
-  ///
-  /// Data construction:
-  ///   agents = [] so ScrollView renders empty content only.
-  ///
-  /// Execution:
-  ///   1. Render AgentList with no agents.
-  ///   2. Read ScrollView scroll props.
-  ///
-  /// Expected:
-  ///   - Positive: scrollEnabled=false fixes the empty state vertically.
-  ///   - Negative: bounces=false prevents iOS rubber-band floating when the list has no content.
-  it('disables scrolling and bounce when there are no agents', () => {
-    const { UNSAFE_getByType } = render(
+  it('shows loading and error states', () => {
+    const loading = render(
       <AgentList
         agents={[]}
-        isLoading={false}
+        isLoading
+        isFetching={false}
         isError={false}
         error={null}
-        isFetching={false}
         onRefetch={() => {}}
         onAgentPress={() => {}}
       />,
     );
+    expect(loading.getByText('Loading agents...')).toBeTruthy();
+    loading.unmount();
 
-    const scrollView = UNSAFE_getByType(ScrollView);
-
-    expect(scrollView.props.scrollEnabled).toBe(false);
-    expect(scrollView.props.bounces).toBe(false);
+    const error = render(
+      <AgentList
+        agents={[]}
+        isLoading={false}
+        isFetching={false}
+        isError
+        error={new Error('net fail')}
+        onRefetch={() => {}}
+        onAgentPress={() => {}}
+      />,
+    );
+    expect(error.getByText('Failed to load')).toBeTruthy();
   });
 
   it('points empty state to adding a machine', () => {
@@ -293,7 +213,7 @@ describe('AgentList', () => {
     ).toBeTruthy();
   });
 
-  it('shows running projects in Active Now', () => {
+  it('surfaces running and pending state in the fleet and hero stats', () => {
     useChatStore.setState({
       conversations: [
         {
@@ -306,57 +226,21 @@ describe('AgentList', () => {
           endpoint_id: 'ep-1',
           agent_name: 'Alpha',
         },
-      ],
-      messages: {},
-    });
-
-    const { getByText } = render(
-      <AgentList
-        agents={agents}
-        isLoading={false}
-        isError={false}
-        error={null}
-        isFetching={false}
-        onRefetch={() => {}}
-        onAgentPress={() => {}}
-      />,
-    );
-
-    expect(getByText('Active Now')).toBeTruthy();
-    expect(getByText('Running')).toBeTruthy();
-  });
-
-  /// All Agents section: active agents are duplicated below Active Now.
-  ///
-  /// Data construction:
-  ///   agents = Alpha + Beta.
-  ///   conversations = one running conversation for Alpha, so Alpha is active.
-  ///
-  /// Execution:
-  ///   1. Render AgentList.
-  ///   2. Query all visible Alpha labels.
-  ///
-  /// Expected:
-  ///   - Positive: Alpha appears once in Active Now and once in All Agents, matching the mock.
-  ///   - Negative: All Agents is not reduced to idle-only agents.
-  it('keeps active agents in the All Agents section', () => {
-    useChatStore.setState({
-      conversations: [
         {
-          id: 'conv-1',
-          agent_id: 'a1',
-          title: 'Run checks',
+          id: 'conv-2',
+          agent_id: 'a2',
+          title: 'Approve',
           created_at: 1,
           last_message_at: 2,
-          status: 'running',
-          endpoint_id: 'ep-1',
-          agent_name: 'Alpha',
+          status: 'awaiting_question',
+          endpoint_id: 'ep-2',
+          agent_name: 'Beta',
         },
       ],
       messages: {},
     });
 
-    const { getAllByText } = render(
+    const { getAllByText, getByText } = render(
       <AgentList
         agents={agents}
         isLoading={false}
@@ -368,87 +252,8 @@ describe('AgentList', () => {
       />,
     );
 
-    expect(getAllByText('Alpha').length).toBe(
-      2,
-      'active Alpha should appear in Active Now and remain in All Agents',
-    );
-  });
-
-  /// Agents list width: Active Now rows and All Agents group share one horizontal frame.
-  ///
-  /// Data construction:
-  ///   agents = Alpha + Beta.
-  ///   conversations = one running conversation for Alpha, so Alpha renders in both sections.
-  ///   Width target from the user screenshot:
-  ///     content inset = 16px on both sides
-  ///     card radius = 12px for the visual project frame
-  ///
-  /// Execution:
-  ///   1. Render AgentList with Alpha active.
-  ///   2. Find the Active Now frame by its #0D1A0D active background.
-  ///   3. Read the All Agents group by testID.
-  ///   4. Compare resolved RN styles for their outer frame geometry.
-  ///
-  /// Expected:
-  ///   - Positive: Active Now uses the same 16px horizontal margin as All Agents.
-  ///   - Positive: Active Now uses the same 12px radius as All Agents.
-  ///   - Negative: Active Now must not remain full-bleed with no horizontal margin.
-  it('aligns Active Now rows with the All Agents group width', () => {
-    useChatStore.setState({
-      conversations: [
-        {
-          id: 'conv-1',
-          agent_id: 'a1',
-          title: 'Run checks',
-          created_at: 1,
-          last_message_at: 2,
-          status: 'running',
-          endpoint_id: 'ep-1',
-          agent_name: 'Alpha',
-        },
-      ],
-      messages: {},
-    });
-
-    const { getByTestId, UNSAFE_getAllByType } = render(
-      <AgentList
-        agents={agents}
-        isLoading={false}
-        isError={false}
-        error={null}
-        isFetching={false}
-        onRefetch={() => {}}
-        onAgentPress={() => {}}
-      />,
-    );
-
-    const activeFrame = UNSAFE_getAllByType(View).find((node) => {
-      const style = StyleSheet.flatten(node.props.style);
-      return style?.backgroundColor === '#0D1A0D';
-    });
-    expectEqualWithReason(
-      activeFrame === undefined,
-      false,
-      'Active Now frame with #0D1A0D background should render for the running project',
-    );
-
-    const activeStyle = StyleSheet.flatten(activeFrame?.props.style);
-    const groupStyle = StyleSheet.flatten(getByTestId('projects-group').props.style);
-
-    expectEqualWithReason(
-      activeStyle.marginHorizontal,
-      16,
-      'Active Now row should use the same 16px outer inset as All Agents',
-    );
-    expectEqualWithReason(
-      activeStyle.borderRadius,
-      groupStyle.borderRadius,
-      'Active Now row should use the same visual frame radius as All Agents',
-    );
-    expectEqualWithReason(
-      activeStyle.marginHorizontal === undefined,
-      false,
-      'Active Now row must not stay full-bleed without a horizontal margin',
-    );
+    expect(getAllByText('Running').length).toBeGreaterThanOrEqual(1);
+    expect(getByText('Needs Decision')).toBeTruthy();
+    expect(getByText('Needs You')).toBeTruthy();
   });
 });
