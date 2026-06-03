@@ -110,6 +110,7 @@ export default function RootLayout() {
                 <Stack.Screen name="agent/[id]" options={{ headerShown: false }} />
                 <Stack.Screen name="chat/[id]" options={{ headerShown: false }} />
                 <Stack.Screen name="spec/[id]" options={{ headerShown: false }} />
+                <Stack.Screen name="workflow/[id]" options={{ headerShown: false }} />
               </Stack>
             )}
           </QueryClientProvider>

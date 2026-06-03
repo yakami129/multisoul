@@ -15,7 +15,7 @@ export default function SettingsScreen() {
   return (
     <SafeAreaView style={s.safe}>
       <View style={s.nav}>
-        <Text style={s.navTitle}>SETTINGS</Text>
+        <Text style={s.navTitle}>Settings</Text>
         <TouchableOpacity onPress={() => setModalVisible(true)}>
           <Plus size={20} color="#FFFFFF" />
         </TouchableOpacity>
@@ -54,7 +54,7 @@ const s = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#1E1E1E',
   },
-  navTitle: { fontFamily: 'Inter', fontSize: 17, fontWeight: '700', color: '#FFFFFF' },
+  navTitle: { fontFamily: 'Inter', fontSize: 34, fontWeight: '700', color: '#FFFFFF' },
   scroll: { flex: 1 },
   content: { padding: 16, gap: 12 },
   sectionLabel: {

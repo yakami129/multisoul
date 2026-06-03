@@ -16,7 +16,7 @@
       "trackedFiles": [
         {
           "path": "cli/src/serve/runtime/mod.rs",
-          "sha256": "42dc501a647b4d79a7d25336052ea27c34e8f6d771cc7b7e3b96871290751f2e",
+          "sha256": "98304b3e0ebe0595136722a3dd5fc202226dd0e8535990bc83cb54524091f76c",
           "reason": "dispatch 层新增 inject_image_prefix 逻辑，是本设计的唯一变更文件。"
         }
       ]
@@ -27,12 +27,12 @@
       "trackedFiles": [
         {
           "path": "cli/src/serve/runtime/mod.rs",
-          "sha256": "42dc501a647b4d79a7d25336052ea27c34e8f6d771cc7b7e3b96871290751f2e",
+          "sha256": "98304b3e0ebe0595136722a3dd5fc202226dd0e8535990bc83cb54524091f76c",
           "reason": "Runtime 分发入口；文档说明新增 runtime module 与 match arm。"
         },
         {
           "path": "cli/src/serve/state.rs",
-          "sha256": "256aa9abd525d1212bbbdeaf9bfc24ced339f4b71b183837bd1ac2fac435ade4",
+          "sha256": "8abdede34af04ec8cf1c7a868af7d5edb7bf9d73b17db5a7a1916b1a16e50d74",
           "reason": "AppState、SessionMessage 与 runtime worker 通信结构由文档核心数据结构章节引用。"
         },
         {
@@ -57,7 +57,7 @@
         },
         {
           "path": "cli/src/db.rs",
-          "sha256": "dda85aa573059d3edcf4a132328a94e61e7b6422eb15662c9ffec6c431569bfd",
+          "sha256": "06fb2e1d85a969c801d0cf3fb27b2ab92df6bc5b1e70cbfd76a7372d5c48d7fe",
           "reason": "文档说明 runtime 持久化字段和 migration 纪律；DB schema 演进会影响该章节。"
         },
         {
@@ -94,7 +94,7 @@
         },
         {
           "path": "cli/src/serve/runtime/claude/stream.rs",
-          "sha256": "bf5bcfba4f5902690e2bb015e740c6e7841e0a0438e5a6dff82ea0e6da559045",
+          "sha256": "d9603f9007465036ec3a712d450fd4eb27845697a652c1f21ea76b5bd4b25772",
           "reason": "Claude AskUserQuestion 触发问答推送的时机由本文档定义。"
         },
         {

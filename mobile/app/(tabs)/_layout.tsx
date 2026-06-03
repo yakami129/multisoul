@@ -1,5 +1,5 @@
 import { Tabs } from 'expo-router';
-import { Activity, FileText, LayoutGrid, Settings } from 'lucide-react-native';
+import { Activity, FileText, LayoutGrid, Settings, Workflow } from 'lucide-react-native';
 import React, { useState } from 'react';
 import { ReleaseLogsModal } from '@/features/settings/components/ReleaseLogsModal';
 import { useEndpointStore } from '@/store/endpointStore';
@@ -44,6 +44,9 @@ function SpecsIcon({ color }: { color: string }) {
 function ActivityIcon({ color }: { color: string }) {
   return <Activity size={22} color={color} />;
 }
+function WorkflowsIcon({ color }: { color: string }) {
+  return <Workflow size={22} color={color} />;
+}
 function SettingsIcon({ color }: { color: string }) {
   return <Settings size={22} color={color} />;
 }
@@ -74,6 +77,13 @@ export default function TabLayout() {
           options={{
             title: 'Activity',
             tabBarIcon: ActivityIcon,
+          }}
+        />
+        <Tabs.Screen
+          name="workflows"
+          options={{
+            title: 'Workflows',
+            tabBarIcon: WorkflowsIcon,
           }}
         />
         <Tabs.Screen

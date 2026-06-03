@@ -1,6 +1,7 @@
 import { ChevronRight, FileText, Plus } from 'lucide-react-native';
 import React from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Swipeable } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { type SpecDraft, type SpecStatus } from '../types';
 
@@ -8,6 +9,7 @@ interface Props {
   specs: SpecDraft[];
   onCreateSpec: () => void;
   onOpenSpec: (id: string) => void;
+  onDeleteSpec?: (id: string) => void;
   canCreate?: boolean;
 }
 
@@ -58,12 +60,57 @@ function relativeAge(ts: number): string {
   return `${Math.floor(hours / 24)}d ago`;
 }
 
-export function SpecsListScreen({ specs, onCreateSpec, onOpenSpec, canCreate = true }: Props) {
+export function SpecsListScreen({
+  specs,
+  onCreateSpec,
+  onOpenSpec,
+  onDeleteSpec,
+  canCreate = true,
+}: Props) {
   const insets = useSafeAreaInsets();
   const [segment, setSegment] = React.useState<Segment>('draft');
+  const openSwipeableRef = React.useRef<Swipeable | null>(null);
+  const swipeableRefs = React.useRef<Map<string, Swipeable>>(new Map());
   const visibleSpecs = React.useMemo(
     () => specs.filter((spec) => segmentForStatus(spec.status) === segment),
     [segment, specs],
+  );
+
+  const renderDeleteAction = (spec: SpecDraft) => (
+    <TouchableOpacity
+      accessibilityRole="button"
+      accessibilityLabel={`Delete ${spec.title}`}
+      onPress={() => onDeleteSpec?.(spec.id)}
+      style={s.deleteAction}
+    >
+      <Text style={s.deleteText}>DELETE</Text>
+    </TouchableOpacity>
+  );
+
+  const renderSpecRow = (spec: SpecDraft) => (
+    <TouchableOpacity
+      accessibilityRole="button"
+      accessibilityLabel={`Open ${spec.title}`}
+      onPress={() => onOpenSpec(spec.id)}
+      style={s.row}
+    >
+      <View style={s.docIcon}>
+        <FileText size={17} color="#FF6B35" />
+      </View>
+      <View style={s.rowBody}>
+        <Text style={s.rowTitle} numberOfLines={1}>
+          {spec.title}
+        </Text>
+        <Text style={s.rowSubtitle} numberOfLines={1}>
+          {spec.targetRepoPath}
+        </Text>
+      </View>
+      <View style={s.rowMeta}>
+        <Text style={s.status}>{displayStatus(spec.status)}</Text>
+        <Text style={s.age}>{relativeAge(spec.updatedAt)}</Text>
+      </View>
+      <ChevronRight size={14} color="#666666" />
+    </TouchableOpacity>
   );
 
   return (
@@ -126,29 +173,24 @@ export function SpecsListScreen({ specs, onCreateSpec, onOpenSpec, canCreate = t
           <View style={s.group}>
             {visibleSpecs.map((spec, index) => (
               <View key={spec.id}>
-                <TouchableOpacity
-                  accessibilityRole="button"
-                  accessibilityLabel={`Open ${spec.title}`}
-                  onPress={() => onOpenSpec(spec.id)}
-                  style={s.row}
-                >
-                  <View style={s.docIcon}>
-                    <FileText size={17} color="#FF6B35" />
-                  </View>
-                  <View style={s.rowBody}>
-                    <Text style={s.rowTitle} numberOfLines={1}>
-                      {spec.title}
-                    </Text>
-                    <Text style={s.rowSubtitle} numberOfLines={1}>
-                      {spec.targetRepoPath}
-                    </Text>
-                  </View>
-                  <View style={s.rowMeta}>
-                    <Text style={s.status}>{displayStatus(spec.status)}</Text>
-                    <Text style={s.age}>{relativeAge(spec.updatedAt)}</Text>
-                  </View>
-                  <ChevronRight size={14} color="#666666" />
-                </TouchableOpacity>
+                {onDeleteSpec ? (
+                  <Swipeable
+                    ref={(ref) => {
+                      if (ref) swipeableRefs.current.set(spec.id, ref);
+                      else swipeableRefs.current.delete(spec.id);
+                    }}
+                    onSwipeableOpen={() => {
+                      if (openSwipeableRef.current) openSwipeableRef.current.close();
+                      openSwipeableRef.current = swipeableRefs.current.get(spec.id) ?? null;
+                    }}
+                    renderRightActions={() => renderDeleteAction(spec)}
+                    overshootRight={false}
+                  >
+                    {renderSpecRow(spec)}
+                  </Swipeable>
+                ) : (
+                  renderSpecRow(spec)
+                )}
                 {index < visibleSpecs.length - 1 ? <View style={s.divider} /> : null}
               </View>
             ))}
@@ -250,4 +292,13 @@ const s = StyleSheet.create({
   status: { fontFamily: 'Inter', fontSize: 12, fontWeight: '700', color: '#FF6B35' },
   age: { fontFamily: 'Inter', fontSize: 11, color: '#666666' },
   divider: { height: 1, backgroundColor: '#1E1E1E', marginLeft: 60 },
+  deleteAction: {
+    width: 82,
+    backgroundColor: '#1A1A1A',
+    borderLeftWidth: 1,
+    borderLeftColor: '#FF4444',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  deleteText: { fontFamily: 'Inter', fontSize: 13, fontWeight: '700', color: '#FF4444' },
 });

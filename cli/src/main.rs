@@ -3,6 +3,8 @@ use clap::{Parser, Subcommand};
 mod commands;
 mod config;
 mod db;
+#[cfg(test)]
+mod db_workflows_tests;
 mod logging;
 mod serve;
 

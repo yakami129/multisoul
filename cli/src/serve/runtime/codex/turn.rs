@@ -234,6 +234,14 @@ pub(super) fn complete_turn(state: &AppState, conv_id: &str, status: &str, turn_
     });
     let db = state.db.lock().unwrap();
     if let Ok(seq) = insert_message(&db, conv_id, "task_status", &payload) {
+        let _ = crate::serve::workflows::finalize_workflow_run_for_conversation(
+            &db,
+            conv_id,
+            status,
+            Some(""),
+            if status == "failed" { Some("") } else { None },
+            crate::db::now_ms(),
+        );
         push::send_task_status_push(&db, conv_id, status, "");
         drop(db);
         broadcast(state, conv_id, seq, "task_status", payload);

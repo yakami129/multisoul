@@ -17,6 +17,9 @@ export interface ActivityApiItem {
   timestamp: number;
   read_at?: number | null;
   ask_id?: string;
+  workflow_id?: string;
+  workflow_run_id?: string;
+  workflow_name?: string;
 }
 
 export interface AggregatedActivityItem extends ActivityApiItem {

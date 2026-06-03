@@ -17,15 +17,15 @@ fn parse_agent_args(args: &[&str]) -> AgentCommands {
 /// quick register runtime validation: accepts supported runtimes and rejects unknown values.
 ///
 /// 数据构造：
-///   accepted = codex / claude-code / cursor-cli
+///   accepted = codex / claude-code / cursor-cli / kodax
 ///   rejected = unknown
 ///
 /// 执行过程：
-///   1. 分别校验三个支持的 runtime → Ok
+///   1. 分别校验四个支持的 runtime → Ok
 ///   2. 校验 unknown → Err，错误文案列出合法值
 ///
 /// 预期结果：
-///   - 正断言：三个支持 runtime 都可通过
+///   - 正断言：四个支持 runtime 都可通过
 ///   - 负断言：unknown 不可通过，且错误文案可诊断
 #[test]
 fn test_quick_register_accepts_all_current_runtimes() {
@@ -41,11 +41,15 @@ fn test_quick_register_accepts_all_current_runtimes() {
         validate_quick_register_runtime("cursor-cli").is_ok(),
         "quick register should accept cursor-cli runtime"
     );
+    assert!(
+        validate_quick_register_runtime("kodax").is_ok(),
+        "quick register should accept kodax runtime"
+    );
     let message = validate_quick_register_runtime("unknown")
         .expect_err("unknown runtime should be rejected")
         .to_string();
     assert!(
-        message.contains("claude-code, codex, cursor-cli"),
+        message.contains("claude-code, codex, cursor-cli, kodax"),
         "invalid runtime error should list every supported runtime"
     );
 }
@@ -56,15 +60,17 @@ fn test_quick_register_accepts_all_current_runtimes() {
 ///   argv1 = ["agent", "codex"]
 ///   argv2 = ["agent", "claude-code"]
 ///   argv3 = ["agent", "cursor-cli"]
+///   argv4 = ["agent", "kodax"]
 ///
 /// 执行过程：
 ///   1. 解析 codex → AgentCommands::QuickRegister(["codex"])
 ///   2. 解析 claude-code → AgentCommands::QuickRegister(["claude-code"])
 ///   3. 解析 cursor-cli → AgentCommands::QuickRegister(["cursor-cli"])
+///   4. 解析 kodax → AgentCommands::QuickRegister(["kodax"])
 ///
 /// 预期结果：
-///   - 正断言：三条快捷命令均进入 QuickRegister
-///   - 负断言：三条快捷命令均不应误解析为传统子命令
+///   - 正断言：四条快捷命令均进入 QuickRegister
+///   - 负断言：四条快捷命令均不应误解析为传统子命令
 #[test]
 fn test_quick_register_clap_parses_runtime_shortcuts() {
     match parse_agent_args(&["agent", "codex"]) {
@@ -90,6 +96,14 @@ fn test_quick_register_clap_parses_runtime_shortcuts() {
             "cursor-cli shortcut should parse as the sole quick-register arg"
         ),
         _ => panic!("cursor-cli shortcut must not parse as a traditional subcommand"),
+    }
+    match parse_agent_args(&["agent", "kodax"]) {
+        AgentCommands::QuickRegister(args) => assert_eq!(
+            args,
+            vec!["kodax".to_string()],
+            "kodax shortcut should parse as the sole quick-register arg"
+        ),
+        _ => panic!("kodax shortcut must not parse as a traditional subcommand"),
     }
 }
 
@@ -156,14 +170,14 @@ fn test_quick_register_preflight_rejects_invalid_inputs_without_db() {
 ///
 /// 数据构造：
 ///   command = AgentCommands clap command
-///   examples = codex / claude-code / cursor-cli quick-register lines
+///   examples = codex / claude-code / cursor-cli / kodax quick-register lines
 ///
 /// 执行过程：
 ///   1. 渲染 agent help
 ///   2. 检查三个示例和传统 register 子命令
 ///
 /// 预期结果：
-///   - 正断言：三个快捷示例均出现
+///   - 正断言：四个快捷示例均出现
 ///   - 负断言：help 不应遗漏传统 register 子命令
 #[test]
 fn test_quick_register_help_documents_runtime_shortcuts() {
@@ -180,6 +194,10 @@ fn test_quick_register_help_documents_runtime_shortcuts() {
     assert!(
         help.contains("msctl agent cursor-cli"),
         "agent help should document the cursor-cli quick-register shortcut"
+    );
+    assert!(
+        help.contains("msctl agent kodax"),
+        "agent help should document the kodax quick-register shortcut"
     );
     assert!(
         help.contains("register"),
@@ -433,5 +451,48 @@ fn test_quick_register_supports_claude_code_and_cursor_cli() {
     assert!(
         !cursor_workspace.join("CLAUDE.md").exists(),
         "cursor-cli must not inject CLAUDE.md"
+    );
+}
+
+/// quick register kodax: writes DB row with default mode and injects AGENTS.md.
+#[test]
+fn test_quick_register_kodax_writes_agent_and_injects_agents_md() {
+    let dir = tempfile::tempdir().expect("temp dir should be created for KodaX register");
+    let conn = open_temp_db(&dir);
+    let workspace = dir.path().join("kodax-demo");
+    std::fs::create_dir_all(&workspace).expect("kodax workspace should be created");
+
+    let result = quick_register_in_workspace(&conn, "kodax", &workspace)
+        .expect("kodax quick register should succeed");
+
+    assert_eq!(
+        result.runtime, "kodax",
+        "quick register result should preserve kodax runtime"
+    );
+    let row: (String, String, String, String) = conn
+        .query_row(
+            "SELECT name, project_path, runtime, mode FROM agents WHERE name = 'kodax-demo'",
+            [],
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)),
+        )
+        .expect("kodax-demo row should be queryable");
+    assert_eq!(row.0, "kodax-demo", "DB name should match workspace");
+    assert_eq!(
+        row.1,
+        workspace.to_str().expect("workspace path should be UTF-8"),
+        "DB project_path should match workspace"
+    );
+    assert_eq!(row.2, "kodax", "DB runtime should match requested runtime");
+    assert_eq!(
+        row.3, "full-auto",
+        "DB mode should use quick-register default"
+    );
+    assert!(
+        workspace.join("AGENTS.md").exists(),
+        "kodax should inject AGENTS.md"
+    );
+    assert!(
+        !workspace.join("CLAUDE.md").exists(),
+        "kodax must not inject CLAUDE.md"
     );
 }
