@@ -30,3 +30,5 @@ cli/npm/vendor/
 .claude/
 .codex-output/
 tmp
+
+docs/prototypes
