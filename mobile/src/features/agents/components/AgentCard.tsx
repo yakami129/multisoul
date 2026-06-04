@@ -1,10 +1,13 @@
-import { Code2, Folder, MoreHorizontal, MousePointer2, Terminal } from 'lucide-react-native';
+import { Folder, MoreHorizontal, Terminal } from 'lucide-react-native';
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, type ImageSourcePropType, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useReduceMotionPreference } from '@/hooks/useReduceMotionPreference';
 import { brandColors, brandRgba } from '@/theme/brandRefresh';
 import { type Agent } from '@/types';
 import { RunningAgentBreath } from './RunningAgentBreath';
+import codexIcon from '../../../../assets/agent-icons/blue-cloud-robot-transparent.png';
+import cursorIcon from '../../../../assets/agent-icons/orange-octopus-robot-transparent.png';
+import claudeCodeIcon from '../../../../assets/agent-icons/orange-pixel-robot-transparent.png';
 
 interface Props {
   agent: Agent;
@@ -19,7 +22,7 @@ interface Props {
 
 type RuntimeSpec = {
   backgroundColor: string;
-  icon: React.ComponentType<{ size: number; color: string; strokeWidth?: number }>;
+  image: ImageSourcePropType;
 };
 
 const fallbackAvatarColors = [
@@ -32,15 +35,15 @@ const fallbackAvatarColors = [
 const runtimeSpecs: Partial<Record<Agent['runtime'], RuntimeSpec>> = {
   'claude-code': {
     backgroundColor: brandColors.lime,
-    icon: Code2,
+    image: claudeCodeIcon,
   },
   codex: {
     backgroundColor: brandColors.cyan,
-    icon: Terminal,
+    image: codexIcon,
   },
   'cursor-cli': {
     backgroundColor: brandColors.sage,
-    icon: MousePointer2,
+    image: cursorIcon,
   },
 };
 
@@ -124,7 +127,6 @@ export function AgentCard({
   const runtimeSpec = runtimeSpecs[agent.runtime];
   const avatarColor =
     runtimeSpec?.backgroundColor ?? fallbackAvatarColors[index % fallbackAvatarColors.length];
-  const RuntimeIcon = runtimeSpec?.icon ?? Terminal;
   const accentColor = avatarColor;
   const tone = statusTone(statusLabel, isActive, pendingCount);
   const metaLabel =
@@ -143,7 +145,16 @@ export function AgentCard({
       {showBreathingEffect ? <AgentCardBreath accentColor={accentColor} /> : null}
       <View style={s.avatarFrame}>
         <View testID="project-avatar" style={[s.avatar, { backgroundColor: avatarColor }]}>
-          <RuntimeIcon size={20} color={brandColors.white} strokeWidth={2.4} />
+          {runtimeSpec ? (
+            <Image
+              testID="project-avatar-image"
+              source={runtimeSpec.image}
+              style={s.avatarImage}
+              resizeMode="contain"
+            />
+          ) : (
+            <Terminal size={20} color={brandColors.white} strokeWidth={2.4} />
+          )}
         </View>
       </View>
       <View testID="project-body" style={s.body}>
@@ -215,6 +226,10 @@ const s = StyleSheet.create({
     borderRadius: 9,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  avatarImage: {
+    width: 30,
+    height: 30,
   },
   body: { flex: 1, minWidth: 0 },
   titleRow: { flexDirection: 'row', alignItems: 'center', minWidth: 0 },

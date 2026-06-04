@@ -79,9 +79,9 @@ Agent Fleet 中的 runtime tile 为 30×30px、9px 圆角，外层 frame 为 40�
 
 | Runtime | 背景语义 | 资产 | 用途 |
 |---------|----------|------|------|
-| `claude-code` | `surface.option` | `mobile/assets/agent-icons/runtime-claude-code.png` | Claude runtime |
-| `codex` | `signal.decide` 或兼容 `signal.legacyAction` | `mobile/assets/agent-icons/runtime-codex.png` | Codex / 代码执行 |
-| `cursor-cli` | `#2563EB` | `mobile/assets/agent-icons/runtime-cursor-cli.png` | Cursor / 编辑器语义 |
+| `claude-code` | `surface.option` | `mobile/assets/agent-icons/orange-pixel-robot-transparent.png` | Claude runtime |
+| `codex` | `signal.decide` 或兼容 `signal.legacyAction` | `mobile/assets/agent-icons/blue-cloud-robot-transparent.png` | Codex / 代码执行 |
+| `cursor-cli` | `#2563EB` | `mobile/assets/agent-icons/orange-octopus-robot-transparent.png` | Cursor / 编辑器语义 |
 | `custom` | fallback 色板 | 无固定 PNG | 自定义 runtime |
 
 Fallback 色板：`#FF5A3C`、`#00E5FF`、`#C6FF00`、`#B7C9AE`、`#7C3AED`、`#2563EB`、`#059669`。

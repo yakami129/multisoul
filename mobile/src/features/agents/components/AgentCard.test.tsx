@@ -3,6 +3,9 @@ import React from 'react';
 import { StyleSheet } from 'react-native';
 import { type Agent } from '@/types';
 import { AgentCard } from './AgentCard';
+import codexIcon from '../../../../assets/agent-icons/blue-cloud-robot-transparent.png';
+import cursorIcon from '../../../../assets/agent-icons/orange-octopus-robot-transparent.png';
+import claudeCodeIcon from '../../../../assets/agent-icons/orange-pixel-robot-transparent.png';
 
 const agent: Agent = {
   id: 'a1',
@@ -93,6 +96,57 @@ describe('AgentCard', () => {
     expect(claudeAvatarStyle.backgroundColor).toBe('#C6FF00');
     expect(codexAvatarStyle.backgroundColor).toBe('#00E5FF');
     expect(cursorAvatarStyle.backgroundColor).toBe('#B7C9AE');
+  });
+
+  /// Runtime PNG icons: supported runtimes must render the generated asset icons
+  ///
+  /// Data construction:
+  ///   claude-code runtime = orange-pixel-robot-transparent.png
+  ///   codex runtime       = blue-cloud-robot-transparent.png
+  ///   cursor-cli runtime  = orange-octopus-robot-transparent.png
+  ///   custom runtime      = no fixed PNG; it should keep the fallback vector avatar
+  ///
+  /// Execution:
+  ///   1. Render one AgentCard for each supported runtime.
+  ///   2. Read the Image source from testID="project-avatar-image".
+  ///   3. Render a custom runtime card and verify no runtime Image is mounted.
+  ///
+  /// Expected:
+  ///   - claude-code uses the orange pixel robot PNG.
+  ///   - codex uses the blue cloud robot PNG.
+  ///   - cursor-cli uses the orange octopus robot PNG.
+  ///   - custom does not render a runtime PNG, preserving the fallback path.
+  it('renders generated agent icon assets for supported runtimes', () => {
+    const claudeRender = render(<AgentCard agent={agent} onPress={() => {}} index={0} />);
+    expect(claudeRender.getByTestId('project-avatar-image').props.source).toBe(
+      claudeCodeIcon,
+      'claude-code should use the orange pixel robot asset instead of the old vector avatar',
+    );
+    claudeRender.unmount();
+
+    const codexRender = render(
+      <AgentCard agent={{ ...agent, runtime: 'codex' }} onPress={() => {}} index={0} />,
+    );
+    expect(codexRender.getByTestId('project-avatar-image').props.source).toBe(
+      codexIcon,
+      'codex should use the blue cloud robot asset from mobile/assets/agent-icons',
+    );
+    codexRender.unmount();
+
+    const cursorRender = render(
+      <AgentCard agent={{ ...agent, runtime: 'cursor-cli' }} onPress={() => {}} index={0} />,
+    );
+    expect(cursorRender.getByTestId('project-avatar-image').props.source).toBe(
+      cursorIcon,
+      'cursor-cli should use the orange octopus robot asset from mobile/assets/agent-icons',
+    );
+    cursorRender.unmount();
+
+    const customRender = render(
+      <AgentCard agent={{ ...agent, runtime: 'custom' }} onPress={() => {}} index={0} />,
+    );
+    // Assertion failure means custom runtime claimed one of the fixed generated runtime icons.
+    expect(customRender.queryByTestId('project-avatar-image')).toBeNull();
   });
 
   it('renders status tones for running and pending projects', () => {
