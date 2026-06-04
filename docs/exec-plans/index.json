@@ -4,7 +4,8 @@
   "documents": [
     {
       "file": "2026-06-04-ios-voice-input.md",
-      "title": "iOS Voice Input Implementation Plan"
+      "title": "iOS Voice Input Implementation Plan",
+      "lastCompletedCommit": "5e8f9bd37576a3e608b6c639a0b36e5745fd6f73"
     },
     {
       "file": "2026-06-04-chat-completed-transcript-folding.md",
