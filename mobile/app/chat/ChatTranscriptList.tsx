@@ -1,3 +1,4 @@
+import { ChevronDown, ChevronUp } from 'lucide-react-native';
 import React from 'react';
 import {
   ActivityIndicator,
@@ -6,15 +7,16 @@ import {
   Text,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
+  type ViewToken,
   View,
 } from 'react-native';
-import { ChevronDown, ChevronUp } from 'lucide-react-native';
 import { WAITING_MESSAGE } from '@/features/chat/chatDetailConstants';
 import { MessageBubble } from '@/features/chat/components/MessageBubble';
 import { ToolCallRow } from '@/features/chat/components/ToolCallRow';
 import { getAskId } from '@/features/chat/utils/chatMessageWindows';
 import {
   buildCompletedTranscriptDisplayItems,
+  getChatTranscriptDisplayItemKey,
   type ChatTranscriptDisplayItem,
 } from '@/features/chat/utils/chatRenderState';
 import { brandColors } from '@/theme/brandRefresh';
@@ -27,7 +29,7 @@ import {
 import { s } from './styles';
 
 interface Props {
-  listRef: React.RefObject<FlatList<WsMessage> | null>;
+  listRef: React.RefObject<FlatList<ChatTranscriptDisplayItem> | null>;
   messages: WsMessage[];
   displayItems?: ChatTranscriptDisplayItem[];
   conversationStatus: Conversation['status'];
@@ -46,6 +48,10 @@ interface Props {
   onScrollBeginDrag: (event: NativeSyntheticEvent<NativeScrollEvent>) => void;
   onContentSizeChange: () => void;
   onScrollToIndexFailed: (info: { index: number; averageItemLength: number }) => void;
+  onViewableItemsChanged?: (info: {
+    viewableItems: ViewToken<ChatTranscriptDisplayItem>[];
+    changed: ViewToken<ChatTranscriptDisplayItem>[];
+  }) => void;
 }
 
 export default function ChatTranscriptList({
@@ -68,6 +74,7 @@ export default function ChatTranscriptList({
   onScrollBeginDrag,
   onContentSizeChange,
   onScrollToIndexFailed,
+  onViewableItemsChanged,
 }: Props) {
   const [expandedWorkedIds, setExpandedWorkedIds] = React.useState<Set<string>>(() => new Set());
   const toolResultsByCallId = React.useMemo(() => {
@@ -163,11 +170,11 @@ export default function ChatTranscriptList({
 
   return (
     <FlatList
-      ref={listRef as React.RefObject<FlatList<ChatTranscriptDisplayItem> | null>}
+      ref={listRef}
       style={s.scroll}
       contentContainerStyle={s.scrollContent}
       data={displayItems}
-      keyExtractor={(item) => (item.kind === 'message' ? `${item.message.seq}` : item.id)}
+      keyExtractor={getChatTranscriptDisplayItemKey}
       renderItem={renderDisplayItem}
       ListHeaderComponent={isLoadingOlder ? renderOlderLoading : null}
       ListFooterComponent={
@@ -180,6 +187,7 @@ export default function ChatTranscriptList({
       scrollEventThrottle={16}
       onContentSizeChange={onContentSizeChange}
       onScrollToIndexFailed={onScrollToIndexFailed}
+      onViewableItemsChanged={onViewableItemsChanged}
       maintainVisibleContentPosition={{ minIndexForVisible: 0 }}
     />
   );

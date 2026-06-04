@@ -100,7 +100,8 @@ function expectScrollToIndexCall(
   );
 }
 
-const displaySeqs = (data: ChatTranscriptDisplayItem[]) => data.map((item) => (item.kind === 'message' ? item.message.seq : item.messages[0]?.seq));
+const displaySeqs = (data: ChatTranscriptDisplayItem[]) =>
+  data.map((item) => (item.kind === 'message' ? item.message.seq : item.messages[0]?.seq));
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -154,7 +155,7 @@ beforeEach(() => {
 });
 
 /// Chat Detail msctl ask placement: loaded user-message-mode ask cards are
-/// displayed at the bottom of the FlatList transcript data.
+/// displayed in chronological transcript order.
 ///
 /// Data construction:
 ///   seq 1 = agent_text "first agent row"
@@ -169,10 +170,10 @@ beforeEach(() => {
 ///   3. Read FlatList.props.data and inspect the displayed seq order.
 ///
 /// Expected result:
-///   - Positive: FlatList display seq order is [1, 3, 4, 2].
-///   - Positive: ordinary ask seq 3 remains before later agent_text seq 4.
-///   - Negative: msctl ask seq 2 does not remain at original index 1.
-test('displays loaded msctl ask_question cards at the bottom of Chat Detail FlatList data', async () => {
+///   - Positive: FlatList display seq order is [1, 2, 3, 4].
+///   - Positive: msctl ask seq 2 remains before later agent_text seq 4.
+///   - Negative: msctl ask seq 2 is not appended after later agent_text seq 4.
+test('displays loaded msctl ask_question cards in chronological Chat Detail FlatList data', async () => {
   const loadedMessages: WsMessage[] = [
     agentText(1, 'first agent row'),
     askQuestion(2, 'ask-msctl', 'Pick one?', 'user_message'),
@@ -191,27 +192,27 @@ test('displays loaded msctl ask_question cards at the bottom of Chat Detail Flat
     const data = UNSAFE_getByType(FlatList).props.data as ChatTranscriptDisplayItem[];
     expectEqualWithReason(
       displaySeqs(data),
-      [1, 3, 4, 2],
-      'Chat Detail FlatList data should append loaded msctl ask cards after regular rows',
+      [1, 2, 3, 4],
+      'Chat Detail FlatList data should keep loaded msctl ask cards in transcript order',
     );
   });
 
   const data = UNSAFE_getByType(FlatList).props.data as ChatTranscriptDisplayItem[];
   const seqs = displaySeqs(data);
   expectEqualWithReason(
-    seqs.findIndex((seq) => seq === 3) < seqs.findIndex((seq) => seq === 4),
+    seqs.findIndex((seq) => seq === 2) < seqs.findIndex((seq) => seq === 4),
     true,
-    'ordinary ask_question without response_mode must remain before the later agent_text row',
+    'msctl ask_question must remain before the later agent_text row in transcript order',
   );
   expectEqualWithReason(
-    seqs[1] === 2,
+    seqs.findIndex((seq) => seq === 2) > seqs.findIndex((seq) => seq === 4),
     false,
-    'msctl ask_question must not remain at original display index 1',
+    'msctl ask_question must not be appended after the later agent_text row',
   );
 });
 
-/// Chat Detail focus ask placement: focus scrolling must use the reordered
-/// FlatList index after user-message-mode msctl ask cards move to the bottom.
+/// Chat Detail focus ask placement: focus scrolling must use the chronological
+/// FlatList index for user-message-mode msctl ask cards.
 ///
 /// Data construction:
 ///   route focus_ask_id = 'ask-msctl'
@@ -223,15 +224,15 @@ test('displays loaded msctl ask_question cards at the bottom of Chat Detail Flat
 /// Execution process:
 ///   1. Mock the initial Chat Detail history request with seq order [1, 2, 3].
 ///   2. Render ChatDetailScreen with focus_ask_id='ask-msctl'.
-///   3. Wait until history reaches FlatList and msctl placement produces displayed order [1, 3, 2].
+///   3. Wait until history reaches FlatList and preserves displayed order [1, 2, 3].
 ///   4. Inspect FlatList.scrollToIndex calls and trigger onContentSizeChange to catch bottom-scroll overrides.
 ///
 /// Expected result:
-///   - Positive: FlatList display seq order is [1, 3, 2].
-///   - Positive: FlatList.scrollToIndex is called with index=2 for the displayed ask row.
-///   - Negative: FlatList.scrollToIndex is not called with original index=1.
+///   - Positive: FlatList display seq order is [1, 2, 3].
+///   - Positive: FlatList.scrollToIndex is called with index=1 for the displayed ask row.
+///   - Negative: FlatList.scrollToIndex is not called with bottom-appended index=2.
 ///   - Negative: FlatList.scrollToEnd is not called after focus scroll is available.
-test('scrolls focus_ask_id to displayed msctl ask_question index after bottom placement', async () => {
+test('scrolls focus_ask_id to chronological msctl ask_question index', async () => {
   mockSearchParams = {
     id: 'conv-1',
     endpoint_id: 'endpoint-1',
@@ -257,23 +258,23 @@ test('scrolls focus_ask_id to displayed msctl ask_question index after bottom pl
       const data = UNSAFE_getByType(FlatList).props.data as ChatTranscriptDisplayItem[];
       expectEqualWithReason(
         displaySeqs(data),
-        [1, 3, 2],
-        'focus_ask_id regression requires displayed FlatList order after msctl bottom placement',
+        [1, 2, 3],
+        'focus_ask_id regression requires displayed FlatList order to preserve transcript chronology',
       );
     });
 
     await waitFor(() => {
       expectScrollToIndexCall(
         scrollToIndexSpy.mock.calls,
-        2,
-        'focus_ask_id should scroll to displayed index 2 after msctl ask card moves to bottom',
+        1,
+        'focus_ask_id should scroll to chronological displayed index 1 for the msctl ask card',
       );
     });
 
     expectEqualWithReason(
-      scrollToIndexSpy.mock.calls.some(([args]) => args.index === 1),
+      scrollToIndexSpy.mock.calls.some(([args]) => args.index === 2),
       false,
-      'focus_ask_id must not scroll to original index 1 after displayed data is reordered',
+      'focus_ask_id must not scroll to bottom-appended index 2 when the msctl ask remains chronological',
     );
 
     act(() => {
@@ -291,7 +292,7 @@ test('scrolls focus_ask_id to displayed msctl ask_question index after bottom pl
 });
 
 /// Chat Detail focus ask reroute: changing focus_ask_id on the same mounted
-/// screen must scroll to the newly focused bottom-placed msctl ask.
+/// screen must scroll to the newly focused chronological msctl ask.
 ///
 /// Data construction:
 ///   initial route focus_ask_id = 'ask-one'
@@ -300,20 +301,21 @@ test('scrolls focus_ask_id to displayed msctl ask_question index after bottom pl
 ///   seq 2 = ask_question ask-one with response_mode=user_message
 ///   seq 3 = ask_question ask-two with response_mode=user_message
 ///   seq 4 = agent_text "later agent row"
-///   loaded window = 4 messages, reordered to displayed seq order [1, 4, 2, 3]
-///   displayed ask-one index = 2, displayed ask-two index = 3
+///   loaded window = 4 messages, displayed in chronological seq order [1, 2, 3, 4]
+///   displayed ask-one index = 1, displayed ask-two index = 2
 ///
 /// Execution process:
 ///   1. Render ChatDetailScreen with focus_ask_id='ask-one' and load the shared history.
-///   2. Wait until msctl bottom placement produces displayed order [1, 4, 2, 3].
+///   2. Wait until Chat Detail produces chronological displayed order [1, 2, 3, 4].
 ///   3. Trigger content size change so ask-one performs a focus scroll after initial reset effects.
-///   4. Assert the first focus scroll targets displayed index 2 for ask-one.
+///   4. Assert the first focus scroll targets displayed index 1 for ask-one.
 ///   5. Change mockSearchParams.focus_ask_id to 'ask-two' and rerender the same mounted screen.
-///   6. Assert the second focus scroll targets displayed index 3 for ask-two.
+///   6. Assert the second focus scroll targets displayed index 2 for ask-two.
 ///
 /// Expected result:
-///   - Positive: first focus scroll reaches ask-one's displayed index 2.
-///   - Positive: second focus scroll reaches ask-two's displayed index 3 after rerender.
+///   - Positive: first focus scroll reaches ask-one's displayed index 1.
+///   - Positive: second focus scroll reaches ask-two's displayed index 2 after rerender.
+///   - Negative: neither msctl ask is appended after later agent_text seq 4.
 ///   - Negative: scroll calls do not only contain the first focus target.
 test('scrolls to a new focus_ask_id when the same mounted Chat Detail screen rerenders', async () => {
   mockSearchParams = {
@@ -342,8 +344,8 @@ test('scrolls to a new focus_ask_id when the same mounted Chat Detail screen rer
       const data = UNSAFE_getByType(FlatList).props.data as ChatTranscriptDisplayItem[];
       expectEqualWithReason(
         displaySeqs(data),
-        [1, 4, 2, 3],
-        'reroute regression requires the two msctl ask cards to have distinct displayed indexes',
+        [1, 2, 3, 4],
+        'reroute regression requires the two msctl ask cards to keep chronological displayed indexes',
       );
     });
 
@@ -354,8 +356,8 @@ test('scrolls to a new focus_ask_id when the same mounted Chat Detail screen rer
     await waitFor(() => {
       expectScrollToIndexCall(
         scrollToIndexSpy.mock.calls,
-        2,
-        'initial focus_ask_id should scroll to ask-one at displayed index 2',
+        1,
+        'initial focus_ask_id should scroll to ask-one at chronological displayed index 1',
       );
     });
     const callsBeforeReroute = scrollToIndexSpy.mock.calls.length;
@@ -370,18 +372,32 @@ test('scrolls to a new focus_ask_id when the same mounted Chat Detail screen rer
     await waitFor(() => {
       expectScrollToIndexCall(
         scrollToIndexSpy.mock.calls.slice(callsBeforeReroute),
-        3,
-        'rerendered focus_ask_id should scroll to ask-two at displayed index 3',
+        2,
+        'rerendered focus_ask_id should scroll to ask-two at chronological displayed index 2',
       );
     });
 
+    const reroutedSeqs = displaySeqs(
+      UNSAFE_getByType(FlatList).props.data as ChatTranscriptDisplayItem[],
+    );
+    const laterAgentIndex = reroutedSeqs.findIndex((seq) => seq === 4);
     expectEqualWithReason(
-      scrollToIndexSpy.mock.calls.some(([args]) => args.index === 2),
+      reroutedSeqs.findIndex((seq) => seq === 2) > laterAgentIndex,
+      false,
+      'ask-one must not be appended after the later agent_text row',
+    );
+    expectEqualWithReason(
+      reroutedSeqs.findIndex((seq) => seq === 3) > laterAgentIndex,
+      false,
+      'ask-two must not be appended after the later agent_text row',
+    );
+    expectEqualWithReason(
+      scrollToIndexSpy.mock.calls.some(([args]) => args.index === 1),
       true,
       'regression setup must include the first focus scroll before checking the rerender',
     );
     expectEqualWithReason(
-      scrollToIndexSpy.mock.calls.slice(callsBeforeReroute).some(([args]) => args.index === 3),
+      scrollToIndexSpy.mock.calls.slice(callsBeforeReroute).some(([args]) => args.index === 2),
       true,
       'focus reroute must not only keep the first focus target after focus_ask_id changes',
     );
@@ -400,20 +416,20 @@ test('scrolls to a new focus_ask_id when the same mounted Chat Detail screen rer
 ///   seq 2 = ask_question ask-one with response_mode=user_message
 ///   seq 3 = ask_question ask-two with response_mode=user_message
 ///   seq 4 = agent_text "later agent row"
-///   loaded window = 4 messages, reordered to displayed seq order [1, 4, 2, 3]
-///   failed retry delay = 50ms; ask-one index = 2, ask-two index = 3
+///   loaded window = 4 messages, displayed in chronological seq order [1, 2, 3, 4]
+///   failed retry delay = 50ms; ask-one index = 1, ask-two index = 2
 ///
 /// Execution process:
 ///   1. Render ChatDetailScreen with focus_ask_id='ask-one' and load [1, 2, 3, 4].
-///   2. Wait for the initial focus scroll to ask-one at displayed index 2.
-///   3. Enable fake timers and trigger onScrollToIndexFailed({ index: 2, averageItemLength: 72 }).
+///   2. Wait for the initial focus scroll to ask-one at displayed index 1.
+///   3. Enable fake timers and trigger onScrollToIndexFailed({ index: 1, averageItemLength: 72 }).
 ///   4. Rerender the same mounted screen with focus_ask_id='ask-two' before the 50ms retry fires.
-///   5. Wait for the reroute focus scroll to ask-two at displayed index 3.
+///   5. Wait for the reroute focus scroll to ask-two at displayed index 2.
 ///   6. Run pending timers and inspect only the post-reroute scroll calls.
 ///
 /// Expected result:
-///   - Positive: ask-two index 3 is the latest focus target after pending timers run.
-///   - Negative: no delayed post-reroute retry scrolls back to ask-one index 2.
+///   - Positive: ask-two index 2 is the latest focus target after pending timers run.
+///   - Negative: no delayed post-reroute retry scrolls back to ask-one index 1.
 test('does not run stale failed-scroll retry after focus_ask_id reroutes', async () => {
   mockSearchParams = {
     id: 'conv-1',
@@ -441,15 +457,15 @@ test('does not run stale failed-scroll retry after focus_ask_id reroutes', async
       const data = UNSAFE_getByType(FlatList).props.data as ChatTranscriptDisplayItem[];
       expectEqualWithReason(
         displaySeqs(data),
-        [1, 4, 2, 3],
-        'stale retry regression requires ask-one and ask-two to have displayed indexes 2 and 3',
+        [1, 2, 3, 4],
+        'stale retry regression requires ask-one and ask-two to keep chronological indexes 1 and 2',
       );
     });
 
     await waitFor(() => {
       expectScrollToIndexCall(
         scrollToIndexSpy.mock.calls,
-        2,
+        1,
         'initial focus_ask_id should scroll to ask-one before scheduling a failed-scroll retry',
       );
     });
@@ -457,7 +473,7 @@ test('does not run stale failed-scroll retry after focus_ask_id reroutes', async
     jest.useFakeTimers();
     act(() => {
       UNSAFE_getByType(FlatList).props.onScrollToIndexFailed({
-        index: 2,
+        index: 1,
         averageItemLength: 72,
       });
     });
@@ -472,7 +488,7 @@ test('does not run stale failed-scroll retry after focus_ask_id reroutes', async
     await waitFor(() => {
       expectScrollToIndexCall(
         scrollToIndexSpy.mock.calls,
-        3,
+        2,
         'rerendered focus_ask_id should scroll to ask-two before the old retry timer fires',
       );
     });
@@ -484,14 +500,14 @@ test('does not run stale failed-scroll retry after focus_ask_id reroutes', async
 
     const callsAfterRetryTimers = scrollToIndexSpy.mock.calls.slice(callsBeforeRetryTimers);
     expectEqualWithReason(
-      callsAfterRetryTimers.some(([args]) => args.index === 2),
+      callsAfterRetryTimers.some(([args]) => args.index === 1),
       false,
-      'old failed-scroll retry must not scroll back to ask-one index 2 after reroute to ask-two',
+      'old failed-scroll retry must not scroll back to ask-one index 1 after reroute to ask-two',
     );
     expectEqualWithReason(
       scrollToIndexSpy.mock.calls.at(-1)?.[0].index,
-      3,
-      'ask-two index 3 must remain the latest focus target after pending retry timers run',
+      2,
+      'ask-two index 2 must remain the latest focus target after pending retry timers run',
     );
   } finally {
     jest.useRealTimers();

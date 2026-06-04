@@ -9,6 +9,7 @@ import { ModelSelector, useChatModelSelector } from '@/features/chat/components/
 import { resolveUserMessageImageUri } from '@/features/chat/services/chatService';
 import {
   buildCompletedTranscriptDisplayItems,
+  type ChatTranscriptDisplayItem,
   getLatestAgentActivitySeq,
   getLatestAgentTextSeq,
 } from '@/features/chat/utils/chatRenderState';
@@ -44,7 +45,7 @@ export default function ChatDetailScreen() {
   const [composerSheetVisible, setComposerSheetVisible] = useState(false);
   const [composerSheetMode, setComposerSheetMode] = useState<ComposerSheetMode>('actions');
   const imageMapRef = useRef<Map<string, string>>(new Map());
-  const listRef = useRef<FlatList<WsMessage>>(null);
+  const listRef = useRef<FlatList<ChatTranscriptDisplayItem>>(null);
 
   const endpoint = useEndpointStore((s) => s.endpoints.find((e) => e.id === endpoint_id));
   const conversations = useChatStore((s) => s.conversations);
@@ -113,9 +114,11 @@ export default function ChatDetailScreen() {
   const {
     handleTranscriptScroll,
     handleTranscriptScrollBeginDrag,
+    handleViewableItemsChanged,
     handleContentSizeChange,
     handleScrollToIndexFailed,
   } = useChatDetailTranscriptScroll({
+    conv_id,
     listRef,
     focus_ask_id,
     transcriptItems: transcriptDisplayItems,
@@ -234,6 +237,7 @@ export default function ChatDetailScreen() {
           imageUriForMessage={imageUriForMessage}
           onScroll={handleTranscriptScroll}
           onScrollBeginDrag={handleTranscriptScrollBeginDrag}
+          onViewableItemsChanged={handleViewableItemsChanged}
           onContentSizeChange={handleContentSizeChange}
           onScrollToIndexFailed={handleScrollToIndexFailed}
         />

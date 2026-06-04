@@ -4,6 +4,10 @@ export type ChatTranscriptDisplayItem =
   | { kind: 'message'; message: WsMessage }
   | { kind: 'worked'; id: string; label: string; messages: WsMessage[] };
 
+export function getChatTranscriptDisplayItemKey(item: ChatTranscriptDisplayItem): string {
+  return item.kind === 'message' ? `message-${item.message.seq}` : item.id;
+}
+
 function isTodoToolCall(msg: WsMessage): boolean {
   if (msg.role !== 'tool_call') return false;
   const payload = msg.payload as { tool?: unknown };
@@ -42,17 +46,6 @@ function formatWorkedDurationLabel(messages: WsMessage[]): string {
   return `Worked for ${duration}`;
 }
 
-function shouldKeepVisibleInCompletedTranscript(
-  msg: WsMessage,
-  latestUserSeq: number,
-  latestAgentSeq: number,
-) {
-  if (msg.role === 'user_text') return msg.seq === latestUserSeq;
-  if (msg.role === 'agent_text') return msg.seq === latestAgentSeq;
-  if (msg.role === 'ask_question') return !msg.answered;
-  return false;
-}
-
 function makeWorkedItem(messages: WsMessage[]): ChatTranscriptDisplayItem {
   const firstFoldedSeq = messages[0].seq;
   const lastFoldedSeq = messages[messages.length - 1].seq;
@@ -64,24 +57,35 @@ function makeWorkedItem(messages: WsMessage[]): ChatTranscriptDisplayItem {
   };
 }
 
-function keepFinalAnswerAtTail(items: ChatTranscriptDisplayItem[]): ChatTranscriptDisplayItem[] {
-  const tail = items.at(-1);
-  if (tail?.kind !== 'worked') return items;
-  const latestAgentIndex = items.findLastIndex(
-    (item) => item.kind === 'message' && item.message.role === 'agent_text',
-  );
-  if (latestAgentIndex < 0) return items;
-  const withoutTail = items.slice(0, -1);
-  const beforeAgent = withoutTail.slice(0, latestAgentIndex);
-  const latestAgent = withoutTail[latestAgentIndex];
-  const afterAgent = withoutTail.slice(latestAgentIndex + 1);
-  if (afterAgent.length > 0) return items;
-  const previous = beforeAgent.at(-1);
-  const nextBeforeAgent =
-    previous?.kind === 'worked'
-      ? [...beforeAgent.slice(0, -1), makeWorkedItem([...previous.messages, ...tail.messages])]
-      : [...beforeAgent, tail];
-  return [...nextBeforeAgent, latestAgent, ...afterAgent];
+function buildCompletedTurnDisplayItems(turn: WsMessage[]): ChatTranscriptDisplayItem[] {
+  if (turn.length === 0) return [];
+
+  const userMessage = turn[0];
+  if (userMessage.role !== 'user_text') {
+    return turn.map((msg) => ({ kind: 'message', message: msg }));
+  }
+
+  const askQuestions = turn.filter((msg) => msg.role === 'ask_question');
+  const finalAgentMessage = [...turn].reverse().find((msg) => msg.role === 'agent_text');
+  const visibleMessages = new Set([userMessage, ...askQuestions]);
+  if (finalAgentMessage) visibleMessages.add(finalAgentMessage);
+
+  const hiddenMessages = turn.filter((msg) => !visibleMessages.has(msg));
+  const items: ChatTranscriptDisplayItem[] = [{ kind: 'message', message: userMessage }];
+
+  if (hiddenMessages.length > 0) {
+    items.push(makeWorkedItem(hiddenMessages));
+  }
+
+  for (const askQuestion of askQuestions) {
+    items.push({ kind: 'message', message: askQuestion });
+  }
+
+  if (finalAgentMessage) {
+    items.push({ kind: 'message', message: finalAgentMessage });
+  }
+
+  return items;
 }
 
 export function buildCompletedTranscriptDisplayItems(
@@ -94,40 +98,20 @@ export function buildCompletedTranscriptDisplayItems(
     return renderableMessages.map((msg) => ({ kind: 'message', message: msg }));
   }
 
-  const latestUserSeq =
-    [...renderableMessages].reverse().find((msg) => msg.role === 'user_text')?.seq ?? 0;
-  const latestAgentSeq =
-    [...renderableMessages].reverse().find((msg) => msg.role === 'agent_text')?.seq ?? 0;
-  const foldedMessages = renderableMessages.filter(
-    (msg) => !shouldKeepVisibleInCompletedTranscript(msg, latestUserSeq, latestAgentSeq),
-  );
-
-  if (foldedMessages.length === 0) {
-    return renderableMessages.map((msg) => ({ kind: 'message', message: msg }));
-  }
-
-  const firstFoldedSeq = foldedMessages[0].seq;
-  const lastFoldedSeq = foldedMessages[foldedMessages.length - 1].seq;
   const displayItems: ChatTranscriptDisplayItem[] = [];
-  let foldedSegment: WsMessage[] = [];
-
-  function flushFoldedSegment() {
-    if (foldedSegment.length === 0) return;
-    displayItems.push(makeWorkedItem(foldedSegment));
-    foldedSegment = [];
-  }
+  let currentTurn: WsMessage[] = [];
 
   for (const msg of renderableMessages) {
-    if (foldedMessages.includes(msg)) {
-      foldedSegment.push(msg);
-      continue;
+    if (msg.role === 'user_text') {
+      displayItems.push(...buildCompletedTurnDisplayItems(currentTurn));
+      currentTurn = [msg];
+    } else {
+      currentTurn.push(msg);
     }
-    flushFoldedSegment();
-    displayItems.push({ kind: 'message', message: msg });
   }
-  flushFoldedSegment();
+  displayItems.push(...buildCompletedTurnDisplayItems(currentTurn));
 
-  return keepFinalAnswerAtTail(displayItems);
+  return displayItems;
 }
 
 export function collapseTodoToolCallSnapshots(messages: WsMessage[]): WsMessage[] {

@@ -19,12 +19,12 @@
       "title": "KodaX Runtime Integration SPEC"
     },
     {
-      "file": "2026-06-04-SPEC-ios-voice-input.md",
-      "title": "iOS Voice Input SPEC"
-    },
-    {
       "file": "2026-06-04-SPEC-chat-completed-transcript-folding.md",
       "title": "Chat Completed Transcript Folding SPEC"
+    },
+    {
+      "file": "2026-06-04-SPEC-ios-voice-input.md",
+      "title": "iOS Voice Input SPEC"
     },
     {
       "file": "SPEC-activity-pagination.md",
