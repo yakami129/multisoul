@@ -9,6 +9,7 @@ import {
   shouldMergeInitialHistory,
 } from '@/features/chat/utils/chatMessageWindows';
 import {
+  collapseTodoToolCallSnapshots,
   getLatestAgentActivitySeq,
   getLatestAgentTextSeq,
   isRenderableInChatTranscript,
@@ -113,7 +114,10 @@ export function useChatDetailHistory({
   }, [messages, visibleMinSeq]);
 
   const transcriptMessages = React.useMemo(
-    () => placeMsctlQuestionCardsAtBottom(visibleMessages.filter(isRenderableInChatTranscript)),
+    () =>
+      placeMsctlQuestionCardsAtBottom(
+        collapseTodoToolCallSnapshots(visibleMessages.filter(isRenderableInChatTranscript)),
+      ),
     [visibleMessages],
   );
 

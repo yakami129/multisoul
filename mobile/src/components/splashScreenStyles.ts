@@ -1,4 +1,5 @@
 import { StyleSheet } from 'react-native';
+import { brandTypography } from '@/theme/brandRefresh';
 
 export const splashScreenStyles = StyleSheet.create({
   root: {
@@ -47,9 +48,10 @@ export const splashScreenStyles = StyleSheet.create({
     shadowRadius: 34,
   },
   chipText: {
-    fontFamily: 'Anton',
-    fontSize: 34,
-    lineHeight: 44,
+    fontFamily: brandTypography.display,
+    fontSize: 32,
+    lineHeight: 38,
+    fontWeight: '700',
     color: '#FF6B35',
     letterSpacing: 1,
   },
@@ -65,11 +67,11 @@ export const splashScreenStyles = StyleSheet.create({
     letterSpacing: 2.4,
   },
   title: {
-    fontFamily: 'Anton',
-    fontSize: 42,
-    lineHeight: 42,
+    fontFamily: brandTypography.display,
+    fontSize: 32,
+    lineHeight: 38,
+    fontWeight: '700',
     color: '#FFFFFF',
-    letterSpacing: 5,
   },
   readyPill: {
     alignItems: 'center',

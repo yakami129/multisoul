@@ -1,54 +1,129 @@
 import { Tabs } from 'expo-router';
-import { Activity, FileText, LayoutGrid, Settings, Workflow } from 'lucide-react-native';
+import { Activity, FileText } from 'lucide-react-native';
 import React, { useState } from 'react';
+import { Image, type ImageSourcePropType, View } from 'react-native';
 import { ReleaseLogsModal } from '@/features/settings/components/ReleaseLogsModal';
 import { useEndpointStore } from '@/store/endpointStore';
+import { brandAssets, brandColors, brandRgba } from '@/theme/brandRefresh';
 
-export const TAB_BAR_HEIGHT = 62;
-export const TAB_BAR_SAFE_AREA_BOTTOM = 34;
+export const TAB_BAR_HEIGHT = 50;
+export const TAB_BAR_SAFE_AREA_BOTTOM = 28;
+const TAB_ICON_SLOT_SIZE = 34;
+const FOCUSED_TAB_ICON_SIZE = 31;
+const IDLE_TAB_ICON_SIZE = 24;
 
 export const tabScreenOptions = {
   headerShown: false,
   tabBarStyle: {
-    backgroundColor: '#161616',
-    borderTopWidth: 1,
-    borderTopColor: '#1E1E1E',
+    backgroundColor: brandColors.ink,
+    borderTopWidth: 0,
+    borderTopColor: brandColors.ink,
     height: TAB_BAR_HEIGHT + TAB_BAR_SAFE_AREA_BOTTOM,
     position: 'absolute' as const,
-    bottom: 0,
-    left: 0,
-    right: 0,
+    bottom: 10,
+    left: 20,
+    right: 20,
+    borderRadius: 30,
+    paddingHorizontal: 14,
     paddingBottom: TAB_BAR_SAFE_AREA_BOTTOM,
+    paddingTop: 0,
+    shadowColor: '#000000',
+    shadowOpacity: 0.24,
+    shadowRadius: 15,
+    shadowOffset: { width: 0, height: 7 },
+    elevation: 8,
   },
-  tabBarActiveTintColor: '#FF6B35',
-  tabBarInactiveTintColor: '#555555',
+  tabBarActiveTintColor: brandColors.white,
+  tabBarInactiveTintColor: brandRgba.white70,
   tabBarShowLabel: true,
   tabBarLabelPosition: 'below-icon' as const,
   tabBarLabelStyle: {
     fontFamily: 'Inter',
     fontSize: 10,
-    marginTop: 2,
+    fontWeight: '600' as const,
+    marginTop: 1,
+  },
+  tabBarIconStyle: {
+    width: TAB_ICON_SLOT_SIZE,
+    height: TAB_ICON_SLOT_SIZE,
+    marginTop: 0,
   },
   tabBarItemStyle: {
-    paddingTop: 4,
-    paddingBottom: 6,
+    height: TAB_BAR_HEIGHT,
+    paddingTop: 0,
+    paddingBottom: 0,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
   },
 };
 
-function AgentsIcon({ color }: { color: string }) {
-  return <LayoutGrid size={22} color={color} />;
+function BrandedTabIcon({ source, focused }: { source: ImageSourcePropType; focused: boolean }) {
+  const traySize = focused ? FOCUSED_TAB_ICON_SIZE : IDLE_TAB_ICON_SIZE;
+  const imageSize = focused ? 23 : 20;
+
+  return (
+    <View
+      style={{
+        width: TAB_ICON_SLOT_SIZE,
+        height: TAB_ICON_SLOT_SIZE,
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+    >
+      <View
+        style={{
+          width: traySize,
+          height: traySize,
+          borderRadius: traySize / 2,
+          backgroundColor: focused ? brandRgba.cyanWash : 'transparent',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <Image source={source} style={{ width: imageSize, height: imageSize }} />
+      </View>
+    </View>
+  );
 }
-function SpecsIcon({ color }: { color: string }) {
-  return <FileText size={22} color={color} />;
+
+function LucideTabIcon({ children, focused }: { children: React.ReactNode; focused: boolean }) {
+  return (
+    <View
+      style={{
+        width: TAB_ICON_SLOT_SIZE,
+        height: TAB_ICON_SLOT_SIZE,
+        borderRadius: TAB_ICON_SLOT_SIZE / 2,
+        backgroundColor: focused ? brandRgba.cyanWash : 'transparent',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+    >
+      {children}
+    </View>
+  );
 }
-function ActivityIcon({ color }: { color: string }) {
-  return <Activity size={22} color={color} />;
+
+function AgentsIcon({ focused }: { color: string; focused: boolean }) {
+  return <BrandedTabIcon source={brandAssets.iconAgent} focused={focused} />;
 }
-function WorkflowsIcon({ color }: { color: string }) {
-  return <Workflow size={22} color={color} />;
+function SpecsIcon({ color, focused }: { color: string; focused: boolean }) {
+  return (
+    <LucideTabIcon focused={focused}>
+      <FileText size={20} color={color} />
+    </LucideTabIcon>
+  );
 }
-function SettingsIcon({ color }: { color: string }) {
-  return <Settings size={22} color={color} />;
+function ActivityIcon({ color, focused }: { color: string; focused: boolean }) {
+  return focused ? (
+    <BrandedTabIcon source={brandAssets.iconActivity} focused />
+  ) : (
+    <LucideTabIcon focused={focused}>
+      <Activity size={20} color={color} />
+    </LucideTabIcon>
+  );
+}
+function SettingsIcon({ focused }: { color: string; focused: boolean }) {
+  return <BrandedTabIcon source={brandAssets.iconSettings} focused={focused} />;
 }
 
 export default function TabLayout() {
@@ -82,8 +157,7 @@ export default function TabLayout() {
         <Tabs.Screen
           name="workflows"
           options={{
-            title: 'Workflows',
-            tabBarIcon: WorkflowsIcon,
+            href: null,
           }}
         />
         <Tabs.Screen

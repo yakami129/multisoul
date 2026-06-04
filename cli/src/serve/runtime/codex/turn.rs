@@ -1,6 +1,7 @@
 //! Codex turn: one prompt/stdout cycle and item handlers.
 
 use serde_json::Value;
+use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Read, Write};
 use std::process::{Child, ChildStdin};
 use tracing::{debug, warn};
@@ -8,6 +9,7 @@ use uuid::Uuid;
 
 use crate::serve::{push, state::AppState};
 
+use super::events::parse_tool_item;
 use super::{broadcast, extract_text_from_array, insert_message, save_thread_id};
 
 pub(super) fn process_turn(
@@ -45,6 +47,7 @@ pub(super) fn process_turn(
     let mut stderr = child.stderr.take();
 
     let mut line = String::new();
+    let mut tool_calls = ToolCallTracker::default();
     loop {
         line.clear();
         match reader.read_line(&mut line) {
@@ -80,7 +83,10 @@ pub(super) fn process_turn(
                 }
             }
             "item.completed" => {
-                handle_item_completed(&raw, state, conv_id);
+                handle_item_completed(&raw, state, conv_id, &mut tool_calls);
+            }
+            "item.started" | "item.updated" => {
+                handle_item_started_or_updated(&raw, state, conv_id, &mut tool_calls);
             }
             "turn.completed" => {
                 // Reap the child without risking a stdout-pipe deadlock:
@@ -129,12 +135,87 @@ fn read_stderr_tail(stderr: &mut Option<std::process::ChildStderr>) -> String {
 
 // ─── event handlers ──────────────────────────────────────────────────────────
 
-fn handle_item_completed(raw: &Value, state: &AppState, conv_id: &str) {
+#[derive(Default)]
+struct ToolCallTracker {
+    by_native_id: HashMap<String, String>,
+}
+
+impl ToolCallTracker {
+    fn start_call(&mut self, native_id: Option<&str>) -> (String, bool) {
+        let Some(native_id) = native_id.filter(|id| !id.is_empty()) else {
+            return (Uuid::new_v4().to_string(), true);
+        };
+        if let Some(call_id) = self.by_native_id.get(native_id) {
+            return (call_id.clone(), false);
+        }
+        let call_id = native_id.to_string();
+        self.by_native_id
+            .insert(native_id.to_string(), call_id.clone());
+        (call_id, true)
+    }
+
+    fn complete_call(&mut self, native_id: Option<&str>) -> (String, bool) {
+        let Some(native_id) = native_id.filter(|id| !id.is_empty()) else {
+            return (Uuid::new_v4().to_string(), true);
+        };
+        match self.by_native_id.remove(native_id) {
+            Some(call_id) => (call_id, false),
+            None => (native_id.to_string(), true),
+        }
+    }
+}
+
+fn handle_item_started_or_updated(
+    raw: &Value,
+    state: &AppState,
+    conv_id: &str,
+    tracker: &mut ToolCallTracker,
+) {
+    let Some(item) = raw["item"].as_object() else {
+        return;
+    };
+    let Some(tool_item) = parse_tool_item(item) else {
+        return;
+    };
+    let (call_id, should_emit) = tracker.start_call(tool_item.native_id.as_deref());
+    if should_emit || is_todo_tool(&tool_item.tool) {
+        emit_tool_call(state, conv_id, tool_item.tool, tool_item.args, call_id);
+    }
+}
+
+fn handle_item_completed(
+    raw: &Value,
+    state: &AppState,
+    conv_id: &str,
+    tracker: &mut ToolCallTracker,
+) {
     let item = match raw["item"].as_object() {
         Some(i) => i,
         None => return,
     };
     let item_type = item.get("type").and_then(|v| v.as_str()).unwrap_or("");
+
+    if let Some(tool_item) = parse_tool_item(item) {
+        let is_todo = is_todo_tool(&tool_item.tool);
+        let (call_id, should_emit_call) = tracker.complete_call(tool_item.native_id.as_deref());
+        if should_emit_call || is_todo {
+            emit_tool_call(
+                state,
+                conv_id,
+                tool_item.tool.clone(),
+                tool_item.args.clone(),
+                call_id.clone(),
+            );
+        }
+        emit_tool_result(
+            state,
+            conv_id,
+            call_id,
+            tool_item.ok.unwrap_or(true),
+            tool_item.summary,
+        );
+        return;
+    }
 
     match item_type {
         "agent_message" | "message" => {
@@ -159,43 +240,31 @@ fn handle_item_completed(raw: &Value, state: &AppState, conv_id: &str) {
                 }
             }
         }
-        "command_execution" => {
-            let command = item
-                .get("command")
-                .and_then(|v| v.as_str())
-                .unwrap_or("")
-                .to_string();
-            let output = item
-                .get("aggregated_output")
-                .and_then(|v| v.as_str())
-                .unwrap_or("")
-                .trim()
-                .to_string();
-            let exit_code = item.get("exit_code").and_then(|v| v.as_i64()).unwrap_or(0);
-            let ok = exit_code == 0;
-            let call_id = Uuid::new_v4().to_string();
-
-            let tool_payload =
-                serde_json::json!({ "tool": "Bash", "args": command, "call_id": call_id });
-            {
-                let db = state.db.lock().unwrap();
-                if let Ok(seq) = insert_message(&db, conv_id, "tool_call", &tool_payload) {
-                    drop(db);
-                    broadcast(state, conv_id, seq, "tool_call", tool_payload);
-                }
-            }
-
-            let result_payload =
-                serde_json::json!({ "call_id": call_id, "ok": ok, "summary": output });
-            let db = state.db.lock().unwrap();
-            if let Ok(seq) = insert_message(&db, conv_id, "tool_result", &result_payload) {
-                drop(db);
-                broadcast(state, conv_id, seq, "tool_result", result_payload);
-            }
-        }
         _ => {
             warn!(item_type = %item_type, "codex_unhandled_item_type");
         }
+    }
+}
+
+fn is_todo_tool(tool: &str) -> bool {
+    tool == "todo_list"
+}
+
+fn emit_tool_call(state: &AppState, conv_id: &str, tool: String, args: String, call_id: String) {
+    let payload = serde_json::json!({ "tool": tool, "args": args, "call_id": call_id });
+    let db = state.db.lock().unwrap();
+    if let Ok(seq) = insert_message(&db, conv_id, "tool_call", &payload) {
+        drop(db);
+        broadcast(state, conv_id, seq, "tool_call", payload);
+    }
+}
+
+fn emit_tool_result(state: &AppState, conv_id: &str, call_id: String, ok: bool, summary: String) {
+    let payload = serde_json::json!({ "call_id": call_id, "ok": ok, "summary": summary });
+    let db = state.db.lock().unwrap();
+    if let Ok(seq) = insert_message(&db, conv_id, "tool_result", &payload) {
+        drop(db);
+        broadcast(state, conv_id, seq, "tool_result", payload);
     }
 }
 

@@ -11,6 +11,7 @@ import {
 import { Swipeable } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { conversationDisplaySummary, conversationDisplayTitle } from '@/features/chat';
+import { brandColors, brandRgba, brandTypography } from '@/theme/brandRefresh';
 import { type Agent, type Conversation } from '@/types';
 
 interface Props {
@@ -78,7 +79,7 @@ function Header({ onBack }: { onBack: () => void }) {
         accessibilityRole="button"
         accessibilityLabel="Back to Agents"
       >
-        <ChevronLeft size={20} color="#FF6B35" />
+        <ChevronLeft size={20} color={brandColors.ink} />
         <Text style={s.backText}>Agents</Text>
       </TouchableOpacity>
     </View>
@@ -116,7 +117,7 @@ export function AgentDetail({
       <View style={[s.root, { paddingTop: insets.top }]}>
         <Header onBack={onBack} />
         <View style={s.centered}>
-          <ActivityIndicator size="large" color="#FF6B35" />
+          <ActivityIndicator size="large" color={brandColors.cyan} />
           <Text style={s.loadingText}>Loading...</Text>
         </View>
       </View>
@@ -164,7 +165,7 @@ export function AgentDetail({
         </View>
 
         <TouchableOpacity style={s.newChatBtn} onPress={onNewChat} accessibilityRole="button">
-          <Plus size={16} color="#FFFFFF" />
+          <Plus size={16} color={brandColors.white} />
           <Text style={s.newChatBtnText}>New Chat</Text>
         </TouchableOpacity>
 
@@ -211,7 +212,7 @@ export function AgentDetail({
                     </View>
                     <View style={s.chatMeta}>
                       <Text style={s.chatTime}>{relativeTime(conversation.last_message_at)}</Text>
-                      <ChevronRight size={13} color="#666666" />
+                      <ChevronRight size={13} color={brandColors.textSoft} />
                     </View>
                   </TouchableOpacity>
                 </Swipeable>
@@ -226,80 +227,99 @@ export function AgentDetail({
 }
 
 const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#0D0D0D' },
+  root: { flex: 1, backgroundColor: brandColors.cream },
   nav: {
     height: 44,
-    backgroundColor: '#0D0D0D',
+    backgroundColor: brandColors.cream,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
   },
   backLink: { flexDirection: 'row', alignItems: 'center', gap: 2 },
-  backText: { fontFamily: 'Inter', fontSize: 15, color: '#FF6B35' },
+  backText: { fontFamily: 'Inter', fontSize: 15, fontWeight: '700', color: brandColors.ink },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 16 },
-  loadingText: { fontFamily: 'Inter', fontSize: 13, color: '#888888' },
-  errorTitle: { fontFamily: 'Inter', fontSize: 22, fontWeight: '700', color: '#FF4444' },
+  loadingText: { fontFamily: 'Inter', fontSize: 13, color: brandColors.textSoft },
+  errorTitle: {
+    fontFamily: brandTypography.display,
+    fontSize: 22,
+    lineHeight: 27,
+    fontWeight: '700',
+    color: brandColors.error,
+  },
   backBtn: {
     borderWidth: 1,
-    borderColor: '#FF6B35',
+    borderColor: brandColors.coral,
     paddingHorizontal: 24,
     paddingVertical: 8,
     borderRadius: 10,
   },
-  backBtnText: { fontFamily: 'Inter', fontSize: 14, fontWeight: '600', color: '#FF6B35' },
+  backBtnText: { fontFamily: 'Inter', fontSize: 14, fontWeight: '600', color: brandColors.coral },
   scroll: { paddingBottom: 110 },
   hero: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 14, gap: 8 },
-  projectName: { fontFamily: 'Inter', fontSize: 34, fontWeight: '700', color: '#FFFFFF' },
+  projectName: {
+    fontFamily: brandTypography.display,
+    fontSize: 28,
+    lineHeight: 34,
+    fontWeight: '700',
+    color: brandColors.ink,
+  },
   workspacePath: {
     fontFamily: 'Inter',
     fontSize: 13,
     lineHeight: 18,
-    color: '#888888',
+    color: brandColors.textSoft,
   },
   statusPill: {
     alignSelf: 'flex-start',
     borderRadius: 8,
-    backgroundColor: '#1A1A1A',
+    backgroundColor: brandRgba.white88,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
     paddingHorizontal: 10,
     paddingVertical: 4,
   },
-  statusDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: '#555555' },
-  statusDotActive: { backgroundColor: '#4CAF50' },
-  statusDotFailed: { backgroundColor: '#FF4444' },
-  statusText: { fontFamily: 'Inter', fontSize: 12, color: '#888888' },
+  statusDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: brandColors.textMuted },
+  statusDotActive: { backgroundColor: brandColors.cyan },
+  statusDotFailed: { backgroundColor: brandColors.error },
+  statusText: { fontFamily: 'Inter', fontSize: 12, color: brandColors.textSoft },
   newChatBtn: {
     marginHorizontal: 16,
     height: 44,
-    backgroundColor: '#FF6B35',
+    backgroundColor: brandColors.ink,
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'row',
     gap: 6,
   },
-  newChatBtnText: { fontFamily: 'Inter', fontSize: 14, fontWeight: '600', color: '#FFFFFF' },
+  newChatBtnText: {
+    fontFamily: 'Inter',
+    fontSize: 14,
+    fontWeight: '700',
+    color: brandColors.white,
+  },
   sectionTitle: {
     height: 38,
     paddingHorizontal: 20,
     paddingTop: 14,
-    fontFamily: 'Inter',
+    fontFamily: brandTypography.display,
     fontSize: 20,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: brandColors.ink,
   },
   chatGroup: {
     marginHorizontal: 16,
     borderRadius: 12,
-    backgroundColor: '#1A1A1A',
+    backgroundColor: brandRgba.white88,
+    borderWidth: 1,
+    borderColor: brandColors.silver,
     overflow: 'hidden',
   },
   emptyRecentText: {
     fontFamily: 'Inter',
     fontSize: 13,
-    color: '#888888',
+    color: brandColors.textSoft,
     paddingHorizontal: 14,
     paddingVertical: 18,
   },
@@ -310,19 +330,19 @@ const s = StyleSheet.create({
     gap: 10,
     paddingHorizontal: 14,
   },
-  chatDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#1A1A1A' },
-  chatDotActive: { backgroundColor: '#FF6B35' },
+  chatDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: brandColors.textMuted },
+  chatDotActive: { backgroundColor: brandColors.coral },
   chatInfo: { flex: 1, gap: 3 },
-  chatTitle: { fontFamily: 'Inter', fontSize: 14, fontWeight: '600', color: '#FFFFFF' },
-  chatSummary: { fontFamily: 'Inter', fontSize: 12, color: '#888888' },
+  chatTitle: { fontFamily: 'Inter', fontSize: 15, fontWeight: '700', color: brandColors.ink },
+  chatSummary: { fontFamily: 'Inter', fontSize: 12, color: brandColors.textSoft },
   chatMeta: { alignItems: 'flex-end', gap: 4 },
-  chatTime: { fontFamily: 'Inter', fontSize: 12, color: '#555555' },
-  divider: { height: 1, backgroundColor: '#1E1E1E', marginLeft: 32 },
+  chatTime: { fontFamily: 'Inter', fontSize: 12, color: brandColors.textMuted },
+  divider: { height: 1, backgroundColor: brandRgba.silver78, marginLeft: 32 },
   deleteAction: {
     width: 80,
-    backgroundColor: '#1A1A1A',
+    backgroundColor: brandColors.white,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  deleteText: { fontFamily: 'Inter', fontSize: 13, fontWeight: '600', color: '#FF4444' },
+  deleteText: { fontFamily: 'Inter', fontSize: 13, fontWeight: '600', color: brandColors.error },
 });

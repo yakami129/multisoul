@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Mechanized constraint: mobile/ may only use the dark-modern palette.
+# Mechanized constraint: mobile/ may only use the MultiSoul brand palette.
 #
 # Trigger: any hex color in mobile/{src,app}/**/*.{ts,tsx} must appear in the
 # allowlist below. Comments (single-line // ...) are stripped before scanning
@@ -35,6 +35,12 @@ DDDDDD
 666666
 555555
 333333
+F6F3EC
+00E5FF
+FF5A3C
+C6FF00
+B7C9AE
+E6E6E8
 FF6B35
 FF6B3588
 FF6B3599

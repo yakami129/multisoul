@@ -39,23 +39,22 @@ describe('AgentList running breathing effects', () => {
     useChatStore.setState({ conversations: [], messages: {} });
   });
 
-  /// Active Now breathing: only the Active Now copy of a running Agent gets life chrome.
+  /// Running breathing: only running Agent Fleet rows get life chrome.
   ///
   /// Data construction:
   ///   agents = Alpha + Beta.
   ///   conversations = one running conversation for Alpha.
-  ///   Alpha renders twice: Active Now and All Agents.
   ///
   /// Execution:
   ///   1. Render AgentList with Alpha running.
   ///   2. Query running-agent-breath layers across the whole screen.
-  ///   3. Query Alpha labels to confirm the duplicate All Agents row still exists.
+  ///   3. Query Alpha labels to confirm the single Agent Fleet row remains visible.
   ///
   /// Expected:
-  ///   - Positive: exactly one breathing effect renders for Alpha's Active Now row.
-  ///   - Positive: Alpha still appears in All Agents.
-  ///   - Negative: the duplicated All Agents row does not also render breathing chrome.
-  it('renders breathing chrome only for the Active Now copy of a running agent', () => {
+  ///   - Positive: exactly one breathing effect renders for Alpha's running row.
+  ///   - Positive: Alpha still appears in Agent Fleet.
+  ///   - Negative: non-running Beta does not also render breathing chrome.
+  it('renders breathing chrome only for a running Agent Fleet row', () => {
     useChatStore.setState({
       conversations: [
         {
@@ -87,17 +86,17 @@ describe('AgentList running breathing effects', () => {
     expectEqualWithReason(
       getAllByTestId('running-agent-breath').length,
       1,
-      'only the Active Now row should render rich breathing chrome for a running agent',
+      'only the running row should render rich breathing chrome for a running agent',
     );
     expectEqualWithReason(
       getAllByText('Alpha').length,
-      2,
-      'running agents should still appear in both Active Now and All Agents sections',
+      1,
+      'running agents should still appear once in the Agent Fleet section',
     );
     expectEqualWithReason(
       getAllByTestId('project-row').length,
-      3,
-      'list should still render Alpha twice and Beta once; the effect must not remove rows',
+      2,
+      'list should still render Alpha and Beta; the effect must not remove rows',
     );
   });
 
@@ -143,7 +142,8 @@ describe('AgentList running breathing effects', () => {
       />,
     );
 
-    expect(getByText('Running · Awaiting answer')).toBeTruthy();
+    expect(getByText('Needs Decision')).toBeTruthy();
+    expect(getByText('Needs You')).toBeTruthy();
     expectEqualWithReason(
       getAllByText('1').length >= 1,
       true,

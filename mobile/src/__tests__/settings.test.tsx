@@ -33,7 +33,7 @@ jest.mock('../api/endpointClient', () => ({
 ///
 /// Expected:
 ///   - Positive: SETTINGS nav title visible
-///   - Positive: ENDPOINTS section label visible
+///   - Positive: Endpoints section label visible
 ///   - Positive: Seeded endpoint label visible
 ///   - Negative: DIAGNOSTICS section is absent because release logs open from Settings tab long-press
 ///   - Negative: Open logs button is absent because Settings no longer owns that interaction
@@ -71,8 +71,11 @@ describe('SettingsScreen', () => {
     render(<SettingsScreen />);
 
     expect(screen.getByText('Settings')).toBeTruthy();
-    expect(screen.getByText('ENDPOINTS')).toBeTruthy();
+    expect(screen.getByText('Endpoints')).toBeTruthy();
     expect(screen.getByText('Home Server')).toBeTruthy();
+    expect(screen.getByText('Preferences')).toBeTruthy();
+    expect(screen.getByText('Security')).toBeTruthy();
+    expect(screen.getByText('Scan setup QR')).toBeTruthy();
     expect(screen.queryByText('DIAGNOSTICS')).toBeNull();
     expect(screen.queryByText('Open logs')).toBeNull();
   });

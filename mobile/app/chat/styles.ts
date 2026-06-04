@@ -1,18 +1,19 @@
 import { StyleSheet } from 'react-native';
+import { brandColors, brandRgba } from '@/theme/brandRefresh';
 
 export const s = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#0D0D0D' },
+  safe: { flex: 1, backgroundColor: brandColors.cream },
   nav: {
     height: 56,
-    backgroundColor: '#0D0D0D',
+    backgroundColor: brandColors.cream,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#1E1E1E',
+    borderBottomColor: brandColors.silver,
   },
-  navTitle: { fontFamily: 'Inter', fontSize: 17, fontWeight: '700', color: '#FFFFFF' },
+  navTitle: { fontFamily: 'Inter', fontSize: 17, fontWeight: '800', color: brandColors.ink },
   navCenter: { flex: 1, alignItems: 'center', paddingHorizontal: 8 },
   statusBadge: {
     flexDirection: 'row',
@@ -21,7 +22,7 @@ export const s = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 8,
-    backgroundColor: '#1A1A1A',
+    backgroundColor: brandRgba.white88,
   },
   statusDot: { width: 6, height: 6, borderRadius: 3 },
   statusBadgeText: {
@@ -29,7 +30,7 @@ export const s = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
     letterSpacing: 0.5,
-    color: '#FFFFFF',
+    color: brandColors.ink,
   },
   scroll: { flex: 1 },
   scrollContent: { padding: 16, gap: 20 },
@@ -41,10 +42,10 @@ export const s = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   inputArea: {
-    backgroundColor: '#0D0D0D',
+    backgroundColor: brandColors.cream,
     paddingHorizontal: 20,
     paddingTop: 12,
     paddingBottom: 22,
   },
-  safeArea: { height: 0, backgroundColor: '#1A1A1A' },
+  safeArea: { height: 0, backgroundColor: brandColors.cream },
 });
