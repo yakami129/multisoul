@@ -1,23 +1,21 @@
-/// Unit tests for `interactive::AskUserQuestion::build_updated_input`.
-///
-/// These tests mirror the exact data flow from Mobile → WS handler → build_updated_input:
-///
-///   Mobile AskQuestionCard.handleConfirm(selectedId)
-///     where selectedId = option.id  (the id assigned by build_ask_payload, e.g. "0", "1")
-///
-///   WS handler parses:
-///     choice_id  = selectedId  (single-select)
-///     choice_ids = {"questionIdx": selectedId}  (multi-question or multi-select via sendAnswerMulti)
-///
-///   build_updated_input must resolve choice_id / choice_ids back to the
-///   original Claude option label and insert it into an answers map keyed by
-///   the original question text, as required by Claude Code.
-///
-/// The original_args below match what Claude Code actually emits in the
-/// control_request "input" field (camelCase options with "label"/"description" fields).
+// Unit tests for `interactive::AskUserQuestion::build_updated_input`.
+//
+// These tests mirror the exact data flow from Mobile → WS handler → build_updated_input:
+//
+//   Mobile AskQuestionCard.handleConfirm(selectedId)
+//     where selectedId = option.id  (the id assigned by build_ask_payload, e.g. "0", "1")
+//
+//   WS handler parses:
+//     choice_id  = selectedId  (single-select)
+//     choice_ids = {"questionIdx": selectedId}  (multi-question or multi-select via sendAnswerMulti)
+//
+//   build_updated_input must resolve choice_id / choice_ids back to the
+//   original Claude option label and insert it into an answers map keyed by
+//   the original question text, as required by Claude Code.
+//
+// The original_args below match what Claude Code actually emits in the
+// control_request "input" field (camelCase options with "label"/"description" fields).
 
-#[cfg(test)]
-mod tests {
     use crate::serve::interactive::{AskUserQuestion, AnswerPayload};
     use std::collections::HashMap;
 
@@ -415,4 +413,3 @@ mod tests {
              updatedInput = {updated_input}"
         );
     }
-}
