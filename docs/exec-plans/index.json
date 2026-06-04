@@ -4,7 +4,8 @@
   "documents": [
     {
       "file": "2026-06-04-chat-turn-folding-pagination-fix.md",
-      "title": "Chat Turn Folding And Pagination Fix Implementation Plan"
+      "title": "Chat Turn Folding And Pagination Fix Implementation Plan",
+      "lastCompletedCommit": "806522776a648c9df871f24472abdee08cda64d7"
     },
     {
       "file": "2026-06-04-chat-completed-transcript-folding.md",
