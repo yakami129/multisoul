@@ -4,7 +4,8 @@
   "documents": [
     {
       "file": "2026-06-04-chat-completed-transcript-folding.md",
-      "title": "Chat Completed Transcript Folding Implementation Plan"
+      "title": "Chat Completed Transcript Folding Implementation Plan",
+      "lastCompletedCommit": "ed92176aa12a23bd33e1c88d6daf445c55728133"
     },
     {
       "file": "2026-06-02-msctl-question-card-bottom-placement.md",
