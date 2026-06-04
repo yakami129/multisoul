@@ -1,22 +1,31 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { type FlatList, type NativeScrollEvent, type NativeSyntheticEvent } from 'react-native';
-import { getAskId, hasAskId } from '@/features/chat/utils/chatMessageWindows';
+import { getAskId } from '@/features/chat/utils/chatMessageWindows';
+import { type ChatTranscriptDisplayItem } from '@/features/chat/utils/chatRenderState';
 import { type WsMessage } from '@/types';
 import { BOTTOM_STICKY_THRESHOLD, TOP_LOAD_THRESHOLD } from './chatDetailLimits';
 
 type TranscriptScrollParams = {
   listRef: React.RefObject<FlatList<WsMessage> | null>;
   focus_ask_id: string | undefined;
-  transcriptMessages: WsMessage[];
+  transcriptItems: ChatTranscriptDisplayItem[];
   isAgentRunning: boolean;
   hasUserScrolledHistoryRef: React.MutableRefObject<boolean>;
   loadOlderMessages: () => Promise<void>;
 };
 
+function getDisplayItemAskId(item: ChatTranscriptDisplayItem): string | undefined {
+  return item.kind === 'message' ? getAskId(item.message) : undefined;
+}
+
+function hasDisplayItemAskId(items: ChatTranscriptDisplayItem[], askId: string): boolean {
+  return items.some((item) => getDisplayItemAskId(item) === askId);
+}
+
 export function useChatDetailTranscriptScroll({
   listRef,
   focus_ask_id,
-  transcriptMessages,
+  transcriptItems,
   isAgentRunning,
   hasUserScrolledHistoryRef,
   loadOlderMessages,
@@ -33,9 +42,9 @@ export function useChatDetailTranscriptScroll({
   }, []);
 
   const scrollToFocusedAsk = useCallback(
-    (items: WsMessage[]) => {
+    (items: ChatTranscriptDisplayItem[]) => {
       if (!focus_ask_id || lastScrolledFocusAskIdRef.current === focus_ask_id) return;
-      const index = items.findIndex((msg) => getAskId(msg) === focus_ask_id);
+      const index = items.findIndex((item) => getDisplayItemAskId(item) === focus_ask_id);
       if (index < 0 || !listRef.current) return;
       try {
         listRef.current.scrollToIndex({ index, animated: true, viewPosition: 0.1 });
@@ -48,8 +57,8 @@ export function useChatDetailTranscriptScroll({
   );
 
   useEffect(() => {
-    scrollToFocusedAsk(transcriptMessages);
-  }, [transcriptMessages, scrollToFocusedAsk]);
+    scrollToFocusedAsk(transcriptItems);
+  }, [transcriptItems, scrollToFocusedAsk]);
 
   useEffect(() => {
     if (!focus_ask_id) lastScrolledFocusAskIdRef.current = null;
@@ -73,9 +82,9 @@ export function useChatDetailTranscriptScroll({
   }
 
   function handleContentSizeChange() {
-    scrollToFocusedAsk(transcriptMessages);
-    if (focus_ask_id && hasAskId(transcriptMessages, focus_ask_id)) return;
-    const currentCount = transcriptMessages.length + (isAgentRunning ? 1 : 0);
+    scrollToFocusedAsk(transcriptItems);
+    if (focus_ask_id && hasDisplayItemAskId(transcriptItems, focus_ask_id)) return;
+    const currentCount = transcriptItems.length + (isAgentRunning ? 1 : 0);
     if (currentCount > prevMessageCountRef.current) {
       prevMessageCountRef.current = currentCount;
       if (isNearBottomRef.current) {
@@ -85,7 +94,7 @@ export function useChatDetailTranscriptScroll({
   }
 
   function handleScrollToIndexFailed(info: { index: number; averageItemLength: number }) {
-    if (!focus_ask_id || !hasAskId(transcriptMessages, focus_ask_id)) return;
+    if (!focus_ask_id || !hasDisplayItemAskId(transcriptItems, focus_ask_id)) return;
     lastScrolledFocusAskIdRef.current = null;
     clearRetryTimeout();
     listRef.current?.scrollToOffset({
@@ -94,7 +103,7 @@ export function useChatDetailTranscriptScroll({
     });
     retryTimeoutRef.current = setTimeout(() => {
       retryTimeoutRef.current = null;
-      scrollToFocusedAsk(transcriptMessages);
+      scrollToFocusedAsk(transcriptItems);
     }, 50);
   }
 

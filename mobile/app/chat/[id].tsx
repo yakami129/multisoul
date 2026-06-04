@@ -8,6 +8,7 @@ import CommandPopup, { type ComposerSheetMode } from '@/features/chat/components
 import { ModelSelector, useChatModelSelector } from '@/features/chat/components/ModelSelector';
 import { resolveUserMessageImageUri } from '@/features/chat/services/chatService';
 import {
+  buildCompletedTranscriptDisplayItems,
   getLatestAgentActivitySeq,
   getLatestAgentTextSeq,
 } from '@/features/chat/utils/chatRenderState';
@@ -82,6 +83,10 @@ export default function ChatDetailScreen() {
   });
 
   const conversationStatus = conversation?.status ?? 'idle';
+  const transcriptDisplayItems = React.useMemo(
+    () => buildCompletedTranscriptDisplayItems(transcriptMessages, conversationStatus),
+    [conversationStatus, transcriptMessages],
+  );
   const {
     isAwaitingResponse,
     incomingAgentActivitySeq,
@@ -113,7 +118,7 @@ export default function ChatDetailScreen() {
   } = useChatDetailTranscriptScroll({
     listRef,
     focus_ask_id,
-    transcriptMessages,
+    transcriptItems: transcriptDisplayItems,
     isAgentRunning,
     hasUserScrolledHistoryRef,
     loadOlderMessages,
@@ -214,6 +219,8 @@ export default function ChatDetailScreen() {
         <ChatTranscriptList
           listRef={listRef}
           messages={transcriptMessages}
+          displayItems={transcriptDisplayItems}
+          conversationStatus={conversationStatus}
           isLoadingOlder={isLoadingOlder}
           isAgentRunning={isAgentRunning}
           incomingAgentActivitySeq={incomingAgentActivitySeq}

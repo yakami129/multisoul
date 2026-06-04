@@ -1,5 +1,6 @@
-import type { WsMessage } from '@/types';
+import type { Conversation, WsMessage } from '@/types';
 import {
+  buildCompletedTranscriptDisplayItems,
   collapseTodoToolCallSnapshots,
   getLatestAgentActivitySeq,
   getLatestAgentTextSeq,
@@ -11,7 +12,11 @@ function assertEqual<T>(actual: T, expected: T, message: string) {
   expect(actual).toBe(expected);
 }
 
-function message(seq: number, role: WsMessage['role']): WsMessage {
+function message(
+  seq: number,
+  role: WsMessage['role'],
+  overrides: Partial<WsMessage> = {},
+): WsMessage {
   return {
     type: 'message',
     seq,
@@ -28,8 +33,15 @@ function message(seq: number, role: WsMessage['role']): WsMessage {
               : role === 'tool_call'
                 ? { tool: 'shell', args: '{}', call_id: 'call-1' }
                 : { call_id: 'call-1', ok: true, summary: 'ok' },
-    created_at: 0,
+    created_at: seq,
+    ...overrides,
   } as WsMessage;
+}
+
+function displaySeqs(items: ReturnType<typeof buildCompletedTranscriptDisplayItems>) {
+  return items.map((item) =>
+    item.kind === 'message' ? item.message.seq : item.messages.map((m) => m.seq),
+  );
 }
 
 test('agent activity includes non-text response messages', () => {
@@ -127,4 +139,168 @@ test('system_event messages render in chat transcript but do not count as agent 
     0,
     'system_event must not advance latest agent text sequence',
   );
+});
+
+test('completed transcript keeps final user and agent messages visible while folding prior work', () => {
+  const messages = [
+    message(1, 'user_text', { created_at: 1_700_000_000_000 }),
+    message(2, 'agent_text', { created_at: 1_700_000_005_000 }),
+    message(3, 'tool_call', { created_at: 1_700_000_010_000 }),
+    message(4, 'system_event', { created_at: 1_700_000_015_000 }),
+    message(5, 'ask_question', { answered: true, created_at: 1_700_000_020_000 }),
+    message(6, 'user_text', { created_at: 1_700_000_025_000 }),
+    message(7, 'agent_text', { created_at: 1_700_000_030_000 }),
+  ];
+
+  const items = buildCompletedTranscriptDisplayItems(messages, 'completed');
+
+  expect(displaySeqs(items)).toEqual([[1, 2, 3, 4, 5], 6, 7]);
+  expect(items[0]).toMatchObject({
+    kind: 'worked',
+    id: 'worked-1-5',
+    label: 'Worked for 20s',
+  });
+});
+
+test('completed transcript keeps unanswered questions visible and folds answered questions', () => {
+  const messages = [
+    message(1, 'user_text', { created_at: 1_700_000_000_000 }),
+    message(2, 'ask_question', { answered: true, created_at: 1_700_000_001_000 }),
+    message(3, 'tool_call', { created_at: 1_700_000_002_000 }),
+    message(4, 'ask_question', { answered: false, created_at: 1_700_000_003_000 }),
+    message(5, 'agent_text', { created_at: 1_700_000_004_000 }),
+  ];
+
+  expect(displaySeqs(buildCompletedTranscriptDisplayItems(messages, 'completed'))).toEqual([
+    1,
+    [2, 3],
+    4,
+    5,
+  ]);
+});
+
+test('completed transcript splits worked rows around visible unanswered questions', () => {
+  const messages = [
+    message(1, 'user_text', { created_at: 1_700_000_000_000 }),
+    message(2, 'tool_call', { created_at: 1_700_000_010_000 }),
+    message(3, 'ask_question', { answered: false, created_at: 1_700_000_020_000 }),
+    message(4, 'tool_call', { created_at: 1_700_000_030_000 }),
+    message(5, 'agent_text', { created_at: 1_700_000_040_000 }),
+  ];
+
+  expect(displaySeqs(buildCompletedTranscriptDisplayItems(messages, 'completed'))).toEqual([
+    1,
+    [2],
+    3,
+    [4],
+    5,
+  ]);
+});
+
+test('completed transcript keeps terminal folded status before the final assistant answer', () => {
+  const messages = [
+    message(1, 'user_text', { created_at: 1_700_000_000_000 }),
+    message(2, 'tool_call', { created_at: 1_700_000_010_000 }),
+    message(3, 'agent_text', { created_at: 1_700_000_020_000 }),
+    message(4, 'task_status', {
+      payload: {
+        task_id: 'task-1',
+        status: 'completed',
+        importance: 'normal',
+        summary: 'done',
+      },
+      created_at: 1_700_000_030_000,
+    }),
+  ];
+
+  expect(displaySeqs(buildCompletedTranscriptDisplayItems(messages, 'completed'))).toEqual([
+    1,
+    [2, 4],
+    3,
+  ]);
+});
+
+test('completed transcript keeps pending questions after final assistant when originally later', () => {
+  const messages = [
+    message(1, 'user_text', { created_at: 1_700_000_000_000 }),
+    message(2, 'tool_call', { created_at: 1_700_000_010_000 }),
+    message(3, 'agent_text', { created_at: 1_700_000_020_000 }),
+    message(4, 'ask_question', { answered: false, created_at: 1_700_000_030_000 }),
+    message(5, 'task_status', {
+      payload: {
+        task_id: 'task-1',
+        status: 'completed',
+        importance: 'normal',
+        summary: 'done',
+      },
+      created_at: 1_700_000_040_000,
+    }),
+  ];
+
+  expect(displaySeqs(buildCompletedTranscriptDisplayItems(messages, 'completed'))).toEqual([
+    1,
+    [2],
+    3,
+    4,
+    [5],
+  ]);
+});
+
+test('non-completed transcript statuses return renderable messages in original order', () => {
+  const messages = [
+    message(1, 'user_text'),
+    message(2, 'tool_call'),
+    message(3, 'tool_result'),
+    message(4, 'agent_text'),
+  ];
+  const statuses: Conversation['status'][] = ['idle', 'running', 'awaiting_question', 'failed'];
+
+  for (const status of statuses) {
+    expect(displaySeqs(buildCompletedTranscriptDisplayItems(messages, status))).toEqual([1, 2, 4]);
+  }
+});
+
+test('completed transcript omits robustly non-renderable tool result rows', () => {
+  const messages = [
+    message(1, 'tool_call'),
+    message(2, 'tool_result'),
+    message(3, 'user_text'),
+    message(4, 'agent_text'),
+  ];
+
+  expect(displaySeqs(buildCompletedTranscriptDisplayItems(messages, 'completed'))).toEqual([[1], 3, 4]);
+});
+
+test('worked duration label formats minutes and clamps sub-second ranges to one second', () => {
+  const minuteItems = buildCompletedTranscriptDisplayItems(
+    [
+      message(1, 'tool_call', { created_at: 0 }),
+      message(2, 'system_event', { created_at: 65_000 }),
+      message(3, 'user_text', { created_at: 70_000 }),
+      message(4, 'agent_text', { created_at: 75_000 }),
+    ],
+    'completed',
+  );
+  const subSecondItems = buildCompletedTranscriptDisplayItems(
+    [
+      message(1, 'tool_call', { created_at: 1000 }),
+      message(2, 'system_event', { created_at: 1000.25 }),
+      message(3, 'user_text', { created_at: 2000 }),
+      message(4, 'agent_text', { created_at: 3000 }),
+    ],
+    'completed',
+  );
+
+  expect(minuteItems[0]).toMatchObject({ kind: 'worked', label: 'Worked for 1m 5s' });
+  expect(subSecondItems[0]).toMatchObject({ kind: 'worked', label: 'Worked for 1s' });
+});
+
+test('completed transcript without folded messages has no worked row', () => {
+  const messages = [message(1, 'user_text'), message(2, 'agent_text'), message(3, 'ask_question')];
+
+  expect(buildCompletedTranscriptDisplayItems(messages, 'completed')).toEqual([
+    { kind: 'message', message: messages[0] },
+    { kind: 'message', message: messages[1] },
+    { kind: 'message', message: messages[2] },
+  ]);
 });

@@ -3,6 +3,7 @@ import React from 'react';
 import { FlatList } from 'react-native';
 import { fetchAgent } from '@/features/agents';
 import { fetchMessages, fetchRuntimeModels } from '@/features/chat/services/chatService';
+import { type ChatTranscriptDisplayItem } from '@/features/chat/utils/chatRenderState';
 import { useWebSocket } from '@/hooks/useWebSocket';
 import { useChatStore } from '@/store/chatStore';
 import { useEndpointStore } from '@/store/endpointStore';
@@ -28,9 +29,7 @@ jest.mock('@/hooks/useWebSocket', () => ({
   })),
 }));
 
-jest.mock('@/features/agents', () => ({
-  fetchAgent: jest.fn(),
-}));
+jest.mock('@/features/agents', () => ({ fetchAgent: jest.fn() }));
 
 jest.mock('@/features/chat/services/chatService', () => ({
   fetchMessages: jest.fn(),
@@ -54,9 +53,8 @@ jest.mock('@/features/chat/components/MessageBubble', () => ({
   },
 }));
 
-function expectEqualWithReason<T>(actual: T, expected: T, reason: string) {
+const expectEqualWithReason = <T,>(actual: T, expected: T, reason: string) =>
   expect({ actual, reason }).toEqual({ actual: expected, reason: expect.any(String) });
-}
 
 function agentText(seq: number, text: string): WsMessage {
   return {
@@ -101,6 +99,8 @@ function expectScrollToIndexCall(
     reason,
   );
 }
+
+const displaySeqs = (data: ChatTranscriptDisplayItem[]) => data.map((item) => (item.kind === 'message' ? item.message.seq : item.messages[0]?.seq));
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -188,22 +188,23 @@ test('displays loaded msctl ask_question cards at the bottom of Chat Detail Flat
   });
 
   await waitFor(() => {
-    const data = UNSAFE_getByType(FlatList).props.data as WsMessage[];
+    const data = UNSAFE_getByType(FlatList).props.data as ChatTranscriptDisplayItem[];
     expectEqualWithReason(
-      data.map((message) => message.seq),
+      displaySeqs(data),
       [1, 3, 4, 2],
       'Chat Detail FlatList data should append loaded msctl ask cards after regular rows',
     );
   });
 
-  const data = UNSAFE_getByType(FlatList).props.data as WsMessage[];
+  const data = UNSAFE_getByType(FlatList).props.data as ChatTranscriptDisplayItem[];
+  const seqs = displaySeqs(data);
   expectEqualWithReason(
-    data.findIndex((message) => message.seq === 3) < data.findIndex((message) => message.seq === 4),
+    seqs.findIndex((seq) => seq === 3) < seqs.findIndex((seq) => seq === 4),
     true,
     'ordinary ask_question without response_mode must remain before the later agent_text row',
   );
   expectEqualWithReason(
-    data[1]?.seq === 2,
+    seqs[1] === 2,
     false,
     'msctl ask_question must not remain at original display index 1',
   );
@@ -253,9 +254,9 @@ test('scrolls focus_ask_id to displayed msctl ask_question index after bottom pl
     const { UNSAFE_getByType } = render(<ChatDetailScreen />);
 
     await waitFor(() => {
-      const data = UNSAFE_getByType(FlatList).props.data as WsMessage[];
+      const data = UNSAFE_getByType(FlatList).props.data as ChatTranscriptDisplayItem[];
       expectEqualWithReason(
-        data.map((message) => message.seq),
+        displaySeqs(data),
         [1, 3, 2],
         'focus_ask_id regression requires displayed FlatList order after msctl bottom placement',
       );
@@ -338,9 +339,9 @@ test('scrolls to a new focus_ask_id when the same mounted Chat Detail screen rer
     const { UNSAFE_getByType, rerender } = render(<ChatDetailScreen />);
 
     await waitFor(() => {
-      const data = UNSAFE_getByType(FlatList).props.data as WsMessage[];
+      const data = UNSAFE_getByType(FlatList).props.data as ChatTranscriptDisplayItem[];
       expectEqualWithReason(
-        data.map((message) => message.seq),
+        displaySeqs(data),
         [1, 4, 2, 3],
         'reroute regression requires the two msctl ask cards to have distinct displayed indexes',
       );
@@ -437,9 +438,9 @@ test('does not run stale failed-scroll retry after focus_ask_id reroutes', async
     const { UNSAFE_getByType, rerender } = render(<ChatDetailScreen />);
 
     await waitFor(() => {
-      const data = UNSAFE_getByType(FlatList).props.data as WsMessage[];
+      const data = UNSAFE_getByType(FlatList).props.data as ChatTranscriptDisplayItem[];
       expectEqualWithReason(
-        data.map((message) => message.seq),
+        displaySeqs(data),
         [1, 4, 2, 3],
         'stale retry regression requires ask-one and ask-two to have displayed indexes 2 and 3',
       );

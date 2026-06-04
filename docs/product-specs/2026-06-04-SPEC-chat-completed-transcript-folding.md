@@ -11,12 +11,12 @@ Chat Detail 目前会展示完整 agent 执行过程，包括工具调用、过�
 ### In Scope
 
 - Chat Detail 中 completed 会话的 transcript 默认折叠展示。
-- 折叠入口显示为紧凑行，例如 `过程 12 条`。
+- 折叠入口显示为无边框的轻量元信息行，例如 `Worked for 20s`。
 - 点击折叠入口后，在原位置内联展开过程消息。
 - 再次点击后收起。
 - 已回答的问答卡片纳入过程折叠。
 - 待回答的问答卡片保留在主视图。
-- 计数只基于当前已加载消息窗口。
+- 折叠入口时长只基于当前已加载消息窗口可推导出的运行时长。
 
 ### Out of Scope
 
@@ -35,11 +35,13 @@ Chat Detail 目前会展示完整 agent 执行过程，包括工具调用、过�
 当会话状态为 `completed` 时，Chat Detail 默认展示：
 
 1. 最后一条用户消息。
-2. 一条紧凑过程入口，显示当前已加载窗口内被折叠的过程数量。
+2. 一条无边框的轻量元信息入口，例如 `Worked for 20s`。
 3. 最后一条助手消息。
 4. 尚未回答的问答卡片，如果当前已加载窗口内存在。
 
-用户点击 `过程 N 条` 后，被折叠消息在该入口原位置展开。展开内容使用现有消息组件渲染，不引入新的过程详情页或 bottom sheet。
+折叠入口不使用卡片、描边容器或分组外框。它应像 transcript 中的轻量状态文字：小字号、低强调、可点击，右侧或文本后带展开/收起 chevron。
+
+用户点击 `Worked for 20s` 后，被折叠消息在该入口原位置展开。展开内容使用现有 Chat transcript 的原始 item 样式渲染：工具调用仍是工具调用行，过程回复仍是普通 assistant bubble，已回答问答仍是原来的问答卡片展示。展开区域不得添加额外外层边框或分组容器。
 
 展开状态仅属于当前页面 UI 状态。离开页面后再次进入，completed 会话仍默认收起。
 
@@ -66,11 +68,13 @@ Chat Detail 目前会展示完整 agent 执行过程，包括工具调用、过�
 
 如果当前已加载窗口内没有可折叠过程消息，则不展示折叠入口。
 
-## 5. 计数口径
+## 5. 时长口径
 
-`过程 N 条` 的 `N` 只统计当前已加载窗口中被折叠的消息数量。
+折叠入口文案使用 `Worked for <duration>`，例如 `Worked for 20s`、`Worked for 2m 10s`。
 
-如果用户向上滚动加载更多历史，新增进入窗口的消息可重新参与折叠计算。实现不需要为了让 `N` 表示全会话精确总数而额外请求历史。
+时长只基于当前已加载窗口中可折叠过程消息的 `created_at` 推导。`created_at` 来自服务端毫秒级时间戳，计算时应先把毫秒差值转换为秒。建议使用被折叠消息的最早和最晚 `created_at` 差值；当差值不可用或小于 1 秒时，显示 `Worked for <1s` 或 `Worked for 1s`，以实现时更符合现有格式化工具为准。
+
+如果用户向上滚动加载更多历史，新增进入窗口的消息可重新参与折叠和时长计算。实现不需要为了让时长表示全会话精确运行时间而额外请求历史。
 
 这个口径优先保证 Chat Detail 打开速度和实现边界，不把折叠能力耦合到历史全量加载。
 
@@ -82,19 +86,22 @@ Chat Detail 目前会展示完整 agent 执行过程，包括工具调用、过�
 - `mobile/app/chat/useChatDetailHistory.ts` 继续负责生成基础 `transcriptMessages`。
 - `mobile/app/chat/ChatTranscriptList.tsx` 接收 conversation status，并渲染普通消息或折叠组。
 - 新增折叠入口组件时遵守 `mobile/docs/design.md` 的颜色白名单和间距规则。
+- 折叠入口不得使用边框、卡片背景或外层分组容器；展开后复用原有 `MessageBubble` / `ToolCallRow` 等 transcript item 渲染。
 
 不得改动消息存储结构。不得通过隐藏消息来改变 `chatStore` 中的原始消息数组。
 
 ## 7. 验收标准
 
-- [ ] completed 会话默认只展示最后用户消息、`过程 N 条`、最后助手消息，以及未回答问答卡片。
+- [ ] completed 会话默认只展示最后用户消息、`Worked for <duration>`、最后助手消息，以及未回答问答卡片。
 - [ ] running 会话不自动折叠，仍显示完整过程。
 - [ ] awaiting_question 会话不自动折叠，待回答问答卡片保持可见可操作。
 - [ ] failed 会话不自动折叠，错误排查过程保持可见。
 - [ ] 已回答问答卡片在 completed 会话中进入过程折叠组。
 - [ ] 未回答问答卡片在 completed 会话中保留在主视图。
-- [ ] `过程 N 条` 的 N 只统计当前已加载窗口内被折叠的可渲染消息。
+- [ ] `Worked for <duration>` 的时长只基于当前已加载窗口内被折叠消息的 `created_at` 推导。
+- [ ] 折叠入口无边框、无卡片背景、无外层分组容器。
 - [ ] 点击过程入口后，折叠消息在原位置内联展开。
+- [ ] 展开后的过程消息保留原 Chat transcript item 样式，不被新的边框容器包裹。
 - [ ] 再次点击过程入口后，折叠消息收起。
 - [ ] 没有可折叠过程消息时，不显示过程入口。
 - [ ] 原有 `tool_result` 行不单独占位，仍由对应 `tool_call` 行内展示。
@@ -107,9 +114,10 @@ Chat Detail 目前会展示完整 agent 执行过程，包括工具调用、过�
   - completed 状态下保留最后用户消息和最后助手消息。
   - completed 状态下折叠更早消息、工具调用、已回答问答。
   - pending 问答卡片不被折叠。
+  - `Worked for <duration>` 基于折叠消息 `created_at` 生成。
   - running / awaiting_question / failed 状态返回原始可渲染 transcript。
 - `ChatTranscriptList` 渲染行为：
-  - 默认显示紧凑过程入口。
+  - 默认显示无边框 `Worked for <duration>` 入口。
   - 点击入口内联展开。
   - 再次点击入口收起。
   - `tool_resultMessages` 仍能传入 `ToolCallRow`。

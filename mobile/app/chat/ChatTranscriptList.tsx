@@ -2,21 +2,35 @@ import React from 'react';
 import {
   ActivityIndicator,
   FlatList,
+  Pressable,
+  Text,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
   View,
 } from 'react-native';
+import { ChevronDown, ChevronUp } from 'lucide-react-native';
 import { WAITING_MESSAGE } from '@/features/chat/chatDetailConstants';
 import { MessageBubble } from '@/features/chat/components/MessageBubble';
 import { ToolCallRow } from '@/features/chat/components/ToolCallRow';
 import { getAskId } from '@/features/chat/utils/chatMessageWindows';
+import {
+  buildCompletedTranscriptDisplayItems,
+  type ChatTranscriptDisplayItem,
+} from '@/features/chat/utils/chatRenderState';
 import { brandColors } from '@/theme/brandRefresh';
-import { type ToolCallPayload, type ToolResultPayload, type WsMessage } from '@/types';
+import {
+  type Conversation,
+  type ToolCallPayload,
+  type ToolResultPayload,
+  type WsMessage,
+} from '@/types';
 import { s } from './styles';
 
 interface Props {
   listRef: React.RefObject<FlatList<WsMessage> | null>;
   messages: WsMessage[];
+  displayItems?: ChatTranscriptDisplayItem[];
+  conversationStatus: Conversation['status'];
   isLoadingOlder: boolean;
   isAgentRunning: boolean;
   incomingAgentActivitySeq: number | null;
@@ -37,6 +51,8 @@ interface Props {
 export default function ChatTranscriptList({
   listRef,
   messages,
+  displayItems: providedDisplayItems,
+  conversationStatus,
   isLoadingOlder,
   isAgentRunning,
   incomingAgentActivitySeq,
@@ -53,6 +69,7 @@ export default function ChatTranscriptList({
   onContentSizeChange,
   onScrollToIndexFailed,
 }: Props) {
+  const [expandedWorkedIds, setExpandedWorkedIds] = React.useState<Set<string>>(() => new Set());
   const toolResultsByCallId = React.useMemo(() => {
     const results = new Map<string, ToolResultPayload>();
     for (const message of toolResultMessages ?? messages) {
@@ -63,7 +80,22 @@ export default function ChatTranscriptList({
     return results;
   }, [messages, toolResultMessages]);
 
-  const renderMessage = ({ item: msg }: { item: WsMessage }) => {
+  const computedDisplayItems = React.useMemo(
+    () => buildCompletedTranscriptDisplayItems(messages, conversationStatus),
+    [conversationStatus, messages],
+  );
+  const displayItems = providedDisplayItems ?? computedDisplayItems;
+
+  const toggleWorkedItem = React.useCallback((id: string) => {
+    setExpandedWorkedIds((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const renderMessage = (msg: WsMessage) => {
     const askId = getAskId(msg);
     if (msg.role === 'tool_call') {
       const call = msg.payload as ToolCallPayload;
@@ -90,6 +122,38 @@ export default function ChatTranscriptList({
     );
   };
 
+  const renderDisplayItem = ({ item }: { item: ChatTranscriptDisplayItem }) => {
+    if (item.kind === 'message') return renderMessage(item.message);
+
+    const expanded = expandedWorkedIds.has(item.id);
+    return (
+      <View>
+        <Pressable
+          testID="worked-row"
+          accessibilityRole="button"
+          accessibilityLabel={item.label}
+          accessibilityState={{ expanded }}
+          style={s.workedRow}
+          onPress={() => toggleWorkedItem(item.id)}
+        >
+          <Text style={s.workedText}>{item.label}</Text>
+          {expanded ? (
+            <ChevronUp size={16} color={brandColors.textSoft} />
+          ) : (
+            <ChevronDown size={16} color={brandColors.textSoft} />
+          )}
+        </Pressable>
+        {expanded ? (
+          <View style={s.workedExpandedItems}>
+            {item.messages.map((message) => (
+              <View key={message.seq}>{renderMessage(message)}</View>
+            ))}
+          </View>
+        ) : null}
+      </View>
+    );
+  };
+
   const renderOlderLoading = () =>
     isLoadingOlder ? (
       <View testID="older-messages-loading" style={s.olderMessagesLoading}>
@@ -99,12 +163,12 @@ export default function ChatTranscriptList({
 
   return (
     <FlatList
-      ref={listRef}
+      ref={listRef as React.RefObject<FlatList<ChatTranscriptDisplayItem> | null>}
       style={s.scroll}
       contentContainerStyle={s.scrollContent}
-      data={messages}
-      keyExtractor={(msg) => `${msg.seq}`}
-      renderItem={renderMessage}
+      data={displayItems}
+      keyExtractor={(item) => (item.kind === 'message' ? `${item.message.seq}` : item.id)}
+      renderItem={renderDisplayItem}
       ListHeaderComponent={isLoadingOlder ? renderOlderLoading : null}
       ListFooterComponent={
         isAgentRunning && incomingAgentActivitySeq === null ? (

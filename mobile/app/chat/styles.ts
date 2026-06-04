@@ -41,6 +41,23 @@ export const s = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: 'transparent',
   },
+  workedRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    alignSelf: 'flex-start',
+    paddingVertical: 2,
+    paddingHorizontal: 0,
+  },
+  workedText: {
+    fontFamily: 'Inter',
+    fontSize: 13,
+    color: brandColors.textSoft,
+  },
+  workedExpandedItems: {
+    gap: 20,
+    marginTop: 16,
+  },
   inputArea: {
     backgroundColor: brandColors.cream,
     paddingHorizontal: 20,
