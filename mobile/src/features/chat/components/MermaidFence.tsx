@@ -1,5 +1,6 @@
 import React from 'react';
 import { Text, View } from 'react-native';
+import { brandColors } from '@/theme/brandRefresh';
 import { MermaidBlock } from './MermaidBlock';
 import { MermaidFullscreen } from './MermaidFullscreen';
 
@@ -20,7 +21,7 @@ export function MermaidFence({ code }: { code: string }) {
 export function MermaidFenceLoading() {
   return (
     <View testID="mermaid-loading" style={{ marginVertical: 6 }}>
-      <Text style={{ fontFamily: 'Inter', fontSize: 12, color: '#888888' }}>
+      <Text style={{ fontFamily: 'Inter', fontSize: 12, color: brandColors.textMuted }}>
         Rendering diagram...
       </Text>
     </View>

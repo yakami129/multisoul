@@ -2,6 +2,7 @@ import { X } from 'lucide-react-native';
 import React, { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Easing, View, Text, StyleSheet, Image, Modal, Pressable } from 'react-native';
 import { recordDiagnosticsEvent } from '@/services/diagnosticsLog';
+import { brandColors, brandRgba } from '@/theme/brandRefresh';
 import {
   type WsMessage,
   type AskQuestionPayload,
@@ -179,7 +180,6 @@ export const MessageBubble = memo(function MessageBubble({
     return () => clearInterval(timer);
   }, [agentText, agentUnits, agentUnitCount, forceComplete, msg.role, msg.seq, typewriter]);
 
-  // Track previous typewriter value for transition detection
   useEffect(() => {
     prevTypewriterRef.current = typewriter;
   });
@@ -278,7 +278,7 @@ export const MessageBubble = memo(function MessageBubble({
                   style={s.fullscreenClose}
                   onPress={() => setPreviewVisible(false)}
                 >
-                  <X size={18} color="#FFFFFF" />
+                  <X size={18} color={brandColors.white} />
                 </Pressable>
                 <Image
                   source={{ uri: imageUri }}
@@ -322,9 +322,6 @@ export const MessageBubble = memo(function MessageBubble({
     }
 
     case 'agent_text': {
-      // forceComplete bypasses typewriter even if typewriter prop is still true.
-      // This handles the case when a tool_call arrives or conversation completes
-      // mid-typewriter — the parent computes this synchronously (no setState race).
       const isStreaming = typewriter && !forceComplete && visibleUnits < agentUnitCount;
       const displayedText = isStreaming ? `${joinUnits(agentUnits, visibleUnits)}▌` : agentText;
 
@@ -429,18 +426,18 @@ const s = StyleSheet.create({
   aiWrap: { width: '100%', alignItems: 'flex-start' },
   userBubble: {
     maxWidth: 312,
-    backgroundColor: 'rgba(0, 229, 255, 0.28)',
+    backgroundColor: brandRgba.cyanWash,
     borderWidth: 1,
-    borderColor: 'rgba(0, 229, 255, 0.42)',
+    borderColor: brandColors.cyan,
     borderRadius: 20,
     paddingHorizontal: 18,
     paddingVertical: 14,
   },
   aiBubble: {
     width: '100%',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: brandColors.white,
     borderWidth: 1,
-    borderColor: '#E6E6E8',
+    borderColor: brandColors.silver,
     borderRadius: 20,
     paddingHorizontal: 16,
     paddingVertical: 14,
@@ -456,17 +453,17 @@ const s = StyleSheet.create({
   analyzingText: {
     fontFamily: 'Inter',
     fontSize: 11,
-    color: '#888888',
+    color: brandColors.textMuted,
     letterSpacing: 0.5,
     marginTop: 4,
   },
-  dot: { width: 7, height: 7, borderRadius: 4, backgroundColor: '#888888' },
-  userText: { fontFamily: 'Inter', fontSize: 15, color: '#0D0D0D', lineHeight: 22 },
-  aiText: { fontFamily: 'Inter', fontSize: 15, color: '#0D0D0D', lineHeight: 22 },
+  dot: { width: 7, height: 7, borderRadius: 4, backgroundColor: brandColors.textMuted },
+  userText: { fontFamily: 'Inter', fontSize: 15, color: brandColors.ink, lineHeight: 22 },
+  aiText: { fontFamily: 'Inter', fontSize: 15, color: brandColors.ink, lineHeight: 22 },
   thumbImage: { width: 120, height: 120, borderRadius: 8, marginBottom: 4 },
-  attachmentPlaceholder: { fontFamily: 'Inter', fontSize: 12, color: '#0D0D0D', marginBottom: 4 },
+  attachmentPlaceholder: { fontFamily: 'Inter', fontSize: 12, color: brandColors.ink, marginBottom: 4 },
   imageCaption: { marginTop: 4 },
-  enlargeHint: { fontFamily: 'Inter', fontSize: 10, color: 'rgba(13,13,13,0.55)', marginTop: 4 },
+  enlargeHint: { fontFamily: 'Inter', fontSize: 10, color: brandColors.textSoft, marginTop: 4 },
   fullscreenClose: {
     position: 'absolute',
     top: 56,
@@ -474,15 +471,15 @@ const s = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#1A1A1A',
+    backgroundColor: brandColors.darkPanel,
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 10,
   },
-  previewFilename: { fontFamily: 'Inter', fontSize: 11, color: '#888888', marginTop: 12 },
+  previewFilename: { fontFamily: 'Inter', fontSize: 11, color: brandColors.silver, marginTop: 12 },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.92)',
+    backgroundColor: brandRgba.ink72,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -491,8 +488,10 @@ const s = StyleSheet.create({
   systemEventText: {
     fontFamily: 'Inter',
     fontSize: 12,
-    color: '#888888',
-    backgroundColor: '#252525',
+    color: brandColors.textSoft,
+    backgroundColor: brandRgba.white70,
+    borderWidth: 1,
+    borderColor: brandColors.silver,
     borderRadius: 8,
     paddingHorizontal: 10,
     paddingVertical: 5,

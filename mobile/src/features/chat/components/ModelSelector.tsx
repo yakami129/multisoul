@@ -5,6 +5,7 @@ import { Alert, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { fetchAgent } from '@/features/agents';
 import { fetchRuntimeModels, switchConversationModel } from '@/features/chat/services/chatService';
 import { recordDiagnosticsEvent } from '@/services/diagnosticsLog';
+import { brandColors, brandRgba } from '@/theme/brandRefresh';
 import type { Conversation, Endpoint, RuntimeModel } from '@/types';
 
 const MODEL_SWITCH_ACK_KEY = 'multisoul:model-switch-warning-seen';
@@ -212,7 +213,7 @@ export function ModelSelector({
           <View style={s.header}>
             <Text style={s.title}>Model</Text>
             <Pressable testID="model-selector-close" style={s.closeButton} onPress={onClose}>
-              <X size={18} color="#FFFFFF" />
+              <X size={18} color={brandColors.ink} />
             </Pressable>
           </View>
           {disabled ? <Text style={s.helper}>Available when idle</Text> : null}
@@ -236,7 +237,7 @@ export function ModelSelector({
                     </Text>
                     {!model.available ? <Text style={s.meta}>Unavailable</Text> : null}
                   </View>
-                  {selected ? <Check size={18} color="#4CAF50" /> : null}
+                  {selected ? <Check size={18} color={brandColors.ink} /> : null}
                 </Pressable>
               );
             })}
@@ -251,41 +252,47 @@ const s = StyleSheet.create({
   overlay: {
     flex: 1,
     justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0,0,0,0.55)',
+    backgroundColor: brandRgba.ink72,
   },
   sheet: {
-    backgroundColor: '#161616',
+    backgroundColor: brandColors.cream,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     padding: 16,
     gap: 12,
+    borderTopWidth: 1,
+    borderTopColor: brandColors.silver,
   },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  title: { fontFamily: 'Inter', fontSize: 17, fontWeight: '700', color: '#FFFFFF' },
+  title: { fontFamily: 'Inter', fontSize: 17, fontWeight: '700', color: brandColors.ink },
   closeButton: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#252525',
+    backgroundColor: brandRgba.ink08,
+    borderWidth: 1,
+    borderColor: brandColors.silver,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  helper: { fontFamily: 'Inter', fontSize: 13, color: '#888888' },
+  helper: { fontFamily: 'Inter', fontSize: 13, color: brandColors.textMuted },
   list: { gap: 8 },
   row: {
     minHeight: 48,
     borderRadius: 8,
-    backgroundColor: '#1A1A1A',
+    backgroundColor: brandRgba.white88,
+    borderWidth: 1,
+    borderColor: brandColors.silver,
     paddingHorizontal: 12,
     paddingVertical: 10,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  rowSelected: { borderWidth: 1, borderColor: '#4CAF50', backgroundColor: '#1F2A1F' },
+  rowSelected: { borderColor: brandColors.lime, backgroundColor: brandRgba.limeSoft },
   rowDisabled: { opacity: 0.45 },
   rowCopy: { flex: 1 },
-  label: { fontFamily: 'Inter', fontSize: 15, fontWeight: '600', color: '#FFFFFF' },
-  labelDisabled: { color: '#666666' },
-  meta: { marginTop: 2, fontFamily: 'Inter', fontSize: 12, color: '#888888' },
+  label: { fontFamily: 'Inter', fontSize: 15, fontWeight: '600', color: brandColors.ink },
+  labelDisabled: { color: brandColors.textDisabled },
+  meta: { marginTop: 2, fontFamily: 'Inter', fontSize: 12, color: brandColors.textMuted },
 });

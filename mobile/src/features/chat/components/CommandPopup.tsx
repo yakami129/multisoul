@@ -12,6 +12,7 @@ import {
   View,
   useWindowDimensions,
 } from 'react-native';
+import { brandColors, brandRgba } from '@/theme/brandRefresh';
 import { COMMANDS } from '../commands';
 
 export type ComposerSheetMode = 'actions' | 'commands';
@@ -90,7 +91,7 @@ export default function CommandPopup({
             style={s.closeButton}
             onPress={onDismiss}
           >
-            <X size={16} color="#DDDDDD" />
+            <X size={16} color={brandColors.ink} />
           </TouchableOpacity>
         </View>
 
@@ -103,13 +104,13 @@ export default function CommandPopup({
             onPress={onPickImage}
           >
             <View style={s.actionIcon}>
-              <ImagePlus size={18} color="#FF6B35" />
+              <ImagePlus size={18} color={brandColors.coral} />
             </View>
             <View style={s.actionCopy}>
               <Text style={s.actionTitle}>Upload Image</Text>
               <Text style={s.actionSubtitle}>Attach an image to the next message</Text>
             </View>
-            <ChevronRight size={18} color="#555555" />
+            <ChevronRight size={18} color={brandColors.textSoft} />
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -120,13 +121,13 @@ export default function CommandPopup({
             onPress={() => onModeChange('commands')}
           >
             <View style={s.actionIcon}>
-              <Terminal size={18} color="#FF6B35" />
+              <Terminal size={18} color={brandColors.coral} />
             </View>
             <View style={s.actionCopy}>
               <Text style={s.actionTitle}>Commands</Text>
               <Text style={s.actionSubtitle}>Insert a slash command</Text>
             </View>
-            <ChevronRight size={18} color="#555555" />
+            <ChevronRight size={18} color={brandColors.textSoft} />
           </TouchableOpacity>
         </View>
       </>
@@ -144,7 +145,7 @@ export default function CommandPopup({
             style={s.closeButton}
             onPress={() => onModeChange('actions')}
           >
-            <ChevronLeft size={18} color="#DDDDDD" />
+            <ChevronLeft size={18} color={brandColors.ink} />
           </TouchableOpacity>
           <View style={s.commandTitleBlock}>
             <Text style={s.title}>Commands</Text>
@@ -157,18 +158,18 @@ export default function CommandPopup({
             style={s.closeButton}
             onPress={onDismiss}
           >
-            <X size={16} color="#DDDDDD" />
+            <X size={16} color={brandColors.ink} />
           </TouchableOpacity>
         </View>
 
         <View style={s.filterRow}>
-          <Search size={16} color="#666666" />
+          <Search size={16} color={brandColors.textDisabled} />
           <TextInput
             testID="command-search-input"
             style={s.filterInput}
             accessibilityLabel="Search commands"
             placeholder="Search commands..."
-            placeholderTextColor="#666666"
+            placeholderTextColor={brandColors.textDisabled}
             value={query}
             onChangeText={setQuery}
             autoCorrect={false}
@@ -199,7 +200,7 @@ export default function CommandPopup({
                 </View>
                 <Text style={s.itemDesc}>{cmd.description}</Text>
                 <View testID={`command-chevron-${cmd.id}`} style={s.chevron}>
-                  <ChevronRight size={14} color="#555555" />
+                  <ChevronRight size={14} color={brandColors.textSoft} />
                 </View>
               </TouchableOpacity>
             ))
@@ -241,14 +242,14 @@ const s = StyleSheet.create({
   },
   backdropVisual: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.55)',
+    backgroundColor: brandRgba.ink72,
   },
   panel: {
-    backgroundColor: '#161616',
+    backgroundColor: brandColors.cream,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     borderTopWidth: 1,
-    borderTopColor: '#2A2A2A',
+    borderTopColor: brandColors.silver,
     paddingTop: 12,
     paddingHorizontal: 16,
     paddingBottom: 34,
@@ -260,7 +261,7 @@ const s = StyleSheet.create({
     width: 42,
     height: 4,
     borderRadius: 999,
-    backgroundColor: '#333333',
+    backgroundColor: brandRgba.ink18,
     marginBottom: 2,
   },
   header: {
@@ -275,18 +276,20 @@ const s = StyleSheet.create({
     fontFamily: 'Inter',
     fontSize: 17,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: brandColors.ink,
   },
   subtitle: {
     fontFamily: 'Inter',
     fontSize: 12,
-    color: '#888888',
+    color: brandColors.textMuted,
   },
   closeButton: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#252525',
+    backgroundColor: brandRgba.ink08,
+    borderWidth: 1,
+    borderColor: brandColors.silver,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -296,9 +299,9 @@ const s = StyleSheet.create({
   actionRow: {
     minHeight: 58,
     borderRadius: 14,
-    backgroundColor: '#1A1A1A',
+    backgroundColor: brandRgba.white88,
     borderWidth: 1,
-    borderColor: '#333333',
+    borderColor: brandColors.silver,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
@@ -308,7 +311,7 @@ const s = StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: 17,
-    backgroundColor: '#252525',
+    backgroundColor: brandRgba.coralSoft,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -317,21 +320,21 @@ const s = StyleSheet.create({
     fontFamily: 'Inter',
     fontSize: 15,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: brandColors.ink,
   },
   actionSubtitle: {
     fontFamily: 'Inter',
     fontSize: 12,
-    color: '#888888',
+    color: brandColors.textMuted,
   },
   filterRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: '#1A1A1A',
+    backgroundColor: brandRgba.white88,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#333333',
+    borderColor: brandColors.silver,
     paddingHorizontal: 14,
     minHeight: 44,
   },
@@ -341,7 +344,7 @@ const s = StyleSheet.create({
     margin: 0,
     fontFamily: 'Inter',
     fontSize: 15,
-    color: '#FFFFFF',
+    color: brandColors.ink,
   },
   list: { maxHeight: 276 },
   emptyState: {
@@ -351,7 +354,7 @@ const s = StyleSheet.create({
   emptyText: {
     fontFamily: 'Inter',
     fontSize: 14,
-    color: '#666666',
+    color: brandColors.textDisabled,
   },
   item: {
     minHeight: 48,
@@ -359,11 +362,11 @@ const s = StyleSheet.create({
     alignItems: 'center',
     gap: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#2A2A2A',
+    borderBottomColor: brandColors.silver,
   },
   commandBadge: {
     borderRadius: 8,
-    backgroundColor: '#252525',
+    backgroundColor: brandRgba.coralSoft,
     paddingHorizontal: 8,
     paddingVertical: 4,
   },
@@ -371,13 +374,13 @@ const s = StyleSheet.create({
     fontFamily: 'Inter',
     fontSize: 13,
     fontWeight: '700',
-    color: '#FF6B35',
+    color: brandColors.coral,
   },
   itemDesc: {
     flex: 1,
     fontFamily: 'Inter',
     fontSize: 13,
-    color: '#888888',
+    color: brandColors.textMuted,
   },
   chevron: {
     marginRight: 2,

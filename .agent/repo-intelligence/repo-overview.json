@@ -1,0 +1,90 @@
+{
+  "schemaVersion": 3,
+  "workspaceRoot": "/Users/openclawd/Documents/code/multisoul",
+  "source": "git",
+  "generatedAt": "2026-06-02T04:14:39.370Z",
+  "truncated": false,
+  "git": {
+    "branch": "dev",
+    "head": "bbcaeff189ba83abe924f3d4274e64019e118d75",
+    "hasUncommittedChanges": true
+  },
+  "fileStats": {
+    "totalFiles": 520,
+    "sourceFiles": 216,
+    "docFiles": 175,
+    "testFiles": 83,
+    "configFiles": 11
+  },
+  "manifests": [
+    "agents/bugfix-bot/Cargo.lock",
+    "agents/bugfix-bot/Cargo.toml",
+    "agents/echo-agent/Cargo.lock",
+    "agents/echo-agent/Cargo.toml",
+    "cli/Cargo.lock",
+    "cli/Cargo.toml",
+    "cli/Dockerfile",
+    "cli/npm/package.json",
+    "mobile/package.json",
+    "mobile/pnpm-lock.yaml",
+    "mobile/tsconfig.json"
+  ],
+  "keyDocs": [
+    "AGENTS.md",
+    "CLAUDE.md",
+    "cli/npm/README.md",
+    "cli/README.md",
+    "docs/design-docs/README.md",
+    "docs/exec-plans/README.md",
+    "docs/product-specs/README.md",
+    "docs/quality/README.md"
+  ],
+  "entryHints": [
+    "mobile/index.ts",
+    "mobile/src/db/index.ts",
+    "mobile/src/features/agents/index.ts",
+    "mobile/src/features/chat/index.ts",
+    "mobile/src/features/specs/index.ts"
+  ],
+  "areas": [
+    {
+      "id": "docs",
+      "label": "docs",
+      "kind": "docs",
+      "root": "docs",
+      "fileCount": 158,
+      "manifests": [],
+      "sampleFiles": [
+        "docs/assets/app-icon-concepts-v2/multisoul-ios-v2-01-cartoon-mascot.png",
+        "docs/assets/app-icon-concepts-v2/multisoul-ios-v2-02-abstract-ribbons.png",
+        "docs/assets/app-icon-concepts-v2/multisoul-ios-v2-03-modern-product.png"
+      ]
+    },
+    {
+      "id": "scripts",
+      "label": "scripts",
+      "kind": "scripts",
+      "root": "scripts",
+      "fileCount": 11,
+      "manifests": [],
+      "sampleFiles": [
+        "scripts/check-agents-md-size.sh",
+        "scripts/check-doc-code-hashes.py",
+        "scripts/check-docs-indices.py"
+      ]
+    },
+    {
+      "id": ".",
+      "label": "Workspace Root",
+      "kind": "root",
+      "root": ".",
+      "fileCount": 8,
+      "manifests": [],
+      "sampleFiles": [
+        ".dockerignore",
+        ".gitignore",
+        "AGENTS.md"
+      ]
+    }
+  ]
+}
