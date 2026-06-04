@@ -87,12 +87,16 @@ export function SpecDetailScreen({
             <FileText size={18} color={brandColors.coral} />
           </View>
           <View style={s.heroBody}>
-            <Text style={s.title}>{spec.title}</Text>
+            <Text style={s.title} numberOfLines={2}>
+              {spec.title}
+            </Text>
             <Text style={s.subtitle} numberOfLines={1}>
               {spec.targetRepoPath}
             </Text>
           </View>
-          <Text style={s.status}>{statusLabel(spec.status)}</Text>
+          <Text style={s.status} numberOfLines={1}>
+            {statusLabel(spec.status)}
+          </Text>
         </View>
 
         {spec.status === 'draft' ? (
@@ -123,7 +127,9 @@ export function SpecDetailScreen({
                         optionIsSelected(spec, activeQuestion, option.label) && s.optionSelected,
                       ]}
                     >
-                      <Text style={s.optionText}>{option.label}</Text>
+                      <Text style={s.optionText} numberOfLines={2}>
+                        {option.label}
+                      </Text>
                     </TouchableOpacity>
                   ))}
                 </View>
@@ -276,111 +282,117 @@ const s = StyleSheet.create({
     paddingHorizontal: 16,
   },
   backLink: { flexDirection: 'row', alignItems: 'center', gap: 2 },
-  backText: { fontFamily: 'Inter', fontSize: 15, fontWeight: '700', color: brandColors.ink },
+  backText: { fontFamily: 'Inter', fontSize: 13, fontWeight: '700', color: brandColors.ink },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  emptyTitle: { fontFamily: 'Inter', fontSize: 22, fontWeight: '800', color: brandColors.ink },
-  content: { padding: 16, paddingBottom: 40, gap: 14 },
+  emptyTitle: { fontFamily: 'Inter', fontSize: 20, fontWeight: '800', color: brandColors.ink },
+  content: { padding: 16, paddingBottom: 40, gap: 10 },
   hero: {
-    minHeight: 78,
-    borderRadius: 18,
+    minHeight: 66,
+    borderRadius: 16,
     backgroundColor: brandRgba.white88,
     borderWidth: 1,
     borderColor: brandColors.silver,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    padding: 14,
+    gap: 9,
+    padding: 12,
   },
   heroIcon: {
-    width: 38,
-    height: 38,
-    borderRadius: 10,
+    width: 34,
+    height: 34,
+    borderRadius: 9,
     backgroundColor: brandRgba.cyanSoft,
     alignItems: 'center',
     justifyContent: 'center',
   },
   heroBody: { flex: 1, minWidth: 0 },
-  title: { fontFamily: 'Inter', fontSize: 18, fontWeight: '800', color: brandColors.ink },
-  subtitle: { marginTop: 4, fontFamily: 'Inter', fontSize: 12, color: brandColors.textSoft },
-  status: { fontFamily: 'Inter', fontSize: 12, fontWeight: '700', color: brandColors.coral },
+  title: {
+    fontFamily: 'Inter',
+    fontSize: 14,
+    lineHeight: 18,
+    fontWeight: '800',
+    color: brandColors.ink,
+  },
+  subtitle: { marginTop: 2, fontFamily: 'Inter', fontSize: 11, color: brandColors.textSoft },
+  status: { fontFamily: 'Inter', fontSize: 10, fontWeight: '700', color: brandColors.coral },
   card: {
-    borderRadius: 18,
+    borderRadius: 16,
     backgroundColor: brandRgba.white88,
     borderWidth: 1,
     borderColor: brandColors.silver,
-    padding: 16,
-    gap: 14,
+    padding: 14,
+    gap: 12,
   },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  cardLabel: { fontFamily: 'Inter', fontSize: 12, fontWeight: '700', color: brandColors.coral },
-  progress: { fontFamily: 'Inter', fontSize: 12, color: brandColors.textSoft },
+  cardLabel: { fontFamily: 'Inter', fontSize: 10, fontWeight: '700', color: brandColors.coral },
+  progress: { fontFamily: 'Inter', fontSize: 11, color: brandColors.textSoft },
   question: {
     fontFamily: 'Inter',
-    fontSize: 16,
+    fontSize: 13,
     fontWeight: '600',
     color: brandColors.ink,
-    lineHeight: 22,
+    lineHeight: 18,
   },
-  options: { gap: 8 },
+  options: { gap: 7 },
   option: {
-    minHeight: 44,
+    minHeight: 40,
     borderRadius: 10,
     backgroundColor: brandRgba.ink08,
     justifyContent: 'center',
-    paddingHorizontal: 14,
+    paddingHorizontal: 12,
   },
   optionSelected: {
     backgroundColor: brandRgba.limeSoft,
     borderWidth: 1,
     borderColor: brandColors.lime,
   },
-  optionText: { fontFamily: 'Inter', fontSize: 14, color: brandColors.ink },
+  optionText: { fontFamily: 'Inter', fontSize: 13, lineHeight: 17, color: brandColors.ink },
   otherRow: { flexDirection: 'row', gap: 8 },
   otherInput: {
     flex: 1,
-    minHeight: 44,
+    minHeight: 40,
     borderRadius: 10,
     backgroundColor: brandRgba.ink08,
     color: brandColors.ink,
     fontFamily: 'Inter',
-    fontSize: 14,
-    paddingHorizontal: 14,
+    fontSize: 13,
+    paddingHorizontal: 12,
   },
   otherButton: {
-    width: 72,
-    minHeight: 44,
+    width: 62,
+    minHeight: 40,
     borderRadius: 10,
     backgroundColor: brandColors.ink,
     alignItems: 'center',
     justifyContent: 'center',
   },
   primaryButton: {
-    height: 46,
+    height: 42,
     borderRadius: 10,
     backgroundColor: brandColors.ink,
     alignItems: 'center',
     justifyContent: 'center',
   },
   primaryButtonDisabled: { opacity: 0.45 },
-  primaryText: { fontFamily: 'Inter', fontSize: 14, fontWeight: '700', color: brandColors.white },
-  markdown: { fontFamily: 'Inter', fontSize: 13, lineHeight: 20, color: brandColors.ink },
-  actions: { flexDirection: 'row', gap: 10 },
+  primaryText: { fontFamily: 'Inter', fontSize: 13, fontWeight: '700', color: brandColors.white },
+  markdown: { fontFamily: 'Inter', fontSize: 12, lineHeight: 18, color: brandColors.ink },
+  actions: { flexDirection: 'row', gap: 8 },
   secondaryButton: {
     flex: 1,
-    height: 44,
+    height: 40,
     borderRadius: 10,
     backgroundColor: brandRgba.ink08,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  secondaryText: { fontFamily: 'Inter', fontSize: 14, fontWeight: '700', color: brandColors.ink },
+  secondaryText: { fontFamily: 'Inter', fontSize: 13, fontWeight: '700', color: brandColors.ink },
   primaryButtonInline: {
     flex: 1,
-    height: 44,
+    height: 40,
     borderRadius: 10,
     backgroundColor: brandColors.ink,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  errorText: { fontFamily: 'Inter', fontSize: 13, color: brandColors.error },
+  errorText: { fontFamily: 'Inter', fontSize: 12, color: brandColors.error },
 });

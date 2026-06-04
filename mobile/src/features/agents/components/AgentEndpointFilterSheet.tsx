@@ -3,8 +3,8 @@ import React from 'react';
 import { Modal, Pressable, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { brandColors } from '@/theme/brandRefresh';
-import type { EndpointFilterOption } from '../utils/endpointFilterUtils';
 import { endpointSheetStyles as s } from './AgentEndpointFilterSheet.styles';
+import type { EndpointFilterOption } from '../utils/endpointFilterUtils';
 
 function agentCountLabel(count: number) {
   return count === 1 ? '1 agent' : `${count} agents`;

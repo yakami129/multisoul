@@ -50,7 +50,7 @@ describe('AgentList', () => {
     );
 
     expect(getByText('MultiSoul')).toBeTruthy();
-    expect(getByText('Agents')).toBeTruthy();
+    expect(queryByText('Agents')).toBeNull();
     expect(getByText(/Your agents/)).toBeTruthy();
     expect(getByText('Agent Fleet')).toBeTruthy();
     expect(getByText('Quick Workflows')).toBeTruthy();

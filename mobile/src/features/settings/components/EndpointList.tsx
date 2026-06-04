@@ -27,13 +27,17 @@ export function EndpointList({ endpoints, onRemove, onAddEndpoint }: Props) {
           style={s.row}
         >
           <View style={s.addIcon}>
-            <Plus size={24} color={brandColors.ink} />
+            <Plus size={20} color={brandColors.ink} />
           </View>
           <View style={s.info}>
-            <Text style={s.label}>Add Endpoint</Text>
-            <Text style={s.url}>Scan a setup QR to connect your first machine</Text>
+            <Text style={s.label} numberOfLines={1}>
+              Add Endpoint
+            </Text>
+            <Text style={s.url} numberOfLines={1}>
+              Scan a setup QR to connect your first machine
+            </Text>
           </View>
-          <ChevronRight size={24} color={brandColors.textSoft} />
+          <ChevronRight size={18} color={brandColors.textSoft} />
         </TouchableOpacity>
         <Text style={s.emptyText}>NO ENDPOINTS CONFIGURED</Text>
       </View>
@@ -57,12 +61,14 @@ export function EndpointList({ endpoints, onRemove, onAddEndpoint }: Props) {
                 style={[s.row, isLast && s.rowLast]}
               >
                 <View style={s.addIcon}>
-                  <Plus size={24} color={brandColors.ink} />
+                  <Plus size={20} color={brandColors.ink} />
                 </View>
                 <View style={s.info}>
-                  <Text style={s.label}>Add Endpoint</Text>
+                  <Text style={s.label} numberOfLines={1}>
+                    Add Endpoint
+                  </Text>
                 </View>
-                <ChevronRight size={24} color={brandColors.textSoft} />
+                <ChevronRight size={18} color={brandColors.textSoft} />
               </TouchableOpacity>
             );
           }
@@ -77,7 +83,7 @@ export function EndpointList({ endpoints, onRemove, onAddEndpoint }: Props) {
                   { backgroundColor: online ? brandColors.lime : brandColors.cyan },
                 ]}
               >
-                <EndpointIcon size={28} color={brandColors.ink} strokeWidth={2.2} />
+                <EndpointIcon size={20} color={brandColors.ink} strokeWidth={2.2} />
               </View>
               <View style={s.info}>
                 <Text style={s.label} numberOfLines={1}>
@@ -95,7 +101,10 @@ export function EndpointList({ endpoints, onRemove, onAddEndpoint }: Props) {
                   ]}
                 />
                 <View style={[s.statusPill, online ? s.statusLive : s.statusIdle]}>
-                  <Text style={[s.statusText, online ? s.statusLiveText : s.statusIdleText]}>
+                  <Text
+                    style={[s.statusText, online ? s.statusLiveText : s.statusIdleText]}
+                    numberOfLines={1}
+                  >
                     {online ? 'Live' : 'Idle'}
                   </Text>
                 </View>
@@ -107,7 +116,7 @@ export function EndpointList({ endpoints, onRemove, onAddEndpoint }: Props) {
                 onPress={() => onRemove(item.id)}
                 style={s.deleteButton}
               >
-                <Trash2 size={18} color={brandColors.coral} />
+                <Trash2 size={16} color={brandColors.coral} />
               </TouchableOpacity>
             </View>
           );
@@ -119,72 +128,78 @@ export function EndpointList({ endpoints, onRemove, onAddEndpoint }: Props) {
 
 const s = StyleSheet.create({
   card: {
-    borderRadius: 22,
+    borderRadius: 18,
     backgroundColor: brandRgba.white88,
     borderWidth: 1,
     borderColor: brandColors.silver,
     overflow: 'hidden',
   },
   row: {
-    minHeight: 80,
+    minHeight: 62,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
   },
   rowLast: { borderBottomWidth: 0 },
   divided: { borderBottomWidth: 1, borderBottomColor: brandRgba.silver78 },
   endpointIcon: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 14,
+    marginRight: 10,
   },
   addIcon: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: brandRgba.ink08,
     borderWidth: 1,
     borderColor: brandColors.silver,
     borderStyle: 'dashed',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 14,
+    marginRight: 10,
   },
   info: { flex: 1, minWidth: 0 },
-  label: { fontFamily: 'Inter', fontSize: 15, fontWeight: '700', color: brandColors.ink },
-  url: { marginTop: 4, fontFamily: 'Inter', fontSize: 13, color: brandColors.textMuted },
-  statusWrap: { flexDirection: 'row', alignItems: 'center', gap: 6, marginLeft: 8 },
-  statusDot: { width: 8, height: 8, borderRadius: 4 },
+  label: {
+    fontFamily: 'Inter',
+    fontSize: 13,
+    lineHeight: 17,
+    fontWeight: '700',
+    color: brandColors.ink,
+  },
+  url: { marginTop: 2, fontFamily: 'Inter', fontSize: 11, color: brandColors.textMuted },
+  statusWrap: { flexDirection: 'row', alignItems: 'center', gap: 5, marginLeft: 6 },
+  statusDot: { width: 6, height: 6, borderRadius: 3 },
   statusPill: {
-    minHeight: 30,
-    borderRadius: 15,
-    paddingHorizontal: 11,
+    minHeight: 22,
+    borderRadius: 11,
+    paddingHorizontal: 7,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
   },
   statusLive: { backgroundColor: brandRgba.limeSoft, borderColor: brandColors.lime },
   statusIdle: { backgroundColor: brandRgba.cyanSoft, borderColor: brandColors.cyan },
-  statusText: { fontFamily: 'Inter', fontSize: 12, fontWeight: '700' },
+  statusText: { fontFamily: 'Inter', fontSize: 10, fontWeight: '700' },
   statusLiveText: { color: brandColors.textSoft },
   statusIdleText: { color: brandColors.textSoft },
   deleteButton: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
     marginLeft: 8,
   },
   emptyText: {
-    paddingBottom: 18,
+    paddingBottom: 14,
     textAlign: 'center',
     fontFamily: 'Inter',
-    fontSize: 12,
+    fontSize: 10,
     color: brandColors.textMuted,
     letterSpacing: 1,
   },

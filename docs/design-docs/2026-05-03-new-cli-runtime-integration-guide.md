@@ -402,6 +402,8 @@ Codex 使用 `codex exec` / `codex exec resume <thread_id>` 命令；`full-auto`
 > **2026-05-24（chat performance）**：`GET /api/v1/conversations/:id/messages` 新增可选 query `limit` / `before_seq` / `around_ask_id`，用于有界历史分页；仅传 `since_seq` 时行为与原先一致。`cli/src/db.rs` 在 `init_schema` 中为 `messages(conversation_id, seq)` 与 `ask_answers(conversation_id, ask_id)` 增加索引以加速上述查询。`POST` 路径仍经 `serve/runtime/mod.rs` 分发，本文 §2 架构图与 Step 1–4 正文无需改动。
 
 > **2026-05-24（runtime model switching）**：`conversations.model_id` 成为 conversation 级模型选择；`serve/routes/messages.rs` 在分发用户消息时读取该字段并放入 `DispatchMessage.model_id`，`SessionMessage` 同步携带该字段。Claude / Codex / Cursor adapter 都在具体模型存在时向底层 CLI 追加 `--model <model_id>`；Default 仍以 `NULL` 表示，不传 `--model`。Mobile 的 `Conversation` 和 message schema 同步增加 `model_id` / `system_event:model_changed`，用于 Chat header 展示和历史分隔行。
+
+> **2026-06-04（Codex tool cards）**：Codex adapter 已将工具事件解析拆到 `cli/src/serve/runtime/codex/events.rs`，覆盖 `command_execution`、`file_change`、`mcp_tool_call`、`collab_tool_call`、`web_search`、`todo_list` 和常见 raw tool fallback；`cli/src/serve/runtime/codex/mod.rs` 仅新增子模块声明，本文主体接入规则不变。
 >
 > **2026-05-26（codex model + reasoning effort）**：Codex builtin 模型更新为 `gpt-5.5` / `gpt-5.4-mini`（符合 OpenAI 官方命名）。Codex adapter 支持复合 ID `model:effort`（如 `gpt-5.5:high`），`build_codex_args` 通过 `split_model_effort()` 拆分后分别传递 `--model gpt-5.5` 和 `-c model_reasoning_effort=high`。Claude 模型更新为 `claude-sonnet-4-6` / `claude-opus-4-6`。正文架构描述不变——模型参数传递机制与 §Step 4 / §Codex adapter 一致。
 >
@@ -410,6 +412,8 @@ Codex 使用 `codex exec` / `codex exec resume <thread_id>` 命令；`full-auto`
 > **2026-05-31（cli question-card push）**：`msctl ask-question` 创建的 HTTP ask 不再暴露 GET answer 长轮询。HTTP ask payload 标记 `response_mode=user_message`；iOS answer 若未命中 runtime-owned `pending_ask_id`，会由 `serve/answer_markdown.rs` 渲染为 Markdown `user_text`，并复用 `serve/routes/messages.rs` 的入库、广播与 runtime dispatch。runtime-owned `AskUserQuestion` 仍使用 `AnswerMap` / `pending_ask_id` 优先路由；§3.1 的 AppState 主职责不变，旧 stored answer map 已移除。
 >
 > **2026-06-01（workflow schedule storage）**：`cli/src/db.rs` 新增 `workflows` 与 `workflow_runs` 表，用于本机 daemon 调度固定 prompt 并记录每次运行。每次实际触发都会创建新的 conversation；`workflow_runs.conversation_id` 允许为空，以支持重叠触发被跳过时仅记录 `skipped_overlap` 日志。该 schema 属于 workflow 调度层，不改变 runtime adapter 的接入契约。
+
+> **2026-06-04（Claude AskUserQuestion answer key）**：Claude Code 2.1.126 SDK 要求 `updatedInput.answers` 使用原始 question text 作为 key（`question text -> answer string`），不是 MultiSoul mobile 内部的 question index。`cli/src/serve/interactive.rs` 因此只在 mobile/WS 边界继续使用 numeric question/option ids，回写 Claude `control_response.updatedInput` 时改为 question text key，并保留 multi-select 的 comma-separated answer string。
 
 完成实现后，按 `CLAUDE.md §5` 跑：
 

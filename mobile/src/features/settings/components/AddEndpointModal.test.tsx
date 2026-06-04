@@ -313,9 +313,8 @@ it('shows setup commands for install, service start, and all agent runtime varia
 /// Data construction:
 ///   target section = Codex.
 ///   expected command contains:
-///     "msctl agent register"
-///     "--runtime codex"
-///     "--mode full-auto"
+///     "cd /path/to/project"
+///     "msctl agent codex"
 ///   excluded command fragment = "cursor-cli" from the Cursor runtime.
 ///
 /// Execution:
@@ -325,9 +324,9 @@ it('shows setup commands for install, service start, and all agent runtime varia
 ///
 /// Expected:
 ///   - Positive: Clipboard receives the Codex command body.
-///   - Positive: the command includes the full-auto mode flag.
+///   - Positive: the command uses the quick-register runtime form.
 ///   - Negative: the copied Codex payload does not contain the Cursor runtime.
-it('copies the Codex registration command without mixing in other runtime commands', async () => {
+it('copies the Codex quick-register command without mixing in other runtime commands', async () => {
   (Clipboard.setStringAsync as jest.Mock).mockClear();
   render(<AddEndpointModal visible onClose={() => {}} onAdd={() => {}} initialTab="qr" />);
 
@@ -338,11 +337,13 @@ it('copies the Codex registration command without mixing in other runtime comman
     expect(Clipboard.setStringAsync).toHaveBeenCalledTimes(1);
   });
   expect(Clipboard.setStringAsync).toHaveBeenCalledWith(
-    expect.stringContaining('msctl agent register'),
+    expect.stringContaining('cd /path/to/project'),
   );
-  expect(Clipboard.setStringAsync).toHaveBeenCalledWith(expect.stringContaining('--runtime codex'));
   expect(Clipboard.setStringAsync).toHaveBeenCalledWith(
-    expect.stringContaining('--mode full-auto'),
+    expect.stringContaining('msctl agent codex'),
+  );
+  expect(Clipboard.setStringAsync).not.toHaveBeenCalledWith(
+    expect.stringContaining('msctl agent register'),
   );
   expect(Clipboard.setStringAsync).not.toHaveBeenCalledWith(expect.stringContaining('cursor-cli'));
 });

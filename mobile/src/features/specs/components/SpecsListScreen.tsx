@@ -96,7 +96,7 @@ export function SpecsListScreen({
       style={s.row}
     >
       <View style={s.docIcon}>
-        <FileText size={17} color={brandColors.coral} />
+        <FileText size={16} color={brandColors.coral} />
       </View>
       <View style={s.rowBody}>
         <Text style={s.rowTitle} numberOfLines={1}>
@@ -107,8 +107,12 @@ export function SpecsListScreen({
         </Text>
       </View>
       <View style={s.rowMeta}>
-        <Text style={s.status}>{displayStatus(spec.status)}</Text>
-        <Text style={s.age}>{relativeAge(spec.updatedAt)}</Text>
+        <Text style={s.status} numberOfLines={1}>
+          {displayStatus(spec.status)}
+        </Text>
+        <Text style={s.age} numberOfLines={1}>
+          {relativeAge(spec.updatedAt)}
+        </Text>
       </View>
       <ChevronRight size={14} color={brandColors.textSoft} />
     </TouchableOpacity>
@@ -125,7 +129,7 @@ export function SpecsListScreen({
           onPress={onCreateSpec}
           style={[s.addButton, !canCreate && s.addButtonDisabled]}
         >
-          <Plus size={24} color={canCreate ? brandColors.ink : brandColors.textMuted} />
+          <Plus size={20} color={canCreate ? brandColors.ink : brandColors.textMuted} />
         </TouchableOpacity>
       </View>
 
@@ -136,7 +140,7 @@ export function SpecsListScreen({
           onPress={onCreateSpec}
           style={[s.newSpecButton, !canCreate && s.newSpecButtonDisabled]}
         >
-          <FileText size={16} color={canCreate ? brandColors.white : brandColors.textDisabled} />
+          <FileText size={15} color={canCreate ? brandColors.white : brandColors.textDisabled} />
           <Text style={[s.newSpecText, !canCreate && s.newSpecTextDisabled]}>New Spec</Text>
         </TouchableOpacity>
       </View>
@@ -205,31 +209,31 @@ export function SpecsListScreen({
 const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: brandColors.cream },
   header: {
-    minHeight: 92,
+    minHeight: 68,
     backgroundColor: brandColors.cream,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
   },
   headerTitle: {
     fontFamily: brandTypography.display,
-    fontSize: 28,
-    lineHeight: 34,
+    fontSize: 22,
+    lineHeight: 26,
     fontWeight: '700',
     color: brandColors.ink,
   },
   addButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
   },
   addButtonDisabled: { opacity: 0.5 },
-  newSpecRow: { paddingHorizontal: 16, paddingTop: 6, paddingBottom: 10 },
+  newSpecRow: { paddingHorizontal: 16, paddingTop: 0, paddingBottom: 8 },
   newSpecButton: {
-    height: 42,
+    height: 38,
     borderRadius: 10,
     backgroundColor: brandColors.ink,
     flexDirection: 'row',
@@ -238,12 +242,12 @@ const s = StyleSheet.create({
     gap: 8,
   },
   newSpecButtonDisabled: { backgroundColor: brandRgba.ink18 },
-  newSpecText: { fontFamily: 'Inter', fontSize: 14, fontWeight: '700', color: brandColors.white },
+  newSpecText: { fontFamily: 'Inter', fontSize: 13, fontWeight: '700', color: brandColors.white },
   newSpecTextDisabled: { color: brandColors.textDisabled },
   segment: {
-    height: 36,
+    height: 32,
     marginHorizontal: 16,
-    marginBottom: 12,
+    marginBottom: 10,
     borderRadius: 10,
     backgroundColor: brandRgba.white88,
     flexDirection: 'row',
@@ -256,7 +260,7 @@ const s = StyleSheet.create({
     justifyContent: 'center',
   },
   segmentItemActive: { backgroundColor: brandRgba.cyanWash },
-  segmentText: { fontFamily: 'Inter', fontSize: 12, color: brandColors.textSoft },
+  segmentText: { fontFamily: 'Inter', fontSize: 11, color: brandColors.textSoft },
   segmentTextActive: { color: brandColors.ink, fontWeight: '700' },
   content: { paddingHorizontal: 16, paddingBottom: 126 },
   emptyContent: {
@@ -269,8 +273,8 @@ const s = StyleSheet.create({
   emptyWrap: { alignItems: 'center', gap: 8 },
   emptyTitle: {
     fontFamily: brandTypography.display,
-    fontSize: 22,
-    lineHeight: 27,
+    fontSize: 20,
+    lineHeight: 24,
     fontWeight: '700',
     color: brandColors.ink,
   },
@@ -282,42 +286,48 @@ const s = StyleSheet.create({
     lineHeight: 19,
   },
   group: {
-    borderRadius: 22,
+    borderRadius: 18,
     backgroundColor: brandRgba.white88,
     borderWidth: 1,
     borderColor: brandColors.silver,
     overflow: 'hidden',
   },
   row: {
-    minHeight: 72,
+    minHeight: 62,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    gap: 10,
+    paddingHorizontal: 9,
+    paddingVertical: 7,
+    gap: 8,
   },
   docIcon: {
-    width: 36,
-    height: 36,
+    width: 34,
+    height: 34,
     borderRadius: 9,
     backgroundColor: brandRgba.cyanSoft,
     alignItems: 'center',
     justifyContent: 'center',
   },
   rowBody: { flex: 1, minWidth: 0 },
-  rowTitle: { fontFamily: 'Inter', fontSize: 15, fontWeight: '800', color: brandColors.ink },
-  rowSubtitle: { marginTop: 4, fontFamily: 'Inter', fontSize: 12, color: brandColors.textSoft },
-  rowMeta: { alignItems: 'flex-end', gap: 4 },
-  status: { fontFamily: 'Inter', fontSize: 12, fontWeight: '700', color: brandColors.coral },
-  age: { fontFamily: 'Inter', fontSize: 11, color: brandColors.textMuted },
-  divider: { height: 1, backgroundColor: brandRgba.silver78, marginLeft: 60 },
+  rowTitle: {
+    fontFamily: 'Inter',
+    fontSize: 13,
+    lineHeight: 17,
+    fontWeight: '700',
+    color: brandColors.ink,
+  },
+  rowSubtitle: { marginTop: 2, fontFamily: 'Inter', fontSize: 11, color: brandColors.textSoft },
+  rowMeta: { alignItems: 'flex-end', gap: 2, maxWidth: 84 },
+  status: { fontFamily: 'Inter', fontSize: 10, fontWeight: '700', color: brandColors.coral },
+  age: { fontFamily: 'Inter', fontSize: 10, color: brandColors.textMuted },
+  divider: { height: 1, backgroundColor: brandRgba.silver78, marginLeft: 51 },
   deleteAction: {
-    width: 82,
+    width: 74,
     backgroundColor: brandColors.white,
     borderLeftWidth: 1,
     borderLeftColor: brandColors.error,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  deleteText: { fontFamily: 'Inter', fontSize: 13, fontWeight: '700', color: brandColors.error },
+  deleteText: { fontFamily: 'Inter', fontSize: 12, fontWeight: '700', color: brandColors.error },
 });

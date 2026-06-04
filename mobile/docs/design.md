@@ -194,7 +194,7 @@ Fallback 色板：`#FF5A3C`、`#00E5FF`、`#C6FF00`、`#B7C9AE`、`#7C3AED`、`#
 
 ```text
 Status Bar (44)
-Header (68): mascot + MultiSoul + Agents + compact search/add round controls
+Header (68): left-aligned mascot + MultiSoul wordmark + compact search/add round controls
 Hero (226): cyan wash card, mascot, connection chip, Running / Needs You / Done stats
 Search / Filter row (42)
 Section: Agent Fleet

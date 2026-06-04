@@ -97,32 +97,34 @@ export function SettingsForm() {
         className="flex-1 bg-[#0D0D0D]"
         keyboardShouldPersistTaps="handled"
       >
-        <Text className="text-[28px] font-bold text-white px-4 pt-4 pb-6">Settings</Text>
+        <Text className="text-[22px] leading-[26px] font-bold text-white px-4 pt-3 pb-4">
+          Settings
+        </Text>
 
         {/* Connection mode toggle */}
-        <Card className="mx-4 mb-4">
-          <Text className="text-[#888888] text-[12px] mb-3">CONNECTION MODE</Text>
+        <Card className="mx-4 mb-3">
+          <Text className="text-[#888888] text-[10px] mb-2">CONNECTION MODE</Text>
           <View className="flex-row gap-2">
             <TouchableOpacity
               onPress={() => setMode('auto')}
-              className={`flex-1 py-3 rounded-[26px] items-center ${
+              className={`flex-1 py-2.5 rounded-[20px] items-center ${
                 mode === 'auto' ? 'bg-[#FF6B35]' : 'bg-[#1A1A1A]'
               }`}
             >
               <Text
-                className={`text-[14px] font-semibold ${mode === 'auto' ? 'text-white' : 'text-[#888888]'}`}
+                className={`text-[13px] font-semibold ${mode === 'auto' ? 'text-white' : 'text-[#888888]'}`}
               >
                 Auto Tunnel
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
               onPress={() => setMode('custom')}
-              className={`flex-1 py-3 rounded-[26px] items-center ${
+              className={`flex-1 py-2.5 rounded-[20px] items-center ${
                 mode === 'custom' ? 'bg-[#FF6B35]' : 'bg-[#1A1A1A]'
               }`}
             >
               <Text
-                className={`text-[14px] font-semibold ${mode === 'custom' ? 'text-white' : 'text-[#888888]'}`}
+                className={`text-[13px] font-semibold ${mode === 'custom' ? 'text-white' : 'text-[#888888]'}`}
               >
                 Custom Server
               </Text>
@@ -132,8 +134,8 @@ export function SettingsForm() {
 
         {/* Auto Tunnel mode */}
         {mode === 'auto' && (
-          <Card className="mx-4 mb-4">
-            <Text className="text-[#888888] text-[12px] mb-2">
+          <Card className="mx-4 mb-3">
+            <Text className="text-[#888888] text-[12px] leading-[16px] mb-2">
               Run `msctl serve --relay` on your Mac, then paste the Bearer token below.
             </Text>
             <Input
@@ -150,7 +152,7 @@ export function SettingsForm() {
 
         {/* Custom Server mode */}
         {mode === 'custom' && (
-          <Card className="mx-4 mb-4">
+          <Card className="mx-4 mb-3">
             <Input
               label="Server URL"
               value={serverUrl}

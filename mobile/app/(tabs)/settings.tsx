@@ -41,8 +41,12 @@ function StaticToggleRow({
     <View style={[s.row, divided && s.divider, s.disabledRow]}>
       <View style={[s.iconCircle, { backgroundColor: color }]}>{icon}</View>
       <View style={s.rowCopy}>
-        <Text style={s.rowTitle}>{title}</Text>
-        <Text style={s.rowSubtitle}>{subtitle}</Text>
+        <Text style={s.rowTitle} numberOfLines={1}>
+          {title}
+        </Text>
+        <Text style={s.rowSubtitle} numberOfLines={2}>
+          {subtitle}
+        </Text>
       </View>
       <Switch
         disabled
@@ -73,10 +77,14 @@ function StaticLinkRow({
     <View style={[s.row, divided && s.divider, s.disabledRow]}>
       <View style={[s.iconCircle, { backgroundColor: color }]}>{icon}</View>
       <View style={s.rowCopy}>
-        <Text style={s.rowTitle}>{title}</Text>
-        <Text style={[s.rowSubtitle, destructive && s.destructiveSubtitle]}>{subtitle}</Text>
+        <Text style={s.rowTitle} numberOfLines={1}>
+          {title}
+        </Text>
+        <Text style={[s.rowSubtitle, destructive && s.destructiveSubtitle]} numberOfLines={2}>
+          {subtitle}
+        </Text>
       </View>
-      <ChevronRight size={24} color={brandColors.textSoft} />
+      <ChevronRight size={18} color={brandColors.textSoft} />
     </View>
   );
 }
@@ -106,7 +114,7 @@ export default function SettingsScreen() {
             onPress={openAddEndpoint}
             style={s.addButton}
           >
-            <Plus size={30} color={brandColors.ink} />
+            <Plus size={20} color={brandColors.ink} />
           </TouchableOpacity>
         </View>
 
@@ -127,7 +135,7 @@ export default function SettingsScreen() {
               onPress={openAddEndpoint}
               style={s.scanButton}
             >
-              <QrCode size={26} color={brandColors.white} />
+              <QrCode size={20} color={brandColors.white} />
               <Text style={s.scanText}>Scan setup QR</Text>
             </TouchableOpacity>
           </View>
@@ -137,7 +145,7 @@ export default function SettingsScreen() {
           <Text style={s.sectionLabel}>Endpoints</Text>
           <View style={s.manageWrap} accessibilityElementsHidden>
             <Text style={s.manageText}>Manage</Text>
-            <ChevronRight size={20} color={brandColors.textSoft} />
+            <ChevronRight size={16} color={brandColors.textSoft} />
           </View>
         </View>
         <EndpointList
@@ -156,7 +164,7 @@ export default function SettingsScreen() {
             title="Decision notifications"
             subtitle="Get notified when a decision is needed"
             color={brandColors.lime}
-            icon={<Bell size={24} color={brandColors.ink} />}
+            icon={<Bell size={20} color={brandColors.ink} />}
             value
             divided
           />
@@ -164,7 +172,7 @@ export default function SettingsScreen() {
             title="Task completion alerts"
             subtitle="Notify me when tasks complete"
             color={brandColors.coral}
-            icon={<CheckCircle2 size={24} color={brandColors.ink} />}
+            icon={<CheckCircle2 size={20} color={brandColors.ink} />}
             value
             divided
           />
@@ -172,7 +180,7 @@ export default function SettingsScreen() {
             title="Ask before tool write"
             subtitle="Confirm before writing files or running commands"
             color={brandColors.cyan}
-            icon={<Sparkles size={24} color={brandColors.ink} />}
+            icon={<Sparkles size={20} color={brandColors.ink} />}
             value
           />
         </View>
@@ -185,14 +193,14 @@ export default function SettingsScreen() {
             title="Bearer token"
             subtitle="Manage API access token"
             color={brandRgba.ink08}
-            icon={<KeyRound size={24} color={brandColors.ink} />}
+            icon={<KeyRound size={20} color={brandColors.ink} />}
             divided
           />
           <StaticToggleRow
             title="Local data only"
             subtitle="All data stays on your machines"
             color={brandRgba.ink08}
-            icon={<ShieldCheck size={24} color={brandColors.ink} />}
+            icon={<ShieldCheck size={20} color={brandColors.ink} />}
             value
             divided
           />
@@ -200,7 +208,7 @@ export default function SettingsScreen() {
             title="Delete endpoint"
             subtitle="Remove an endpoint and revoke access"
             color={brandRgba.coralSoft}
-            icon={<Trash2 size={24} color={brandColors.coral} />}
+            icon={<Trash2 size={20} color={brandColors.coral} />}
             destructive
           />
         </View>

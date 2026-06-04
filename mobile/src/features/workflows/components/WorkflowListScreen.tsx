@@ -56,7 +56,7 @@ export function WorkflowListScreen({
           onPress={onCreateWorkflow}
           style={s.addButton}
         >
-          <Plus size={24} color={hasEndpoints ? brandColors.ink : brandColors.textMuted} />
+          <Plus size={20} color={hasEndpoints ? brandColors.ink : brandColors.textMuted} />
         </TouchableOpacity>
       </View>
 
@@ -104,8 +104,10 @@ export function WorkflowListScreen({
                 accessibilityRole="button"
               >
                 <View style={s.rowInfo}>
-                  <Text style={s.rowName}>{item.name}</Text>
-                  <Text style={s.rowMeta}>
+                  <Text style={s.rowName} numberOfLines={1}>
+                    {item.name}
+                  </Text>
+                  <Text style={s.rowMeta} numberOfLines={1}>
                     {item.endpoint_label} · {item.schedule_kind} {item.time_of_day} ·{' '}
                     {formatNextRun(item.next_run_at)}
                   </Text>
@@ -128,7 +130,7 @@ export function WorkflowListScreen({
 
 const ds = StyleSheet.create({
   deleteAction: {
-    width: 80,
+    width: 74,
     backgroundColor: brandColors.white,
     alignItems: 'center',
     justifyContent: 'center',
@@ -136,5 +138,5 @@ const ds = StyleSheet.create({
     borderLeftColor: brandColors.error,
     marginBottom: 8,
   },
-  deleteText: { fontFamily: 'Inter', fontSize: 13, fontWeight: '600', color: brandColors.error },
+  deleteText: { fontFamily: 'Inter', fontSize: 12, fontWeight: '600', color: brandColors.error },
 });

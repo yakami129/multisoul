@@ -23,10 +23,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useChatStore } from '@/store/chatStore';
 import { brandAssets, brandColors } from '@/theme/brandRefresh';
 import { type Agent, type Conversation } from '@/types';
-import { getEndpointFilterOptions } from '../utils/endpointFilterUtils';
 import { AgentCard } from './AgentCard';
 import { AgentEndpointFilterSheet } from './AgentEndpointFilterSheet';
 import { s } from './AgentList.styles';
+import { getEndpointFilterOptions } from '../utils/endpointFilterUtils';
 
 interface Props {
   agents: Agent[];
@@ -349,9 +349,6 @@ export function AgentList({
             <View style={s.brandCopy}>
               <Text style={s.brandName} numberOfLines={1}>
                 MultiSoul
-              </Text>
-              <Text style={s.pageTitle} numberOfLines={1}>
-                Agents
               </Text>
             </View>
           </View>

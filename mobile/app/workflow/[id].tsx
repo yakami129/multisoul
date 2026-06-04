@@ -133,8 +133,12 @@ export default function WorkflowDetailRoute() {
               <Text style={s.agentIconText}>▦</Text>
             </View>
             <View style={s.identityInfo}>
-              <Text style={s.workflowName}>{workflow.name}</Text>
-              <Text style={s.agentName}>{workflow.endpoint_label}</Text>
+              <Text style={s.workflowName} numberOfLines={1}>
+                {workflow.name}
+              </Text>
+              <Text style={s.agentName} numberOfLines={1}>
+                {workflow.endpoint_label}
+              </Text>
             </View>
             <View style={[s.toggle, workflow.enabled ? s.toggleOn : s.toggleOff]}>
               <View style={[s.toggleThumb, workflow.enabled ? s.thumbRight : s.thumbLeft]} />
@@ -145,17 +149,23 @@ export default function WorkflowDetailRoute() {
           <View style={s.infoCard}>
             <View style={s.infoRow}>
               <Text style={s.infoLabel}>Next Run</Text>
-              <Text style={s.infoValue}>{formatNextRun(workflow.next_run_at)}</Text>
+              <Text style={s.infoValue} numberOfLines={1}>
+                {formatNextRun(workflow.next_run_at)}
+              </Text>
             </View>
             <View style={s.divider} />
             <View style={s.infoRow}>
               <Text style={s.infoLabel}>Schedule</Text>
-              <Text style={s.infoValue}>{scheduleLabel}</Text>
+              <Text style={s.infoValue} numberOfLines={1}>
+                {scheduleLabel}
+              </Text>
             </View>
             <View style={s.divider} />
             <View style={s.infoRow}>
               <Text style={s.infoLabel}>Prompt</Text>
-              <Text style={s.infoValue}>{promptPreview}</Text>
+              <Text style={s.infoValue} numberOfLines={1}>
+                {promptPreview}
+              </Text>
             </View>
           </View>
 
@@ -178,8 +188,12 @@ export default function WorkflowDetailRoute() {
                         ]}
                       />
                       <View style={s.runInfo}>
-                        <Text style={s.runStatus}>{STATUS_LABEL[run.status] ?? run.status}</Text>
-                        <Text style={s.runTime}>{formatRunTime(run.scheduled_for)}</Text>
+                        <Text style={s.runStatus} numberOfLines={1}>
+                          {STATUS_LABEL[run.status] ?? run.status}
+                        </Text>
+                        <Text style={s.runTime} numberOfLines={1}>
+                          {formatRunTime(run.scheduled_for)}
+                        </Text>
                         {run.error_message ? (
                           <Text style={s.runError} numberOfLines={2}>
                             {run.error_message}
@@ -198,10 +212,14 @@ export default function WorkflowDetailRoute() {
                           }
                           accessibilityRole="button"
                         >
-                          <Text style={s.openLink}>Open Conversation</Text>
+                          <Text style={s.openLink} numberOfLines={1}>
+                            Open Conversation
+                          </Text>
                         </TouchableOpacity>
                       ) : (
-                        <Text style={s.noConv}>No conversation</Text>
+                        <Text style={s.noConv} numberOfLines={1}>
+                          No conversation
+                        </Text>
                       )}
                     </View>
                     {!isLast && <View style={s.divider} />}
@@ -222,14 +240,14 @@ const s = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    minHeight: 52,
   },
   headerSide: { width: 48 },
-  backChevron: { fontFamily: 'Inter', fontSize: 22, color: brandColors.ink },
+  backChevron: { fontFamily: 'Inter', fontSize: 20, color: brandColors.ink },
   headerTitle: {
     flex: 1,
     fontFamily: 'Inter',
-    fontSize: 17,
+    fontSize: 14,
     fontWeight: '700',
     color: brandColors.ink,
     textAlign: 'center',
@@ -240,44 +258,45 @@ const s = StyleSheet.create({
     backgroundColor: brandRgba.white88,
     borderWidth: 1,
     borderColor: brandColors.silver,
-    borderRadius: 14,
-    padding: 16,
+    borderRadius: 16,
+    padding: 12,
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 10,
   },
   agentIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 34,
+    height: 34,
+    borderRadius: 9,
     backgroundColor: brandRgba.cyanSoft,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
+    marginRight: 9,
   },
-  agentIconText: { fontSize: 18, color: brandColors.coral },
-  identityInfo: { flex: 1 },
+  agentIconText: { fontSize: 14, color: brandColors.coral },
+  identityInfo: { flex: 1, minWidth: 0 },
   workflowName: {
     fontFamily: 'Inter',
-    fontSize: 15,
-    fontWeight: '600',
+    fontSize: 13,
+    lineHeight: 17,
+    fontWeight: '700',
     color: brandColors.ink,
     marginBottom: 2,
   },
-  agentName: { fontFamily: 'Inter', fontSize: 13, color: brandColors.textSoft },
+  agentName: { fontFamily: 'Inter', fontSize: 11, color: brandColors.textSoft },
   toggle: {
-    width: 44,
-    height: 26,
-    borderRadius: 13,
+    width: 38,
+    height: 22,
+    borderRadius: 11,
     justifyContent: 'center',
     paddingHorizontal: 3,
   },
   toggleOn: { backgroundColor: brandColors.cyan },
   toggleOff: { backgroundColor: brandRgba.ink18 },
   toggleThumb: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
     backgroundColor: brandColors.white,
   },
   thumbRight: { alignSelf: 'flex-end' },
@@ -288,19 +307,19 @@ const s = StyleSheet.create({
     borderWidth: 1,
     borderColor: brandColors.silver,
     borderRadius: 12,
-    paddingHorizontal: 16,
-    marginBottom: 24,
+    paddingHorizontal: 12,
+    marginBottom: 18,
   },
   infoRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 14,
+    paddingVertical: 11,
   },
-  infoLabel: { fontFamily: 'Inter', fontSize: 14, color: brandColors.ink },
+  infoLabel: { fontFamily: 'Inter', fontSize: 12, color: brandColors.ink },
   infoValue: {
     fontFamily: 'Inter',
-    fontSize: 14,
+    fontSize: 12,
     color: brandColors.textSoft,
     maxWidth: '60%',
     textAlign: 'right',
@@ -309,45 +328,58 @@ const s = StyleSheet.create({
   // Section header
   sectionHeader: {
     fontFamily: 'Inter',
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '700',
     color: brandColors.textSoft,
     letterSpacing: 0.8,
-    marginBottom: 10,
+    marginBottom: 8,
   },
-  noRuns: { fontFamily: 'Inter', fontSize: 14, color: brandColors.textMuted },
+  noRuns: { fontFamily: 'Inter', fontSize: 12, color: brandColors.textMuted },
   // Runs card
   runsCard: {
     backgroundColor: brandRgba.white88,
     borderWidth: 1,
     borderColor: brandColors.silver,
     borderRadius: 12,
-    paddingHorizontal: 16,
+    paddingHorizontal: 12,
   },
   runRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    paddingVertical: 14,
+    paddingVertical: 11,
   },
   dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
     marginTop: 4,
-    marginRight: 12,
+    marginRight: 9,
   },
-  runInfo: { flex: 1 },
+  runInfo: { flex: 1, minWidth: 0 },
   runStatus: {
     fontFamily: 'Inter',
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 13,
+    lineHeight: 17,
+    fontWeight: '700',
     color: brandColors.ink,
     marginBottom: 2,
   },
-  runTime: { fontFamily: 'Inter', fontSize: 12, color: brandColors.textSoft },
-  runError: { fontFamily: 'Inter', fontSize: 12, color: brandColors.error, marginTop: 2 },
-  openLink: { fontFamily: 'Inter', fontSize: 12, color: brandColors.coral },
-  noConv: { fontFamily: 'Inter', fontSize: 12, color: brandColors.textMuted },
+  runTime: { fontFamily: 'Inter', fontSize: 11, color: brandColors.textSoft },
+  runError: { fontFamily: 'Inter', fontSize: 11, color: brandColors.error, marginTop: 2 },
+  openLink: {
+    maxWidth: 96,
+    fontFamily: 'Inter',
+    fontSize: 11,
+    color: brandColors.coral,
+    textAlign: 'right',
+  },
+  noConv: {
+    maxWidth: 88,
+    fontFamily: 'Inter',
+    fontSize: 11,
+    color: brandColors.textMuted,
+    textAlign: 'right',
+  },
   empty: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  emptyText: { fontFamily: 'Inter', fontSize: 15, color: brandColors.textSoft },
+  emptyText: { fontFamily: 'Inter', fontSize: 13, color: brandColors.textSoft },
 });

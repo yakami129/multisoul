@@ -111,9 +111,13 @@ export function WorkflowFormScreen({ agents, initialValues, onSave, onCancel }: 
             accessibilityRole="radio"
             accessibilityState={{ selected: agentId === agent.id }}
           >
-            <View>
-              <Text style={s.agentName}>{agent.name}</Text>
-              <Text style={s.agentEndpoint}>{agent.endpoint_label}</Text>
+            <View style={s.agentCopy}>
+              <Text style={s.agentName} numberOfLines={1}>
+                {agent.name}
+              </Text>
+              <Text style={s.agentEndpoint} numberOfLines={1}>
+                {agent.endpoint_label}
+              </Text>
             </View>
             {agentId === agent.id && (
               <Switch

@@ -1,5 +1,6 @@
 import type { WsMessage } from '@/types';
 import {
+  collapseTodoToolCallSnapshots,
   getLatestAgentActivitySeq,
   getLatestAgentTextSeq,
   isRenderableInChatTranscript,
@@ -46,6 +47,28 @@ test('transcript omits tool_result rows (merged into tool_call UI later / no pla
   const messages = [message(1, 'tool_call'), message(2, 'tool_result'), message(3, 'tool_call')];
   const visible = messages.filter(isRenderableInChatTranscript);
   expect(visible.map((m) => m.seq)).toEqual([1, 3]);
+});
+
+test('transcript keeps only the latest todo snapshot for a call id', () => {
+  const todoSnapshot = (seq: number, status: string): WsMessage => ({
+    type: 'message',
+    seq,
+    role: 'tool_call',
+    payload: {
+      tool: 'todo_list',
+      args: JSON.stringify({ todos: [{ content: 'Fix card', status }] }),
+      call_id: 'todo-1',
+    },
+    created_at: seq,
+  });
+  const messages = [
+    todoSnapshot(1, 'pending'),
+    message(2, 'agent_text'),
+    todoSnapshot(3, 'in_progress'),
+    todoSnapshot(4, 'completed'),
+  ];
+
+  expect(collapseTodoToolCallSnapshots(messages).map((m) => m.seq)).toEqual([2, 4]);
 });
 
 test('agent text sequence only tracks text responses', () => {

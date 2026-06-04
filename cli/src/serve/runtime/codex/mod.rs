@@ -20,6 +20,7 @@ use crate::logging;
 use crate::serve::runtime::DispatchMessage;
 use crate::serve::state::{start_new_process_group, AppState, SessionHandle};
 
+mod events;
 mod turn;
 
 use turn::{complete_turn, process_turn};
