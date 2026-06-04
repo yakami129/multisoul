@@ -3,6 +3,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { AppState, type AppStateStatus, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import ActivityScreen, { type ActivityItem } from '@/features/activity/components/ActivityScreen';
+import { useActivityEvents } from '@/features/activity/hooks/useActivityEvents';
 import { useActivityInfiniteQuery } from '@/features/activity/hooks/useActivityInfiniteQuery';
 import {
   markAllDoneActivityRead,
@@ -15,7 +16,7 @@ import { useChatStore } from '@/store/chatStore';
 import { useEndpointStore } from '@/store/endpointStore';
 import { brandColors } from '@/theme/brandRefresh';
 
-const POLL_INTERVAL_MS = 15_000;
+const FALLBACK_POLL_INTERVAL_MS = 60_000;
 
 function toScreenItem(item: AggregatedActivityItem): ActivityItem {
   return {
@@ -49,6 +50,7 @@ export default function ActivityTab() {
   const [readOverrides, setReadOverrides] = useState<Record<string, number>>({});
   const [hiddenConversationIds, setHiddenConversationIds] = useState<Set<string>>(() => new Set());
   const [isPullRefreshActive, setIsPullRefreshActive] = useState(false);
+  const activityEnabled = focused && appState === 'active';
   const {
     activity,
     isRefreshing,
@@ -58,7 +60,13 @@ export default function ActivityTab() {
     refetch: refetchActivity,
     refreshFirstPage,
     fetchNextPage,
-  } = useActivityInfiniteQuery({ endpoints, enabled: focused });
+  } = useActivityInfiniteQuery({ endpoints, enabled: activityEnabled });
+
+  useActivityEvents({
+    endpoints,
+    enabled: activityEnabled,
+    onRefresh: refreshFirstPage,
+  });
 
   useFocusEffect(
     useCallback(() => {
@@ -79,14 +87,14 @@ export default function ActivityTab() {
   }, []);
 
   useEffect(() => {
-    if (!focused || appState !== 'active') return undefined;
+    if (!activityEnabled) return undefined;
     const timer = setInterval(() => {
-      void refetchActivity();
-    }, POLL_INTERVAL_MS);
+      void refreshFirstPage();
+    }, FALLBACK_POLL_INTERVAL_MS);
     return () => {
       clearInterval(timer);
     };
-  }, [appState, focused, refetchActivity]);
+  }, [activityEnabled, refreshFirstPage]);
 
   useEffect(() => {
     if (endpoints.length === 0) {

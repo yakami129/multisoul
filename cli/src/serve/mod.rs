@@ -47,6 +47,10 @@ pub async fn build_router(state: AppState) -> Router {
             "/api/v1/activity/done/:conversation_id/read",
             axum::routing::post(activity::mark_done_read),
         )
+        .route(
+            "/ws/activity",
+            axum::routing::get(activity_events::activity_ws_handler),
+        )
         .route("/api/v1/agents", axum::routing::get(agents::list_agents))
         .route(
             "/api/v1/ask-question",
@@ -350,6 +354,87 @@ mod router_tests {
             resp.status(),
             StatusCode::UPGRADE_REQUIRED,
             "valid token should pass auth and reach websocket upgrade handling in tower test"
+        );
+        assert_ne!(
+            resp.status(),
+            StatusCode::UNAUTHORIZED,
+            "valid query token should not be rejected"
+        );
+    }
+
+    /// Activity websocket is protected by Bearer auth and is not a public endpoint.
+    ///
+    /// Execution:
+    ///   1. build_router(state) places /ws/activity in the authenticated router.
+    ///   2. Send an unauthenticated websocket upgrade request.
+    ///   3. bearer_auth rejects before the handler can upgrade the socket.
+    ///
+    /// Expected:
+    ///   - status == 401 Unauthorized.
+    ///   - status != 101 Switching Protocols.
+    #[tokio::test]
+    async fn test_activity_ws_no_auth_returns_401() {
+        let state = test_state().await;
+        let app = build_router(state).await;
+        let resp = app
+            .oneshot(
+                Request::builder()
+                    .uri("/ws/activity")
+                    .header("Connection", "upgrade")
+                    .header("Upgrade", "websocket")
+                    .header("Host", "localhost")
+                    .header("Sec-WebSocket-Version", "13")
+                    .header("Sec-WebSocket-Key", "dGhlIHNhbXBsZSBub25jZQ==")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(
+            resp.status(),
+            StatusCode::UNAUTHORIZED,
+            "activity websocket should require auth"
+        );
+        assert_ne!(
+            resp.status(),
+            StatusCode::SWITCHING_PROTOCOLS,
+            "unauthenticated activity request must not upgrade to websocket"
+        );
+    }
+
+    /// Activity websocket accepts query token auth and reaches the upgrade handler.
+    ///
+    /// Execution:
+    ///   1. bearer_auth reads the valid query token.
+    ///   2. activity_ws_handler receives WebSocketUpgrade.
+    ///   3. The tower unit-test request has no hyper upgrade extension, so the extractor returns 426.
+    ///
+    /// Expected:
+    ///   - status == 426 Upgrade Required, proving auth passed and the handler was reached.
+    ///   - status != 401 Unauthorized.
+    #[tokio::test]
+    async fn test_activity_ws_query_token_reaches_upgrade_handler() {
+        let state = test_state().await;
+        let token = state.token.clone();
+        let app = build_router(state).await;
+        let resp = app
+            .oneshot(
+                Request::builder()
+                    .uri(format!("/ws/activity?token={token}"))
+                    .header("Connection", "upgrade")
+                    .header("Upgrade", "websocket")
+                    .header("Host", "localhost")
+                    .header("Sec-WebSocket-Version", "13")
+                    .header("Sec-WebSocket-Key", "dGhlIHNhbXBsZSBub25jZQ==")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(
+            resp.status(),
+            StatusCode::UPGRADE_REQUIRED,
+            "valid token should pass auth and reach activity websocket upgrade handling"
         );
         assert_ne!(
             resp.status(),

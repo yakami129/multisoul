@@ -32,12 +32,12 @@
         },
         {
           "path": "cli/src/serve/state.rs",
-          "sha256": "8abdede34af04ec8cf1c7a868af7d5edb7bf9d73b17db5a7a1916b1a16e50d74",
+          "sha256": "9ed436957e57c8f02869a267dc3ea5b5449f40241ab10bf6d80f1b5cc78dd5f0",
           "reason": "AppState、SessionMessage 与 runtime worker 通信结构由文档核心数据结构章节引用。"
         },
         {
           "path": "cli/src/serve/routes/messages.rs",
-          "sha256": "324dc8a76b3c9e0f3f2aaed62536e04619dd00fa84ba8c193f44ac1a044077e4",
+          "sha256": "c701ed01a70303bacd0b85dbaeb5382a5718dd17e9787a4d9266a9a171835bde",
           "reason": "HTTP message route 调用 runtime 分发；文档架构图与入口流程依赖该行为。"
         },
         {
@@ -94,7 +94,7 @@
         },
         {
           "path": "cli/src/serve/runtime/claude/stream.rs",
-          "sha256": "d9603f9007465036ec3a712d450fd4eb27845697a652c1f21ea76b5bd4b25772",
+          "sha256": "271c9a2e924dc2a9614f8994665344b8ec91281181e3cf0adba4ee3baa70234c",
           "reason": "Claude AskUserQuestion 触发问答推送的时机由本文档定义。"
         },
         {

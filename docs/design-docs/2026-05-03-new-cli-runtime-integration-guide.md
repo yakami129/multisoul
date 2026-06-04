@@ -54,6 +54,7 @@ pub struct AppState {
     pub token: String,                   // Bearer token
     pub uploads_dir: PathBuf,            // 文件上传目录
     pub bus: ConvBus,                    // conv_id → broadcast::Sender<String>（WS 推送）
+    pub activity_bus: ActivityBus,       // 全局 Activity refresh signal WS 推送
     pub sessions: SessionMap,            // conv_id → SessionHandle（消息队列 + 当前 runtime pid）
     pub answer_txs: AnswerMap,           // conv_id → AnswerChannel（交互回答 channel + 当前 pending ask_id）
     pub plugin_manager: Arc<PluginManager>, // plugin agent 进程管理器
@@ -433,6 +434,8 @@ KodaX 使用 `kodax --mode json --session <conversation_id> --agent-mode ama <pr
 > **2026-06-03（state.rs CI split）**：`cli/src/serve/state.rs` 将内联测试迁移到相邻 `state/tests.rs`，并应用 `cargo fmt` 输出，解除单文件行数与格式化 CI 闸；`AppState`、`AnswerMap`、`SessionHandle` 运行时设计正文无需变更。
 
 > **2026-06-04（Claude AskUserQuestion answer key）**：Claude Code 2.1.126 SDK 要求 `updatedInput.answers` 使用原始 question text 作为 key（`question text -> answer string`），不是 MultiSoul mobile 内部的 question index。`cli/src/serve/interactive.rs` 因此只在 mobile/WS 边界继续使用 numeric question/option ids，回写 Claude `control_response.updatedInput` 时改为 question text key，并保留 multi-select 的 comma-separated answer string。
+>
+> **2026-06-04（Activity realtime events）**：`AppState` 新增全局 `activity_bus`，`serve/routes/messages.rs` 在用户消息成功入库和会话 WS 广播后发出 `activity_changed` refresh signal。该信号只用于 Activity 列表重新拉取 REST 快照，不改变 runtime adapter 的接入契约、`SessionMessage` 结构或 per-conversation WS 语义。
 
 完成实现后，按 `CLAUDE.md §5` 跑：
 

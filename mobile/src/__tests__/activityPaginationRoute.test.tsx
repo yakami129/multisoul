@@ -12,6 +12,7 @@ const mockMarkDoneActivityRead = jest.fn();
 const mockMarkAllDoneActivityRead = jest.fn();
 const mockAbortConversation = jest.fn();
 const mockDeleteConversation = jest.fn();
+const mockUseActivityEvents = jest.fn();
 let mockEndpoints: Endpoint[] = [];
 const mockRemoveAppStateListener = jest.fn();
 
@@ -21,6 +22,10 @@ jest.mock('expo-router', () => ({
     ReactModule.useEffect(() => callback(), [callback]);
   },
   useRouter: () => ({ push: mockPush }),
+}));
+
+jest.mock('@/features/activity/hooks/useActivityEvents', () => ({
+  useActivityEvents: (...args: unknown[]) => mockUseActivityEvents(...args),
 }));
 
 jest.mock('@/features/activity/services/activityService', () => ({
@@ -170,6 +175,7 @@ describe('ActivityTab pagination integration', () => {
     mockMarkAllDoneActivityRead.mockReset();
     mockAbortConversation.mockReset();
     mockDeleteConversation.mockReset();
+    mockUseActivityEvents.mockReset();
     mockEndpoints = configuredEndpoints();
     mockAggregateActivity.mockResolvedValue(activityResult(['First decision']));
     mockMarkDoneActivityRead.mockResolvedValue(undefined);

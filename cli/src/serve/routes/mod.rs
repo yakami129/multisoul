@@ -1,4 +1,5 @@
 pub mod activity;
+pub mod activity_events;
 pub mod agents;
 pub mod ask_question;
 #[cfg(test)]

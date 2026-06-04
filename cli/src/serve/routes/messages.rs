@@ -1,3 +1,4 @@
+use super::activity_events::{emit_activity_changed, REASON_USER_MESSAGE};
 use crate::serve::runtime;
 use crate::{db::now_ms, serve::state::AppState};
 use axum::{
@@ -237,6 +238,7 @@ pub async fn post_message(
     )?;
 
     broadcast_user_message(&state, &conv_id, next_seq, &payload, now);
+    emit_activity_changed(&state, &conv_id, REASON_USER_MESSAGE);
 
     Ok((
         StatusCode::CREATED,
