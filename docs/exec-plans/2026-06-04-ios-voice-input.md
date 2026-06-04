@@ -425,7 +425,15 @@ Expected:
 - Cancel leaves input unchanged.
 - Send still requires a separate tap.
 
-- [ ] **Step 5: Review and commit protocol**
+Result on 2026-06-05:
+
+- `cd mobile && pnpm ios` completed the native prebuild, installed CocoaPods, built the iOS app, and compiled/packaged `expo-speech-recognition` successfully.
+- Build output reported `Build Succeeded`, `0 error(s)`, and 2 warnings before installing/opening `MultiSoul.app` on the iPhone 17 Pro simulator.
+- Generated `ios/MultiSoul/Info.plist` contains both `NSMicrophoneUsageDescription` and `NSSpeechRecognitionUsageDescription`.
+- The app launched in the simulator and the home screen rendered.
+- Deep-linking to `multisoul://chat/voice-smoke?...` reached the iOS system confirmation prompt, but the host Mac cannot click the prompt from automation because `cliclick` reported missing Accessibility privileges. Interaction-level checks for first mic tap, stop/cancel, and transcript insertion remain unverified manually in this environment; they are covered by the focused hook/component tests listed above.
+
+- [x] **Step 5: Review and commit protocol**
 
 Before committing:
 
