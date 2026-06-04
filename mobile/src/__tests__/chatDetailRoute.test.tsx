@@ -12,6 +12,7 @@ import {
   switchConversationModel,
   uploadImage,
 } from '@/features/chat/services/chatService';
+import { type ChatTranscriptDisplayItem } from '@/features/chat/utils/chatRenderState';
 import { useWebSocket } from '@/hooks/useWebSocket';
 import { useChatStore } from '@/store/chatStore';
 import { useEndpointStore } from '@/store/endpointStore';
@@ -122,6 +123,10 @@ function makeNumberedMessages(start: number, end: number): WsMessage[] {
       created_at: seq,
     };
   });
+}
+
+function displayMessageSeq(item: ChatTranscriptDisplayItem): number | undefined {
+  return item.kind === 'message' ? item.message.seq : undefined;
 }
 
 beforeEach(() => {
@@ -280,22 +285,22 @@ test('renders only the latest visible window from cached store history on open',
   (fetchMessages as jest.Mock).mockImplementation(() => new Promise(() => {}));
 
   const { UNSAFE_getByType } = render(<ChatDetailScreen />);
-  const data = UNSAFE_getByType(FlatList).props.data as WsMessage[];
+  const data = UNSAFE_getByType(FlatList).props.data as ChatTranscriptDisplayItem[];
 
   expect({
     actual: data.length,
     reason: 'cached long histories should expose only the latest 25 rows on initial open',
   }).toEqual({ actual: 25, reason: expect.any(String) });
   expect({
-    actual: data[0]?.seq,
+    actual: displayMessageSeq(data[0]),
     reason: 'latest 25 from seq 1..200 should start at seq 176',
   }).toEqual({ actual: 176, reason: expect.any(String) });
   expect({
-    actual: data.some((message) => message.seq === 200),
+    actual: data.some((item) => displayMessageSeq(item) === 200),
     reason: 'initial window must still include the newest cached message',
   }).toEqual({ actual: true, reason: expect.any(String) });
   expect({
-    actual: data.some((message) => message.seq === 1),
+    actual: data.some((item) => displayMessageSeq(item) === 1),
     reason: 'initial window must not render the oldest cached message before user scrolls up',
   }).toEqual({ actual: false, reason: expect.any(String) });
 });

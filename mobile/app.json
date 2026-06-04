@@ -24,7 +24,8 @@
         "ITSAppUsesNonExemptEncryption": false,
         "NSPhotoLibraryUsageDescription": "MultiSoul needs photo library access to attach images to your agent messages.",
         "NSCameraUsageDescription": "MultiSoul needs camera access to capture photos for your agent messages.",
-        "NSMicrophoneUsageDescription": "MultiSoul needs microphone access when you record or send audio to your agents."
+        "NSMicrophoneUsageDescription": "MultiSoul needs microphone access when you record or send audio to your agents.",
+        "NSSpeechRecognitionUsageDescription": "MultiSoul uses iOS speech recognition to turn your voice into editable chat text."
       }
     },
     "android": {

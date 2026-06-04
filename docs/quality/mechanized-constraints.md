@@ -133,6 +133,7 @@
 | `expo-contacts` | `NSContactsUsageDescription` |
 | `expo-calendar` | `NSCalendarsUsageDescription` |
 | `expo-audio` | `NSMicrophoneUsageDescription` |
+| `expo-speech-recognition` | `NSMicrophoneUsageDescription`, `NSSpeechRecognitionUsageDescription` |
 
 ### R12 · iOS Info.plist 权限声明对齐
 
@@ -155,6 +156,7 @@
 | `expo-contacts` | `NSContactsUsageDescription` |
 | `expo-calendar` | `NSCalendarsUsageDescription` |
 | `expo-audio` | `NSMicrophoneUsageDescription` |
+| `expo-speech-recognition` | `NSMicrophoneUsageDescription`, `NSSpeechRecognitionUsageDescription` |
 
 ### R7 · CI 远端兜底
 

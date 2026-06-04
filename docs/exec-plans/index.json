@@ -3,6 +3,10 @@
   "version": 1,
   "documents": [
     {
+      "file": "2026-06-04-ios-voice-input.md",
+      "title": "iOS Voice Input Implementation Plan"
+    },
+    {
       "file": "2026-06-04-chat-completed-transcript-folding.md",
       "title": "Chat Completed Transcript Folding Implementation Plan",
       "lastCompletedCommit": "ed92176aa12a23bd33e1c88d6daf445c55728133"

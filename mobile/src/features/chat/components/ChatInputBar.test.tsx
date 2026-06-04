@@ -1,7 +1,14 @@
 import { render, fireEvent, within } from '@testing-library/react-native';
 import React from 'react';
-import { Alert, StyleSheet } from 'react-native';
+import { StyleSheet } from 'react-native';
 import ChatInputBar from './ChatInputBar';
+import { useVoiceInput, type UseVoiceInputResult } from '../hooks/useVoiceInput';
+
+jest.mock('../hooks/useVoiceInput', () => ({
+  useVoiceInput: jest.fn(),
+}));
+
+const mockUseVoiceInput = useVoiceInput as jest.MockedFunction<typeof useVoiceInput>;
 
 const noop = () => {};
 
@@ -43,7 +50,24 @@ function renderInputBar(props: Partial<React.ComponentProps<typeof ChatInputBar>
   );
 }
 
+function voiceControls(overrides: Partial<UseVoiceInputResult> = {}): UseVoiceInputResult {
+  return {
+    cancelVoiceInput: jest.fn(),
+    isAvailable: true,
+    isBusy: false,
+    startVoiceInput: jest.fn(),
+    status: 'idle',
+    stopVoiceInput: jest.fn(),
+    ...overrides,
+  };
+}
+
 describe('ChatInputBar', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockUseVoiceInput.mockReturnValue(voiceControls());
+  });
+
   /// Composer chrome: render the Apple-style enhanced input controls.
   ///
   /// Data construction:
@@ -313,33 +337,20 @@ describe('ChatInputBar', () => {
     );
   });
 
-  /// Mic action: the placeholder voice action should not send a message.
-  ///
-  /// Data construction:
-  ///   value = "".
-  ///   onSend = jest.fn().
-  ///
-  /// Execution process:
-  ///   1. Render empty composer.
-  ///   2. Press mic.
-  ///
-  /// Expected result:
-  ///   - Positive assertion: coming-soon alert is shown.
-  ///   - Negative assertion: onSend is not called.
-  it('shows alert and does not call onSend when mic button pressed', () => {
+  it('appends voice transcript through onChangeText without sending', () => {
     const onSend = jest.fn();
-    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
-    const { getByTestId } = renderInputBar({ onSend });
+    const onChangeText = jest.fn();
+    renderInputBar({ value: 'hello', onChangeText, onSend });
+    const hookCall = mockUseVoiceInput.mock.calls[mockUseVoiceInput.mock.calls.length - 1];
 
-    fireEvent.press(getByTestId('mic-btn'));
+    hookCall?.[0].onTranscript('voice draft');
 
-    assertEqual(onSend.mock.calls.length, 0, 'mic must not send a message');
     assertEqual(
-      alertSpy.mock.calls[0]?.[0],
-      '语音功能即将上线，敬请期待',
-      'mic should show the existing coming-soon alert',
+      onChangeText.mock.calls[0]?.[0],
+      'hello voice draft',
+      'voice transcript should append to the existing draft',
     );
-    alertSpy.mockRestore();
+    assertEqual(onSend.mock.calls.length, 0, 'mic must not send a message');
   });
 
   /// Stop action: running agent state should replace send with stop.
