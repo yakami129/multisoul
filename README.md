@@ -162,6 +162,7 @@ cd /path/to/project
 msctl agent codex
 msctl agent claude-code
 msctl agent cursor-cli
+msctl agent kodax
 ```
 
 From source, run the same quick registration path with Cargo:
@@ -171,6 +172,7 @@ cd cli
 cargo run -- agent codex
 cargo run -- agent claude-code
 cargo run -- agent cursor-cli
+cargo run -- agent kodax
 ```
 
 When running from source for a different project directory, keep your shell in
@@ -181,6 +183,7 @@ cd /path/to/project
 cargo run --manifest-path /path/to/multisoul/cli/Cargo.toml -- agent codex
 cargo run --manifest-path /path/to/multisoul/cli/Cargo.toml -- agent claude-code
 cargo run --manifest-path /path/to/multisoul/cli/Cargo.toml -- agent cursor-cli
+cargo run --manifest-path /path/to/multisoul/cli/Cargo.toml -- agent kodax
 ```
 
 Codex:
@@ -210,6 +213,16 @@ msctl agent register \
   --project /path/to/project \
   --runtime cursor-cli \
   --mode ask
+```
+
+KodaX:
+
+```bash
+msctl agent register \
+  --name work-kodax \
+  --project /path/to/project \
+  --runtime kodax \
+  --mode full-auto
 ```
 
 Check registered agents:

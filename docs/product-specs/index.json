@@ -15,6 +15,10 @@
       "title": "Workflow 模块 SPEC"
     },
     {
+      "file": "2026-06-02-SPEC-kodax-runtime-integration.md",
+      "title": "KodaX Runtime Integration SPEC"
+    },
+    {
       "file": "2026-06-04-SPEC-ios-voice-input.md",
       "title": "iOS Voice Input SPEC"
     },

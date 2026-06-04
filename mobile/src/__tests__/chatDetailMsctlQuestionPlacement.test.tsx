@@ -58,6 +58,50 @@ function expectEqualWithReason<T>(actual: T, expected: T, reason: string) {
   expect({ actual, reason }).toEqual({ actual: expected, reason: expect.any(String) });
 }
 
+function agentText(seq: number, text: string): WsMessage {
+  return {
+    type: 'message',
+    seq,
+    role: 'agent_text',
+    payload: { text },
+    created_at: seq,
+  };
+}
+
+function askQuestion(
+  seq: number,
+  askId: string,
+  text: string,
+  responseMode?: 'user_message',
+): WsMessage {
+  return {
+    type: 'message',
+    seq,
+    role: 'ask_question',
+    payload: {
+      ask_id: askId,
+      allow_freeform: false,
+      ...(responseMode ? { response_mode: responseMode } : {}),
+      questions: [{ id: '0', text, options: [{ id: 'yes', label: 'Yes' }] }],
+    },
+    created_at: seq,
+  };
+}
+
+function expectScrollToIndexCall(
+  calls: Array<[params: { index: number; animated?: boolean; viewPosition?: number }]>,
+  index: number,
+  reason: string,
+) {
+  expectEqualWithReason(
+    calls.some(
+      ([args]) => args.index === index && args.animated === true && args.viewPosition === 0.1,
+    ),
+    true,
+    reason,
+  );
+}
+
 beforeEach(() => {
   jest.clearAllMocks();
   (useWebSocket as jest.Mock).mockClear();
@@ -130,43 +174,10 @@ beforeEach(() => {
 ///   - Negative: msctl ask seq 2 does not remain at original index 1.
 test('displays loaded msctl ask_question cards at the bottom of Chat Detail FlatList data', async () => {
   const loadedMessages: WsMessage[] = [
-    {
-      type: 'message',
-      seq: 1,
-      role: 'agent_text',
-      payload: { text: 'first agent row' },
-      created_at: 1,
-    },
-    {
-      type: 'message',
-      seq: 2,
-      role: 'ask_question',
-      payload: {
-        ask_id: 'ask-msctl',
-        allow_freeform: false,
-        response_mode: 'user_message',
-        questions: [{ id: '0', text: 'Pick one?', options: [{ id: 'yes', label: 'Yes' }] }],
-      },
-      created_at: 2,
-    },
-    {
-      type: 'message',
-      seq: 3,
-      role: 'ask_question',
-      payload: {
-        ask_id: 'ask-ordinary',
-        allow_freeform: false,
-        questions: [{ id: '0', text: 'Continue?', options: [{ id: 'go', label: 'Go' }] }],
-      },
-      created_at: 3,
-    },
-    {
-      type: 'message',
-      seq: 4,
-      role: 'agent_text',
-      payload: { text: 'later agent row' },
-      created_at: 4,
-    },
+    agentText(1, 'first agent row'),
+    askQuestion(2, 'ask-msctl', 'Pick one?', 'user_message'),
+    askQuestion(3, 'ask-ordinary', 'Continue?'),
+    agentText(4, 'later agent row'),
   ];
   (fetchMessages as jest.Mock).mockResolvedValue(loadedMessages);
 
@@ -196,4 +207,293 @@ test('displays loaded msctl ask_question cards at the bottom of Chat Detail Flat
     false,
     'msctl ask_question must not remain at original display index 1',
   );
+});
+
+/// Chat Detail focus ask placement: focus scrolling must use the reordered
+/// FlatList index after user-message-mode msctl ask cards move to the bottom.
+///
+/// Data construction:
+///   route focus_ask_id = 'ask-msctl'
+///   seq 1 = agent_text "first agent row"
+///   seq 2 = ask_question ask-msctl with response_mode=user_message
+///   seq 3 = agent_text "later agent row"
+///   loaded window = 3 messages, all renderable transcript rows
+///
+/// Execution process:
+///   1. Mock the initial Chat Detail history request with seq order [1, 2, 3].
+///   2. Render ChatDetailScreen with focus_ask_id='ask-msctl'.
+///   3. Wait until history reaches FlatList and msctl placement produces displayed order [1, 3, 2].
+///   4. Inspect FlatList.scrollToIndex calls and trigger onContentSizeChange to catch bottom-scroll overrides.
+///
+/// Expected result:
+///   - Positive: FlatList display seq order is [1, 3, 2].
+///   - Positive: FlatList.scrollToIndex is called with index=2 for the displayed ask row.
+///   - Negative: FlatList.scrollToIndex is not called with original index=1.
+///   - Negative: FlatList.scrollToEnd is not called after focus scroll is available.
+test('scrolls focus_ask_id to displayed msctl ask_question index after bottom placement', async () => {
+  mockSearchParams = {
+    id: 'conv-1',
+    endpoint_id: 'endpoint-1',
+    focus_ask_id: 'ask-msctl',
+  };
+  const flatListPrototype = FlatList.prototype as unknown as {
+    scrollToIndex: (params: { index: number; animated?: boolean; viewPosition?: number }) => void;
+    scrollToEnd: (params?: { animated?: boolean }) => void;
+  };
+  const scrollToIndexSpy = jest.spyOn(flatListPrototype, 'scrollToIndex').mockImplementation();
+  const scrollToEndSpy = jest.spyOn(flatListPrototype, 'scrollToEnd').mockImplementation();
+  try {
+    const loadedMessages: WsMessage[] = [
+      agentText(1, 'first agent row'),
+      askQuestion(2, 'ask-msctl', 'Pick one?', 'user_message'),
+      agentText(3, 'later agent row'),
+    ];
+    (fetchMessages as jest.Mock).mockResolvedValue(loadedMessages);
+
+    const { UNSAFE_getByType } = render(<ChatDetailScreen />);
+
+    await waitFor(() => {
+      const data = UNSAFE_getByType(FlatList).props.data as WsMessage[];
+      expectEqualWithReason(
+        data.map((message) => message.seq),
+        [1, 3, 2],
+        'focus_ask_id regression requires displayed FlatList order after msctl bottom placement',
+      );
+    });
+
+    await waitFor(() => {
+      expectScrollToIndexCall(
+        scrollToIndexSpy.mock.calls,
+        2,
+        'focus_ask_id should scroll to displayed index 2 after msctl ask card moves to bottom',
+      );
+    });
+
+    expectEqualWithReason(
+      scrollToIndexSpy.mock.calls.some(([args]) => args.index === 1),
+      false,
+      'focus_ask_id must not scroll to original index 1 after displayed data is reordered',
+    );
+
+    act(() => {
+      UNSAFE_getByType(FlatList).props.onContentSizeChange(320, 640);
+    });
+    expectEqualWithReason(
+      scrollToEndSpy.mock.calls.length,
+      0,
+      'focus_ask_id scroll must not be overridden by scrollToEnd after content size changes',
+    );
+  } finally {
+    scrollToIndexSpy.mockRestore();
+    scrollToEndSpy.mockRestore();
+  }
+});
+
+/// Chat Detail focus ask reroute: changing focus_ask_id on the same mounted
+/// screen must scroll to the newly focused bottom-placed msctl ask.
+///
+/// Data construction:
+///   initial route focus_ask_id = 'ask-one'
+///   rerender route focus_ask_id = 'ask-two'
+///   seq 1 = agent_text "first agent row"
+///   seq 2 = ask_question ask-one with response_mode=user_message
+///   seq 3 = ask_question ask-two with response_mode=user_message
+///   seq 4 = agent_text "later agent row"
+///   loaded window = 4 messages, reordered to displayed seq order [1, 4, 2, 3]
+///   displayed ask-one index = 2, displayed ask-two index = 3
+///
+/// Execution process:
+///   1. Render ChatDetailScreen with focus_ask_id='ask-one' and load the shared history.
+///   2. Wait until msctl bottom placement produces displayed order [1, 4, 2, 3].
+///   3. Trigger content size change so ask-one performs a focus scroll after initial reset effects.
+///   4. Assert the first focus scroll targets displayed index 2 for ask-one.
+///   5. Change mockSearchParams.focus_ask_id to 'ask-two' and rerender the same mounted screen.
+///   6. Assert the second focus scroll targets displayed index 3 for ask-two.
+///
+/// Expected result:
+///   - Positive: first focus scroll reaches ask-one's displayed index 2.
+///   - Positive: second focus scroll reaches ask-two's displayed index 3 after rerender.
+///   - Negative: scroll calls do not only contain the first focus target.
+test('scrolls to a new focus_ask_id when the same mounted Chat Detail screen rerenders', async () => {
+  mockSearchParams = {
+    id: 'conv-1',
+    endpoint_id: 'endpoint-1',
+    focus_ask_id: 'ask-one',
+  };
+  const flatListPrototype = FlatList.prototype as unknown as {
+    scrollToIndex: (params: { index: number; animated?: boolean; viewPosition?: number }) => void;
+  };
+  const scrollToIndexSpy = jest.spyOn(flatListPrototype, 'scrollToIndex').mockImplementation();
+  try {
+    const loadedMessages: WsMessage[] = [
+      agentText(1, 'first agent row'),
+      askQuestion(2, 'ask-one', 'Pick first?', 'user_message'),
+      askQuestion(3, 'ask-two', 'Pick second?', 'user_message'),
+      agentText(4, 'later agent row'),
+    ];
+    (fetchMessages as jest.Mock)
+      .mockResolvedValueOnce(loadedMessages)
+      .mockImplementation(() => new Promise<WsMessage[]>(() => {}));
+
+    const { UNSAFE_getByType, rerender } = render(<ChatDetailScreen />);
+
+    await waitFor(() => {
+      const data = UNSAFE_getByType(FlatList).props.data as WsMessage[];
+      expectEqualWithReason(
+        data.map((message) => message.seq),
+        [1, 4, 2, 3],
+        'reroute regression requires the two msctl ask cards to have distinct displayed indexes',
+      );
+    });
+
+    act(() => {
+      UNSAFE_getByType(FlatList).props.onContentSizeChange(320, 640);
+    });
+
+    await waitFor(() => {
+      expectScrollToIndexCall(
+        scrollToIndexSpy.mock.calls,
+        2,
+        'initial focus_ask_id should scroll to ask-one at displayed index 2',
+      );
+    });
+    const callsBeforeReroute = scrollToIndexSpy.mock.calls.length;
+
+    mockSearchParams = {
+      id: 'conv-1',
+      endpoint_id: 'endpoint-1',
+      focus_ask_id: 'ask-two',
+    };
+    rerender(<ChatDetailScreen />);
+
+    await waitFor(() => {
+      expectScrollToIndexCall(
+        scrollToIndexSpy.mock.calls.slice(callsBeforeReroute),
+        3,
+        'rerendered focus_ask_id should scroll to ask-two at displayed index 3',
+      );
+    });
+
+    expectEqualWithReason(
+      scrollToIndexSpy.mock.calls.some(([args]) => args.index === 2),
+      true,
+      'regression setup must include the first focus scroll before checking the rerender',
+    );
+    expectEqualWithReason(
+      scrollToIndexSpy.mock.calls.slice(callsBeforeReroute).some(([args]) => args.index === 3),
+      true,
+      'focus reroute must not only keep the first focus target after focus_ask_id changes',
+    );
+  } finally {
+    scrollToIndexSpy.mockRestore();
+  }
+});
+
+/// Chat Detail failed focus retry reroute: a delayed scroll retry from the old
+/// focus_ask_id must not run after the mounted screen reroutes to a new ask.
+///
+/// Data construction:
+///   initial route focus_ask_id = 'ask-one'
+///   rerender route focus_ask_id = 'ask-two'
+///   seq 1 = agent_text "first agent row"
+///   seq 2 = ask_question ask-one with response_mode=user_message
+///   seq 3 = ask_question ask-two with response_mode=user_message
+///   seq 4 = agent_text "later agent row"
+///   loaded window = 4 messages, reordered to displayed seq order [1, 4, 2, 3]
+///   failed retry delay = 50ms; ask-one index = 2, ask-two index = 3
+///
+/// Execution process:
+///   1. Render ChatDetailScreen with focus_ask_id='ask-one' and load [1, 2, 3, 4].
+///   2. Wait for the initial focus scroll to ask-one at displayed index 2.
+///   3. Enable fake timers and trigger onScrollToIndexFailed({ index: 2, averageItemLength: 72 }).
+///   4. Rerender the same mounted screen with focus_ask_id='ask-two' before the 50ms retry fires.
+///   5. Wait for the reroute focus scroll to ask-two at displayed index 3.
+///   6. Run pending timers and inspect only the post-reroute scroll calls.
+///
+/// Expected result:
+///   - Positive: ask-two index 3 is the latest focus target after pending timers run.
+///   - Negative: no delayed post-reroute retry scrolls back to ask-one index 2.
+test('does not run stale failed-scroll retry after focus_ask_id reroutes', async () => {
+  mockSearchParams = {
+    id: 'conv-1',
+    endpoint_id: 'endpoint-1',
+    focus_ask_id: 'ask-one',
+  };
+  const flatListPrototype = FlatList.prototype as unknown as {
+    scrollToIndex: (params: { index: number; animated?: boolean; viewPosition?: number }) => void;
+  };
+  const scrollToIndexSpy = jest.spyOn(flatListPrototype, 'scrollToIndex').mockImplementation();
+  try {
+    const loadedMessages: WsMessage[] = [
+      agentText(1, 'first agent row'),
+      askQuestion(2, 'ask-one', 'Pick first?', 'user_message'),
+      askQuestion(3, 'ask-two', 'Pick second?', 'user_message'),
+      agentText(4, 'later agent row'),
+    ];
+    (fetchMessages as jest.Mock)
+      .mockResolvedValueOnce(loadedMessages)
+      .mockImplementation(() => new Promise<WsMessage[]>(() => {}));
+
+    const { UNSAFE_getByType, rerender } = render(<ChatDetailScreen />);
+
+    await waitFor(() => {
+      const data = UNSAFE_getByType(FlatList).props.data as WsMessage[];
+      expectEqualWithReason(
+        data.map((message) => message.seq),
+        [1, 4, 2, 3],
+        'stale retry regression requires ask-one and ask-two to have displayed indexes 2 and 3',
+      );
+    });
+
+    await waitFor(() => {
+      expectScrollToIndexCall(
+        scrollToIndexSpy.mock.calls,
+        2,
+        'initial focus_ask_id should scroll to ask-one before scheduling a failed-scroll retry',
+      );
+    });
+
+    jest.useFakeTimers();
+    act(() => {
+      UNSAFE_getByType(FlatList).props.onScrollToIndexFailed({
+        index: 2,
+        averageItemLength: 72,
+      });
+    });
+
+    mockSearchParams = {
+      id: 'conv-1',
+      endpoint_id: 'endpoint-1',
+      focus_ask_id: 'ask-two',
+    };
+    rerender(<ChatDetailScreen />);
+
+    await waitFor(() => {
+      expectScrollToIndexCall(
+        scrollToIndexSpy.mock.calls,
+        3,
+        'rerendered focus_ask_id should scroll to ask-two before the old retry timer fires',
+      );
+    });
+    const callsBeforeRetryTimers = scrollToIndexSpy.mock.calls.length;
+
+    act(() => {
+      jest.runOnlyPendingTimers();
+    });
+
+    const callsAfterRetryTimers = scrollToIndexSpy.mock.calls.slice(callsBeforeRetryTimers);
+    expectEqualWithReason(
+      callsAfterRetryTimers.some(([args]) => args.index === 2),
+      false,
+      'old failed-scroll retry must not scroll back to ask-one index 2 after reroute to ask-two',
+    );
+    expectEqualWithReason(
+      scrollToIndexSpy.mock.calls.at(-1)?.[0].index,
+      3,
+      'ask-two index 3 must remain the latest focus target after pending retry timers run',
+    );
+  } finally {
+    jest.useRealTimers();
+    scrollToIndexSpy.mockRestore();
+  }
 });

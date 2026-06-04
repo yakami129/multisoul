@@ -4,7 +4,13 @@
   "documents": [
     {
       "file": "2026-06-02-msctl-question-card-bottom-placement.md",
-      "title": "msctl Question Card Bottom Placement Implementation Plan"
+      "title": "msctl Question Card Bottom Placement Implementation Plan",
+      "lastCompletedCommit": "8265aa1147369506ba12a406ebd0078e4c610da0"
+    },
+    {
+      "file": "2026-06-02-kodax-runtime-integration.md",
+      "title": "KodaX Runtime Integration Implementation Plan",
+      "lastCompletedCommit": "bc5fcfc5b445f6ac2310f9cc75449c9746ff7b45"
     },
     {
       "file": "2026-06-01-workflow-module.md",

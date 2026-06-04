@@ -243,8 +243,7 @@ pub async fn enable_workflow(
             .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
         if changed == 0 {
             // Either not found or already enabled — load to return current state.
-            let _ = db
-                .query_row("SELECT 1 FROM workflows WHERE id = ?1", [&id], |_| Ok(()))
+            db.query_row("SELECT 1 FROM workflows WHERE id = ?1", [&id], |_| Ok(()))
                 .map_err(|_| StatusCode::NOT_FOUND)?;
         }
     }

@@ -637,13 +637,23 @@ No TypeScript errors.
 Run:
 
 ```bash
-git diff -- mobile/src/types.ts mobile/src/features/chat/utils/msctlQuestionPlacement.ts mobile/src/features/chat/utils/msctlQuestionPlacement.test.ts mobile/app/chat/useChatDetailHistory.ts mobile/src/__tests__/chatDetailMsctlQuestionPlacement.test.tsx
+git diff -- mobile/src/types.ts \
+  mobile/src/features/chat/utils/msctlQuestionPlacement.ts \
+  mobile/src/features/chat/utils/msctlQuestionPlacement.test.ts \
+  mobile/app/chat/useChatDetailHistory.ts \
+  mobile/app/chat/useChatDetailTranscriptScroll.ts \
+  mobile/src/__tests__/chatDetailMsctlQuestionPlacement.test.tsx \
+  docs/design-docs/2026-05-03-new-cli-runtime-integration-guide.md \
+  docs/design-docs/index.json \
+  docs/exec-plans/2026-06-02-msctl-question-card-bottom-placement.md \
+  docs/exec-plans/index.json
 ```
 
 Expected:
 
 ```text
-Diff only contains the placement utility, payload type, Chat transcript wiring, and focused tests.
+Diff only contains the placement utility, payload type, Chat transcript wiring,
+focus-scroll handling, regression tests, and required doc/hash updates.
 ```
 
 - [ ] **Step 4: Single commit after all tasks pass**
@@ -663,7 +673,12 @@ git add mobile/src/types.ts \
   mobile/src/features/chat/utils/msctlQuestionPlacement.ts \
   mobile/src/features/chat/utils/msctlQuestionPlacement.test.ts \
   mobile/app/chat/useChatDetailHistory.ts \
-  mobile/src/__tests__/chatDetailMsctlQuestionPlacement.test.tsx
+  mobile/app/chat/useChatDetailTranscriptScroll.ts \
+  mobile/src/__tests__/chatDetailMsctlQuestionPlacement.test.tsx \
+  docs/design-docs/2026-05-03-new-cli-runtime-integration-guide.md \
+  docs/design-docs/index.json \
+  docs/exec-plans/2026-06-02-msctl-question-card-bottom-placement.md \
+  docs/exec-plans/index.json
 git commit -m "fix(chat): keep msctl question cards at transcript bottom"
 ```
 

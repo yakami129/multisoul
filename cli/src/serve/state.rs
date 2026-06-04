@@ -177,9 +177,26 @@ fn kill_single_process(pid: u32) -> bool {
 pub type ConvBus = Arc<Mutex<HashMap<String, broadcast::Sender<String>>>>;
 pub type SessionMap = Arc<Mutex<HashMap<String, SessionHandle>>>;
 
+/// Distinguishes how the active ask_question is waiting for an answer.
+///
+/// `Runtime`     — Claude Code `AskUserQuestion`; answer must go through the
+///                 mpsc channel so the runtime thread unblocks and writes
+///                 `control_response` back to Claude's stdin.
+/// `UserMessage` — `msctl ask-question` HTTP command; answer is converted to a
+///                 markdown user-message that is injected into the conversation.
+/// `None`        — No active ask is pending.
+#[derive(Clone, PartialEq, Eq, Debug)]
+pub enum AnswerMode {
+    Runtime,
+    UserMessage,
+    None,
+}
+
 pub struct AnswerChannel {
     pub tx: std::sync::mpsc::SyncSender<AnswerPayload>,
     pub pending_ask_id: Option<String>,
+    /// Which routing path is currently active for this channel.
+    pub pending_mode: AnswerMode,
 }
 
 pub type AnswerMap = Arc<Mutex<HashMap<String, AnswerChannel>>>;
@@ -189,8 +206,16 @@ pub enum AnswerSendResult {
     Accepted,
     NoSession,
     NoPendingAsk,
-    AskMismatch { expected: String, actual: String },
+    AskMismatch {
+        expected: String,
+        actual: String,
+    },
     ChannelUnavailable,
+    /// The pending ask is for a different mode (e.g. UserMessage ask answered
+    /// via the runtime channel path). Callers should route to the correct path.
+    WrongMode {
+        actual_mode: AnswerMode,
+    },
 }
 
 #[derive(Clone)]
@@ -239,15 +264,32 @@ impl AppState {
             AnswerChannel {
                 tx,
                 pending_ask_id: None,
+                pending_mode: AnswerMode::None,
             },
         );
         rx
     }
 
+    /// Mark the channel as actively waiting for a Runtime (Claude AskUserQuestion) answer.
     pub fn begin_waiting_answer(&self, conv_id: &str, ask_id: &str) {
         let mut txs = self.answer_txs.lock().unwrap();
         if let Some(channel) = txs.get_mut(conv_id) {
             channel.pending_ask_id = Some(ask_id.to_string());
+            channel.pending_mode = AnswerMode::Runtime;
+        }
+    }
+
+    /// Mark the channel as actively waiting for a UserMessage (msctl ask-question) answer.
+    /// No mpsc receiver is blocked; the answer will be injected as a user-text message.
+    ///
+    /// NOTE: If no AnswerChannel exists for `conv_id` (no active runtime session),
+    /// this is a no-op. The WS handler falls back to NoSession → UserMessage path,
+    /// which is correct for HTTP-only asks.
+    pub fn begin_waiting_answer_user_message(&self, conv_id: &str, ask_id: &str) {
+        let mut txs = self.answer_txs.lock().unwrap();
+        if let Some(channel) = txs.get_mut(conv_id) {
+            channel.pending_ask_id = Some(ask_id.to_string());
+            channel.pending_mode = AnswerMode::UserMessage;
         }
     }
 
@@ -256,29 +298,18 @@ impl AppState {
         if let Some(channel) = txs.get_mut(conv_id) {
             if channel.pending_ask_id.as_deref() == Some(ask_id) {
                 channel.pending_ask_id = None;
+                channel.pending_mode = AnswerMode::None;
             }
         }
     }
 
     /// Send a user answer to the session waiting for it.
-    /// Returns a structured status so callers can avoid marking stale answers as delivered.
+    ///
+    /// Routes **only** when `pending_mode == Runtime` and ask_id matches.
+    /// Returns `WrongMode` when the channel is in `UserMessage` mode so the WS
+    /// handler can dispatch directly without falling into the Runtime path.
     pub fn send_answer(&self, conv_id: &str, answer: AnswerPayload) -> AnswerSendResult {
         let txs = self.answer_txs.lock().unwrap();
-        if let Some(channel) = txs.get(conv_id) {
-            if channel.pending_ask_id.as_deref() == Some(answer._ask_id.as_str()) {
-                return match channel.tx.try_send(answer) {
-                    Ok(()) => AnswerSendResult::Accepted,
-                    Err(e) => {
-                        warn!(
-                            conv_id = %conv_id,
-                            reason = ?e,
-                            "answer_send_failed"
-                        );
-                        AnswerSendResult::ChannelUnavailable
-                    }
-                };
-            }
-        }
         let ask_id = answer._ask_id.clone();
         match txs.get(conv_id) {
             None => {
@@ -295,15 +326,38 @@ impl AppState {
                     warn!(conv_id = %conv_id, ask_id = %ask_id, "answer_no_pending_ask");
                     return AnswerSendResult::NoPendingAsk;
                 };
-                warn!(
-                    conv_id = %conv_id,
-                    expected = %expected,
-                    actual = %ask_id,
-                    "answer_ask_mismatch"
-                );
-                AnswerSendResult::AskMismatch {
-                    expected: expected.to_string(),
-                    actual: ask_id,
+                if expected != ask_id {
+                    warn!(
+                        conv_id = %conv_id,
+                        expected = %expected,
+                        actual = %ask_id,
+                        "answer_ask_mismatch"
+                    );
+                    return AnswerSendResult::AskMismatch {
+                        expected: expected.to_string(),
+                        actual: ask_id,
+                    };
+                }
+                // ask_id matches — now check mode
+                if channel.pending_mode != AnswerMode::Runtime {
+                    debug_assert!(
+                        channel.pending_mode != AnswerMode::None,
+                        "ask_id matched but pending_mode is None — invariant violation"
+                    );
+                    return AnswerSendResult::WrongMode {
+                        actual_mode: channel.pending_mode.clone(),
+                    };
+                }
+                match channel.tx.try_send(answer) {
+                    Ok(()) => AnswerSendResult::Accepted,
+                    Err(e) => {
+                        warn!(
+                            conv_id = %conv_id,
+                            reason = ?e,
+                            "answer_send_failed"
+                        );
+                        AnswerSendResult::ChannelUnavailable
+                    }
                 }
             }
         }
@@ -311,89 +365,4 @@ impl AppState {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use tempfile::tempdir;
-
-    /// AppState::new accepts uploads_dir and stores it correctly.
-    ///
-    /// 执行：构造 AppState，验证 uploads_dir 字段被保留。
-    ///
-    /// 预期结果：
-    ///   - uploads_dir 与传入路径相同
-    #[test]
-    fn test_app_state_stores_uploads_dir() {
-        use crate::db;
-        let dir = tempdir().unwrap();
-        let uploads_dir = dir.path().join("uploads");
-        let conn = db::open_at(&dir.path().join("t.db")).unwrap();
-        let state = AppState::new(
-            conn,
-            "ms_v2_tok".to_string(),
-            uploads_dir.clone(),
-            crate::serve::plugin::PluginManager::empty(std::sync::Arc::new(std::sync::Mutex::new(
-                db::open_at(&dir.path().join("pm.db")).unwrap(),
-            ))),
-        );
-        assert_eq!(
-            state.uploads_dir, uploads_dir,
-            "uploads_dir should be stored in AppState"
-        );
-    }
-
-    /// SessionMessage carries user_text, file_id, model_id, and seq.
-    ///
-    /// 数据构造（含关键数值的推导过程）：
-    ///   user_text = "hello"（用户输入）
-    ///   file_id   = Some("abc.jpg")（上传图片 id）
-    ///   model_id  = Some("claude-sonnet-4-6")（conversation 级模型选择）
-    ///   seq       = 1（用户消息入库后的消息序号）
-    ///
-    /// 执行过程：
-    ///   1. 构造带图片和模型的 SessionMessage
-    ///   2. 构造纯文本 Default 模型的 SessionMessage
-    ///
-    /// 预期结果：
-    ///   - user_text/file_id/model_id/seq 都能正确读取
-    ///   - text_only.model_id 为 None，说明 Default 不会被编码成字符串
-    ///
-    #[test]
-    fn test_session_message_fields() {
-        let msg = SessionMessage {
-            user_text: "hello".to_string(),
-            file_id: Some("abc.jpg".to_string()),
-            model_id: Some("claude-sonnet-4-6".to_string()),
-            seq: 1,
-        };
-        assert_eq!(msg.user_text, "hello", "user_text should match");
-        assert_eq!(
-            msg.file_id.as_deref(),
-            Some("abc.jpg"),
-            "file_id should match"
-        );
-        assert_eq!(
-            msg.model_id.as_deref(),
-            Some("claude-sonnet-4-6"),
-            "model_id should match the selected runtime model"
-        );
-
-        let text_only = SessionMessage {
-            user_text: "text only".to_string(),
-            file_id: None,
-            model_id: None,
-            seq: 2,
-        };
-        assert!(
-            text_only.file_id.is_none(),
-            "file_id should be None for text-only"
-        );
-        assert!(
-            text_only.model_id.is_none(),
-            "model_id should be None for Default model selection"
-        );
-        assert_eq!(
-            text_only.seq, 2,
-            "seq should carry the user_text message seq"
-        );
-    }
-}
+mod tests;

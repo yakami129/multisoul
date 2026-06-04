@@ -1,5 +1,5 @@
 use crate::db::now_ms;
-use crate::serve::state::{AnswerSendResult, AppState};
+use crate::serve::state::{AnswerMode, AnswerSendResult, AppState};
 use crate::serve::{
     answer_markdown::{is_cancelled_answer, render_answer_markdown},
     interactive::AnswerPayload,
@@ -109,6 +109,36 @@ pub(super) async fn handle_client_message(state: &AppState, conv_id: &str, text:
                     }
                     info!(conv_id = %conv_id, "answer_routed");
                 }
+                // The active pending ask is in UserMessage mode — route directly without
+                // touching the Runtime channel.
+                AnswerSendResult::WrongMode {
+                    actual_mode: AnswerMode::UserMessage,
+                } => {
+                    if handle_user_message_mode_answer(state, conv_id, &answer).is_ok() {
+                        send_answer_status(state, conv_id, &answer._ask_id, true, None);
+                        info!(conv_id = %conv_id, "answer_routed_user_message_mode");
+                    } else {
+                        send_answer_status(
+                            state,
+                            conv_id,
+                            &answer._ask_id,
+                            false,
+                            Some("user_message_inject_failed"),
+                        );
+                        warn!(conv_id = %conv_id, "answer_dropped_user_message_mode");
+                    }
+                }
+                // Unrecognised WrongMode variant — surface error
+                AnswerSendResult::WrongMode { actual_mode } => {
+                    warn!(
+                        conv_id = %conv_id,
+                        mode = ?actual_mode,
+                        "answer_wrong_mode_unhandled"
+                    );
+                    send_answer_status(state, conv_id, &answer._ask_id, false, Some("wrong_mode"));
+                }
+                // No session channel registered at all — no active runtime turn,
+                // so try UserMessage path as a last resort.
                 AnswerSendResult::NoSession => {
                     if handle_user_message_mode_answer(state, conv_id, &answer).is_ok() {
                         send_answer_status(state, conv_id, &answer._ask_id, true, None);
@@ -125,34 +155,24 @@ pub(super) async fn handle_client_message(state: &AppState, conv_id: &str, text:
                     }
                 }
                 AnswerSendResult::NoPendingAsk => {
-                    if handle_user_message_mode_answer(state, conv_id, &answer).is_ok() {
-                        send_answer_status(state, conv_id, &answer._ask_id, true, None);
-                        info!(conv_id = %conv_id, "answer_routed");
-                    } else {
-                        send_answer_status(
-                            state,
-                            conv_id,
-                            &answer._ask_id,
-                            false,
-                            Some("no_pending_ask"),
-                        );
-                        warn!(conv_id = %conv_id, "answer_dropped_no_pending_ask");
-                    }
+                    send_answer_status(
+                        state,
+                        conv_id,
+                        &answer._ask_id,
+                        false,
+                        Some("no_pending_ask"),
+                    );
+                    warn!(conv_id = %conv_id, "answer_dropped_no_pending_ask");
                 }
                 AnswerSendResult::AskMismatch { .. } => {
-                    if handle_user_message_mode_answer(state, conv_id, &answer).is_ok() {
-                        send_answer_status(state, conv_id, &answer._ask_id, true, None);
-                        info!(conv_id = %conv_id, "answer_routed");
-                    } else {
-                        send_answer_status(
-                            state,
-                            conv_id,
-                            &answer._ask_id,
-                            false,
-                            Some("ask_mismatch"),
-                        );
-                        warn!(conv_id = %conv_id, "answer_dropped_ask_mismatch");
-                    }
+                    send_answer_status(
+                        state,
+                        conv_id,
+                        &answer._ask_id,
+                        false,
+                        Some("ask_mismatch"),
+                    );
+                    warn!(conv_id = %conv_id, "answer_dropped_ask_mismatch");
                 }
                 AnswerSendResult::ChannelUnavailable => {
                     send_answer_status(

@@ -74,6 +74,53 @@ const CURSOR_MODELS: &[BuiltinModel] = &[
     },
 ];
 
+const KODAX_MODELS: &[BuiltinModel] = &[
+    BuiltinModel {
+        id: "openai:gpt-5.3-codex",
+        label: "OpenAI / GPT-5.3 Codex",
+    },
+    BuiltinModel {
+        id: "openai:gpt-5.4",
+        label: "OpenAI / GPT-5.4",
+    },
+    BuiltinModel {
+        id: "openai:gpt-5.3-codex-spark",
+        label: "OpenAI / GPT-5.3 Codex Spark",
+    },
+    BuiltinModel {
+        id: "anthropic:claude-sonnet-4-6",
+        label: "Anthropic / Claude Sonnet 4.6",
+    },
+    BuiltinModel {
+        id: "deepseek:deepseek-chat",
+        label: "DeepSeek / DeepSeek Chat",
+    },
+    BuiltinModel {
+        id: "kimi:k2.5",
+        label: "Kimi / K2.5",
+    },
+    BuiltinModel {
+        id: "kimi-code:k2.5",
+        label: "Kimi Code / K2.5",
+    },
+    BuiltinModel {
+        id: "qwen:qwen3.5-plus",
+        label: "Qwen / Qwen3.5 Plus",
+    },
+    BuiltinModel {
+        id: "zhipu:glm-5",
+        label: "Zhipu / GLM-5",
+    },
+    BuiltinModel {
+        id: "zhipu-coding:glm-5",
+        label: "Zhipu Coding / GLM-5",
+    },
+    BuiltinModel {
+        id: "minimax-coding:MiniMax-M2.7",
+        label: "MiniMax Coding / MiniMax M2.7",
+    },
+];
+
 pub fn list_models(runtime: &str) -> Result<Vec<ModelCapability>, ModelProviderError> {
     if runtime == "cursor-cli" {
         return Ok(with_default(cursor_models()));
@@ -158,6 +205,7 @@ fn builtin_models(runtime: &str) -> Result<&'static [BuiltinModel], ModelProvide
         "claude-code" => Ok(CLAUDE_MODELS),
         "codex" => Ok(CODEX_MODELS),
         "cursor-cli" => Ok(CURSOR_MODELS),
+        "kodax" => Ok(KODAX_MODELS),
         other => Err(ModelProviderError::UnknownRuntime(other.to_string())),
     }
 }

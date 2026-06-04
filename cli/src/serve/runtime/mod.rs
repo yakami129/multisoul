@@ -1,6 +1,7 @@
 mod claude;
 pub mod codex;
 mod cursor;
+mod kodax;
 pub mod models;
 
 use crate::serve::state::AppState;
@@ -24,13 +25,15 @@ pub fn send_to_session(
     mode: &str,
 ) {
     let runtime_text = match (runtime, message.file_id) {
-        ("cursor-cli", Some(fid)) => inject_image_prefix(message.text, fid, &state.uploads_dir),
+        ("cursor-cli" | "kodax", Some(fid)) => {
+            inject_image_prefix(message.text, fid, &state.uploads_dir)
+        }
         _ => message.text.to_string(),
     };
     let context_text = inject_runtime_context(&runtime_text, conv_id);
     let runtime_message = DispatchMessage {
         text: &context_text,
-        file_id: if runtime == "cursor-cli" {
+        file_id: if runtime == "cursor-cli" || runtime == "kodax" {
             None
         } else {
             message.file_id
@@ -45,6 +48,9 @@ pub fn send_to_session(
         }
         "cursor-cli" => {
             cursor::send_to_session(state, conv_id, runtime_message, project_path, mode);
+        }
+        "kodax" => {
+            kodax::send_to_session(state, conv_id, runtime_message, project_path, mode);
         }
         _ => claude::send_to_session(state, conv_id, runtime_message, project_path),
     }
@@ -74,7 +80,7 @@ fn xml_escape_text(value: &str) -> String {
 }
 
 /// Prepend an image path hint to the prompt for runtimes that cannot natively
-/// receive image content blocks (cursor-cli).
+/// receive image content blocks (cursor-cli, kodax).
 /// Format: "[Attached image: <abs_path> — use your file reading tool to view it]\n\n<user_text>"
 ///
 /// Path is rendered with forward slashes so the same string is stable across Windows and Unix.
@@ -241,5 +247,59 @@ mod tests {
             result.ends_with("看图回答"),
             "Cursor prompt should still end with the original user text"
         );
+    }
+
+    #[test]
+    fn test_kodax_dispatch_injects_image_path_hint_and_drops_file_id() {
+        let conn = rusqlite::Connection::open_in_memory().unwrap();
+        let state = crate::serve::state::AppState::new(
+            conn,
+            "token".to_string(),
+            std::path::PathBuf::from("/tmp/uploads"),
+            crate::serve::plugin::PluginManager::empty(std::sync::Arc::new(std::sync::Mutex::new(
+                rusqlite::Connection::open_in_memory().unwrap(),
+            ))),
+        );
+        let (tx, rx) = std::sync::mpsc::channel();
+        let handle = crate::serve::state::SessionHandle::new(tx);
+        state
+            .sessions
+            .lock()
+            .unwrap()
+            .insert("conv-image".to_string(), handle);
+
+        super::send_to_session(
+            &state,
+            "conv-image",
+            super::DispatchMessage {
+                text: "看图回答",
+                file_id: Some("photo.png"),
+                model_id: Some("openai:gpt-5.4"),
+                seq: 7,
+            },
+            "/repo",
+            "kodax",
+            "full-auto",
+        );
+
+        let queued = rx
+            .recv_timeout(std::time::Duration::from_millis(100))
+            .expect("existing KodaX session should receive queued message");
+        assert!(
+            queued
+                .user_text
+                .contains("[Attached image: /tmp/uploads/photo.png"),
+            "KodaX image turn should inject the local image path hint into prompt text"
+        );
+        assert!(
+            queued.file_id.is_none(),
+            "KodaX should not receive native file_id/image content blocks"
+        );
+        assert_eq!(
+            queued.model_id.as_deref(),
+            Some("openai:gpt-5.4"),
+            "KodaX dispatch should preserve provider:model for argv construction"
+        );
+        assert_eq!(queued.seq, 7);
     }
 }

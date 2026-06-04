@@ -22,12 +22,19 @@ export function useChatDetailTranscriptScroll({
   loadOlderMessages,
 }: TranscriptScrollParams) {
   const prevMessageCountRef = useRef(0);
-  const didScrollToFocusRef = useRef(false);
+  const lastScrolledFocusAskIdRef = useRef<string | null>(null);
   const isNearBottomRef = useRef(true);
+  const retryTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearRetryTimeout = useCallback(() => {
+    if (retryTimeoutRef.current === null) return;
+    clearTimeout(retryTimeoutRef.current);
+    retryTimeoutRef.current = null;
+  }, []);
 
   const scrollToFocusedAsk = useCallback(
     (items: WsMessage[]) => {
-      if (!focus_ask_id || didScrollToFocusRef.current) return;
+      if (!focus_ask_id || lastScrolledFocusAskIdRef.current === focus_ask_id) return;
       const index = items.findIndex((msg) => getAskId(msg) === focus_ask_id);
       if (index < 0 || !listRef.current) return;
       try {
@@ -35,7 +42,7 @@ export function useChatDetailTranscriptScroll({
       } catch {
         return;
       }
-      didScrollToFocusRef.current = true;
+      lastScrolledFocusAskIdRef.current = focus_ask_id;
     },
     [focus_ask_id, listRef],
   );
@@ -45,10 +52,12 @@ export function useChatDetailTranscriptScroll({
   }, [transcriptMessages, scrollToFocusedAsk]);
 
   useEffect(() => {
-    didScrollToFocusRef.current = false;
+    if (!focus_ask_id) lastScrolledFocusAskIdRef.current = null;
+    clearRetryTimeout();
     isNearBottomRef.current = true;
     prevMessageCountRef.current = 0;
-  }, [focus_ask_id]);
+    return clearRetryTimeout;
+  }, [clearRetryTimeout, focus_ask_id]);
 
   function handleTranscriptScroll(event: NativeSyntheticEvent<NativeScrollEvent>) {
     const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
@@ -77,12 +86,16 @@ export function useChatDetailTranscriptScroll({
 
   function handleScrollToIndexFailed(info: { index: number; averageItemLength: number }) {
     if (!focus_ask_id || !hasAskId(transcriptMessages, focus_ask_id)) return;
-    didScrollToFocusRef.current = false;
+    lastScrolledFocusAskIdRef.current = null;
+    clearRetryTimeout();
     listRef.current?.scrollToOffset({
       offset: Math.max(info.averageItemLength * info.index, 0),
       animated: false,
     });
-    setTimeout(() => scrollToFocusedAsk(transcriptMessages), 50);
+    retryTimeoutRef.current = setTimeout(() => {
+      retryTimeoutRef.current = null;
+      scrollToFocusedAsk(transcriptMessages);
+    }, 50);
   }
 
   return {

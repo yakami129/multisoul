@@ -16,7 +16,7 @@
       "trackedFiles": [
         {
           "path": "cli/src/serve/runtime/mod.rs",
-          "sha256": "42dc501a647b4d79a7d25336052ea27c34e8f6d771cc7b7e3b96871290751f2e",
+          "sha256": "98304b3e0ebe0595136722a3dd5fc202226dd0e8535990bc83cb54524091f76c",
           "reason": "dispatch 层新增 inject_image_prefix 逻辑，是本设计的唯一变更文件。"
         }
       ]
@@ -27,12 +27,12 @@
       "trackedFiles": [
         {
           "path": "cli/src/serve/runtime/mod.rs",
-          "sha256": "42dc501a647b4d79a7d25336052ea27c34e8f6d771cc7b7e3b96871290751f2e",
+          "sha256": "98304b3e0ebe0595136722a3dd5fc202226dd0e8535990bc83cb54524091f76c",
           "reason": "Runtime 分发入口；文档说明新增 runtime module 与 match arm。"
         },
         {
           "path": "cli/src/serve/state.rs",
-          "sha256": "256aa9abd525d1212bbbdeaf9bfc24ced339f4b71b183837bd1ac2fac435ade4",
+          "sha256": "8abdede34af04ec8cf1c7a868af7d5edb7bf9d73b17db5a7a1916b1a16e50d74",
           "reason": "AppState、SessionMessage 与 runtime worker 通信结构由文档核心数据结构章节引用。"
         },
         {
