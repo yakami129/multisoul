@@ -7,10 +7,11 @@ if (!config.resolver.assetExts.includes('txt')) {
   config.resolver.assetExts.push('txt');
 }
 
-// Exclude test files from the production bundle
+// Exclude test files and non-shipping generated assets from the production bundle
 config.resolver.blockList = [
   /.*\.(test|spec)\.(js|jsx|ts|tsx)$/,
   /.*\/__tests__\/.*/,
+  /.*[\\/]assets[\\/]generated[\\/]multisoul-cli-cute-icon-8\.png$/,
 ];
 
 module.exports = withNativeWind(config, { input: './global.css' });

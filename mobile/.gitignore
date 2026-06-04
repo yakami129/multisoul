@@ -9,6 +9,7 @@ dist/
 web-build/
 expo-env.d.ts
 assets/generated/mermaid.min.js.txt
+assets/generated/multisoul-cli-cute-icon-8.png
 
 # Native
 .kotlin/
