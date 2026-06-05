@@ -8,6 +8,10 @@
       "lastCompletedCommit": "e08e99fcef989a17ad90609e38ee09add80e16e5"
     },
     {
+      "file": "2026-06-05-activity-weak-network.md",
+      "title": "Activity Weak Network Degradation Implementation Plan"
+    },
+    {
       "file": "2026-06-04-chat-turn-folding-pagination-fix.md",
       "title": "Chat Turn Folding And Pagination Fix Implementation Plan",
       "lastCompletedCommit": "806522776a648c9df871f24472abdee08cda64d7"

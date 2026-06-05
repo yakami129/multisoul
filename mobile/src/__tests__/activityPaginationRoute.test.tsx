@@ -281,10 +281,6 @@ describe('ActivityTab pagination integration', () => {
   ///   2. Press load-more and let the second request fail.
   ///   3. Inspect row visibility and error text from ActivityScreen props.
   ///
-  /// Expected result:
-  ///   - Positive: first decision remains rendered.
-  ///   - Positive: load-more error is displayed.
-  ///   - Negative: a failed next page does not clear first-page data.
   it('keeps loaded rows visible and forwards load-more errors', async () => {
     mockAggregateActivity
       .mockResolvedValueOnce(activityResult(['First decision']))
@@ -311,6 +307,37 @@ describe('ActivityTab pagination integration', () => {
       actual: screen.queryByText('Second decision') == null,
       reason: 'failed load-more should not invent rows from the rejected page',
     }).toEqual({ actual: true, reason: expect.any(String) });
+  });
+
+  it('retries the same next Activity page after a load-more failure', async () => {
+    mockAggregateActivity
+      .mockResolvedValueOnce(activityResult(['First decision']))
+      .mockRejectedValueOnce(new Error('offline'))
+      .mockResolvedValueOnce(activityResult(['First decision', 'Second decision']));
+
+    renderActivity();
+
+    await waitFor(() => {
+      expect(screen.getByText('First decision')).toBeTruthy();
+    });
+    await act(async () => {
+      fireEvent.press(screen.getByLabelText('Load more activity'));
+    });
+
+    expect(screen.getByText('Load more failed: offline')).toBeTruthy();
+    expect(screen.getByText('First decision')).toBeTruthy();
+
+    await act(async () => {
+      fireEvent.press(screen.getByLabelText('Retry loading more activity'));
+    });
+    await waitFor(() => {
+      expect(screen.getByText('Second decision')).toBeTruthy();
+    });
+
+    const loadMoreLimits = mockAggregateActivity.mock.calls.slice(1, 3).map((call) => call[1]);
+    expect(loadMoreLimits).toEqual([40, 40]);
+    expect(screen.getAllByText('First decision')).toHaveLength(1);
+    expect(screen.queryByText('Load more failed: offline')).toBeNull();
   });
 
   /// Pull refresh integration: manual refresh reloads the first page limit.
