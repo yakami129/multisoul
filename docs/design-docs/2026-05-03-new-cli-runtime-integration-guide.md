@@ -415,6 +415,8 @@ KodaX 使用 `kodax --mode json --session <conversation_id> --agent-mode ama <pr
 >
 > **2026-05-24（chat performance）**：`GET /api/v1/conversations/:id/messages` 新增可选 query `limit` / `before_seq` / `around_ask_id`，用于有界历史分页；仅传 `since_seq` 时行为与原先一致。`cli/src/db.rs` 在 `init_schema` 中为 `messages(conversation_id, seq)` 与 `ask_answers(conversation_id, ask_id)` 增加索引以加速上述查询。`POST` 路径仍经 `serve/runtime/mod.rs` 分发，本文 §2 架构图与 Step 1–4 正文无需改动。
 
+> **2026-06-05（chat turn transcript）**：`GET /api/v1/conversations/:id/transcript-turns` 与 `GET /api/v1/conversations/:id/turns/:turn_id/hidden-messages` 新增为 Chat 历史摘要读取路径；`/messages` 仍保留 raw 消息增量、实时补洞和发送路径语义。`serve/routes/messages.rs` 的 message row SQL/序列化抽到 `serve/message_rows.rs` 以供 transcript routes 复用，`POST /api/v1/conversations/:id/messages` 仍经 `serve/runtime/mod.rs` 分发，本文 runtime 接入主流程无需改动。
+
 > **2026-05-24（runtime model switching）**：`conversations.model_id` 成为 conversation 级模型选择；`serve/routes/messages.rs` 在分发用户消息时读取该字段并放入 `DispatchMessage.model_id`，`SessionMessage` 同步携带该字段。Claude / Codex / Cursor adapter 都在具体模型存在时向底层 CLI 追加 `--model <model_id>`；Default 仍以 `NULL` 表示，不传 `--model`。Mobile 的 `Conversation` 和 message schema 同步增加 `model_id` / `system_event:model_changed`，用于 Chat header 展示和历史分隔行。
 
 > **2026-06-04（Codex tool cards）**：Codex adapter 已将工具事件解析拆到 `cli/src/serve/runtime/codex/events.rs`，覆盖 `command_execution`、`file_change`、`mcp_tool_call`、`collab_tool_call`、`web_search`、`todo_list` 和常见 raw tool fallback；`cli/src/serve/runtime/codex/mod.rs` 仅新增子模块声明，本文主体接入规则不变。

@@ -37,7 +37,7 @@
         },
         {
           "path": "cli/src/serve/routes/messages.rs",
-          "sha256": "c701ed01a70303bacd0b85dbaeb5382a5718dd17e9787a4d9266a9a171835bde",
+          "sha256": "5eb5eb9317835c09d958d25d0becca682681b03514de224c81efae26992b60d7",
           "reason": "HTTP message route 调用 runtime 分发；文档架构图与入口流程依赖该行为。"
         },
         {

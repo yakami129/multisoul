@@ -8,7 +8,6 @@ import CommandPopup, { type ComposerSheetMode } from '@/features/chat/components
 import { ModelSelector, useChatModelSelector } from '@/features/chat/components/ModelSelector';
 import { resolveUserMessageImageUri } from '@/features/chat/services/chatService';
 import {
-  buildCompletedTranscriptDisplayItems,
   type ChatTranscriptDisplayItem,
   getLatestAgentActivitySeq,
   getLatestAgentTextSeq,
@@ -22,7 +21,7 @@ import ChatHeader from './ChatHeader';
 import ChatTranscriptList from './ChatTranscriptList';
 import { s } from './styles';
 import { useChatDetailAgentTurn } from './useChatDetailAgentTurn';
-import { useChatDetailHistory } from './useChatDetailHistory';
+import { useChatDetailServerTranscript } from './useChatDetailServerTranscript';
 import { useChatDetailTranscriptScroll } from './useChatDetailTranscriptScroll';
 import { usePendingImageUploads } from './usePendingImageUploads';
 
@@ -65,11 +64,14 @@ export default function ChatDetailScreen() {
   const {
     catchUpAfterSeq,
     transcriptMessages,
+    transcriptDisplayItems,
+    toolResultMessages,
     isLoadingOlder,
     hasUserScrolledHistoryRef,
     hasLoadedInitialMessagesRef,
     loadOlderMessages,
-  } = useChatDetailHistory({
+    loadServerWorkedMessages,
+  } = useChatDetailServerTranscript({
     conv_id,
     endpoint,
     endpoint_id,
@@ -84,10 +86,6 @@ export default function ChatDetailScreen() {
   });
 
   const conversationStatus = conversation?.status ?? 'idle';
-  const transcriptDisplayItems = React.useMemo(
-    () => buildCompletedTranscriptDisplayItems(transcriptMessages, conversationStatus),
-    [conversationStatus, transcriptMessages],
-  );
   const {
     isAwaitingResponse,
     incomingAgentActivitySeq,
@@ -231,7 +229,8 @@ export default function ChatDetailScreen() {
           shouldForceComplete={shouldForceComplete}
           serverUrl={endpoint?.base_url ?? ''}
           token={endpoint?.token ?? ''}
-          toolResultMessages={messages}
+          toolResultMessages={toolResultMessages}
+          onLoadServerWorkedMessages={loadServerWorkedMessages}
           onAnswer={sendAnswer}
           onAnswerMulti={sendAnswerMulti}
           imageUriForMessage={imageUriForMessage}

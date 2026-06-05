@@ -31,6 +31,10 @@
       "title": "iOS Voice Input SPEC"
     },
     {
+      "file": "2026-06-05-SPEC-chat-server-turn-transcript.md",
+      "title": "Chat Server Turn Transcript SPEC"
+    },
+    {
       "file": "SPEC-activity-pagination.md",
       "title": "Activity 模块分页滚动加载优化 SPEC"
     },

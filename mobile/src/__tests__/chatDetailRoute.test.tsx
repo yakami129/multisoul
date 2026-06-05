@@ -12,6 +12,11 @@ import {
   switchConversationModel,
   uploadImage,
 } from '@/features/chat/services/chatService';
+import {
+  fetchTranscriptTurns,
+  fetchTurnHiddenMessages,
+} from '@/features/chat/services/transcriptService';
+import type { TranscriptPage } from '@/features/chat/types';
 import type { ChatTranscriptDisplayItem } from '@/features/chat/utils/chatRenderState';
 import { useWebSocket } from '@/hooks/useWebSocket';
 import { useChatStore } from '@/store/chatStore';
@@ -63,6 +68,11 @@ jest.mock('@/features/chat/services/chatService', () => ({
     const encodedToken = encodeURIComponent(token);
     return localUris.get(fileId) ?? `${base}/api/v1/uploads/${encodedFileId}?token=${encodedToken}`;
   },
+}));
+
+jest.mock('@/features/chat/services/transcriptService', () => ({
+  fetchTranscriptTurns: jest.fn(),
+  fetchTurnHiddenMessages: jest.fn(),
 }));
 
 jest.mock('expo-image-picker', () => ({
@@ -125,6 +135,56 @@ function makeNumberedMessages(start: number, end: number): WsMessage[] {
   });
 }
 
+function inferTranscriptStatus(convId: string, messages: WsMessage[]): TranscriptPage['status'] {
+  const taskStatus = [...messages].reverse().find((msg) => msg.role === 'task_status');
+  const status = (taskStatus?.payload as { status?: TranscriptPage['status'] } | undefined)
+    ?.status;
+  if (status) return status;
+  return useChatStore.getState().conversations.find((conv) => conv.id === convId)?.status ?? 'idle';
+}
+
+function makeRawTranscriptPage(convId: string, messages: WsMessage[]): TranscriptPage {
+  const firstSeq = messages[0]?.seq ?? null;
+  const firstUserSeq = messages.find((msg) => msg.role === 'user_text')?.seq ?? firstSeq;
+  return {
+    conversation_id: convId,
+    status: inferTranscriptStatus(convId, messages),
+    items:
+      firstUserSeq == null
+        ? []
+        : [
+            {
+              kind: 'current_turn_raw',
+              turn_id: `turn-${firstUserSeq}`,
+              start_seq: firstUserSeq,
+              messages,
+            },
+          ],
+    page_info: {
+      oldest_turn_id: firstUserSeq == null ? null : `turn-${firstUserSeq}`,
+      has_older: firstSeq != null && firstSeq > 1,
+    },
+  };
+}
+
+async function fetchMessagesBackedTranscript(
+  baseUrl: string,
+  token: string,
+  convId: string,
+  options?: { beforeTurn?: string; aroundAskId?: string },
+): Promise<TranscriptPage> {
+  const beforeSeq = options?.beforeTurn?.startsWith('turn-')
+    ? Number(options.beforeTurn.slice('turn-'.length))
+    : null;
+  const messageOptions = options?.aroundAskId
+    ? { around_ask_id: options.aroundAskId, limit: 100 }
+    : beforeSeq
+      ? { before_seq: beforeSeq, limit: 30 }
+      : { limit: 25 };
+  const messages = await (fetchMessages as jest.Mock)(baseUrl, token, convId, messageOptions);
+  return makeRawTranscriptPage(convId, messages);
+}
+
 function displayItemSeq(item: ChatTranscriptDisplayItem | undefined): number | undefined {
   return item?.kind === 'message' ? item.message.seq : undefined;
 }
@@ -161,6 +221,12 @@ beforeEach(() => {
   });
   useInboxStore.setState({ items: [] });
   (fetchMessages as jest.Mock).mockResolvedValue(historyMessages);
+  (fetchTranscriptTurns as jest.Mock).mockImplementation(fetchMessagesBackedTranscript);
+  (fetchTurnHiddenMessages as jest.Mock).mockResolvedValue({
+    conversation_id: 'conv-1',
+    turn_id: 'turn-1',
+    messages: [],
+  });
   (fetchAgent as jest.Mock).mockResolvedValue({
     id: 'agent-1',
     name: 'Agent',
@@ -217,91 +283,152 @@ test('renders fetched historical agent text without typewriter replay', async ()
   expect(queryByText('historical response [typewriter]')).toBeNull();
 }, 15000);
 
-/// Initial history request: opening ChatDetail should fetch only the latest
-/// page using the configured initial message limit.
+test('lazy-loads worked row hidden messages only after expansion', async () => {
+  const user: WsMessage = {
+    type: 'message',
+    seq: 10,
+    role: 'user_text',
+    payload: { text: 'ship it' },
+    created_at: 10,
+  };
+  const finalAgent: WsMessage = {
+    type: 'message',
+    seq: 14,
+    role: 'agent_text',
+    payload: { text: 'done' },
+    created_at: 14,
+  };
+  const hiddenAgent: WsMessage = {
+    type: 'message',
+    seq: 11,
+    role: 'agent_text',
+    payload: { text: 'thinking privately' },
+    created_at: 11,
+  };
+  (fetchTranscriptTurns as jest.Mock).mockResolvedValue({
+    conversation_id: 'conv-1',
+    status: 'completed',
+    items: [
+      {
+        kind: 'turn_summary',
+        turn_id: 'turn-10',
+        start_seq: 10,
+        end_seq: 14,
+        user,
+        worked: {
+          id: 'worked-turn-10',
+          label: 'Worked for 4s',
+          duration_ms: 4_000,
+          hidden_count: 1,
+          first_hidden_seq: 11,
+          last_hidden_seq: 11,
+        },
+        asks: [],
+        final_agent: finalAgent,
+      },
+    ],
+    page_info: { oldest_turn_id: 'turn-10', has_older: false },
+  });
+  (fetchTurnHiddenMessages as jest.Mock).mockResolvedValue({
+    conversation_id: 'conv-1',
+    turn_id: 'turn-10',
+    messages: [hiddenAgent],
+  });
+
+  const { getByTestId, getByText, queryByText } = render(<ChatDetailScreen />);
+
+  await waitFor(() => expect(getByText('Worked for 4s')).toBeTruthy());
+  expect(queryByText('thinking privately')).toBeNull();
+  expect(fetchTurnHiddenMessages).not.toHaveBeenCalled();
+
+  fireEvent.press(getByTestId('worked-row'));
+
+  await waitFor(() => expect(getByText('thinking privately')).toBeTruthy());
+  expect(fetchTurnHiddenMessages).toHaveBeenCalledWith(
+    'http://localhost:8080',
+    'token',
+    'conv-1',
+    'turn-10',
+  );
+});
+
+/// Initial history request: opening ChatDetail should fetch the latest server
+/// transcript page using the configured initial turn limit.
 ///
 /// Data construction:
 ///   route conv_id = "conv-1"
 ///   endpoint      = http://localhost:8080 with token "token"
-///   initial limit = 25 messages
+///   initial limit = 20 turns
 ///
 /// Execution process:
 ///   1. Render ChatDetailScreen for conv-1.
 ///   2. Wait for the mocked historical response to render.
-///   3. Inspect fetchMessages calls.
+///   3. Inspect fetchTranscriptTurns calls.
 ///
 /// Expected result:
-///   - Positive: fetchMessages requests conv-1 with limit 25.
-///   - Negative: fetchMessages is not called without an explicit latest limit.
-test('loads the initial chat history with the latest 25 message limit', async () => {
+///   - Positive: fetchTranscriptTurns requests conv-1 with limit 20.
+///   - Negative: no beforeTurn cursor is sent on initial latest-page load.
+test('loads the initial chat history with the latest 20-turn limit', async () => {
   const { getByText } = render(<ChatDetailScreen />);
 
   await waitFor(() => expect(getByText('historical response')).toBeTruthy());
 
   expect({
-    actual: (fetchMessages as jest.Mock).mock.calls.some(
+    actual: (fetchTranscriptTurns as jest.Mock).mock.calls.some(
       ([baseUrl, token, convId, options]) =>
         baseUrl === 'http://localhost:8080' &&
         token === 'token' &&
         convId === 'conv-1' &&
-        options?.limit === 25,
+        options?.limit === 20,
     ),
-    reason: 'initial history request should use the new 25-message latest page limit',
+    reason: 'initial history request should use the 20-turn transcript page limit',
   }).toEqual({ actual: true, reason: expect.any(String) });
   expect({
-    actual: (fetchMessages as jest.Mock).mock.calls.some(
-      ([baseUrl, token, convId, options]) =>
-        baseUrl === 'http://localhost:8080' &&
-        token === 'token' &&
-        convId === 'conv-1' &&
-        options === undefined,
+    actual: (fetchTranscriptTurns as jest.Mock).mock.calls.some(
+      ([, , convId, options]) => convId === 'conv-1' && options?.beforeTurn != null,
     ),
-    reason: 'initial history request must not omit the explicit latest page limit',
+    reason: 'initial latest page must not include an older-turn cursor',
   }).toEqual({ actual: false, reason: expect.any(String) });
 });
 
-/// Cached transcript windowing: reopening a conversation with a large store cache
-/// must render only the newest visible window before the REST latest page returns.
+/// Server transcript authority: reopening a conversation with a large raw-message
+/// cache must wait for the transcript-turns response instead of deriving history
+/// rows from the local raw cache.
 ///
 /// Data construction:
 ///   cached store rows = seq 1..200, total 200 messages
-///   initial window    = latest 25 rows = 200 - 25 + 1 = seq 176..200
-///   REST request      = unresolved, so the assertion inspects the pre-REST first render
+///   transcript request = unresolved, so the assertion inspects the pre-response render
 ///
 /// Execution process:
 ///   1. Seed chatStore with 200 cached rows for conv-1.
-///   2. Render ChatDetailScreen while the initial latest-page request stays pending.
-///   3. Inspect the FlatList data used for the first visible transcript render.
+///   2. Render ChatDetailScreen while the initial transcript request stays pending.
+///   3. Inspect the FlatList data used for the first render.
 ///
 /// Expected result:
-///   - Positive: FlatList data length is exactly 25.
-///   - Positive: first visible seq is 176 and newest seq 200 is present.
-///   - Negative: seq 1 is not present, so old cache is not rendered on open.
-test('renders only the latest visible window from cached store history on open', () => {
+///   - Positive: FlatList data length is 0 until transcript-turns resolves.
+///   - Positive: transcript-turns is requested for the latest turn page.
+///   - Negative: cached seq 176..200 are not treated as authoritative display rows.
+test('does not derive the initial transcript from cached raw store history', () => {
   useChatStore.setState((state) => ({
     ...state,
     messages: { 'conv-1': makeNumberedMessages(1, 200) },
   }));
-  (fetchMessages as jest.Mock).mockImplementation(() => new Promise(() => {}));
+  (fetchTranscriptTurns as jest.Mock).mockImplementation(() => new Promise(() => {}));
 
   const { UNSAFE_getByType } = render(<ChatDetailScreen />);
   const data = UNSAFE_getByType(FlatList).props.data as ChatTranscriptDisplayItem[];
 
   expect({
     actual: data.length,
-    reason: 'cached long histories should expose only the latest 25 rows on initial open',
-  }).toEqual({ actual: 25, reason: expect.any(String) });
+    reason: 'raw cache must not render before the server transcript page arrives',
+  }).toEqual({ actual: 0, reason: expect.any(String) });
   expect({
-    actual: displayItemSeq(data[0]),
-    reason: 'latest 25 from seq 1..200 should start at seq 176',
-  }).toEqual({ actual: 176, reason: expect.any(String) });
+    actual: (fetchTranscriptTurns as jest.Mock).mock.calls[0]?.[3],
+    reason: 'initial history should request the latest transcript turn page',
+  }).toEqual({ actual: { limit: 20, aroundAskId: undefined }, reason: expect.any(String) });
   expect({
-    actual: data.some((item) => displayItemSeq(item) === 200),
-    reason: 'initial window must still include the newest cached message',
-  }).toEqual({ actual: true, reason: expect.any(String) });
-  expect({
-    actual: data.some((item) => displayItemSeq(item) === 1),
-    reason: 'initial window must not render the oldest cached message before user scrolls up',
+    actual: data.some((item) => displayItemSeq(item) === 176 || displayItemSeq(item) === 200),
+    reason: 'cached raw message rows must not become display rows before server metadata',
   }).toEqual({ actual: false, reason: expect.any(String) });
 });
 
@@ -1169,89 +1296,76 @@ test('clears the older loading indicator after pagination failure and still retr
   }).toEqual({ actual: 2, reason: expect.any(String) });
 });
 
-/// Cached older loading: expanding a cached older window should still expose a
-/// short loading indicator for consistent user feedback.
+/// Cached raw history no longer drives older pagination. Older loading should
+/// start only after the server transcript page has established an oldest turn.
 ///
 /// Data construction:
 ///   cached store rows = seq 1..60
-///   visible initial window after constants = seq 36..60
-///   cached older window with limit 30 expands visibleMinSeq to seq 6
+///   transcript request = unresolved, so no oldest_turn_id is available
 ///
 /// Execution process:
-///   1. Seed chatStore with 60 cached rows and keep REST latest-page pending.
+///   1. Seed chatStore with 60 cached rows and keep transcript-turns pending.
 ///   2. Trigger user top-scroll.
-///   3. Verify loading indicator appears, then cached seq 6 becomes visible.
+///   3. Verify cached rows are not expanded and no older request starts.
 ///
 /// Expected result:
-///   - Positive: cached path renders the loading indicator at least once.
-///   - Positive: cached older seq 6 becomes visible without a network before_seq call.
-///   - Negative: cached path does not call fetchMessages with before_seq.
-///   - Negative: cached loading indicator disappears after the scheduled RAF.
-test('shows older loading feedback while expanding a cached older window', async () => {
+///   - Positive: no older loading indicator is rendered.
+///   - Negative: cached seq 6 is not visible.
+///   - Negative: no beforeTurn request is made without server metadata.
+test('does not expand cached raw rows as older transcript history', async () => {
   useChatStore.setState((state) => ({
     ...state,
     messages: { 'conv-1': makeNumberedMessages(1, 60) },
   }));
-  (fetchMessages as jest.Mock).mockImplementation(() => new Promise(() => {}));
-  const { UNSAFE_getByType, getByTestId, getByText, queryByTestId } = render(<ChatDetailScreen />);
+  (fetchTranscriptTurns as jest.Mock).mockImplementation(() => new Promise(() => {}));
+  const { UNSAFE_getByType, queryByTestId, queryByText } = render(<ChatDetailScreen />);
 
-  jest.useFakeTimers();
-  try {
-    await act(async () => {
-      UNSAFE_getByType(FlatList).props.onScrollBeginDrag?.({ nativeEvent: {} });
-      UNSAFE_getByType(FlatList).props.onScroll({
-        nativeEvent: {
-          contentOffset: { y: 0 },
-          layoutMeasurement: { height: 400 },
-          contentSize: { height: 1400 },
-        },
-      });
+  await act(async () => {
+    UNSAFE_getByType(FlatList).props.onScrollBeginDrag?.({ nativeEvent: {} });
+    UNSAFE_getByType(FlatList).props.onScroll({
+      nativeEvent: {
+        contentOffset: { y: 0 },
+        layoutMeasurement: { height: 400 },
+        contentSize: { height: 1400 },
+      },
     });
+  });
 
-    expect({
-      actual: getByTestId('older-messages-loading') != null,
-      reason: 'cached older expansion should briefly show the same loading feedback',
-    }).toEqual({ actual: true, reason: expect.any(String) });
-    expect(getByText('cached message 6')).toBeTruthy();
-    await act(async () => {
-      jest.runOnlyPendingTimers();
-    });
-    expect({
-      actual: queryByTestId('older-messages-loading'),
-      reason: 'cached older loading should clear after its scheduled animation frame',
-    }).toEqual({ actual: null, reason: expect.any(String) });
-  } finally {
-    jest.useRealTimers();
-  }
   expect({
-    actual: (fetchMessages as jest.Mock).mock.calls.some(
-      ([, , , options]) => options?.before_seq != null,
+    actual: queryByTestId('older-messages-loading'),
+    reason: 'cached raw rows must not start the older transcript loader',
+  }).toEqual({ actual: null, reason: expect.any(String) });
+  expect({
+    actual: queryByText('cached message 6'),
+    reason: 'cached raw rows must not become transcript rows before server metadata',
+  }).toEqual({ actual: null, reason: expect.any(String) });
+  expect({
+    actual: (fetchTranscriptTurns as jest.Mock).mock.calls.some(
+      ([, , , options]) => options?.beforeTurn != null,
     ),
-    reason: 'cached older expansion should not add a network request',
+    reason: 'older transcript requests require an oldest_turn_id from the server',
   }).toEqual({ actual: false, reason: expect.any(String) });
 });
 
-/// Cached older loading lifecycle: a cached-path RAF from a previous route must
-/// not clear a newer network loader after the route resets.
+/// Older loading lifecycle: a stale transcript request from a previous route
+/// must not block a newer route from starting its own older turn request.
 ///
 /// Data construction:
-///   conv-1 cached store rows = seq 1..60
-///   conv-1 cached expansion schedules an older-loading RAF finish
+///   conv-1 cached store rows = seq 1..60, transcript request remains pending
 ///   route then changes to conv-2 before that RAF fires
 ///   conv-2 latest page first seq = 11
-///   conv-2 older request before_seq = 11 remains pending
+///   conv-2 older request before_turn = turn-11 remains pending
 ///
 /// Execution process:
-///   1. Trigger conv-1 cached older loading and leave its RAF pending.
+///   1. Trigger conv-1 top scroll while its transcript request is pending.
 ///   2. Rerender the route as conv-2 and wait for its latest page.
 ///   3. Start a conv-2 network older request.
-///   4. Run pending timers from the old cached RAF.
 ///
 /// Expected result:
 ///   - Positive: conv-2 network older request shows the loading indicator.
-///   - Positive: conv-2 before_seq 11 request is pending.
-///   - Negative: old conv-1 cached RAF must not hide conv-2's current loader.
-test('keeps a newer network older loader visible when an old cached RAF fires', async () => {
+///   - Positive: conv-2 before_turn turn-11 request is pending.
+///   - Negative: conv-1 cached raw history never starts an older request.
+test('starts a newer route older loader after a stale transcript route reset', async () => {
   useChatStore.setState((state) => ({
     ...state,
     conversations: [
@@ -1295,8 +1409,6 @@ test('keeps a newer network older loader visible when an old cached RAF fires', 
     <ChatDetailScreen />,
   );
 
-  jest.useFakeTimers();
-  const cancelAnimationFrameSpy = jest.spyOn(global, 'cancelAnimationFrame');
   try {
     await act(async () => {
       UNSAFE_getByType(FlatList).props.onScrollBeginDrag?.({ nativeEvent: {} });
@@ -1309,16 +1421,18 @@ test('keeps a newer network older loader visible when an old cached RAF fires', 
       });
     });
     expect({
-      actual: getByTestId('older-messages-loading') != null,
-      reason: 'conv-1 cached expansion should start older loading before route reset',
-    }).toEqual({ actual: true, reason: expect.any(String) });
+      actual: queryByTestId('older-messages-loading'),
+      reason: 'conv-1 cached raw history must not start older loading before transcript metadata',
+    }).toEqual({ actual: null, reason: expect.any(String) });
+    expect({
+      actual: (fetchTranscriptTurns as jest.Mock).mock.calls.some(
+        ([, , convId, options]) => convId === 'conv-1' && options?.beforeTurn != null,
+      ),
+      reason: 'conv-1 should not request older turns without an oldest_turn_id',
+    }).toEqual({ actual: false, reason: expect.any(String) });
 
     mockSearchParams = { id: 'conv-2', endpoint_id: 'endpoint-1' };
     rerender(<ChatDetailScreen />);
-    expect({
-      actual: cancelAnimationFrameSpy.mock.calls.length,
-      reason: 'route reset must cancel the pending cached older RAF before a new load starts',
-    }).toEqual({ actual: 1, reason: expect.any(String) });
     await waitFor(() => expect(getByText('conv two latest prompt')).toBeTruthy());
     await act(async () => {
       UNSAFE_getByType(FlatList).props.onScrollBeginDrag?.({ nativeEvent: {} });
@@ -1339,15 +1453,11 @@ test('keeps a newer network older loader visible when an old cached RAF fires', 
       actual: getByTestId('older-messages-loading') != null,
       reason: 'conv-2 network request should show the current older loading indicator',
     }).toEqual({ actual: true, reason: expect.any(String) });
-    await act(async () => {
-      jest.runOnlyPendingTimers();
-    });
     expect({
       actual: queryByTestId('older-messages-loading') != null,
-      reason: 'old conv-1 cached RAF must not clear the newer conv-2 network loader',
+      reason: 'stale conv-1 route must not clear the newer conv-2 network loader',
     }).toEqual({ actual: true, reason: expect.any(String) });
   } finally {
-    cancelAnimationFrameSpy.mockRestore();
     jest.useRealTimers();
   }
 });
@@ -1711,14 +1821,16 @@ test('fetches an around_ask_id window when focus_ask_id is outside the latest pa
     },
   );
 
-  const { getByTestId, getByText } = render(<ChatDetailScreen />);
+  const { getByTestId, queryByText } = render(<ChatDetailScreen />);
 
-  await waitFor(() => expect(getByText('latest page only')).toBeTruthy());
   await waitFor(() => expect(getByTestId('chat-ask-ask-focus')).toBeTruthy());
-  expect(fetchMessages).toHaveBeenCalledWith('http://localhost:8080', 'token', 'conv-1', {
-    around_ask_id: 'ask-focus',
-    limit: 100,
-  });
+  expect(queryByText('latest page only')).toBeNull();
+  expect(fetchTranscriptTurns).toHaveBeenCalledWith(
+    'http://localhost:8080',
+    'token',
+    'conv-1',
+    { limit: 20, aroundAskId: 'ask-focus' },
+  );
 });
 
 /// Focus ask routing: Chat Detail must keep `focus_ask_id` behavior for
@@ -1737,7 +1849,7 @@ test('fetches an around_ask_id window when focus_ask_id is outside the latest pa
 /// Expected result:
 ///   - Positive: focused ask wrapper exists, so the route id matched a Chat card.
 ///   - Positive: FlatList.scrollToIndex is called with index=0, proving focus scroll remains wired.
-///   - Negative: no around_ask_id fetch is needed because the target is already in the latest page.
+///   - Positive: the initial transcript request uses aroundAskId as the server focus cursor.
 test('scrolls to focus_ask_id after focused ask row lays out', async () => {
   mockSearchParams = {
     id: 'conv-1',
@@ -1786,11 +1898,11 @@ test('scrolls to focus_ask_id after focused ask row lays out', async () => {
       reason: 'focus_ask_id should scroll to the matching FlatList item index',
     }).toEqual({ actual: true, reason: expect.any(String) });
     expect({
-      actual: (fetchMessages as jest.Mock).mock.calls.some(
-        ([, , , options]) => options?.around_ask_id === 'ask-focus',
+      actual: (fetchTranscriptTurns as jest.Mock).mock.calls.some(
+        ([, , , options]) => options?.aroundAskId === 'ask-focus',
       ),
-      reason: 'focus_ask_id already in the latest page should not request a focus window',
-    }).toEqual({ actual: false, reason: expect.any(String) });
+      reason: 'focus_ask_id should be sent to the server transcript focus cursor',
+    }).toEqual({ actual: true, reason: expect.any(String) });
 
     act(() => {
       UNSAFE_getByType(FlatList).props.onContentSizeChange(320, 640);
