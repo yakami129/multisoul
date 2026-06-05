@@ -4,7 +4,8 @@
   "documents": [
     {
       "file": "2026-06-05-chat-server-turn-transcript.md",
-      "title": "Chat Server Turn Transcript Implementation Plan"
+      "title": "Chat Server Turn Transcript Implementation Plan",
+      "lastCompletedCommit": "e08e99fcef989a17ad90609e38ee09add80e16e5"
     },
     {
       "file": "2026-06-04-chat-turn-folding-pagination-fix.md",
