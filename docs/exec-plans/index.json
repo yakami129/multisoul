@@ -9,7 +9,8 @@
     },
     {
       "file": "2026-06-05-activity-weak-network.md",
-      "title": "Activity Weak Network Degradation Implementation Plan"
+      "title": "Activity Weak Network Degradation Implementation Plan",
+      "lastCompletedCommit": "72f51021ff22496de7334ed9bdfc69a6c8e55489"
     },
     {
       "file": "2026-06-04-chat-turn-folding-pagination-fix.md",
