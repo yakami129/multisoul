@@ -164,10 +164,7 @@ export default function ChatTranscriptList({
         {expanded ? (
           <View style={s.workedExpandedItems}>
             {item.kind === 'server_worked' && item.isLoading ? (
-              <ActivityIndicator
-                testID="worked-row-loading-indicator"
-                color={brandColors.cyan}
-              />
+              <ActivityIndicator testID="worked-row-loading-indicator" color={brandColors.cyan} />
             ) : null}
             {item.messages.map((message) => (
               <View key={message.seq}>{renderMessage(message)}</View>

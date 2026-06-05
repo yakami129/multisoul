@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useRef, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import { KeyboardAvoidingView, Platform, type FlatList, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { EMPTY_MESSAGES, STATUS_BADGE } from '@/features/chat/chatDetailConstants';
@@ -84,6 +84,13 @@ export default function ChatDetailScreen() {
     lastSeenAgentActivitySeqRef,
     lastAnimatedAgentTextSeqRef,
   });
+
+  const handleLoadServerWorkedMessages = useCallback(
+    (turnId: string) => {
+      void loadServerWorkedMessages(turnId);
+    },
+    [loadServerWorkedMessages],
+  );
 
   const conversationStatus = conversation?.status ?? 'idle';
   const {
@@ -230,7 +237,7 @@ export default function ChatDetailScreen() {
           serverUrl={endpoint?.base_url ?? ''}
           token={endpoint?.token ?? ''}
           toolResultMessages={toolResultMessages}
-          onLoadServerWorkedMessages={loadServerWorkedMessages}
+          onLoadServerWorkedMessages={handleLoadServerWorkedMessages}
           onAnswer={sendAnswer}
           onAnswerMulti={sendAnswerMulti}
           imageUriForMessage={imageUriForMessage}

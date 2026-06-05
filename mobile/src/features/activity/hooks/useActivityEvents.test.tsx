@@ -1,7 +1,7 @@
 import { act, renderHook } from '@testing-library/react-native';
 import { type Endpoint } from '@/types';
-import { buildActivityEventsWsUrl } from '../services/activityEventService';
 import { ACTIVITY_EVENT_DEBOUNCE_MS, useActivityEvents } from './useActivityEvents';
+import { buildActivityEventsWsUrl } from '../services/activityEventService';
 
 class MockWebSocket {
   static CONNECTING = 0;

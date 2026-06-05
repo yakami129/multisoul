@@ -137,8 +137,7 @@ function makeNumberedMessages(start: number, end: number): WsMessage[] {
 
 function inferTranscriptStatus(convId: string, messages: WsMessage[]): TranscriptPage['status'] {
   const taskStatus = [...messages].reverse().find((msg) => msg.role === 'task_status');
-  const status = (taskStatus?.payload as { status?: TranscriptPage['status'] } | undefined)
-    ?.status;
+  const status = (taskStatus?.payload as { status?: TranscriptPage['status'] } | undefined)?.status;
   if (status) return status;
   return useChatStore.getState().conversations.find((conv) => conv.id === convId)?.status ?? 'idle';
 }
@@ -1825,12 +1824,10 @@ test('fetches an around_ask_id window when focus_ask_id is outside the latest pa
 
   await waitFor(() => expect(getByTestId('chat-ask-ask-focus')).toBeTruthy());
   expect(queryByText('latest page only')).toBeNull();
-  expect(fetchTranscriptTurns).toHaveBeenCalledWith(
-    'http://localhost:8080',
-    'token',
-    'conv-1',
-    { limit: 20, aroundAskId: 'ask-focus' },
-  );
+  expect(fetchTranscriptTurns).toHaveBeenCalledWith('http://localhost:8080', 'token', 'conv-1', {
+    limit: 20,
+    aroundAskId: 'ask-focus',
+  });
 });
 
 /// Focus ask routing: Chat Detail must keep `focus_ask_id` behavior for

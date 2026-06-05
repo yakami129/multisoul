@@ -100,7 +100,8 @@ function makeRawTranscriptPage(convId: string, messages: WsMessage[]): Transcrip
   const firstSeq = messages[0]?.seq ?? null;
   return {
     conversation_id: convId,
-    status: useChatStore.getState().conversations.find((conv) => conv.id === convId)?.status ?? 'idle',
+    status:
+      useChatStore.getState().conversations.find((conv) => conv.id === convId)?.status ?? 'idle',
     items:
       firstSeq == null
         ? []

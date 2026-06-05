@@ -24,7 +24,7 @@ pub enum TranscriptItem {
     #[serde(rename = "turn_summary")]
     TurnSummary {
         #[serde(flatten)]
-        summary: TurnSummary,
+        summary: Box<TurnSummary>,
     },
     #[serde(rename = "current_turn_raw")]
     CurrentTurnRaw {
@@ -95,8 +95,7 @@ pub fn build_transcript_page(
     }
 
     let latest_index = turns.len().saturating_sub(1);
-    for index in start..end {
-        let turn = &turns[index];
+    for (index, turn) in turns.iter().enumerate().take(end).skip(start) {
         if is_current_raw_status(status) && index == latest_index {
             items.push(TranscriptItem::CurrentTurnRaw {
                 current: CurrentTurnRaw {
@@ -107,7 +106,7 @@ pub fn build_transcript_page(
             });
         } else {
             items.push(TranscriptItem::TurnSummary {
-                summary: summarize_turn(turn),
+                summary: Box::new(summarize_turn(turn)),
             });
         }
     }

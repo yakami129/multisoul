@@ -22,12 +22,10 @@ const TYPEWRITER_LONG_DOC_MIN = 240;
 const TYPEWRITER_LONG_TAIL_SMOOTH = 64;
 const TYPEWRITER_MAX_STEP = 18;
 const DOT_PULSE_DURATION = 600;
-
 type SegmenterCtor = new (
   locales?: string,
   options?: { granularity: 'grapheme' },
 ) => { segment(input: string): Iterable<{ segment: string }> };
-
 function graphemeUnits(raw: string): string[] {
   const segmenter = (Intl as typeof Intl & { Segmenter?: SegmenterCtor }).Segmenter;
   if (segmenter) {
@@ -38,11 +36,9 @@ function graphemeUnits(raw: string): string[] {
   }
   return Array.from(raw);
 }
-
 function joinUnits(units: string[], count: number) {
   return units.slice(0, Math.min(count, units.length)).join('');
 }
-
 function stepForGap(gap: number) {
   if (gap <= 0) return 0;
   const frames = 72;
@@ -461,7 +457,12 @@ const s = StyleSheet.create({
   userText: { fontFamily: 'Inter', fontSize: 15, color: brandColors.ink, lineHeight: 22 },
   aiText: { fontFamily: 'Inter', fontSize: 15, color: brandColors.ink, lineHeight: 22 },
   thumbImage: { width: 120, height: 120, borderRadius: 8, marginBottom: 4 },
-  attachmentPlaceholder: { fontFamily: 'Inter', fontSize: 12, color: brandColors.ink, marginBottom: 4 },
+  attachmentPlaceholder: {
+    fontFamily: 'Inter',
+    fontSize: 12,
+    color: brandColors.ink,
+    marginBottom: 4,
+  },
   imageCaption: { marginTop: 4 },
   enlargeHint: { fontFamily: 'Inter', fontSize: 10, color: brandColors.textSoft, marginTop: 4 },
   fullscreenClose: {

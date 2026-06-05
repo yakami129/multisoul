@@ -1,14 +1,12 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import type React from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { type FlatList } from 'react-native';
 import {
   fetchTranscriptTurns,
   fetchTurnHiddenMessages,
 } from '@/features/chat/services/transcriptService';
 import type { TranscriptItem, TranscriptPage } from '@/features/chat/types';
-import {
-  getMaxMessageSeq,
-  hydrateAnswered,
-} from '@/features/chat/utils/chatMessageWindows';
+import { getMaxMessageSeq, hydrateAnswered } from '@/features/chat/utils/chatMessageWindows';
 import {
   collapseTodoToolCallSnapshots,
   type ChatTranscriptDisplayItem,
