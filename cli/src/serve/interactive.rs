@@ -93,12 +93,15 @@ impl AskUserQuestion {
         let mut result = original_args.clone();
         let obj = result.as_object_mut().expect("args must be object");
 
-        // Build answers map: { "questionIdx": "option label" }
+        // Claude Code expects answers keyed by the original question text.
         let mut answers = serde_json::Map::new();
 
         if let Some(freeform) = &answer.freeform {
             if !freeform.is_empty() {
-                answers.insert("0".to_string(), serde_json::Value::String(freeform.clone()));
+                answers.insert(
+                    question_answer_key(original_args, 0),
+                    serde_json::Value::String(freeform.clone()),
+                );
                 obj.insert("answers".to_string(), serde_json::Value::Object(answers));
                 return result;
             }
@@ -120,47 +123,60 @@ impl AskUserQuestion {
                 let parts: Vec<&str> = opt_id_str.split(',').map(str::trim).collect();
                 if parts.len() == 1 {
                     // Single selection — resolve to label as before
-                    let label = if let Ok(oi) = parts[0].parse::<usize>() {
-                        original_args["questions"][qi]["options"][oi]["label"]
-                            .as_str()
-                            .unwrap_or(parts[0])
-                            .to_string()
-                    } else {
-                        parts[0].to_string()
-                    };
-                    answers.insert(qi.to_string(), serde_json::Value::String(label));
+                    let label = answer_label_for_choice(original_args, qi, parts[0]);
+                    answers.insert(
+                        question_answer_key(original_args, qi),
+                        serde_json::Value::String(label),
+                    );
                 } else {
                     // Multi-selection — collect comma-joined labels
                     let labels: Vec<String> = parts
                         .iter()
-                        .filter_map(|p| {
-                            let oi = p.parse::<usize>().ok()?;
-                            original_args["questions"][qi]["options"][oi]["label"]
-                                .as_str()
-                                .map(str::to_string)
-                        })
+                        .filter(|p| !p.is_empty())
+                        .map(|p| answer_label_for_choice(original_args, qi, p))
                         .collect();
-                    answers.insert(qi.to_string(), serde_json::Value::String(labels.join(", ")));
+                    answers.insert(
+                        question_answer_key(original_args, qi),
+                        serde_json::Value::String(labels.join(", ")),
+                    );
                 }
             }
         } else if let Some(choice_id) = &answer.choice_id {
             // Single-question: choice_id = "optionIdx"
             if choice_id != "__cancelled__" {
-                let label = if let Ok(idx) = choice_id.parse::<usize>() {
-                    original_args["questions"][0]["options"][idx]["label"]
-                        .as_str()
-                        .unwrap_or(choice_id)
-                        .to_string()
-                } else {
-                    choice_id.clone()
-                };
-                answers.insert("0".to_string(), serde_json::Value::String(label));
+                let label = answer_label_for_choice(original_args, 0, choice_id);
+                answers.insert(
+                    question_answer_key(original_args, 0),
+                    serde_json::Value::String(label),
+                );
             }
         }
 
         obj.insert("answers".to_string(), serde_json::Value::Object(answers));
         result
     }
+}
+
+fn question_answer_key(original_args: &Value, question_index: usize) -> String {
+    original_args["questions"][question_index]["question"]
+        .as_str()
+        .filter(|question| !question.trim().is_empty())
+        .map(str::to_string)
+        .unwrap_or_else(|| question_index.to_string())
+}
+
+fn answer_label_for_choice(
+    original_args: &Value,
+    question_index: usize,
+    choice_id: &str,
+) -> String {
+    if let Ok(option_index) = choice_id.parse::<usize>() {
+        return original_args["questions"][question_index]["options"][option_index]["label"]
+            .as_str()
+            .unwrap_or(choice_id)
+            .to_string();
+    }
+    choice_id.to_string()
 }
 
 // ─── Dispatch helpers (extend here when adding new interactive tools) ─────────
@@ -192,4 +208,9 @@ pub fn build_updated_input(
         }
         _ => None,
     }
+}
+
+#[cfg(test)]
+mod tests {
+    include!("interactive_tests.rs");
 }

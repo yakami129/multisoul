@@ -16,6 +16,7 @@ import { registerPushTokenForEndpoints } from '../src/services/pushTokenService'
 import { useEndpointStore } from '../src/store/endpointStore';
 import { useInboxStore } from '../src/store/inboxStore';
 import { useSpecStore } from '../src/store/specStore';
+import { brandColors } from '../src/theme/brandRefresh';
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 2, staleTime: 10_000 } },
@@ -101,7 +102,7 @@ export default function RootLayout() {
       <SafeAreaProvider>
         <ErrorBoundary>
           <QueryClientProvider client={queryClient}>
-            <StatusBar style="light" backgroundColor="#0D0D0D" />
+            <StatusBar style="dark" backgroundColor={brandColors.cream} />
             {!splashDone ? (
               <SplashScreen onComplete={() => setSplashDone(true)} />
             ) : (

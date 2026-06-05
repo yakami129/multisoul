@@ -10,6 +10,7 @@ import {
   View,
 } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
+import { brandColors } from '@/theme/brandRefresh';
 import { activityScreenStyles as s } from './activityScreenStyles';
 
 export interface ActivityItem {
@@ -182,7 +183,7 @@ function ActivityRow({
           >
             {item.statusLabel}
           </Text>
-          <ChevronRight size={16} color="#555555" />
+          <ChevronRight size={16} color={brandColors.textMuted} />
         </View>
       </TouchableOpacity>
     </Swipeable>
@@ -292,7 +293,7 @@ export default function ActivityScreen({
     if (isLoadingMore) {
       return (
         <View style={s.loadMoreFooter} accessibilityLiveRegion="polite">
-          <ActivityIndicator color="#FF6B35" />
+          <ActivityIndicator color={brandColors.cyan} />
           <Text style={s.loadMoreText}>Loading more activity...</Text>
         </View>
       );
@@ -322,7 +323,7 @@ export default function ActivityScreen({
       <View style={s.header}>
         <View style={s.titleRow}>
           <Text style={s.title}>Activity</Text>
-          <SlidersHorizontal size={22} color="#888888" />
+          <SlidersHorizontal size={24} color={brandColors.ink} />
         </View>
         <View style={s.segment} testID="activity-filter-segment">
           {FILTERS.map((filter) => {
@@ -366,12 +367,16 @@ export default function ActivityScreen({
         <ScrollView
           contentContainerStyle={s.emptyBody}
           refreshControl={
-            <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor="#FF6B35" />
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={onRefresh}
+              tintColor={brandColors.cyan}
+            />
           }
           testID="activity-scroll"
         >
           <View style={s.emptyIconWrap}>
-            <MessageCircle size={36} color="#FF4444" />
+            <MessageCircle size={36} color={brandColors.error} />
           </View>
           <Text style={s.emptyTitle}>Could not load activity</Text>
           <Text style={s.emptyDesc}>All configured endpoints failed to respond.</Text>
@@ -388,13 +393,17 @@ export default function ActivityScreen({
         <ScrollView
           contentContainerStyle={s.emptyBody}
           refreshControl={
-            <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor="#FF6B35" />
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={onRefresh}
+              tintColor={brandColors.cyan}
+            />
           }
           testID="activity-scroll"
         >
           <PartialFailureBanner failedEndpointLabels={failedEndpointLabels} onRetry={onRetry} />
           <View style={s.emptyIconWrap}>
-            <CircleCheck size={36} color="#4CAF50" />
+            <CircleCheck size={36} color={brandColors.lime} />
           </View>
           <Text style={s.emptyTitle}>{hasEndpoints ? 'All caught up' : 'Connect an endpoint'}</Text>
           <Text style={s.emptyDesc}>
@@ -429,7 +438,11 @@ export default function ActivityScreen({
           style={s.list}
           contentContainerStyle={s.content}
           refreshControl={
-            <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor="#FF6B35" />
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={onRefresh}
+              tintColor={brandColors.cyan}
+            />
           }
           testID="activity-list"
         />

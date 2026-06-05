@@ -233,6 +233,111 @@ test('waits for answered prop before showing answered state', () => {
   }).toEqual({ actual: true, reason: expect.any(String) });
 });
 
+// ─── Round-trip contract with CLI build_ask_payload ─────────────────────────
+//
+// CLI build_ask_payload assigns numeric string ids to options: "0", "1", "2"...
+// Mobile AskQuestionCard receives these ids and must pass them back via onConfirm.
+// This section tests that contract end-to-end within the Mobile layer.
+//
+// Data construction:
+//   options = [{ id: '0', label: 'Option A' }, { id: '1', label: 'Option B' }]
+//   These mirror what CLI build_ask_payload produces for any AskUserQuestion call.
+
+const numericIdOptions = [
+  { id: '0', label: 'Option A' },
+  { id: '1', label: 'Option B' },
+  { id: '2', label: 'Option C' },
+];
+
+/// T-contract-1: Selecting a numeric-id option must pass that numeric id string
+/// to onConfirm, not the option label.
+///
+/// This is the critical contract between Mobile and CLI:
+///   CLI assigns option.id = "1" (array index)
+///   Mobile must call onConfirm("1") so CLI can look up options[1].label
+///
+/// If onConfirm received "Option B" instead of "1", the CLI would get
+/// choice_id = "Option B" (non-numeric) and use it verbatim as the answer,
+/// bypassing the label lookup and producing correct-ish answers only by coincidence.
+test('onConfirm passes numeric option id (not label) when user picks a numeric-id option', () => {
+  const onConfirm = jest.fn();
+  const { getByLabelText } = render(
+    <AskQuestionCard
+      question="Pick one"
+      options={numericIdOptions}
+      onCancel={jest.fn()}
+      onConfirm={onConfirm}
+    />,
+  );
+
+  fireEvent.press(getByLabelText('Option B'));
+  fireEvent.press(getByLabelText('Confirm'));
+
+  assertEqual(
+    onConfirm.mock.calls.some(([value]) => value === '1'),
+    true,
+    "onConfirm must receive the numeric id '1' (not label 'Option B') for the CLI round-trip to work",
+  );
+  assertNotEqual(
+    onConfirm.mock.calls.some(([value]) => value === 'Option B'),
+    true,
+    "onConfirm must NOT receive the label 'Option B' — CLI expects numeric index ids",
+  );
+});
+
+/// T-contract-2: Selecting the first option (id "0") must pass "0" to onConfirm.
+///
+/// This is important because "0" is falsy-ish in JS but must still be transmitted.
+test('onConfirm passes "0" for first option with numeric id 0', () => {
+  const onConfirm = jest.fn();
+  const { getByLabelText } = render(
+    <AskQuestionCard
+      question="Pick one"
+      options={numericIdOptions}
+      onCancel={jest.fn()}
+      onConfirm={onConfirm}
+    />,
+  );
+
+  fireEvent.press(getByLabelText('Option A'));
+  fireEvent.press(getByLabelText('Confirm'));
+
+  assertEqual(
+    onConfirm.mock.calls.some(([value]) => value === '0'),
+    true,
+    "onConfirm must pass id '0' for first option — falsy string '0' must not be dropped",
+  );
+});
+
+/// T-contract-3: Multi-select with numeric ids must pass comma-joined numeric ids.
+///
+/// CLI build_updated_input expects choice_ids = {"0": "0,2"} (joined option indices).
+/// MessageBubble wraps this as: onAnswerMulti(ask_id, { '0': ids })
+/// where ids = onConfirm result = "0,2" (sorted numeric ids, no custom).
+test('multi-select onConfirm passes comma-joined numeric ids in sorted order', () => {
+  const onConfirm = jest.fn();
+  const { getByLabelText } = render(
+    <AskQuestionCard
+      question="Pick many"
+      options={numericIdOptions}
+      multiSelect
+      onCancel={jest.fn()}
+      onConfirm={onConfirm}
+    />,
+  );
+
+  // Select option C (id "2") first, then option A (id "0")
+  fireEvent.press(getByLabelText('Option C'));
+  fireEvent.press(getByLabelText('Option A'));
+  fireEvent.press(getByLabelText('Confirm'));
+
+  assertEqual(
+    onConfirm.mock.calls.some(([value]) => value === '0,2'),
+    true,
+    "multi-select onConfirm must pass comma-joined sorted ids '0,2' for CLI to map back to labels",
+  );
+});
+
 /// Answered custom answer rendering: a custom text answer should remain visible
 /// when the parent later marks the card answered.
 ///

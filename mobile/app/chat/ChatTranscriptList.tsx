@@ -1,20 +1,38 @@
+import { ChevronDown, ChevronUp } from 'lucide-react-native';
 import React from 'react';
 import {
   ActivityIndicator,
   FlatList,
+  Pressable,
+  Text,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
+  type ViewToken,
   View,
 } from 'react-native';
 import { WAITING_MESSAGE } from '@/features/chat/chatDetailConstants';
 import { MessageBubble } from '@/features/chat/components/MessageBubble';
+import { ToolCallRow } from '@/features/chat/components/ToolCallRow';
 import { getAskId } from '@/features/chat/utils/chatMessageWindows';
-import { type WsMessage } from '@/types';
+import {
+  buildCompletedTranscriptDisplayItems,
+  getChatTranscriptDisplayItemKey,
+  type ChatTranscriptDisplayItem,
+} from '@/features/chat/utils/chatRenderState';
+import { brandColors } from '@/theme/brandRefresh';
+import {
+  type Conversation,
+  type ToolCallPayload,
+  type ToolResultPayload,
+  type WsMessage,
+} from '@/types';
 import { s } from './styles';
 
 interface Props {
-  listRef: React.RefObject<FlatList<WsMessage> | null>;
+  listRef: React.RefObject<FlatList<ChatTranscriptDisplayItem> | null>;
   messages: WsMessage[];
+  displayItems?: ChatTranscriptDisplayItem[];
+  conversationStatus: Conversation['status'];
   isLoadingOlder: boolean;
   isAgentRunning: boolean;
   incomingAgentActivitySeq: number | null;
@@ -22,6 +40,8 @@ interface Props {
   shouldForceComplete: boolean;
   serverUrl: string;
   token: string;
+  toolResultMessages?: WsMessage[];
+  onLoadServerWorkedMessages?: (turnId: string) => void;
   onAnswer: (ask_id: string, choice_id?: string, freeform?: string) => void;
   onAnswerMulti: (ask_id: string, choice_ids: Record<string, string>) => void;
   imageUriForMessage: (msg: WsMessage) => string | undefined;
@@ -29,11 +49,17 @@ interface Props {
   onScrollBeginDrag: (event: NativeSyntheticEvent<NativeScrollEvent>) => void;
   onContentSizeChange: () => void;
   onScrollToIndexFailed: (info: { index: number; averageItemLength: number }) => void;
+  onViewableItemsChanged?: (info: {
+    viewableItems: ViewToken<ChatTranscriptDisplayItem>[];
+    changed: ViewToken<ChatTranscriptDisplayItem>[];
+  }) => void;
 }
 
 export default function ChatTranscriptList({
   listRef,
   messages,
+  displayItems: providedDisplayItems,
+  conversationStatus,
   isLoadingOlder,
   isAgentRunning,
   incomingAgentActivitySeq,
@@ -41,6 +67,8 @@ export default function ChatTranscriptList({
   shouldForceComplete,
   serverUrl,
   token,
+  toolResultMessages,
+  onLoadServerWorkedMessages,
   onAnswer,
   onAnswerMulti,
   imageUriForMessage,
@@ -48,9 +76,53 @@ export default function ChatTranscriptList({
   onScrollBeginDrag,
   onContentSizeChange,
   onScrollToIndexFailed,
+  onViewableItemsChanged,
 }: Props) {
-  const renderMessage = ({ item: msg }: { item: WsMessage }) => {
+  const [expandedWorkedIds, setExpandedWorkedIds] = React.useState<Set<string>>(() => new Set());
+  const toolResultsByCallId = React.useMemo(() => {
+    const results = new Map<string, ToolResultPayload>();
+    for (const message of toolResultMessages ?? messages) {
+      if (message.role !== 'tool_result') continue;
+      const result = message.payload as ToolResultPayload;
+      results.set(result.call_id, result);
+    }
+    return results;
+  }, [messages, toolResultMessages]);
+
+  const computedDisplayItems = React.useMemo(
+    () => buildCompletedTranscriptDisplayItems(messages, conversationStatus),
+    [conversationStatus, messages],
+  );
+  const displayItems = providedDisplayItems ?? computedDisplayItems;
+
+  const toggleWorkedItem = React.useCallback(
+    (item: Exclude<ChatTranscriptDisplayItem, { kind: 'message' }>) => {
+      setExpandedWorkedIds((current) => {
+        const next = new Set(current);
+        if (next.has(item.id)) {
+          next.delete(item.id);
+        } else {
+          next.add(item.id);
+          if (item.kind === 'server_worked') {
+            onLoadServerWorkedMessages?.(item.turnId);
+          }
+        }
+        return next;
+      });
+    },
+    [onLoadServerWorkedMessages],
+  );
+
+  const renderMessage = (msg: WsMessage) => {
     const askId = getAskId(msg);
+    if (msg.role === 'tool_call') {
+      const call = msg.payload as ToolCallPayload;
+      return (
+        <View testID={askId ? `chat-ask-${askId}` : undefined}>
+          <ToolCallRow call={call} result={toolResultsByCallId.get(call.call_id)} />
+        </View>
+      );
+    }
     return (
       <View testID={askId ? `chat-ask-${askId}` : undefined}>
         <MessageBubble
@@ -68,10 +140,45 @@ export default function ChatTranscriptList({
     );
   };
 
+  const renderDisplayItem = ({ item }: { item: ChatTranscriptDisplayItem }) => {
+    if (item.kind === 'message') return renderMessage(item.message);
+
+    const expanded = expandedWorkedIds.has(item.id);
+    return (
+      <View>
+        <Pressable
+          testID="worked-row"
+          accessibilityRole="button"
+          accessibilityLabel={item.label}
+          accessibilityState={{ expanded }}
+          style={s.workedRow}
+          onPress={() => toggleWorkedItem(item)}
+        >
+          <Text style={s.workedText}>{item.label}</Text>
+          {expanded ? (
+            <ChevronUp size={16} color={brandColors.textSoft} />
+          ) : (
+            <ChevronDown size={16} color={brandColors.textSoft} />
+          )}
+        </Pressable>
+        {expanded ? (
+          <View style={s.workedExpandedItems}>
+            {item.kind === 'server_worked' && item.isLoading ? (
+              <ActivityIndicator testID="worked-row-loading-indicator" color={brandColors.cyan} />
+            ) : null}
+            {item.messages.map((message) => (
+              <View key={message.seq}>{renderMessage(message)}</View>
+            ))}
+          </View>
+        ) : null}
+      </View>
+    );
+  };
+
   const renderOlderLoading = () =>
     isLoadingOlder ? (
       <View testID="older-messages-loading" style={s.olderMessagesLoading}>
-        <ActivityIndicator testID="older-messages-loading-indicator" color="#FF6B35" />
+        <ActivityIndicator testID="older-messages-loading-indicator" color={brandColors.cyan} />
       </View>
     ) : null;
 
@@ -80,9 +187,9 @@ export default function ChatTranscriptList({
       ref={listRef}
       style={s.scroll}
       contentContainerStyle={s.scrollContent}
-      data={messages}
-      keyExtractor={(msg) => `${msg.seq}`}
-      renderItem={renderMessage}
+      data={displayItems}
+      keyExtractor={getChatTranscriptDisplayItemKey}
+      renderItem={renderDisplayItem}
       ListHeaderComponent={isLoadingOlder ? renderOlderLoading : null}
       ListFooterComponent={
         isAgentRunning && incomingAgentActivitySeq === null ? (
@@ -94,6 +201,7 @@ export default function ChatTranscriptList({
       scrollEventThrottle={16}
       onContentSizeChange={onContentSizeChange}
       onScrollToIndexFailed={onScrollToIndexFailed}
+      onViewableItemsChanged={onViewableItemsChanged}
       maintainVisibleContentPosition={{ minIndexForVisible: 0 }}
     />
   );

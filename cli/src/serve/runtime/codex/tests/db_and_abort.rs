@@ -4,6 +4,7 @@ use super::test_helpers::{
     join_with_timeout, process_exists, wait_until, StartNewProcessGroupForTest,
 };
 use crate::serve::state::AppState;
+use serde_json::Value;
 use std::{
     process::{Command, Stdio},
     time::Duration,
@@ -160,6 +161,120 @@ fn stale_codex_turn_completion_does_not_override_newer_user_turn() {
         task_status_count, 1,
         "current completed turn should insert exactly one task_status message"
     );
+}
+
+/// Codex tool lifecycle events should render one mobile card with a matching result.
+///
+/// Data construction:
+///   shell child consumes stdin like `codex exec -` and prints JSONL:
+///   - item.started  id=tool-1 type=mcp_tool_call
+///   - item.completed id=tool-1 type=mcp_tool_call with result content
+///   - turn.completed to make process_turn return normally
+///
+/// Expected:
+///   - one `tool_call` row, not one per lifecycle event
+///   - one `tool_result` row with the same call_id
+///   - the tool name keeps the MCP shape mobile already formats specially
+#[cfg(unix)]
+#[test]
+fn codex_process_turn_pairs_started_and_completed_tool_events() {
+    let conn = rusqlite::Connection::open_in_memory().unwrap();
+    conn.execute_batch(
+        "CREATE TABLE conversations (
+                id TEXT PRIMARY KEY,
+                status TEXT NOT NULL DEFAULT 'idle',
+                last_message_at INTEGER NOT NULL DEFAULT 0,
+                codex_thread_id TEXT
+            );
+            CREATE TABLE messages (
+                id TEXT PRIMARY KEY,
+                conversation_id TEXT NOT NULL,
+                role TEXT NOT NULL,
+                payload TEXT NOT NULL,
+                created_at INTEGER NOT NULL,
+                seq INTEGER NOT NULL
+            );",
+    )
+    .unwrap();
+    conn.execute(
+        "INSERT INTO conversations (id, status, last_message_at, codex_thread_id)
+         VALUES ('conv-1', 'idle', 0, NULL)",
+        [],
+    )
+    .unwrap();
+    let state = AppState::new(
+        conn,
+        "token".to_string(),
+        std::path::PathBuf::from("/tmp/uploads"),
+        crate::serve::plugin::PluginManager::empty(std::sync::Arc::new(std::sync::Mutex::new(
+            rusqlite::Connection::open_in_memory().unwrap(),
+        ))),
+    );
+
+    let script = r#"cat >/dev/null
+printf '%s\n' '{"type":"item.started","item":{"id":"tool-1","type":"mcp_tool_call","server":"figma","tool":"use_figma","arguments":{"fileKey":"abc"},"status":"running"}}'
+printf '%s\n' '{"type":"item.completed","item":{"id":"tool-1","type":"mcp_tool_call","server":"figma","tool":"use_figma","arguments":{"fileKey":"abc"},"status":"completed","result":{"content":[{"type":"text","text":"created frame"}],"structured_content":null}}}'
+printf '%s\n' '{"type":"turn.completed"}'
+"#;
+    let mut child = Command::new("sh")
+        .arg("-c")
+        .arg(script)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap();
+    let stdin = child.stdin.take().unwrap();
+
+    let mut thread_id = None;
+    let result = turn::process_turn(&state, "conv-1", "hello", 1, child, stdin, &mut thread_id);
+    assert!(result.is_ok(), "mock Codex turn should complete normally");
+
+    let db = state.db.lock().unwrap();
+    let rows = {
+        let mut stmt = db
+            .prepare(
+                "SELECT role, payload FROM messages
+                 WHERE conversation_id='conv-1'
+                 ORDER BY seq ASC",
+            )
+            .unwrap();
+        stmt.query_map([], |row| {
+            let role: String = row.get(0)?;
+            let payload: String = row.get(1)?;
+            Ok((role, serde_json::from_str::<Value>(&payload).unwrap()))
+        })
+        .unwrap()
+        .collect::<Result<Vec<_>, _>>()
+        .unwrap()
+    };
+
+    let tool_calls = rows
+        .iter()
+        .filter(|(role, _)| role == "tool_call")
+        .collect::<Vec<_>>();
+    let tool_results = rows
+        .iter()
+        .filter(|(role, _)| role == "tool_result")
+        .collect::<Vec<_>>();
+    assert_eq!(
+        tool_calls.len(),
+        1,
+        "started/completed should produce one card"
+    );
+    assert_eq!(
+        tool_results.len(),
+        1,
+        "completed should produce one tool result"
+    );
+
+    let call_payload = &tool_calls[0].1;
+    let result_payload = &tool_results[0].1;
+    assert_eq!(call_payload["tool"], "mcp__figma__use_figma");
+    assert_eq!(call_payload["call_id"], "tool-1");
+    assert_eq!(result_payload["call_id"], "tool-1");
+    assert_eq!(result_payload["ok"], true);
+    assert_eq!(result_payload["summary"], "created frame");
 }
 
 /// abort API: 正在阻塞于 codex process_turn stdout 读取的真实子进程会被终止。

@@ -73,10 +73,12 @@ Default: `full-auto`.
 | `thread.started`  | Store `thread_id` → `conversations.codex_thread_id`            |
 | `turn.started`    | Clear pending message buffer                                   |
 | `item.completed` type=`agent_message` / `message` | Extract text → broadcast `agent_text` |
-| `item.completed` type=`command_execution`          | Broadcast `tool_call` + `tool_result` |
+| `item.started` / `item.completed` tool items       | Broadcast `tool_call` + matching `tool_result` |
 | `item.completed` type=`reasoning`                  | Broadcast `agent_text` (thinking content) |
 | `turn.completed`  | Broadcast `task_status {status: "completed"}`                  |
 | `turn.failed`     | Broadcast `task_status {status: "failed"}`                     |
+
+**2026-06-04 tool event coverage update:** Codex `exec --json` emits multiple tool item types beyond `command_execution`, including `file_change`, `mcp_tool_call`, `collab_tool_call`, `web_search`, and `todo_list`. The adapter must treat all supported tool lifecycle items as first-class mobile cards. When a completed-only item appears, the adapter emits both `tool_call` and `tool_result` in sequence so iOS can still render a card. Unknown future raw tool shapes should fall back to a generic `tool_call` when a tool name and arguments are present.
 
 No `control_request` handling — Codex permissions are governed by the mode flag.
 

@@ -1,3 +1,6 @@
+use super::activity_events::{
+    emit_activity_changed, REASON_CONVERSATION_CREATED, REASON_USER_MESSAGE,
+};
 use crate::{
     db::now_ms,
     serve::{routes::messages::PostMessageBody, runtime, state::AppState},
@@ -103,6 +106,12 @@ async fn dispatch_spec_core(
     }
 
     broadcast_initial_spec_message(&state, &options.conversation_id, next_seq, payload);
+    emit_activity_changed(
+        &state,
+        &options.conversation_id,
+        REASON_CONVERSATION_CREATED,
+    );
+    emit_activity_changed(&state, &options.conversation_id, REASON_USER_MESSAGE);
 
     Ok((
         StatusCode::CREATED,

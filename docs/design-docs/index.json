@@ -32,12 +32,12 @@
         },
         {
           "path": "cli/src/serve/state.rs",
-          "sha256": "8abdede34af04ec8cf1c7a868af7d5edb7bf9d73b17db5a7a1916b1a16e50d74",
+          "sha256": "9ed436957e57c8f02869a267dc3ea5b5449f40241ab10bf6d80f1b5cc78dd5f0",
           "reason": "AppState、SessionMessage 与 runtime worker 通信结构由文档核心数据结构章节引用。"
         },
         {
           "path": "cli/src/serve/routes/messages.rs",
-          "sha256": "324dc8a76b3c9e0f3f2aaed62536e04619dd00fa84ba8c193f44ac1a044077e4",
+          "sha256": "5eb5eb9317835c09d958d25d0becca682681b03514de224c81efae26992b60d7",
           "reason": "HTTP message route 调用 runtime 分发；文档架构图与入口流程依赖该行为。"
         },
         {
@@ -47,7 +47,7 @@
         },
         {
           "path": "cli/src/serve/runtime/codex/mod.rs",
-          "sha256": "2eb8d15c95f833336e5a79a3329ba495545a827a7fea45ac39ddffe116b58f8c",
+          "sha256": "cf8a03a7c40b80ef01d7c9b507d5d7bb0c247ec269972fb1ee6b768f5f09f6a0",
           "reason": "Codex runtime 是现有 adapter 示例；文档 runtime 列表与接入说明引用它。"
         },
         {
@@ -62,7 +62,7 @@
         },
         {
           "path": "mobile/src/types.ts",
-          "sha256": "22669471c6a3d7e46686b0312ad6635788a7c4f2ede0ae148ff242575b49b745",
+          "sha256": "166a8fb64259d8170dbafd524bd0826fa78a81f4ed82f56049f3246a42c7c83e",
           "reason": "文档说明 mobile Agent.runtime 类型展示联动；类型变化会影响该说明。"
         }
       ]
@@ -94,7 +94,7 @@
         },
         {
           "path": "cli/src/serve/runtime/claude/stream.rs",
-          "sha256": "d9603f9007465036ec3a712d450fd4eb27845697a652c1f21ea76b5bd4b25772",
+          "sha256": "271c9a2e924dc2a9614f8994665344b8ec91281181e3cf0adba4ee3baa70234c",
           "reason": "Claude AskUserQuestion 触发问答推送的时机由本文档定义。"
         },
         {

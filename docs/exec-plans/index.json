@@ -3,6 +3,35 @@
   "version": 1,
   "documents": [
     {
+      "file": "2026-06-05-chat-server-turn-transcript.md",
+      "title": "Chat Server Turn Transcript Implementation Plan",
+      "lastCompletedCommit": "e08e99fcef989a17ad90609e38ee09add80e16e5"
+    },
+    {
+      "file": "2026-06-05-activity-weak-network.md",
+      "title": "Activity Weak Network Degradation Implementation Plan",
+      "lastCompletedCommit": "72f51021ff22496de7334ed9bdfc69a6c8e55489"
+    },
+    {
+      "file": "2026-06-04-chat-turn-folding-pagination-fix.md",
+      "title": "Chat Turn Folding And Pagination Fix Implementation Plan",
+      "lastCompletedCommit": "806522776a648c9df871f24472abdee08cda64d7"
+    },
+    {
+      "file": "2026-06-04-chat-completed-transcript-folding.md",
+      "title": "Chat Completed Transcript Folding Implementation Plan",
+      "lastCompletedCommit": "ed92176aa12a23bd33e1c88d6daf445c55728133"
+    },
+    {
+      "file": "2026-06-04-activity-realtime-events.md",
+      "title": "Activity Realtime Events Implementation Plan"
+    },
+    {
+      "file": "2026-06-02-msctl-question-card-bottom-placement.md",
+      "title": "msctl Question Card Bottom Placement Implementation Plan",
+      "lastCompletedCommit": "8265aa1147369506ba12a406ebd0078e4c610da0"
+    },
+    {
       "file": "2026-06-02-kodax-runtime-integration.md",
       "title": "KodaX Runtime Integration Implementation Plan",
       "lastCompletedCommit": "bc5fcfc5b445f6ac2310f9cc75449c9746ff7b45"

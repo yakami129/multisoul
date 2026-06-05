@@ -1,3 +1,4 @@
+use super::activity_events::{emit_activity_changed, REASON_ANSWER_ACCEPTED, REASON_USER_MESSAGE};
 use crate::db::now_ms;
 use crate::serve::state::{AnswerMode, AnswerSendResult, AppState};
 use crate::serve::{
@@ -98,7 +99,10 @@ pub(super) async fn handle_client_message(state: &AppState, conv_id: &str, text:
             match state.send_answer(conv_id, answer.clone()) {
                 AnswerSendResult::Accepted => {
                     match persist_answer(state, conv_id, &answer) {
-                        Ok(()) => send_answer_status(state, conv_id, &answer._ask_id, true, None),
+                        Ok(()) => {
+                            send_answer_status(state, conv_id, &answer._ask_id, true, None);
+                            emit_activity_changed(state, conv_id, REASON_ANSWER_ACCEPTED);
+                        }
                         Err(_) => send_answer_status(
                             state,
                             conv_id,
@@ -116,6 +120,7 @@ pub(super) async fn handle_client_message(state: &AppState, conv_id: &str, text:
                 } => {
                     if handle_user_message_mode_answer(state, conv_id, &answer).is_ok() {
                         send_answer_status(state, conv_id, &answer._ask_id, true, None);
+                        emit_activity_changed(state, conv_id, REASON_ANSWER_ACCEPTED);
                         info!(conv_id = %conv_id, "answer_routed_user_message_mode");
                     } else {
                         send_answer_status(
@@ -142,6 +147,7 @@ pub(super) async fn handle_client_message(state: &AppState, conv_id: &str, text:
                 AnswerSendResult::NoSession => {
                     if handle_user_message_mode_answer(state, conv_id, &answer).is_ok() {
                         send_answer_status(state, conv_id, &answer._ask_id, true, None);
+                        emit_activity_changed(state, conv_id, REASON_ANSWER_ACCEPTED);
                         info!(conv_id = %conv_id, "answer_routed");
                     } else {
                         send_answer_status(
@@ -214,6 +220,7 @@ fn handle_user_message_mode_answer(
     };
     super::messages::dispatch_user_message(state, conv_id, &markdown, None, seq).map_err(|_| ())?;
     super::messages::broadcast_user_message(state, conv_id, seq, &payload, now);
+    emit_activity_changed(state, conv_id, REASON_USER_MESSAGE);
     Ok(())
 }
 

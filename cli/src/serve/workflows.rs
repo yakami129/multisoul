@@ -1,6 +1,13 @@
 use crate::{
     db::now_ms,
-    serve::{runtime, state::AppState},
+    serve::{
+        routes::activity_events::{
+            emit_activity_changed, REASON_CONVERSATION_CREATED, REASON_USER_MESSAGE,
+            REASON_WORKFLOW_CHANGED,
+        },
+        runtime,
+        state::AppState,
+    },
 };
 use chrono::{Datelike, Duration, Local, NaiveTime, TimeZone, Timelike};
 use uuid::Uuid;
@@ -294,8 +301,11 @@ fn process_due_workflow(
         }
     };
 
-    if dispatch_runtime {
-        if let Some((conversation_id, seq)) = maybe_dispatch {
+    if let Some((conversation_id, seq)) = maybe_dispatch {
+        emit_activity_changed(state, &conversation_id, REASON_WORKFLOW_CHANGED);
+        emit_activity_changed(state, &conversation_id, REASON_CONVERSATION_CREATED);
+        emit_activity_changed(state, &conversation_id, REASON_USER_MESSAGE);
+        if dispatch_runtime {
             runtime::send_to_session(
                 state,
                 &conversation_id,

@@ -2,6 +2,7 @@ import { useEffect, useState, type RefObject } from 'react';
 import { type FlatList } from 'react-native';
 import { abortConversation, postMessage } from '@/features/chat/services/chatService';
 import {
+  type ChatTranscriptDisplayItem,
   getLatestAgentActivitySeq,
   getLatestAgentTextSeq,
 } from '@/features/chat/utils/chatRenderState';
@@ -22,7 +23,7 @@ type AgentTurnParams = {
   lastAnimatedAgentTextSeqRef: React.MutableRefObject<number>;
   pendingImages: PendingImage[];
   clearPendingImages: () => void;
-  listRef: RefObject<FlatList<WsMessage> | null>;
+  listRef: RefObject<FlatList<ChatTranscriptDisplayItem> | null>;
 };
 
 export function useChatDetailAgentTurn({

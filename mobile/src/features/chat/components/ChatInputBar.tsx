@@ -11,6 +11,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { brandColors, brandRgba } from '@/theme/brandRefresh';
 
 interface PendingImage {
   localUri: string;
@@ -87,7 +88,7 @@ export default function ChatInputBar({
                 accessibilityLabel="Remove image"
                 accessibilityRole="button"
               >
-                <X size={8} color="#FFFFFF" />
+                <X size={8} color={brandColors.white} />
               </Pressable>
             </View>
           ))}
@@ -99,7 +100,7 @@ export default function ChatInputBar({
           testID="message-input"
           style={s.input}
           placeholder={placeholder}
-          placeholderTextColor="#666666"
+          placeholderTextColor={brandColors.textDisabled}
           value={value}
           onChangeText={onChangeText}
           editable={!disabled}
@@ -122,7 +123,7 @@ export default function ChatInputBar({
             style={[s.hitControl, disabled && s.toolBtnDisabled]}
           >
             <View testID="composer-plus-shell" style={s.roundControl}>
-              <Plus size={15} color={disabled ? '#555555' : '#888888'} />
+              <Plus size={15} color={disabled ? brandColors.textMuted : brandColors.ink} />
             </View>
           </TouchableOpacity>
 
@@ -139,7 +140,10 @@ export default function ChatInputBar({
               <Text style={[s.modelChipText, modelDisabled && s.disabledText]} numberOfLines={1}>
                 {modelLabel}
               </Text>
-              <ChevronDown size={10} color={modelDisabled ? '#555555' : '#888888'} />
+              <ChevronDown
+                size={10}
+                color={modelDisabled ? brandColors.textMuted : brandColors.ink}
+              />
             </View>
           </TouchableOpacity>
         </View>
@@ -154,7 +158,7 @@ export default function ChatInputBar({
             style={s.hitControl}
           >
             <View testID="mic-shell" style={s.roundControl}>
-              <Mic size={15} color="#888888" />
+              <Mic size={15} color={brandColors.ink} />
             </View>
           </TouchableOpacity>
           {isAgentRunning ? (
@@ -165,7 +169,7 @@ export default function ChatInputBar({
               onPress={onStop}
               style={[s.actionBtn, s.stopBtn]}
             >
-              <Square size={12} color="#FF4444" />
+              <Square size={12} color={brandColors.error} />
             </TouchableOpacity>
           ) : canSend ? (
             <TouchableOpacity
@@ -177,7 +181,7 @@ export default function ChatInputBar({
               disabled={actionDisabled}
               style={[s.actionBtn, s.sendBtn, actionDisabled && s.toolBtnDisabled]}
             >
-              <ArrowUp size={15} color="#FFFFFF" />
+              <ArrowUp size={15} color={brandColors.white} />
             </TouchableOpacity>
           ) : null}
         </View>
@@ -188,15 +192,15 @@ export default function ChatInputBar({
 
 const s = StyleSheet.create({
   card: {
-    backgroundColor: '#1A1A1A',
+    backgroundColor: brandRgba.white88,
     minHeight: 112,
     borderRadius: 24,
     borderWidth: 1,
-    borderColor: '#333333',
+    borderColor: brandColors.silver,
     paddingVertical: 12,
     paddingHorizontal: 20,
     gap: 6,
-    shadowColor: '#FF6B3588',
+    shadowColor: '#000000',
     shadowOpacity: 0.16,
     shadowRadius: 18,
     shadowOffset: { width: 0, height: 8 },
@@ -216,7 +220,7 @@ const s = StyleSheet.create({
     overflow: 'hidden',
     position: 'relative',
     borderWidth: 1,
-    borderColor: '#2A2A2A',
+    borderColor: brandColors.silver,
   },
   thumb: {
     width: 52,
@@ -228,18 +232,18 @@ const s = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: '#000000',
+    backgroundColor: brandRgba.ink72,
     alignItems: 'center',
     justifyContent: 'center',
   },
   thumbFailed: {
-    backgroundColor: '#FF4444',
+    backgroundColor: brandColors.error,
   },
   thumbOverlayText: {
     fontFamily: 'Inter',
     fontSize: 16,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: brandColors.white,
   },
   removeBadge: {
     position: 'absolute',
@@ -248,7 +252,7 @@ const s = StyleSheet.create({
     width: 16,
     height: 16,
     borderRadius: 8,
-    backgroundColor: '#000000',
+    backgroundColor: brandRgba.ink72,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -266,7 +270,7 @@ const s = StyleSheet.create({
     margin: 0,
     fontFamily: 'Inter',
     fontSize: 15,
-    color: '#FFFFFF',
+    color: brandColors.ink,
     lineHeight: 20,
   },
   toolbar: {
@@ -299,9 +303,9 @@ const s = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: '#252525',
+    backgroundColor: brandRgba.ink08,
     borderWidth: 1,
-    borderColor: '#333333',
+    borderColor: brandColors.silver,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -318,21 +322,21 @@ const s = StyleSheet.create({
     paddingHorizontal: 10,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#333333',
-    backgroundColor: '#252525',
+    borderColor: brandColors.silver,
+    backgroundColor: brandRgba.ink08,
   },
   modelChipText: {
     fontFamily: 'Inter',
     fontSize: 11,
     fontWeight: '600',
-    color: '#888888',
+    color: brandColors.ink,
     maxWidth: 106,
   },
-  disabledText: { color: '#555555' },
+  disabledText: { color: brandColors.textMuted },
   charCount: {
     fontFamily: 'Inter',
     fontSize: 11,
-    color: '#333333',
+    color: brandColors.textMuted,
   },
   actionBtn: {
     width: 32,
@@ -341,6 +345,6 @@ const s = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  sendBtn: { backgroundColor: '#FF6B35' },
-  stopBtn: { backgroundColor: '#252525', borderWidth: 1, borderColor: '#FF4444' },
+  sendBtn: { backgroundColor: brandColors.ink },
+  stopBtn: { backgroundColor: brandRgba.ink08, borderWidth: 1, borderColor: brandColors.error },
 });

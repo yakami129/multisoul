@@ -175,6 +175,7 @@ fn kill_single_process(pid: u32) -> bool {
 }
 
 pub type ConvBus = Arc<Mutex<HashMap<String, broadcast::Sender<String>>>>;
+pub type ActivityBus = broadcast::Sender<String>;
 pub type SessionMap = Arc<Mutex<HashMap<String, SessionHandle>>>;
 
 /// Distinguishes how the active ask_question is waiting for an answer.
@@ -224,6 +225,7 @@ pub struct AppState {
     pub token: String,
     pub uploads_dir: PathBuf,
     pub bus: ConvBus,
+    pub activity_bus: ActivityBus,
     pub sessions: SessionMap,
     pub answer_txs: AnswerMap,
     pub plugin_manager: Arc<PluginManager>,
@@ -241,6 +243,7 @@ impl AppState {
             token,
             uploads_dir,
             bus: Arc::new(Mutex::new(HashMap::new())),
+            activity_bus: broadcast::channel(64).0,
             sessions: Arc::new(Mutex::new(HashMap::new())),
             answer_txs: Arc::new(Mutex::new(HashMap::new())),
             plugin_manager,

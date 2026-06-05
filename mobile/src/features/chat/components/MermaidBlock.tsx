@@ -3,6 +3,7 @@ import React, { useRef, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { WebView } from 'react-native-webview';
 import type WebViewType from 'react-native-webview';
+import { brandColors } from '@/theme/brandRefresh';
 import { loadMermaidSource } from './mermaidAsset';
 
 interface Props {
@@ -21,7 +22,7 @@ function buildHtml(code: string, mermaidSrc: string): string {
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
-  body { margin: 0; padding: 8px; background: #1A1A1A; }
+  body { margin: 0; padding: 8px; background: ${brandColors.white}; }
   .mermaid svg { max-width: 100%; height: auto; }
 </style>
 <script>${mermaidSrc}</script>
@@ -29,7 +30,7 @@ function buildHtml(code: string, mermaidSrc: string): string {
 <body>
 <div class="mermaid" id="graph"></div>
 <script>
-  mermaid.initialize({ startOnLoad: false, theme: 'dark' });
+  mermaid.initialize({ startOnLoad: false, theme: 'default' });
   mermaid.render('mermaid-svg', \`${escaped}\`)
     .then(function(result) {
       document.getElementById('graph').innerHTML = result.svg;
@@ -86,15 +87,15 @@ export function MermaidBlock({ code, onFullscreen }: Props) {
       <View
         testID="mermaid-error"
         style={{
-          backgroundColor: '#1A1A1A',
+          backgroundColor: brandColors.white,
           borderWidth: 1,
-          borderColor: '#1E1E1E',
+          borderColor: brandColors.silver,
           borderRadius: 8,
           padding: 12,
           marginVertical: 6,
         }}
       >
-        <Text selectable style={{ fontFamily: 'Inter', fontSize: 12, color: '#DDDDDD' }}>
+        <Text selectable style={{ fontFamily: 'Inter', fontSize: 12, color: brandColors.ink }}>
           {code}
         </Text>
       </View>
@@ -104,7 +105,7 @@ export function MermaidBlock({ code, onFullscreen }: Props) {
   if (!mermaidSrc) {
     return (
       <View testID="mermaid-loading" style={{ marginVertical: 6 }}>
-        <Text style={{ fontFamily: 'Inter', fontSize: 12, color: '#888888' }}>
+        <Text style={{ fontFamily: 'Inter', fontSize: 12, color: brandColors.textMuted }}>
           Rendering diagram...
         </Text>
       </View>
@@ -119,7 +120,9 @@ export function MermaidBlock({ code, onFullscreen }: Props) {
           height,
           borderRadius: 12,
           overflow: 'hidden',
-          backgroundColor: '#1A1A1A',
+          backgroundColor: brandColors.white,
+          borderWidth: 1,
+          borderColor: brandColors.silver,
           marginVertical: 6,
         }}
       >
@@ -133,7 +136,7 @@ export function MermaidBlock({ code, onFullscreen }: Props) {
           style={{ flex: 1, backgroundColor: 'transparent' }}
         />
         <View style={{ position: 'absolute', bottom: 8, right: 8 }} pointerEvents="none">
-          <Maximize2 size={16} color="#FF6B35" />
+          <Maximize2 size={16} color={brandColors.coral} />
         </View>
       </View>
     </Pressable>

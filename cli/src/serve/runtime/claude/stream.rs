@@ -3,6 +3,9 @@
 use crate::serve::ask_question;
 use crate::serve::interactive::{self, AnswerPayload};
 use crate::serve::push;
+use crate::serve::routes::activity_events::{
+    emit_activity_changed, REASON_ABORTED, REASON_TASK_TERMINAL,
+};
 use crate::serve::state::AppState;
 use serde_json::Value;
 use std::io::{BufRead, BufReader, Write};
@@ -333,5 +336,14 @@ fn handle_result_event(raw: &Value, state: &AppState, conv_id: &str, turn_seq: i
         push::send_task_status_push(&db, conv_id, status, &summary);
         drop(db);
         broadcast(state, conv_id, seq, "task_status", payload);
+        emit_activity_changed(
+            state,
+            conv_id,
+            if status == "aborted" {
+                REASON_ABORTED
+            } else {
+                REASON_TASK_TERMINAL
+            },
+        );
     }
 }

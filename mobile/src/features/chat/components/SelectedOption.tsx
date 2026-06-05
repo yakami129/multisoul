@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { brandColors, brandRgba, brandTypography } from '@/theme/brandRefresh';
 
 interface Props {
   label: string;
@@ -33,49 +34,57 @@ const s = StyleSheet.create({
   opt: {
     flexDirection: 'row',
     alignItems: 'center',
-    height: 40,
+    height: 38,
     borderRadius: 8,
-    backgroundColor: '#252525',
+    borderWidth: 1,
+    borderColor: brandColors.silver,
+    backgroundColor: brandRgba.white70,
     paddingHorizontal: 12,
     gap: 10,
   },
-  optSelected: { borderWidth: 1, borderColor: '#4CAF50', backgroundColor: '#1F2A1F' },
+  optSelected: { borderColor: brandColors.lime, backgroundColor: brandRgba.limeSoft },
   radio: {
     width: 16,
     height: 16,
     borderRadius: 8,
     borderWidth: 1.5,
-    borderColor: '#555555',
-    backgroundColor: '#252525',
+    borderColor: brandColors.textSoft,
+    backgroundColor: brandRgba.white70,
   },
-  radioSelected: { borderColor: '#4CAF50', backgroundColor: '#4CAF50' },
+  radioSelected: { borderColor: brandColors.lime, backgroundColor: brandColors.lime },
   checkbox: {
     width: 16,
     height: 16,
     borderRadius: 3,
     borderWidth: 1.5,
-    borderColor: '#555555',
-    backgroundColor: '#252525',
+    borderColor: brandColors.textSoft,
+    backgroundColor: brandRgba.white70,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  checkboxSelected: { borderColor: '#4CAF50', backgroundColor: '#4CAF50' },
+  checkboxSelected: { borderColor: brandColors.lime, backgroundColor: brandColors.lime },
   checkboxTick: {
     width: 8,
     height: 8,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: brandColors.ink,
     borderRadius: 1,
   },
-  optLabel: { fontFamily: 'Inter', fontSize: 14, color: '#DDDDDD' },
+  optLabel: { fontFamily: brandTypography.body, fontSize: 14, color: brandColors.ink },
   editBtn: {
     marginLeft: 'auto',
     height: 26,
     borderRadius: 6,
     borderWidth: 1,
-    borderColor: '#555555',
+    borderColor: brandColors.textSoft,
+    backgroundColor: brandRgba.white70,
     paddingHorizontal: 9,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  editText: { fontFamily: 'Inter', fontSize: 11, fontWeight: '600', color: '#888888' },
+  editText: {
+    fontFamily: brandTypography.body,
+    fontSize: 11,
+    fontWeight: '700',
+    color: brandColors.textSoft,
+  },
 });

@@ -1,71 +1,90 @@
 # MultiSoul — Mobile UI Design System
 
-本文档定义 MultiSoul iOS App 的视觉语言与交互规范。所有 UI 开发以此为准。
+本文档定义 MultiSoul iOS App 的视觉语言与交互规范。它以 `docs/brand-design/02-identity-system.png` 为品牌源头，并以 `docs/prototypes/multisoul-brand-refresh/` 的移动端原型为当前产品界面优先参考，把品牌手册中的 Logo、Color、Type、Signal Kit 转译为移动端可执行规则。
 
 ---
 
 ## 1. 设计哲学
 
-三条核心原则：
+MultiSoul 是个人 AI Agent 随身控制台。它不是营销页，也不是普通聊天 App；它是一块可以远程操控本机 Agent 的小型任务仪表盘。当前移动端以品牌刷新原型为准：页面主体是 Cream Console，关键控制和底部导航使用 Ink，信号色只负责状态。
 
-1. **深色优先。** 界面以近黑色（`#0D0D0D`）为基底，减少视觉疲劳，突出内容层次。
-2. **橙色是行动信号。** `#FF6B35` 仅用于主要行动点（CTA、未读徽章、强调状态），不做装饰。
-3. **克制的现代感。** 圆角适度，间距宽松，字重分明——每个元素服务于信息传达，不堆砌特效。
+1. **Cream Console.** 主界面以 Cream 纸感底为基础，承载 Agents、Settings、Activity、Specs、Workflows 等工具界面。
+2. **Ink as Control.** Ink 用于底部浮动 Tab、主操作按钮、重要控制区和高对比确认，不再作为所有页面的大面积底色。
+3. **Signal, Not Decoration.** Cyan、Coral、Lime 是状态信号，不做大面积装饰；每次出现都必须回答“发生了什么”。
+4. **Friendly Machine.** 图标和 mascot 可以有手绘感，但控件结构必须像 Apple 工具：直接、稳定、可扫描。
+5. **Prototype Wins.** Agents / Settings 若与本文旧版 Ink Console 文案冲突，以 `01-agent-page.png`、`04-settings-page.png` 为准，并同步修正文档。
 
 ---
 
 ## 2. 颜色体系
 
-### 2.1 背景色阶
+### 2.1 Brand Core Palette
 
-| 角色 | 色值 | 用途 |
+以下颜色来自品牌识别系统，是新 UI 的主色板。移动端新增颜色必须优先从这里选。
+
+| Token | 色值 | 语义 | 使用场景 |
+|------|------|------|----------|
+| `brand.cream` | `#F6F3EC` | App 主底色 / 纸感控制台 | 页面背景、品牌区、空状态、浅色 surface |
+| `brand.ink` | `#0D0D0D` | 主文字 / 高对比控制 | 浅底文字、底部 Tab、主按钮、深色浮层 |
+| `brand.cyan` | `#00E5FF` | 直播流 / 消息 / 连接 | stream、message、同步、网络可达 |
+| `brand.coral` | `#FF5A3C` | 决策 / 注意 / 中断 | AskQuestion、需要用户判断、危险前置提示 |
+| `brand.lime` | `#C6FF00` | 完成 / 可执行 / 远程控制 | Done、primary ready、成功完成、远程在线 |
+| `brand.sage` | `#B7C9AE` | 本地 Agent / 稳定中性 | local agent、secondary surface、冷静状态 |
+| `brand.silver` | `#E6E6E8` | 边界 / 次级底 | divider、muted surface、浅底描边 |
+
+### 2.2 App Surfaces
+
+| Token | 色值 | 用途 |
 |------|------|------|
-| 主背景 | `#0D0D0D` | 页面底色、屏幕背景 |
-| 卡片/组件表面 | `#1A1A1A` | 卡片、输入框、Tab Bar、底部 Sheet |
-| 深层表面 | `#111111` | 列表行高亮背景（未读状态） |
-| Projects Active 背景 | `#0D1A0D` | Projects Active Now 行背景 |
-| 次级表面 | `#161616` | 底部 Sheet 背景 |
-| 深色卡片 | `#141414` | 锁定选项背景 |
-| 选项选中背景 | `#1F2A1F` | AskQuestion 已选中选项背景 |
-| 未选中选项背景 | `#252525` | AskQuestion 未选中选项背景 |
-| 分割线 | `#1E1E1E` | 列表分割线、卡片内分割线 |
-| Sheet 分割线 | `#2A2A2A` | 底部 Sheet 内分割线 |
-| 遮罩 | `#000000` 55% | 底部 Sheet 背景遮罩 |
+| `surface.app` | `#F6F3EC` | 页面底色、状态栏底色 |
+| `surface.card` | `#FFFFFF` / 70-88% | 主内容卡片、列表行、输入框 |
+| `surface.brandWash` | `signal.live` 14-24% | Hero、快捷工作流、轻提示 |
+| `surface.panel` | `#141414` | 深色工具卡、代码块、需要高对比的局部区域 |
+| `surface.raised` | `#1A1A1A` | 深色浮层、兼容旧 Bottom Sheet |
+| `surface.deep` | `#111111` | 压暗区域、代码块 |
+| `surface.option` | `#252525` | 深色未选中选项、次级按钮 |
+| `surface.line` | `#E6E6E8` | 浅色卡片描边、列表分割线 |
+| `surface.lineStrong` | `#2A2A2A` | 深色 Sheet 分割线、强边界 |
+| `surface.handle` | `#333333` | Bottom Sheet handle |
+| `surface.scrim` | `#000000` 55% | Modal / Sheet 背景遮罩 |
 
-### 2.2 文字色阶
+### 2.3 Text Palette
 
-| 角色 | 色值 | 用途 |
+| Token | 色值 | 用途 |
 |------|------|------|
-| 主要文字 | `#FFFFFF` | 标题、主要内容、激活状态 |
-| 次要文字 | `#DDDDDD` | 问题正文、列表内容 |
-| 辅助文字 | `#888888` | 时间戳、副标题、空状态说明 |
-| 禁用/占位文字 | `#666666` | 搜索框占位符、搜索图标、过滤图标 |
-| 极暗文字 | `#555555` | 时间戳（非高亮行） |
+| `text.primary` | `#FFFFFF` | 深色底主标题、重要正文 |
+| `text.secondary` | `#DDDDDD` | 正文、问题内容、列表摘要 |
+| `text.muted` | `#888888` | 时间、说明、辅助标签 |
+| `text.disabled` | `#666666` | 占位符、不可用控件、轻提示 |
+| `text.dim` | `#555555` | 非激活图标、低优先级时间 |
+| `text.onCream` | `#0D0D0D` | Cream / Lime / Silver 底上的文字 |
 
-### 2.3 强调色
+### 2.4 Signal Palette
 
-| 色值 | 含义 | 使用场景 |
-|------|------|----------|
-| `#FF6B35` | 主强调 / 行动 | CTA 按钮、未读徽章、Pending 数量提示、选中边框、进度条 |
-| `#FF6B3588` | 主强调半透明（53%） | textShadowColor 光晕效果 |
-| `#FF6B3599` | 主强调半透明（60%） | textShadowColor 光晕效果 |
-| `#FF6B35CC` | 主强调半透明（80%） | textShadowColor 光晕效果 |
-| `#FF8C42` | 渐变终点 | Avatar 渐变（与 `#FF6B35` 组合） |
-| `#4CAF50` | 成功 / 已选中 | AskQuestion 选中选项边框、空状态 check 图标 |
-| `#FF4444` | 错误 / 危险 | 停止按钮边框、删除操作文字、错误提示 |
+| Token | 色值 | 语义 | 使用场景 |
+|------|------|------|----------|
+| `signal.live` | `#00E5FF` | 正在流动的信息 | 实时消息、同步中、工具输出 |
+| `signal.decide` | `#FF5A3C` | 需要判断 | AskQuestion、待确认、用户注意 |
+| `signal.done` | `#C6FF00` | 已完成 / 可继续 | 完成状态、primary ready、成功徽章 |
+| `signal.local` | `#B7C9AE` | 本机稳定 | Local Agent、idle、低风险运行 |
+| `signal.error` | `#FF4444` | 错误 / 危险 | 删除、失败、停止运行 |
+| `signal.legacyAction` | `#FF6B35` | 旧行动强调兼容色 | 已有代码中的 CTA、未读徽章、进度条 |
+| `signal.legacyActionSoft` | `#FF6B3588` / `#FF6B3599` / `#FF6B35CC` | 旧强调透明层 | 已有 glow / shadow 兼容 |
+| `signal.legacyWarm` | `#FF8C42` | 旧渐变终点 | 已有 avatar 渐变兼容 |
+| `signal.successCompat` | `#4CAF50` | 旧成功色 | 已有 Running / Completed 状态兼容 |
 
-### 2.4 Projects Avatar / Runtime 像素图标
+### 2.5 Runtime Avatar / Mascot
 
-Projects 列表中的 Agent Avatar 为 40×40px、9px 圆角的像素图标画布。优先按 runtime 显示第一组生成的 mascot PNG：
+Agent Fleet 中的 runtime tile 为 30×30px、9px 圆角，外层 frame 为 40×40px。优先按 runtime 显示第一组生成的 mascot PNG：
 
-| Runtime | 画布色 | 像素图形 | 用途 |
-|---------|--------|----------|------|
-| `claude-code` | `#252525` | `mobile/assets/agent-icons/runtime-claude-code.png` | 参考 Claude 像素头像，强调识别度 |
-| `codex` | `#FF6B35` | `mobile/assets/agent-icons/runtime-codex.png` | 保留主强调色，表达 CLI/代码执行 |
-| `cursor-cli` | `#2563EB` | `mobile/assets/agent-icons/runtime-cursor-cli.png` | 表达 Cursor 编辑器/指针语义 |
-| `custom` | index fallback 色板 | 无固定 PNG | 自定义 runtime fallback |
+| Runtime | 背景语义 | 资产 | 用途 |
+|---------|----------|------|------|
+| `claude-code` | `surface.option` | `mobile/assets/agent-icons/orange-pixel-robot-transparent.png` | Claude runtime |
+| `codex` | `signal.decide` 或兼容 `signal.legacyAction` | `mobile/assets/agent-icons/blue-cloud-robot-transparent.png` | Codex / 代码执行 |
+| `cursor-cli` | `#2563EB` | `mobile/assets/agent-icons/orange-octopus-robot-transparent.png` | Cursor / 编辑器语义 |
+| `custom` | fallback 色板 | 无固定 PNG | 自定义 runtime |
 
-非 runtime 语义场景才使用 index fallback 色板：`#FF6B35`、`#7C3AED`、`#2563EB`、`#059669`。
+Fallback 色板：`#FF5A3C`、`#00E5FF`、`#C6FF00`、`#B7C9AE`、`#7C3AED`、`#2563EB`、`#059669`。
 
 ---
 
@@ -75,326 +94,342 @@ Projects 列表中的 Agent Avatar 为 40×40px、9px 圆角的像素图标画�
 
 | 角色 | 字体 | 用途 |
 |------|------|------|
-| 展示标题 | Anton | 大标题、品牌名 |
-| 界面文字 | Inter | 导航、标签、正文、按钮、时间戳 |
+| 品牌展示 | Space Grotesk | MultiSoul 字标、页面大标题、数字强调 |
+| 界面文字 | Inter | 导航、列表、按钮、正文、时间戳 |
+| 等宽信息 | SF Mono / ui-monospace | token、命令、日志片段 |
 
 ### 3.2 字号规范
 
 | 场景 | 字号 | 字体 | 字重 | 用途 |
 |------|------|------|------|------|
-| 品牌大标题 | 32px | Inter | 700 | Home 页顶部品牌名（"Grok"） |
-| 页面标题 | 28px | Inter | 700 | Inbox 页标题 |
-| 空状态标题 | 22px | Inter | 700 | 空状态主文字 |
-| 问题正文 | 15–16px | Inter | 600/normal | AskQuestion 问题文字、列表问题 |
-| 搜索框 | 16px | Inter | normal | 搜索框占位符 |
-| 对话名称 | 15px | Inter | 600 | 列表行主标题 |
-| 对话摘要 | 14px | Inter | normal | 列表行副标题、Pending 数量提示 |
-| 标签/提示 | 13px | Inter | normal/600 | Section 标签（"RECENT"）、选项提示 |
-| 时间戳 | 12px | Inter | normal | 列表行时间 |
-| 徽章文字 | 11px | Inter | 700 | 未读数量徽章 |
-| 空状态提示 | 12px | Inter | normal | 空状态 hint 文字 |
+| App 品牌标题 | 24-28px | Space Grotesk | 700 | Home / Splash 品牌名；工具页内不超过 22px |
+| 页面标题 | 22-24px | Space Grotesk | 700 | Agents、Inbox、Settings 等一级页 |
+| Sheet 标题 | 18px | Space Grotesk | 700 | Bottom Sheet / Modal |
+| 空状态标题 | 20px | Space Grotesk | 700 | 空状态主文字 |
+| 列表主标题 | 13px | Inter | 600/700 | Agent / Conversation 名称 |
+| 正文 / 问题 | 13-14px | Inter | 400/600 | AskQuestion、Inbox 问题 |
+| 摘要 | 12px | Inter | 400 | 列表 preview、说明文案 |
+| 标签 / Chip | 9-11px | Inter | 600/700 | Hero stats、状态标签、section 标签 |
+| 时间戳 | 10-11px | Inter | 400 | 列表时间、事件时间 |
+| 徽章文字 | 9-10px | Inter | 700 | 未读数、状态短词 |
 
-### 3.3 行高
+### 3.3 排版规则
 
-| 场景 | lineHeight | 用途 |
-|------|-----------|------|
-| 问题正文 | 1.4 | Inbox 列表问题文字 |
+- Display 字体只用于标题、数字、品牌，不用于长段正文。
+- 字母间距默认为 0；只有极短 label 可使用 1-3px tracking。
+- 正文 lineHeight 使用 1.35-1.45；聊天长文本优先可读性。
+- 深色底上避免 100% 大段白字；正文优先 `text.secondary`。
 
 ---
 
 ## 4. 间距体系
 
-基于 4px 网格。
+基于 4px 网格，控件密度偏工具型，不做营销页式大留白。
 
-### 4.1 组件内间距（gap）
+### 4.1 Gap
 
 | 间距 | 用途 |
 |------|------|
-| 2px | 对话名称与摘要行间距 |
-| 3px | Tab 图标与标签间距 |
-| 4px | 页面标题与副标题间距 |
-| 6px | 打字指示器点间距 |
-| 8px | 搜索框图标与文字间距、输入框内元素间距、选项列表间距 |
-| 10px | Inbox 卡片内行间距 |
-| 12px | 列表行 Avatar 与内容间距 |
-| 14px | AskQuestion 卡片内行间距 |
-| 16px | 操作按钮组间距、卡片头部元素间距 |
-| 20px | 聊天消息间距 |
-| 24px | 聊天区域消息间距 |
+| 2px | 名称与状态副文案 |
+| 4px | 标题与副标题、图标与短标签 |
+| 6px | 呼吸点、微型状态组 |
+| 8px | 搜索框、选项列表、chip 内部 |
+| 10px | Inbox 卡片信息组 |
+| 12px | Avatar 与内容、按钮组 |
+| 14px | AskQuestion 内容组 |
+| 16px | 卡片头部、主要操作区 |
+| 20px | 聊天消息组 |
+| 24px | 页面主分区间距 |
 
-### 4.2 容器 Padding
+### 4.2 Padding
 
 | 容器 | Padding | 说明 |
 |------|---------|------|
+| 页面水平边距 | `16px` | iPhone 标准内容边距 |
 | 列表行 | `[0, 16]` | 上下0，左右16 |
-| 搜索框包装 | `[0, 16, 8, 16]` | 上0，右16，下8，左16 |
-| Section 标签行 | `[4, 16, 8, 16]` | 上4，右16，下8，左16 |
-| 导航栏 | `[0, 16]` | 上下0，左右16 |
-| 聊天区域 | `[12, 16]` 或 `16` | 聊天消息区 |
-| 输入框区域 | `[8, 16, 34, 16]` | 上8，右16，下34（Home Indicator），左16 |
-| Tab 包装 | `[0, 20, 34, 20]` | 上0，右20，下34，左20 |
-| AskQuestion 卡片 | `24px` | 四边均24 |
-| AskQuestion 选项 | `[12, 16]` | 上下12，左右16 |
-| Inbox 卡片 | `16px` | 四边均16 |
-| Inbox 卡片 chip | `[4, 8]` | 上下4，左右8 |
-| 底部 Sheet | `[16, 20, 20, 20]` | 上16，右20，下20，左20 |
-| 底部 Sheet handle 行 | `[12, 0, 8, 0]` | 上12，下8 |
-| 底部 Sheet 头部 | `[0, 20, 12, 20]` | 上0，右20，下12，左20 |
-| 空状态 hint | `[10, 16]` | 上下10，左右16 |
-| 未读徽章 | `[2, 6]` | 上下2，左右6 |
+| 搜索框包装 | `[0, 16, 8, 16]` | 与 header 对齐 |
+| Section 标签行 | `[4, 16, 8, 16]` | 保持扫描节奏 |
+| 导航栏 | `[0, 16]` | 左右安全区内对齐 |
+| 聊天区域 | `[12, 16]` 或 `16px` | 消息区 |
+| 输入框区域 | `[8, 16, 34, 16]` | 包含 Home Indicator |
+| Tab 包装 | `[0, 14, 28, 14]` | 紧凑浮动胶囊 |
+| AskQuestion 卡片 | `24px` | 高优先级决策容器 |
+| AskQuestion 选项 | `[12, 16]` | 便于触控 |
+| Inbox 卡片 | `16px` | 信息密度适中 |
+| Bottom Sheet | `[16, 20, 20, 20]` | 稳定阅读 |
+| 空状态 hint | `[10, 16]` | 小型说明 |
+| 徽章 | `[2, 6]` | 紧凑数字 |
 
 ---
 
-## 5. 布局结构
+## 5. 形状与材质
 
-### 5.1 iOS App 屏幕尺寸
+| 元素 | 半径 | 材质 |
+|------|------|------|
+| App Icon / mascot frame | 18-24px | Cream / Ink 高对比 |
+| Runtime Avatar | 9px | 圆角方形，不用纯圆 |
+| 标准卡片 | 12px | `surface.panel` + 1px line |
+| 高优先级卡片 | 16px | `surface.raised` + signal 边 |
+| 按钮 | 8-12px | 根据密度决定，不超过 12px |
+| 输入框 | 21-26px | 胶囊 |
+| Tab Bar | 30-32px | 浮动胶囊 |
+| Bottom Sheet | `[20, 20, 0, 0]` | 仅顶部圆角 |
 
-所有屏幕：390×844px（iPhone 14 标准尺寸）
+材质规则：
 
-### 5.2 Home 页（对话列表）
+- Cream 页面通过白色半透明卡片、`brand.silver` 描边和轻阴影分层，不依赖营销式大留白。
+- Ink 表面通过明度差和 1px 线分层，不依赖重阴影。
+- White / Cream / Silver 容器需要 1px `brand.silver` 或 `surface.line` 边界。
+- Lime 和 Cyan 可做小面积 fill；大面积使用时必须降低饱和占比或只做描边/状态条。
 
-```
-┌─────────────────────────────┐
-│ Status Bar (44px)            │
-├─────────────────────────────┤
-│ Header                       │
-│  "Grok" (32px/700)  [pencil] │
-├─────────────────────────────┤
-│ Search Bar (44px, r=12)      │
-│  🔍 Search                   │
-├─────────────────────────────┤
-│ Section: RECENT  [badge?]    │
-├─────────────────────────────┤
-│ Conv Row (72px)              │
-│  [Avatar] Name    2m         │
-│           Preview            │
-│ Conv Row (72px)              │
-│  ...                         │
-├─────────────────────────────┤
-│ (spacer)                     │
-├─────────────────────────────┤
-│ Tab Bar (62px, r=36)         │
-│  [Chat] [Inbox] [Profile]    │
-│ (34px Home Indicator)        │
-└─────────────────────────────┘
-```
+---
 
-### 5.3 Chat 页
+## 6. 布局结构
 
-```
-┌─────────────────────────────┐
-│ Status Bar (44px)            │
-├─────────────────────────────┤
-│ Nav Bar (56px)               │
-│  ← Back  Model Name  ⋯ ⊕   │
-├─────────────────────────────┤
-│ Chat Area (fill)             │
-│  AI message bubble           │
-│  User message bubble (right) │
-│  AI message + typing...      │
-├─────────────────────────────┤
-│ Input Area                   │
-│  [input row (52px, r=26)]    │
-│  [suggestion chips]          │
-│ (34px Home Indicator)        │
-└─────────────────────────────┘
+### 6.1 iOS App 屏幕尺寸
+
+默认设计基准：390×844px（iPhone 14 标准尺寸）。实现需适配动态高度和 Safe Area。
+
+### 6.2 Home / Agents
+
+```text
+Status Bar (44)
+Header (68): left-aligned mascot + MultiSoul wordmark + compact search/add round controls
+Hero (226): cyan wash card, mascot, connection chip, Running / Needs You / Done stats
+Search / Filter row (42)
+Section: Agent Fleet
+Agent row (62): runtime tile, name, machine, repo path, status pill, overflow
+Section: Quick Workflows
+Workflow rows: Daily Standup → Workflows, Connect Machine → Add Endpoint QR；标题与说明保持单行
+Floating Ink Tab Bar
 ```
 
-### 5.4 Inbox 页
+### 6.3 Settings
 
+```text
+Status Bar
+Header: Settings + add round control
+Hero: mascot + command console summary + Scan setup QR
+Section: Endpoints
+Endpoint rows + Add Endpoint row
+Section: Preferences
+Static disabled rows for not-yet-backed preferences
+Section: Security
+Static disabled rows for token/local-data/delete affordances
+Floating Ink Tab Bar
 ```
-┌─────────────────────────────┐
-│ Status Bar (44px)            │
-├─────────────────────────────┤
-│ Header                       │
-│  "Inbox"  [filter icon]      │
-│  "3 pending responses"       │
-├─────────────────────────────┤
-│ Divider (1px, #1E1E1E)       │
-├─────────────────────────────┤
-│ Question Card                │
-│  Agent · Time  [chip]        │
-│  Question text               │
-│  [Dismiss] [Answer]          │
-│ Divider                      │
-│ Question Card                │
-│  ...                         │
-├─────────────────────────────┤
-│ Tab Bar (62px, r=36)         │
-└─────────────────────────────┘
+
+### 6.4 Chat Detail
+
+```text
+Status Bar (44)
+Nav Bar (56): back, conversation/runtime, actions
+Event stream: agent messages, tool calls, decisions
+Question card, when pending
+Composer: input capsule + send / inject controls
+Home Indicator
+```
+
+### 6.5 Activity / Inbox
+
+```text
+Status Bar
+Header: Activity + filters
+Segmented control: Attention / Done or Running / All
+Question or event list
+Bottom action sheet for answering
+Floating Tab Bar
 ```
 
 ---
 
-## 6. 组件规范
+## 7. 组件规范
 
-### 6.1 Tab Bar
+### 7.1 Tab Bar
 
-- 高度：62px，cornerRadius 36px
-- 背景：`#1A1A1A`
-- 布局：horizontal，space_between，padding `[0, 28]`
-- 每个 Tab：vertical，alignItems center，gap 3px
-  - 图标：Lucide，16×16px
-  - 标签：Inter 11px
-  - 激活色：`#FFFFFF`；非激活色：`#555555`
+- 高度：50px visible rail + 28px safe-area padding，cornerRadius 30px
+- 背景：`brand.ink`
+- 位置：浮动胶囊，左右约 20px，底部避开 Home Indicator
+- 布局：horizontal，space_between，padding `[0, 14]`
+- 图标：Lucide 或 brand-refresh transparent icon，20-31px
+- 标签：Inter 10px/600
+- 激活：浅蓝圆形托盘 + `text.onCream`
+- 非激活：白色 70% 或 muted 图标
 
-### 6.2 搜索框
+### 7.2 搜索框
 
-- 高度：44px，cornerRadius 12px
-- 背景：`#1A1A1A`
-- 布局：horizontal，alignItems center，gap 8px，padding `[0, 12]`
-- 图标：lucide `search`，16×16px，`#666666`
-- 文字：Inter 16px，`#666666`
+- 高度：42-46px，cornerRadius 21-23px
+- 背景：白色 70-88% + `surface.line`
+- 图标：lucide `search`，19-21px，`text.disabled`
+- 占位文字：Inter 14-15px，`text.disabled`
+- 聚焦态：1px `signal.live` 边界；不改变高度
 
-### 6.3 对话列表行
+### 7.3 Agent Fleet Row
 
-- 高度：72px，padding `[0, 16]`
-- 布局：horizontal，alignItems center，gap 12px
-- Avatar：40×40px、9px 圆角，使用 §2.4 runtime 像素图标
-- 内容区：vertical，gap 2–3px，width fill_container
-  - 名称：Inter 15px/600，`#FFFFFF`
-  - 摘要：Inter 14px，`#888888`
-- 时间戳：Inter 12px，`#555555`
-- 未读状态：行背景 `#111111`，时间戳旁显示橙色徽章
+- 高度：62-70px，padding `[7, 9]` 起步
+- 布局：horizontal，alignItems center，gap 7-9px
+- Avatar：30×30px runtime tile，外层 40×40px frame，按 runtime 使用 Cyan/Lime/Sage tile
+- 名称：Inter 13px/700，`text.onCream`
+- 机器 / 时间：Inter 11px，`text.dim`
+- 路径：Lucide folder + Inter 10px，`text.muted`
+- 状态：右侧 22px pill，Inter 10px/700；Running=Cyan、Needs Decision=Coral、Idle=muted
 
-### 6.3.1 Active Now Running Breath
+#### Agents 字号速查
 
-- 仅 `Agents > Active Now` 中状态为 `Running` 的 Agent 行显示呼吸生命感；同一 Agent 在 `All Agents` 中的重复行不显示该特效。
-- `awaiting_question` 不使用呼吸特效，继续使用 pending badge 和 `Running · Awaiting answer` 文案表达需要用户关注。
-- 视觉母题采用 `C. Liquid Status`：以一条柔和流动的横向状态光带作为主动画，低透明暖色池与状态色池作为辅助层。
-- 实现不新增渐变依赖，使用 React Native `Animated` 与叠层 View 模拟：
-  - 主光带从 Avatar 右侧向状态区域缓慢漂移和伸缩；
-  - 低透明暖色池保留运行中的生命感，但不围绕头像做强光晕；
-  - `#4CAF50` 状态色池贴近 Running 状态点，强化“正在运行”的语义；
-  - 1px 呼吸边框保持卡片轮廓，不使用小粒子。
-- 节奏为慢速有机呼吸，约 2.6 秒一次完整呼吸，避免抢占列表阅读注意力。
-- 跟随系统 Reduce Motion；开启时关闭循环动画，仅保留静态高亮边框与状态点。
-- 色彩必须使用 §2 已列入白名单的 runtime/强调色，通过 `opacity` 做层次，不新增非白名单色值。
+| 区域 | 字号 / 行高 | 字体 / 字重 | 说明 |
+|------|-------------|-------------|------|
+| Header 品牌名 | 18 / 22 | Space Grotesk 800 | `MultiSoul` |
+| Header 页面名 | 22 / 26 | Space Grotesk 700 | `Agents` |
+| Hero 标题 | 18 / 22 | Space Grotesk 700 | `Your agents in your hand` |
+| Hero 正文 | 12 / 17 | Inter 400 | 说明文案 |
+| 连接 chip | 10 / 14 | Inter 400 | 单行截断 |
+| Hero stats 数字 | 17 / 19 | Space Grotesk 900 | Running / Needs You / Done 数字 |
+| Hero stats 标签 | 9 / 11 | Inter 400 | Running / Needs You / Done label |
+| Search input | 14 | Inter 400 | 占位和输入文字 |
+| Section title | 17 / 21 | Space Grotesk 700 | Agent Fleet / Quick Workflows |
+| View All | 13 | Inter 400 | section action |
+| Agent 名称 | 13 / 17 | Inter 700 | 单行截断 |
+| Agent machine / age | 11 | Inter 400 | 单行截断 |
+| Agent path | 10 | Inter 400 | 单行截断 |
+| Agent status | 10 | Inter 700 | pill 内单行截断 |
+| Quick Workflow 标题 | 13 / 16 | Inter 800 | 单行截断 |
+| Quick Workflow 说明 | 11 / 14 | Inter 400 | 单行截断 |
 
-### 6.4 未读徽章
+### 7.3.1 Active Now Running Breath
 
-- 背景：`#FF6B35`，cornerRadius 10px，padding `[2, 6]`
-- 文字：Inter 11px/700，`#FFFFFF`
+- 仅 `Agents > Agent Fleet` 中状态为 `running` 的 Agent 行显示呼吸生命感。
+- `awaiting_question` 不使用呼吸特效，使用 pending badge 和 `Running · Awaiting answer` 文案表达需要用户关注。
+- 动画母题：`Signal Ribbon`。一条低透明横向光带从 Avatar 右侧向状态区域缓慢漂移。
+- `running` 用 `signal.live` 或兼容 `signal.successCompat`；`awaiting_question` 用 `signal.decide`；`completed` 用 `signal.done`。
+- 节奏约 2.6 秒一次完整呼吸。Reduce Motion 开启时关闭循环动画，仅保留静态边框与状态点。
 
-### 6.5 导航栏（Chat 页）
+### 7.4 Status Badge
 
-- 高度：56px，padding `[0, 16]`，space_between
-- 返回按钮：horizontal，alignItems center，gap 4px，`#FFFFFF`
-- 模型标签：vertical，alignItems center，gap 2px（名称 + 状态）
-- 操作区：horizontal，gap 16px，图标 `#FFFFFF`
+- 高度：20-24px，cornerRadius 10-12px
+- Padding：`[2, 6]` 或 `[4, 8]`
+- 文案：Inter 10px/700，全大写短词
+- `LIVE` / `STREAM`：`signal.live`
+- `DECIDE` / `PENDING`：`signal.decide`
+- `DONE` / `READY`：`signal.done`
+- `LOCAL` / `IDLE`：`signal.local`
 
-### 6.6 输入框行
+### 7.5 输入框行
 
 - 高度：52px，cornerRadius 26px
-- 背景：`#1A1A1A`
+- 背景：`surface.raised`
 - 布局：horizontal，alignItems center，gap 8px，padding `[0, 4, 0, 16]`
-- 发送按钮：右侧，圆形，`#FF6B35` 背景
+- 发送按钮：圆形；默认 `signal.done`，待确认注入时使用 `signal.decide`
+- 禁用态：按钮背景 `surface.option`，图标 `text.dim`
 
-### 6.7 AskQuestion 卡片（单问题）
+### 7.6 AskQuestion 卡片
 
-- 背景：`#1A1A1A`，cornerRadius 16px，padding 24px，gap 16px
-- 头部：horizontal，space_between
-  - 左：Agent 图标 + 名称（Inter 13px，`#888888`）
-  - 右：info 图标（`#555555`）
-- 问题文字：Inter 16px/600，`#FFFFFF`，width fill_container
-- 提示：Inter 13px，`#666666`（"Select one option to continue"）
-- 选项列表：vertical，gap 8px
-  - 选项行：horizontal，alignItems center，gap 12px，cornerRadius 10px，padding `[12, 16]`
-  - 已选中：背景 `#1F2A1F`，边框 `#4CAF50` 1.5px
-  - 未选中：背景 `#252525`，无边框
-- 操作行：horizontal，justifyContent end，gap 12px
-  - 取消按钮：cornerRadius 8px，背景 `#252525`，padding `[10, 20]`
-  - 确认按钮：cornerRadius 8px，背景 `#FF6B35`，padding `[10, 20]`
+- 背景：`surface.raised`，cornerRadius 16px，padding 24px，gap 16px
+- 顶部 label：`DECISION REQUIRED`，Inter 10px/700，`signal.decide`
+- 问题文字：Inter 13-14px/600，`text.primary`
+- 提示：Inter 11-12px，`text.disabled`
+- 选项行：cornerRadius 10px，padding `[12, 16]`
+- 已选中：背景 `#1F2A1F` 或低透明 `signal.done`，边框 `signal.done`
+- 未选中：背景 `surface.option`
+- 确认按钮：优先 `signal.done`；危险选择使用 `signal.decide`
 
-### 6.8 Multi AskQuestion 卡片
+### 7.7 Multi AskQuestion 卡片
 
-- 与单问题卡片结构相同，增加：
-  - 进度行：horizontal，space_between（"1 / 3 answered" + 进度条）
-  - 进度条：`#FF6B35` 填充，背景 `#2A2A2A`
-  - 锁定问题：opacity 0.45，背景 `#141414`，边框 `#2A2A2A`
+- 与单问题卡片结构相同，增加进度行。
+- 进度条：已答 `signal.done`，当前待答 `signal.decide`，背景 `surface.lineStrong`
+- 锁定问题：opacity 0.45，背景 `surface.deep`，边框 `surface.lineStrong`
+- 不把所有问题同时做成强卡片；当前问题视觉优先级最高。
 
-### 6.9 Inbox 问题卡片
+### 7.8 Inbox / Activity Card
 
-- 背景：`#0D0D0D`，padding 16px，gap 10px，layout vertical
-- 顶部行：horizontal，space_between
-  - 左：Agent 名称（Inter 13px/600，`#FFFFFF`）+ 时间（Inter 12px，`#555555`）
-  - 右：Agent 图标（16×16px，`#888888`）
-- 问题文字：Inter 15px，`#DDDDDD`，lineHeight 1.4
-- Chip（来源标签）：cornerRadius 6px，背景 `#1A1A1A`，padding `[4, 8]`
-  - 图标 + 文字：Inter 12px，`#888888`
-- 操作行：horizontal，justifyContent end，gap 8px
-  - Dismiss：Inter 13px，`#666666`
-  - Answer：Inter 13px/600，`#FF6B35`
+- 背景：`surface.app` 或 `surface.panel`，padding 16px，gap 10px
+- 顶部：Agent 名称 + 时间 + 状态 chip
+- 问题文字：Inter 13px，`text.secondary`，lineHeight 1.4
+- Dismiss：Inter 11px，`text.disabled`
+- Answer：Inter 12px/600，`signal.decide`
+- 已完成：Answer 替换为 `DONE` chip，使用 `signal.done`
 
-### 6.10 底部 Sheet（Answer Modal）
+### 7.9 Bottom Sheet
 
-- 背景：`#161616`，cornerRadius `[20, 20, 0, 0]`（仅上方圆角）
-- 高度：584px，绝对定位于屏幕底部
-- 背后遮罩：`#000000` 55% opacity
-- Handle：4×36px 圆角矩形，`#333333`，居中
-- 头部：horizontal，space_between，padding `[0, 20, 12, 20]`
-  - 标题组：vertical，gap 2px
-  - 关闭按钮：32×32px 圆形，背景 `#252525`
-- 分割线：1px，`#2A2A2A`
-- 内容区：padding `[16, 20, 20, 20]`，gap 14px
+- 背景：`surface.raised`
+- 高度：默认 584px，可随内容和键盘动态调整
+- 圆角：`[20, 20, 0, 0]`
+- 背后遮罩：`surface.scrim`
+- Handle：4×36px，`surface.handle`
+- 关闭按钮：32×32px 圆形，背景 `surface.option`
+- 分割线：1px，`surface.lineStrong`
 
-### 6.11 空状态（Inbox Empty）
+### 7.10 空状态
 
-- 布局：vertical，alignItems center，justifyContent center，gap 16px
-- 图标容器：80×80px 圆形，背景 `#1A1A1A`
-  - check 图标：36×36px，`#4CAF50`
-- 标题：Inter 22px/700，`#FFFFFF`
-- 副标题：Inter 15px，`#888888`，textAlign center，width 260px
-- Hint 行：horizontal，gap 8px，cornerRadius 12px，背景 `#1A1A1A`，padding `[10, 16]`
-  - bell 图标：14×14px，`#555555`
-  - 文字：Inter 12px，`#555555`
+- 使用 Cream 或 Ink 两种模式：
+  - 深色页内：`surface.panel` 图标容器 + mascot line icon
+  - 品牌/引导：`brand.cream` 背景 + Ink mascot
+- 标题：Space Grotesk 20px/700
+- 副标题：Inter 13px，`text.muted`，textAlign center，maxWidth 260px
+- Hint 行：cornerRadius 12px，背景 `surface.raised` 或 `brand.silver`
 
 ---
 
-## 7. 图标规范
+## 8. 图标与插画
 
-统一使用 **Lucide** 图标字体（`iconFontFamily: "lucide"`）。
+- UI 图标统一使用 Lucide。
+- 品牌 mascot 用于 App Icon、空状态、远程控制成功、连接引导。
+- Mascot 不进入每个列表行；列表行优先 runtime avatar，避免噪声。
+- Lucide 图标尺寸：
+  - Tab：16×16px
+  - 列表 / chip：14-16×16px
+  - 导航操作：22-26px
+  - 空状态：36px
+- 手绘 mascot 与 UI 图标可以共存，但不要混在同一个小按钮里。
 
-| 场景 | 尺寸 | 颜色 |
+---
+
+## 9. Motion Rhythm
+
+品牌 Signal Kit 中的节奏转译为移动端动效：
+
+| 语义 | 动效 | 时长 |
 |------|------|------|
-| Tab Bar 图标 | 16×16px | `#FFFFFF`（激活）/ `#555555`（非激活） |
-| 搜索图标 | 16×16px | `#666666` |
-| 导航栏操作图标 | 22–26px | `#FFFFFF` |
-| 列表过滤图标 | 22×22px | `#888888` |
-| Inbox 卡片图标 | 16×16px | `#888888` |
-| AskQuestion info 图标 | 14×14px | `#555555` |
-| 空状态 check 图标 | 36×36px | `#4CAF50` |
-| 空状态 bell 图标 | 14×14px | `#555555` |
+| Think | 轻微点状 pulse | 1600-2200ms |
+| Process | Cyan ribbon 横向漂移 | 2200-3000ms |
+| Decide | Coral 边框短促闪烁一次 | 180-260ms |
+| Done | Lime fill / check 进入 | 240-360ms |
+| Alert | Ink/Cream 高对比切换，不循环 | 120-180ms |
+
+规则：
+
+- 循环动效只允许出现在 running / live 状态。
+- 决策提醒不循环闪烁；进入一次后保持稳定。
+- 全部动效必须跟随 Reduce Motion。
 
 ---
 
-## 8. 反模式清单
+## 10. 反模式清单
 
 | 禁止 | 原因 | 替代 |
 |------|------|------|
-| 使用白色或浅色背景 | 破坏深色沉浸感 | 使用 `#0D0D0D` / `#1A1A1A` |
-| 滥用橙色 `#FF6B35` | 橙色是行动信号，过多会失去意义 | 仅用于 CTA、未读徽章、选中状态 |
-| 使用绿色系颜色（旧设计遗留） | 新设计已切换为深色+橙色体系 | 使用新色板 |
-| Tab Bar cornerRadius < 36px | 破坏胶囊形态 | cornerRadius 36px |
-| 输入框 cornerRadius < 26px | 破坏圆润输入框风格 | cornerRadius 26px |
-| 混用非指定字体 | 破坏界面一致性 | Anton / Inter |
-| 使用 px 以外的间距单位 | 设计系统基于 4px 网格 | 使用规定的间距值 |
-| 在非行动场景使用 `#FF6B35` | 稀释强调色语义 | 使用 `#888888` 或 `#DDDDDD` |
+| 大面积使用 Cyan / Lime / Coral | 信号色失去语义 | 只用于状态、边、徽章、按钮 |
+| Cream 页面无结构铺满 | App 会失去控制台层级 | Cream 做页面底，白色卡片 / Ink 控制 / Signal 状态分层 |
+| 所有状态都用同一种橙色 | 无法区分 live / decide / done | 使用 Signal Palette |
+| 纯营销式 hero 布局进入 App 首屏 | App 是工具，不是 landing page | 首屏直接展示可操作控制台 |
+| 卡片套卡片 | 层级混乱 | 用分割线、section、状态条 |
+| 大圆角无差别滥用 | 控件显得幼稚且不稳定 | 按 §5 形状表选择半径 |
+| 非 Lucide 图标随意混用 | 破坏一致性 | Lucide + mascot 分工 |
+| 用未列入 §2 的 hex | 会触发颜色合规风险 | 先扩展 §2 并同步脚本 |
 
 ---
 
-## 9. 检查清单
+## 11. UI 检查清单
 
-在提交任何 UI 变更前，过一遍：
+提交任何 UI 变更前，逐项确认：
 
-- [ ] 所有颜色是否在色阶范围内？有没有硬编码非规范色值？
-- [ ] 字体是否只使用 Anton / Inter？
-- [ ] 字号是否符合规范（无随意像素值）？
-- [ ] Tab Bar 是否 cornerRadius 36px，高度 62px？
-- [ ] 输入框是否 cornerRadius 26px，高度 52px？
-- [ ] 橙色 `#FF6B35` 是否仅用于行动/强调场景？
-- [ ] 图标是否使用 Lucide，尺寸是否与文字匹配？
-- [ ] 列表行高度是否为 72px？
-- [ ] 底部 Sheet 是否有 `[20, 20, 0, 0]` 圆角和 Handle？
-- [ ] 空状态是否有 check 图标 + 标题 + 副标题 + hint 行？
-- [ ] 深色模式（本设计即暗色模式）是否正常？
+- [ ] 所有 hex 是否在 §2 色板内，且 `scripts/check-mobile-colors.sh` 已同步新增色？
+- [ ] Signal 色是否只表达状态，不做无语义装饰？
+- [ ] 字体是否只使用 Space Grotesk / Inter / SF Mono？
+- [ ] 页面是否仍是可扫描的工具界面，而非营销页？
+- [ ] Tab Bar 是否保持 50px visible rail + 28px safe-area padding、cornerRadius 30px？
+- [ ] 输入框是否在 42-46px 高、cornerRadius 21-23px 范围内？
+- [ ] Agent Fleet 列表行是否稳定在 62-70px 范围内，动态内容不会撑开布局？
+- [ ] AskQuestion 是否明确突出“需要用户决策”？
+- [ ] Bottom Sheet 是否有 handle、scrim、顶部圆角和安全区处理？
+- [ ] 动效是否遵守 Reduce Motion？
+- [ ] Cream / mascot 是否按原型用于品牌呼吸，并通过卡片/Ink 控制保持工具层级？

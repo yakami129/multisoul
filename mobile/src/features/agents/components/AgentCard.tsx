@@ -1,12 +1,13 @@
-import { ChevronRight } from 'lucide-react-native';
+import { Folder, MoreHorizontal, Terminal } from 'lucide-react-native';
 import React from 'react';
 import { Image, type ImageSourcePropType, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useReduceMotionPreference } from '@/hooks/useReduceMotionPreference';
+import { brandColors, brandRgba } from '@/theme/brandRefresh';
 import { type Agent } from '@/types';
 import { RunningAgentBreath } from './RunningAgentBreath';
-import claudeCodeIcon from '../../../../assets/agent-icons/runtime-claude-code.png';
-import codexIcon from '../../../../assets/agent-icons/runtime-codex.png';
-import cursorCliIcon from '../../../../assets/agent-icons/runtime-cursor-cli.png';
+import codexIcon from '../../../../assets/agent-icons/blue-cloud-robot-transparent.png';
+import cursorIcon from '../../../../assets/agent-icons/orange-octopus-robot-transparent.png';
+import claudeCodeIcon from '../../../../assets/agent-icons/orange-pixel-robot-transparent.png';
 
 interface Props {
   agent: Agent;
@@ -19,54 +20,32 @@ interface Props {
   showBreathingEffect?: boolean;
 }
 
-type RuntimeMascotSpec = {
+type RuntimeSpec = {
   backgroundColor: string;
-  label: string;
-  source: ImageSourcePropType;
+  image: ImageSourcePropType;
 };
 
-const ORANGE = '#FF6B35';
-const BLUE = '#2563EB';
-const SURFACE = '#252525';
+const fallbackAvatarColors = [
+  brandColors.coral,
+  brandColors.cyan,
+  brandColors.lime,
+  brandColors.sage,
+];
 
-const fallbackAvatarColors = [ORANGE, '#7C3AED', BLUE, '#059669'];
-
-const runtimeMascots: Partial<Record<Agent['runtime'], RuntimeMascotSpec>> = {
+const runtimeSpecs: Partial<Record<Agent['runtime'], RuntimeSpec>> = {
   'claude-code': {
-    backgroundColor: SURFACE,
-    label: 'Claude Code pixel mascot icon',
-    source: claudeCodeIcon,
+    backgroundColor: brandColors.lime,
+    image: claudeCodeIcon,
   },
   codex: {
-    backgroundColor: ORANGE,
-    label: 'Codex pixel mascot icon',
-    source: codexIcon,
+    backgroundColor: brandColors.cyan,
+    image: codexIcon,
   },
   'cursor-cli': {
-    backgroundColor: BLUE,
-    label: 'Cursor pixel mascot icon',
-    source: cursorCliIcon,
+    backgroundColor: brandColors.sage,
+    image: cursorIcon,
   },
 };
-
-function RuntimeMascotIcon({
-  runtime,
-  spec,
-}: {
-  runtime: Agent['runtime'];
-  spec: RuntimeMascotSpec;
-}) {
-  return (
-    <Image
-      testID={`runtime-pixel-${runtime}`}
-      accessibilityIgnoresInvertColors
-      accessibilityLabel={spec.label}
-      resizeMode="cover"
-      source={spec.source}
-      style={s.pixelImage}
-    />
-  );
-}
 
 function AgentCardBreath({ accentColor }: { accentColor: string }) {
   const reduceMotionEnabled = useReduceMotionPreference();
@@ -90,6 +69,51 @@ function relativeAge(ts: number) {
   return `${Math.floor(hours / 24)}d ago`;
 }
 
+function formatProjectPath(path: string) {
+  if (!path) return 'No project path';
+  const normalized = path.replace(/^\/Users\/[^/]+/, '~').replace(/^\/home\/[^/]+/, '~');
+  const parts = normalized.split('/').filter(Boolean);
+  if (normalized.startsWith('~') && parts.length > 3) {
+    return `~/${parts.slice(-2).join('/')}`;
+  }
+  if (parts.length > 3) return `.../${parts.slice(-2).join('/')}`;
+  return normalized;
+}
+
+function statusTone(statusLabel: string, isActive: boolean, pendingCount: number) {
+  const lower = statusLabel.toLowerCase();
+  if (pendingCount > 0 || lower.includes('awaiting')) {
+    return {
+      label: 'Needs Decision',
+      dot: brandColors.coral,
+      bg: brandRgba.coralSoft,
+      text: brandColors.coral,
+    };
+  }
+  if (lower.includes('running') || isActive) {
+    return {
+      label: 'Running',
+      dot: brandColors.cyan,
+      bg: brandRgba.cyanSoft,
+      text: brandColors.cyan,
+    };
+  }
+  if (lower.includes('failed')) {
+    return {
+      label: 'Failed',
+      dot: brandColors.error,
+      bg: brandRgba.coralSoft,
+      text: brandColors.error,
+    };
+  }
+  return {
+    label: 'Idle',
+    dot: brandColors.textMuted,
+    bg: brandRgba.ink08,
+    text: brandColors.textSoft,
+  };
+}
+
 export function AgentCard({
   agent,
   onPress,
@@ -100,15 +124,15 @@ export function AgentCard({
   metaVariant = 'machine',
   showBreathingEffect = false,
 }: Props) {
-  const mascot = runtimeMascots[agent.runtime];
+  const runtimeSpec = runtimeSpecs[agent.runtime];
   const avatarColor =
-    mascot?.backgroundColor ?? fallbackAvatarColors[index % fallbackAvatarColors.length];
-  const accentColor = agent.runtime === 'claude-code' ? ORANGE : avatarColor;
+    runtimeSpec?.backgroundColor ?? fallbackAvatarColors[index % fallbackAvatarColors.length];
+  const accentColor = avatarColor;
+  const tone = statusTone(statusLabel, isActive, pendingCount);
   const metaLabel =
     metaVariant === 'status'
       ? statusLabel
       : `${agent.endpoint_label} · ${relativeAge(agent.created_at)}`;
-  const highlightMeta = metaVariant === 'status' && isActive;
 
   return (
     <Pressable
@@ -119,29 +143,48 @@ export function AgentCard({
       accessibilityLabel={`Open ${agent.name}`}
     >
       {showBreathingEffect ? <AgentCardBreath accentColor={accentColor} /> : null}
-      <View testID="project-avatar" style={[s.avatar, { backgroundColor: avatarColor }]}>
-        {mascot ? <RuntimeMascotIcon runtime={agent.runtime} spec={mascot} /> : null}
+      <View style={s.avatarFrame}>
+        <View testID="project-avatar" style={[s.avatar, { backgroundColor: avatarColor }]}>
+          {runtimeSpec ? (
+            <Image
+              testID="project-avatar-image"
+              source={runtimeSpec.image}
+              style={s.avatarImage}
+              resizeMode="contain"
+            />
+          ) : (
+            <Terminal size={20} color={brandColors.white} strokeWidth={2.4} />
+          )}
+        </View>
       </View>
       <View testID="project-body" style={s.body}>
         <View style={s.titleRow}>
           <Text style={s.agentName} numberOfLines={1}>
             {agent.name}
           </Text>
-          {pendingCount > 0 ? (
-            <View style={s.countBadge}>
-              <Text style={s.countText}>{pendingCount}</Text>
-            </View>
-          ) : null}
         </View>
         <View style={s.metaRow}>
-          <View style={[s.statusDot, isActive && s.statusDotActive]} />
-          <Text style={[s.metaText, highlightMeta && s.metaTextActive]} numberOfLines={1}>
+          <Text style={s.metaText} numberOfLines={1}>
             {metaLabel}
           </Text>
         </View>
+        <View style={s.pathRow}>
+          <Folder size={14} color={brandColors.textMuted} />
+          <Text style={s.pathText} numberOfLines={1}>
+            {formatProjectPath(agent.project_path)}
+          </Text>
+        </View>
       </View>
-      <View testID="project-chevron" style={s.chevron}>
-        <ChevronRight size={14} color="#666666" />
+      <View style={s.trailing}>
+        <View style={[s.statusPill, { backgroundColor: tone.bg }]}>
+          <View style={[s.statusDot, { backgroundColor: tone.dot }]} />
+          <Text style={[s.statusText, { color: tone.text }]} numberOfLines={1}>
+            {pendingCount > 1 ? `${tone.label} ${pendingCount}` : tone.label}
+          </Text>
+        </View>
+        <View testID="project-chevron" style={s.moreButton}>
+          <MoreHorizontal size={16} color={brandColors.ink} />
+        </View>
       </View>
     </Pressable>
   );
@@ -150,48 +193,85 @@ export function AgentCard({
 const s = StyleSheet.create({
   row: {
     width: '100%',
-    height: 68,
+    minHeight: 62,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 14,
+    paddingHorizontal: 9,
+    paddingVertical: 7,
     position: 'relative',
-    borderRadius: 14,
+    borderRadius: 18,
+    backgroundColor: brandRgba.white88,
+    borderWidth: 1,
+    borderColor: brandColors.silver,
+    shadowColor: brandColors.ink,
+    shadowOpacity: 0.08,
+    shadowRadius: 9,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 2,
   },
-  avatar: {
+  avatarFrame: {
     width: 40,
     height: 40,
+    borderRadius: 14,
+    backgroundColor: brandRgba.white70,
+    borderWidth: 1,
+    borderColor: brandColors.silver,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 9,
+  },
+  avatar: {
+    width: 30,
+    height: 30,
     borderRadius: 9,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 10,
   },
-  pixelImage: {
-    width: 40,
-    height: 40,
-    borderRadius: 9,
+  avatarImage: {
+    width: 30,
+    height: 30,
   },
   body: { flex: 1, minWidth: 0 },
   titleRow: { flexDirection: 'row', alignItems: 'center', minWidth: 0 },
-  agentName: { flex: 1, fontFamily: 'Inter', fontSize: 15, fontWeight: '700', color: '#FFFFFF' },
-  metaRow: { flexDirection: 'row', alignItems: 'center', marginTop: 4 },
-  statusDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#555555', marginRight: 5 },
-  statusDotActive: { backgroundColor: '#4CAF50' },
-  metaText: { flex: 1, fontFamily: 'Inter', fontSize: 12, color: '#888888' },
-  metaTextActive: { color: '#4CAF50' },
-  countBadge: {
-    minWidth: 24,
-    borderRadius: 12,
-    backgroundColor: '#FF6B35',
+  agentName: {
+    flex: 1,
+    fontFamily: 'Inter',
+    fontSize: 13,
+    lineHeight: 17,
+    fontWeight: '700',
+    color: brandColors.ink,
+  },
+  metaRow: { flexDirection: 'row', alignItems: 'center', marginTop: 2 },
+  metaText: { flex: 1, fontFamily: 'Inter', fontSize: 11, color: brandColors.textSoft },
+  pathRow: {
+    marginTop: 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  pathText: { flex: 1, fontFamily: 'Inter', fontSize: 10, color: brandColors.textMuted },
+  trailing: {
+    marginLeft: 7,
+    alignItems: 'flex-end',
+    gap: 5,
+  },
+  statusPill: {
+    minHeight: 22,
+    maxWidth: 112,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    borderRadius: 11,
+    paddingHorizontal: 7,
+    gap: 4,
   },
-  countText: { fontFamily: 'Inter', fontSize: 13, fontWeight: '700', color: '#FFFFFF' },
-  chevron: {
-    width: 14,
-    height: 14,
-    marginLeft: 10,
+  statusDot: { width: 5, height: 5, borderRadius: 2.5 },
+  statusText: { flexShrink: 1, fontFamily: 'Inter', fontSize: 10, fontWeight: '700' },
+  moreButton: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: brandRgba.ink08,
     alignItems: 'center',
     justifyContent: 'center',
   },

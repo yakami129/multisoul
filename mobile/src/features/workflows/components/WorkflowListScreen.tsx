@@ -3,6 +3,7 @@ import React, { useRef } from 'react';
 import { FlatList, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { brandColors, brandRgba } from '@/theme/brandRefresh';
 import { type Workflow } from '../types';
 import { workflowScreenStyles as s } from './workflowScreenStyles';
 
@@ -55,7 +56,7 @@ export function WorkflowListScreen({
           onPress={onCreateWorkflow}
           style={s.addButton}
         >
-          <Plus size={24} color={hasEndpoints ? '#FF6B35' : '#555555'} />
+          <Plus size={20} color={hasEndpoints ? brandColors.ink : brandColors.textMuted} />
         </TouchableOpacity>
       </View>
 
@@ -103,8 +104,10 @@ export function WorkflowListScreen({
                 accessibilityRole="button"
               >
                 <View style={s.rowInfo}>
-                  <Text style={s.rowName}>{item.name}</Text>
-                  <Text style={s.rowMeta}>
+                  <Text style={s.rowName} numberOfLines={1}>
+                    {item.name}
+                  </Text>
+                  <Text style={s.rowMeta} numberOfLines={1}>
                     {item.endpoint_label} · {item.schedule_kind} {item.time_of_day} ·{' '}
                     {formatNextRun(item.next_run_at)}
                   </Text>
@@ -113,8 +116,8 @@ export function WorkflowListScreen({
                   testID={`workflow-toggle-${item.id}`}
                   value={item.enabled}
                   onValueChange={(val) => onToggleEnabled(item.id, val, item.endpoint_id)}
-                  trackColor={{ false: '#333333', true: '#FF6B35' }}
-                  thumbColor="#FFFFFF"
+                  trackColor={{ false: brandRgba.ink18, true: brandColors.cyan }}
+                  thumbColor={brandColors.white}
                 />
               </TouchableOpacity>
             </Swipeable>
@@ -127,13 +130,13 @@ export function WorkflowListScreen({
 
 const ds = StyleSheet.create({
   deleteAction: {
-    width: 80,
-    backgroundColor: '#1A1A1A',
+    width: 74,
+    backgroundColor: brandColors.white,
     alignItems: 'center',
     justifyContent: 'center',
     borderLeftWidth: 1,
-    borderLeftColor: '#FF4444',
+    borderLeftColor: brandColors.error,
     marginBottom: 8,
   },
-  deleteText: { fontFamily: 'Inter', fontSize: 13, fontWeight: '600', color: '#FF4444' },
+  deleteText: { fontFamily: 'Inter', fontSize: 12, fontWeight: '600', color: brandColors.error },
 });

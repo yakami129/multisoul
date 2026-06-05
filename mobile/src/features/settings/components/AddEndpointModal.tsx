@@ -5,6 +5,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Modal, View, Text, TouchableOpacity, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { getEndpointClient } from '@/api/endpointClient';
+import { brandColors } from '@/theme/brandRefresh';
 import { addEndpointModalStyles as s } from './addEndpointModalStyles';
 
 type SetupCommand = {
@@ -31,20 +32,17 @@ const SETUP_COMMANDS: SetupCommand[] = [
   {
     id: 'codex',
     title: 'Codex',
-    command:
-      'msctl agent register \\\n  --name work-codex \\\n  --project /path/to/project \\\n  --runtime codex \\\n  --mode full-auto',
+    command: 'cd /path/to/project\nmsctl agent codex',
   },
   {
     id: 'claude',
     title: 'Claude Code',
-    command:
-      'msctl agent register \\\n  --name work-claude \\\n  --project /path/to/project \\\n  --runtime claude-code',
+    command: 'cd /path/to/project\nmsctl agent claude-code',
   },
   {
     id: 'cursor',
     title: 'Cursor Agent CLI',
-    command:
-      'msctl agent register \\\n  --name work-cursor \\\n  --project /path/to/project \\\n  --runtime cursor-cli \\\n  --mode ask',
+    command: 'cd /path/to/project\nmsctl agent cursor-cli',
   },
 ];
 
@@ -168,7 +166,9 @@ export function AddEndpointModal({ visible, onClose, onAdd }: Props) {
   const renderScanHeader = () => (
     <View style={s.scanHeader}>
       <View style={s.scanBadge}>
-        <Text style={s.scanBadgeText}>SCAN QR</Text>
+        <Text style={s.scanBadgeText} numberOfLines={1}>
+          SCAN QR
+        </Text>
         <TouchableOpacity
           accessibilityLabel="Show setup commands"
           accessibilityRole="button"
@@ -176,7 +176,7 @@ export function AddEndpointModal({ visible, onClose, onAdd }: Props) {
           onPress={() => setHelpVisible(true)}
           style={s.fullHelpButton}
         >
-          <Info size={13} color="#FFFFFF" />
+          <Info size={13} color={brandColors.white} />
         </TouchableOpacity>
       </View>
     </View>
@@ -208,7 +208,9 @@ export function AddEndpointModal({ visible, onClose, onAdd }: Props) {
   const renderFullScreenQrContent = () => (
     <>
       <View style={s.qrCard}>
-        <Text style={s.qrCardTitle}>Scan setup QR</Text>
+        <Text style={s.qrCardTitle} numberOfLines={1}>
+          Scan setup QR
+        </Text>
         <Text style={s.qrCardSubtitle}>
           Open msctl on your machine and scan the generated code.
         </Text>
@@ -220,8 +222,10 @@ export function AddEndpointModal({ visible, onClose, onAdd }: Props) {
         style={s.commandHint}
         onPress={() => setHelpVisible(true)}
       >
-        <Terminal size={16} color="#FF6B35" />
-        <Text style={s.commandHintText}>Need commands? Tap the help icon next to SCAN QR.</Text>
+        <Terminal size={16} color={brandColors.coral} />
+        <Text style={s.commandHintText} numberOfLines={2}>
+          Need commands? Tap the help icon next to SCAN QR.
+        </Text>
       </TouchableOpacity>
     </>
   );
@@ -239,7 +243,9 @@ export function AddEndpointModal({ visible, onClose, onAdd }: Props) {
           <View style={s.sheetHandle} />
           <View style={s.sheetHeader}>
             <View style={s.sheetTitleBlock}>
-              <Text style={s.sheetTitle}>Set up local agent</Text>
+              <Text style={s.sheetTitle} numberOfLines={1}>
+                Set up local agent
+              </Text>
               <Text style={s.sheetSubtitle}>
                 Run these commands on the machine you want to connect.
               </Text>
@@ -250,7 +256,7 @@ export function AddEndpointModal({ visible, onClose, onAdd }: Props) {
               style={s.sheetCloseButton}
               onPress={() => setHelpVisible(false)}
             >
-              <X size={16} color="#DDDDDD" />
+              <X size={16} color={brandColors.ink} />
             </TouchableOpacity>
           </View>
           <ScrollView
@@ -296,10 +302,14 @@ export function AddEndpointModal({ visible, onClose, onAdd }: Props) {
             accessibilityRole="button"
             accessibilityLabel="Back to Agents"
           >
-            <ChevronLeft size={18} color="#FF6B35" />
-            <Text style={s.backText}>Agents</Text>
+            <ChevronLeft size={18} color={brandColors.ink} />
+            <Text style={s.backText} numberOfLines={1}>
+              Agents
+            </Text>
           </TouchableOpacity>
-          <Text style={s.fullNavTitle}>Add Endpoint</Text>
+          <Text style={s.fullNavTitle} numberOfLines={1}>
+            Add Endpoint
+          </Text>
           <View style={s.navSpacer} />
         </View>
         <ScrollView
@@ -308,7 +318,9 @@ export function AddEndpointModal({ visible, onClose, onAdd }: Props) {
           keyboardShouldPersistTaps="handled"
         >
           <View style={s.titleRow}>
-            <Text style={s.fullTitle}>Connect a machine</Text>
+            <Text style={s.fullTitle} numberOfLines={2}>
+              Connect a machine
+            </Text>
             <TouchableOpacity
               accessibilityLabel="Close Add Endpoint"
               accessibilityRole="button"
@@ -318,10 +330,12 @@ export function AddEndpointModal({ visible, onClose, onAdd }: Props) {
                 onClose();
               }}
             >
-              <X size={18} color="#DDDDDD" />
+              <X size={18} color={brandColors.ink} />
             </TouchableOpacity>
           </View>
-          <Text style={s.fullSubtitle}>Scan the QR code from msctl quickstart.</Text>
+          <Text style={s.fullSubtitle} numberOfLines={2}>
+            Scan the QR code from msctl quickstart.
+          </Text>
           {renderScanHeader()}
           {renderFullScreenQrContent()}
         </ScrollView>
@@ -359,7 +373,9 @@ function CommandBlock({
   return (
     <View style={[s.commandBlock, compact && s.commandBlockCompact]}>
       <View style={s.commandHeader}>
-        <Text style={[s.commandTitle, compact && s.commandTitleAccent]}>{command.title}</Text>
+        <Text style={[s.commandTitle, compact && s.commandTitleAccent]} numberOfLines={1}>
+          {command.title}
+        </Text>
         <TouchableOpacity
           accessibilityLabel={`Copy ${command.title} command`}
           accessibilityRole="button"
@@ -368,7 +384,11 @@ function CommandBlock({
           }}
           style={s.copyButton}
         >
-          {copied ? <Text style={s.copiedText}>COPIED</Text> : <Copy size={13} color="#888888" />}
+          {copied ? (
+            <Text style={s.copiedText}>COPIED</Text>
+          ) : (
+            <Copy size={13} color={brandColors.textMuted} />
+          )}
         </TouchableOpacity>
       </View>
       <Text style={s.commandText}>{command.command}</Text>

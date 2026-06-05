@@ -2,6 +2,7 @@ import { X } from 'lucide-react-native';
 import React, { useState } from 'react';
 import { ActivityIndicator, Image, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { recordDiagnosticsEvent } from '@/services/diagnosticsLog';
+import { brandColors, brandRgba } from '@/theme/brandRefresh';
 
 interface Props {
   src: string;
@@ -177,7 +178,7 @@ export function MarkdownImage({ src, alt, serverUrl, token }: Props) {
               setFullscreenLoading(false);
             }}
           >
-            <X size={18} color="#FFFFFF" />
+            <X size={18} color={brandColors.white} />
           </Pressable>
           {fullscreenError ? (
             <View style={s.fullscreenError} testID="markdown-image-fullscreen-error">
@@ -197,7 +198,7 @@ export function MarkdownImage({ src, alt, serverUrl, token }: Props) {
           )}
           {fullscreenLoading ? (
             <View style={s.fullscreenLoadingOverlay} testID="markdown-image-fullscreen-loading">
-              <ActivityIndicator color="#FF6B35" />
+              <ActivityIndicator color={brandColors.coral} />
               <Text style={s.loadingText}>Loading image...</Text>
             </View>
           ) : null}
@@ -226,7 +227,7 @@ export function MarkdownImage({ src, alt, serverUrl, token }: Props) {
         />
         {thumbLoading ? (
           <View style={s.loadingOverlay} testID="markdown-image-loading">
-            <ActivityIndicator color="#FF6B35" />
+            <ActivityIndicator color={brandColors.coral} />
             <Text style={s.loadingText}>Loading image...</Text>
           </View>
         ) : null}
@@ -240,6 +241,11 @@ const s = StyleSheet.create({
     width: 240,
     maxWidth: '100%',
     height: 200,
+    borderRadius: 12,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: brandColors.silver,
+    backgroundColor: brandRgba.white70,
   },
   thumbnail: {
     width: '100%',
@@ -249,18 +255,21 @@ const s = StyleSheet.create({
     width: 240,
     maxWidth: '100%',
     height: 200,
-    backgroundColor: '#1A1A1A',
+    borderRadius: 12,
+    backgroundColor: brandRgba.white70,
+    borderWidth: 1,
+    borderColor: brandColors.silver,
     alignItems: 'center',
     justifyContent: 'center',
   },
   placeholderText: {
     fontFamily: 'Inter',
     fontSize: 12,
-    color: '#888888',
+    color: brandColors.textMuted,
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.95)',
+    backgroundColor: brandRgba.ink72,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -271,7 +280,7 @@ const s = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#1A1A1A',
+    backgroundColor: brandColors.darkPanel,
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 10,
@@ -282,14 +291,14 @@ const s = StyleSheet.create({
   },
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: '#1A1A1A',
+    backgroundColor: brandRgba.white88,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
   },
   fullscreenLoadingOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.72)',
+    backgroundColor: brandRgba.ink72,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
@@ -303,12 +312,12 @@ const s = StyleSheet.create({
   loadingText: {
     fontFamily: 'Inter',
     fontSize: 12,
-    color: '#888888',
+    color: brandColors.textMuted,
   },
   altText: {
     fontFamily: 'Inter',
     fontSize: 11,
-    color: '#888888',
+    color: brandColors.silver,
     position: 'absolute',
     bottom: 36,
     marginTop: 12,

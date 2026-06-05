@@ -9,6 +9,8 @@ import {
   shouldMergeInitialHistory,
 } from '@/features/chat/utils/chatMessageWindows';
 import {
+  collapseTodoToolCallSnapshots,
+  type ChatTranscriptDisplayItem,
   getLatestAgentActivitySeq,
   getLatestAgentTextSeq,
   isRenderableInChatTranscript,
@@ -35,7 +37,7 @@ type HistoryParams = {
   focus_ask_id: string | undefined;
   messages: WsMessage[];
   inboxMirrorStableKey: string;
-  listRef: React.RefObject<FlatList<WsMessage> | null>;
+  listRef: React.RefObject<FlatList<ChatTranscriptDisplayItem> | null>;
   lastSeenAgentActivitySeqRef: React.MutableRefObject<number>;
   lastAnimatedAgentTextSeqRef: React.MutableRefObject<number>;
 };
@@ -112,7 +114,7 @@ export function useChatDetailHistory({
   }, [messages, visibleMinSeq]);
 
   const transcriptMessages = React.useMemo(
-    () => visibleMessages.filter(isRenderableInChatTranscript),
+    () => collapseTodoToolCallSnapshots(visibleMessages.filter(isRenderableInChatTranscript)),
     [visibleMessages],
   );
 

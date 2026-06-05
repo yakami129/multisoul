@@ -16,7 +16,7 @@
       "icon": "./assets/ios-icon.png",
       "supportsTablet": true,
       "bundleIdentifier": "com.yakami0129.multisoul",
-      "buildNumber": "87",
+      "buildNumber": "103",
       "splash": {
         "backgroundColor": "#ffffff"
       },
@@ -48,7 +48,8 @@
         }
       ],
       "expo-asset",
-      "expo-sqlite"
+      "expo-sqlite",
+      "expo-video"
     ],
     "extra": {
       "router": {},

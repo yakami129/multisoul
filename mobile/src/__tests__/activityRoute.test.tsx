@@ -12,16 +12,25 @@ const mockMarkDoneActivityRead = jest.fn();
 const mockMarkAllDoneActivityRead = jest.fn();
 const mockAbortConversation = jest.fn();
 const mockDeleteConversation = jest.fn();
+const mockUseActivityEvents = jest.fn();
 let mockEndpoints: Endpoint[] = [];
+let mockShouldFocus = true;
 let appStateHandler: ((state: string) => void) | null = null;
 const mockRemoveAppStateListener = jest.fn();
 
 jest.mock('expo-router', () => ({
   useFocusEffect: (callback: () => void | (() => void)) => {
     const ReactModule = require('react');
-    ReactModule.useEffect(() => callback(), [callback]);
+    ReactModule.useEffect(() => {
+      if (!mockShouldFocus) return undefined;
+      return callback();
+    }, [callback]);
   },
   useRouter: () => ({ push: mockPush }),
+}));
+
+jest.mock('@/features/activity/hooks/useActivityEvents', () => ({
+  useActivityEvents: (...args: unknown[]) => mockUseActivityEvents(...args),
 }));
 
 jest.mock('@/features/activity/services/activityService', () => ({
@@ -140,6 +149,13 @@ function configuredEndpoints(): Endpoint[] {
   ];
 }
 
+function latestActivityEventsOptions() {
+  const calls = mockUseActivityEvents.mock.calls;
+  return calls[calls.length - 1]?.[0] as
+    | { endpoints: Endpoint[]; enabled: boolean; onRefresh: () => void | Promise<void> }
+    | undefined;
+}
+
 function deferred<T>() {
   let resolve!: (value: T) => void;
   let reject!: (reason?: unknown) => void;
@@ -174,7 +190,9 @@ describe('ActivityTab DB-backed aggregation', () => {
     mockMarkAllDoneActivityRead.mockReset();
     mockAbortConversation.mockReset();
     mockDeleteConversation.mockReset();
+    mockUseActivityEvents.mockReset();
     mockEndpoints = configuredEndpoints();
+    mockShouldFocus = true;
     mockAggregateActivity.mockResolvedValue(activityResult());
     mockMarkDoneActivityRead.mockResolvedValue(undefined);
     mockMarkAllDoneActivityRead.mockResolvedValue(undefined);
@@ -254,7 +272,7 @@ describe('ActivityTab DB-backed aggregation', () => {
     expect(screen.queryByText('Needs Attention')).toBeNull();
   });
 
-  /// Activity tabs visual hierarchy: top filter uses the prototype's raised pill surface.
+  /// Activity tabs visual hierarchy: top filter uses the cream console raised pill surface.
   ///
   /// Data construction:
   ///   needsAttention = 1 row
@@ -268,10 +286,10 @@ describe('ActivityTab DB-backed aggregation', () => {
   ///   3. Read the active All tab button style and inactive Pending label style.
   ///
   /// Expected result:
-  ///   - Positive: outer segmented control uses #1A1A1A, matching the prototype surface.
-  ///   - Positive: selected tab uses #2A2A2A so it remains visibly raised.
-  ///   - Positive: selected label is white.
-  ///   - Negative: inactive Pending label is not promoted to white.
+  ///   - Positive: outer segmented control uses a white raised surface.
+  ///   - Positive: selected tab uses the cyan wash active state.
+  ///   - Positive: selected label is ink.
+  ///   - Negative: inactive Pending label is not promoted to ink.
   it('uses the prototype color hierarchy for the Activity top filter', async () => {
     await renderActivity();
 
@@ -283,10 +301,10 @@ describe('ActivityTab DB-backed aggregation', () => {
     const allTextStyle = StyleSheet.flatten(screen.getByText('All 3').props.style);
     const pendingTextStyle = StyleSheet.flatten(screen.getByText('Pending 1').props.style);
 
-    expect(segmentStyle.backgroundColor).toBe('#1A1A1A');
-    expect(allTabStyle.backgroundColor).toBe('#2A2A2A');
-    expect(allTextStyle.color).toBe('#FFFFFF');
-    expect(pendingTextStyle.color).toBe('#888888');
+    expect(segmentStyle.backgroundColor).toBe('rgba(255, 255, 255, 0.88)');
+    expect(allTabStyle.backgroundColor).toBe('rgba(0, 229, 255, 0.24)');
+    expect(allTextStyle.color).toBe('#0D0D0D');
+    expect(pendingTextStyle.color).toBe('#555555');
   });
 
   /// Done filter: Done-only view splits unread and read completion results.
@@ -1056,24 +1074,127 @@ describe('ActivityTab DB-backed aggregation', () => {
     });
   });
 
-  /// Polling refetch UI state: interval refresh must update data without forced pull UI.
+  /// Realtime hook lifecycle: focused foreground Activity enables endpoint event sockets.
   ///
   /// Data construction:
-  ///   interval        = 15_000ms
+  ///   focus = true
+  ///   AppState.currentState = active
+  ///   endpoints = ep-1 Office Mac + ep-2 Studio Mac
+  ///
+  /// Execution process:
+  ///   1. Render ActivityTab under the default focused foreground state.
+  ///   2. Wait for focus state to propagate through the route.
+  ///   3. Inspect the mocked Activity event hook options.
+  ///
+  /// Expected result:
+  ///   - Positive: the hook is enabled while Activity is visible and active.
+  ///   - Positive: the hook receives the same endpoint list as the query.
+  ///   - Negative: the event hook is not enabled with an empty or different endpoint list.
+  it('enables Activity event sockets while focused and active', async () => {
+    await renderActivity();
+
+    await waitFor(() => {
+      expect(latestActivityEventsOptions()?.enabled).toBe(true);
+    });
+
+    expect(latestActivityEventsOptions()?.endpoints).toBe(mockEndpoints);
+  });
+
+  /// Realtime hook lifecycle: unfocused Activity disables endpoint event sockets.
+  ///
+  /// Data construction:
+  ///   focus = false
+  ///   AppState.currentState = active
+  ///
+  /// Execution process:
+  ///   1. Render ActivityTab with the focus effect suppressed.
+  ///   2. Inspect the mocked Activity event hook options.
+  ///
+  /// Expected result:
+  ///   - Positive: the hook is called with enabled=false.
+  ///   - Negative: the Activity REST query is not started while the tab is unfocused.
+  it('disables Activity event sockets while unfocused', async () => {
+    mockShouldFocus = false;
+
+    await renderActivity();
+
+    expect(latestActivityEventsOptions()?.enabled).toBe(false);
+    expect(mockAggregateActivity).not.toHaveBeenCalled();
+  });
+
+  /// Realtime hook lifecycle: background Activity disables endpoint event sockets.
+  ///
+  /// Data construction:
+  ///   focus = true
+  ///   AppState.currentState = background
+  ///
+  /// Execution process:
+  ///   1. Render ActivityTab while the app starts in background.
+  ///   2. Inspect the mocked Activity event hook options.
+  ///
+  /// Expected result:
+  ///   - Positive: the hook remains disabled while AppState is not active.
+  ///   - Negative: no foreground Activity REST query is started in background.
+  it('disables Activity event sockets while backgrounded', async () => {
+    setAppState('background');
+
+    await renderActivity();
+
+    await waitFor(() => {
+      expect(latestActivityEventsOptions()).toBeTruthy();
+    });
+    expect(latestActivityEventsOptions()?.enabled).toBe(false);
+    expect(mockAggregateActivity).not.toHaveBeenCalled();
+  });
+
+  /// Realtime hook refresh: Activity event sockets refresh only the first page.
+  ///
+  /// Data construction:
+  ///   initial page = default Activity result at limit 20
+  ///   event refresh = default Activity result at limit 20
+  ///
+  /// Execution process:
+  ///   1. Render ActivityTab and wait for the first page.
+  ///   2. Invoke the mocked event hook onRefresh callback.
+  ///   3. Inspect the second aggregateActivity request.
+  ///
+  /// Expected result:
+  ///   - Positive: event-triggered refresh uses the first-page limit.
+  ///   - Negative: event-triggered refresh does not request the load-more limit.
+  it('refreshes the first page when the Activity event hook fires', async () => {
+    await renderActivity();
+
+    await waitFor(() => {
+      expect(screen.getByText('Deploy now?')).toBeTruthy();
+    });
+    await act(async () => {
+      await latestActivityEventsOptions()?.onRefresh();
+    });
+
+    await waitFor(() => {
+      expect(mockAggregateActivity).toHaveBeenCalledTimes(2);
+    });
+    expect(mockAggregateActivity.mock.calls[1]).toEqual([mockEndpoints, 20]);
+  });
+
+  /// Polling fallback UI state: interval refresh must update data without forced pull UI.
+  ///
+  /// Data construction:
+  ///   interval        = 60_000ms
   ///   initial data    = 1 pending + 1 running + 1 done row
-  ///   poll refetch    = unresolved promise after one interval tick
+  ///   fallback refresh = unresolved promise after one interval tick
   ///   refreshing flag = false because polling is background refresh, not manual pull refresh
   ///
   /// Execution process:
   ///   1. Render ActivityTab with fake timers and wait for initial data.
-  ///   2. Advance timers by one polling interval.
-  ///   3. Keep the polling request unresolved and inspect the FlatList RefreshControl state.
+  ///   2. Advance timers by one fallback interval.
+  ///   3. Keep the fallback request unresolved and inspect the FlatList RefreshControl state.
   ///
   /// Expected result:
-  ///   - Positive: polling starts a second aggregateActivity call after 15 seconds.
+  ///   - Positive: fallback starts a second aggregateActivity call after 60 seconds.
   ///   - Positive: existing Activity rows remain visible during the poll.
   ///   - Negative: RefreshControl.refreshing stays false, preventing the top spinner regression.
-  it('keeps polling refetch visually silent while cached Activity remains visible', async () => {
+  it('keeps fallback refetch visually silent while cached Activity remains visible', async () => {
     jest.useFakeTimers();
     const pollRefetch = deferred<AggregatedActivityResult>();
     mockAggregateActivity
@@ -1086,19 +1207,19 @@ describe('ActivityTab DB-backed aggregation', () => {
       expect(screen.getByText('Deploy now?')).toBeTruthy();
     });
     await act(async () => {
-      jest.advanceTimersByTime(15_000);
+      jest.advanceTimersByTime(60_000);
       jest.advanceTimersByTime(0);
       await Promise.resolve();
     });
 
     expect(mockAggregateActivity).toHaveBeenCalledTimes(
       2,
-      'foreground polling should refetch Activity after one interval',
+      'foreground fallback should refetch Activity after one interval',
     );
     expect(screen.getByText('Deploy now?')).toBeTruthy();
     expect(view.UNSAFE_getByType(RefreshControl).props.refreshing).toBe(
       false,
-      'polling refetch must not drive the pull-to-refresh spinner',
+      'fallback refetch must not drive the pull-to-refresh spinner',
     );
 
     await act(async () => {
@@ -1107,20 +1228,22 @@ describe('ActivityTab DB-backed aggregation', () => {
     });
   });
 
-  /// Visible polling: focused foreground Activity refreshes every 15 seconds and stops on unmount.
+  /// Visible fallback: focused foreground Activity refreshes every 60 seconds and stops on unmount.
   /// Data construction:
-  ///   interval = 15_000ms
+  ///   interval = 60_000ms
   ///   first focus refresh = call #1
   ///   first interval tick = call #2
   /// Execution process:
   ///   1. Render Activity with fake timers.
-  ///   2. Advance timers by 15 seconds.
-  ///   3. Unmount and advance another 15 seconds.
+  ///   2. Advance timers by 15 seconds and verify the old poll has not fired.
+  ///   3. Advance timers by a full fallback interval.
+  ///   4. Unmount and advance another 60 seconds.
   /// Expected result:
   ///   - Positive: the visible interval triggers exactly one extra request.
+  ///   - Positive: the old 15-second polling interval is gone.
   ///   - Positive: AppState listener is removed on unmount.
   ///   - Negative: no polling request is made after unmount.
-  it('polls every 15 seconds while visible and stops on unmount', async () => {
+  it('polls every 60 seconds while visible and stops on unmount', async () => {
     jest.useFakeTimers();
     const view = await renderActivity();
 
@@ -1131,6 +1254,14 @@ describe('ActivityTab DB-backed aggregation', () => {
     act(() => {
       jest.advanceTimersByTime(15_000);
     });
+    expect(mockAggregateActivity).toHaveBeenCalledTimes(
+      1,
+      'the previous 15-second Activity poll should not fire',
+    );
+
+    act(() => {
+      jest.advanceTimersByTime(60_000);
+    });
 
     await waitFor(() => {
       expect(mockAggregateActivity).toHaveBeenCalledTimes(2);
@@ -1138,18 +1269,18 @@ describe('ActivityTab DB-backed aggregation', () => {
 
     view.unmount();
     act(() => {
-      jest.advanceTimersByTime(15_000);
+      jest.advanceTimersByTime(60_000);
     });
 
     expect(mockRemoveAppStateListener).toHaveBeenCalledTimes(1);
     expect(mockAggregateActivity).toHaveBeenCalledTimes(2);
   });
 
-  /// Background lifecycle: polling stops while the app is not active.
+  /// Background lifecycle: fallback polling stops while the app is not active.
   /// Data construction:
   ///   app state active     = initial visible Activity state
-  ///   app state background = should clear polling interval
-  ///   interval             = 15_000ms
+  ///   app state background = should clear fallback interval
+  ///   interval             = 60_000ms
   /// Execution process:
   ///   1. Render Activity and wait for initial refresh.
   ///   2. Dispatch AppState "background".
@@ -1169,16 +1300,16 @@ describe('ActivityTab DB-backed aggregation', () => {
       appStateHandler?.('background');
     });
     act(() => {
-      jest.advanceTimersByTime(15_000);
+      jest.advanceTimersByTime(60_000);
     });
 
     expect(mockAggregateActivity).toHaveBeenCalledTimes(1);
   });
 
-  /// In-flight guard: polling never starts overlapping requests.
+  /// In-flight guard: fallback polling never starts overlapping requests.
   /// Data construction:
   ///   request #1 = unresolved promise from initial focus refresh
-  ///   interval   = 15_000ms
+  ///   interval   = 60_000ms
   ///   request #2 = allowed only after request #1 settles
   /// Execution process:
   ///   1. Render Activity with the first aggregate request pending.
@@ -1204,7 +1335,7 @@ describe('ActivityTab DB-backed aggregation', () => {
 
     expect(mockAggregateActivity).toHaveBeenCalledTimes(1);
     act(() => {
-      jest.advanceTimersByTime(30_000);
+      jest.advanceTimersByTime(120_000);
     });
     expect(mockAggregateActivity).toHaveBeenCalledTimes(
       1,
@@ -1216,7 +1347,7 @@ describe('ActivityTab DB-backed aggregation', () => {
       await first.promise;
     });
     act(() => {
-      jest.advanceTimersByTime(15_000);
+      jest.advanceTimersByTime(60_000);
     });
 
     await waitFor(() => {

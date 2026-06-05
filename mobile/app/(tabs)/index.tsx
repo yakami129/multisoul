@@ -36,6 +36,7 @@ export default function AgentListScreen() {
           );
         }}
         onAddEndpoint={() => setAddEndpointVisible(true)}
+        onOpenWorkflows={() => router.push('/workflows')}
       />
       <AddEndpointModal
         visible={addEndpointVisible}

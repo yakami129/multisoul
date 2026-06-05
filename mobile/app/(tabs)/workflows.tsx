@@ -14,6 +14,7 @@ import {
 } from '@/features/workflows/services/workflowService';
 import { type WorkflowInput, type Workflow } from '@/features/workflows/types';
 import { useEndpointStore } from '@/store/endpointStore';
+import { brandColors } from '@/theme/brandRefresh';
 
 export default function WorkflowsTab() {
   const router = useRouter();
@@ -104,7 +105,7 @@ export default function WorkflowsTab() {
         onDeleteWorkflow={(wf) => deleteMutation.mutate(wf)}
       />
       <Modal visible={showForm} animationType="slide" presentationStyle="pageSheet">
-        <View style={{ flex: 1, backgroundColor: '#0D0D0D' }}>
+        <View style={{ flex: 1, backgroundColor: brandColors.cream }}>
           <WorkflowFormScreen
             agents={agents}
             onSave={(input) => createMutation.mutate(input)}

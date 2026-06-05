@@ -1,5 +1,9 @@
 use crate::db::now_ms;
-use crate::serve::{push, state::AppState};
+use crate::serve::{
+    push,
+    routes::activity_events::{emit_activity_changed, REASON_AWAITING_QUESTION},
+    state::AppState,
+};
 use serde_json::Value;
 use tracing::{debug, info};
 use uuid::Uuid;
@@ -39,6 +43,7 @@ fn record_ask_question_with_runtime_waiter(
         push::send_ask_question_push(&db, conv_id, &payload);
         drop(db);
         broadcast(state, conv_id, seq, "ask_question", payload);
+        emit_activity_changed(state, conv_id, REASON_AWAITING_QUESTION);
         info!(
             conv_id = %conv_id,
             ask_id = %ask_id,

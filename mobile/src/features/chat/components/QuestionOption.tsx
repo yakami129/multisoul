@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, TextInput, StyleSheet } from 'react-native';
+import { brandColors, brandRgba, brandTypography } from '@/theme/brandRefresh';
 
 const CUSTOM_ID = '__custom__';
 
@@ -47,7 +48,7 @@ export default function QuestionOption({
           <TextInput
             style={s.customInput}
             placeholder="Type your answer..."
-            placeholderTextColor="#555555"
+            placeholderTextColor={brandColors.textSoft}
             value={customText}
             onChangeText={(text) => onCustomTextChange?.(questionId, text)}
             maxLength={200}
@@ -75,51 +76,64 @@ const s = StyleSheet.create({
   opt: {
     flexDirection: 'row',
     alignItems: 'center',
-    height: 40,
+    height: 38,
     borderRadius: 8,
-    backgroundColor: '#252525',
+    borderWidth: 1,
+    borderColor: brandColors.silver,
+    backgroundColor: brandRgba.white70,
     paddingHorizontal: 12,
     gap: 10,
   },
-  optSelected: { borderWidth: 1, borderColor: '#4CAF50', backgroundColor: '#1F2A1F' },
+  optSelected: { borderColor: brandColors.lime, backgroundColor: brandRgba.limeSoft },
   optReadonly: { opacity: 0.6 },
   radio: {
     width: 16,
     height: 16,
     borderRadius: 8,
     borderWidth: 1.5,
-    borderColor: '#555555',
-    backgroundColor: '#252525',
+    borderColor: brandColors.textSoft,
+    backgroundColor: brandRgba.white70,
   },
-  radioSelected: { borderColor: '#4CAF50', backgroundColor: '#4CAF50' },
+  radioSelected: { borderColor: brandColors.lime, backgroundColor: brandColors.lime },
   checkbox: {
     width: 16,
     height: 16,
     borderRadius: 3,
     borderWidth: 1.5,
-    borderColor: '#555555',
-    backgroundColor: '#252525',
+    borderColor: brandColors.textSoft,
+    backgroundColor: brandRgba.white70,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  checkboxSelected: { borderColor: '#4CAF50', backgroundColor: '#4CAF50' },
+  checkboxSelected: { borderColor: brandColors.lime, backgroundColor: brandColors.lime },
   checkboxTick: {
     width: 8,
     height: 8,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: brandColors.ink,
     borderRadius: 1,
   },
-  optLabel: { fontFamily: 'Inter', fontSize: 14, color: '#DDDDDD' },
+  optLabel: { fontFamily: brandTypography.body, fontSize: 14, color: brandColors.ink },
   customEditor: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 },
-  customInput: { flex: 1, fontFamily: 'Inter', fontSize: 13, color: '#FFFFFF', paddingVertical: 0 },
+  customInput: {
+    flex: 1,
+    fontFamily: brandTypography.body,
+    fontSize: 13,
+    color: brandColors.ink,
+    paddingVertical: 0,
+  },
   useAnswerBtn: {
     height: 26,
     borderRadius: 6,
-    backgroundColor: '#FF6B35',
+    backgroundColor: brandColors.lime,
     paddingHorizontal: 9,
     alignItems: 'center',
     justifyContent: 'center',
   },
   useAnswerBtnOff: { opacity: 0.4 },
-  useAnswerText: { fontFamily: 'Inter', fontSize: 11, fontWeight: '600', color: '#FFFFFF' },
+  useAnswerText: {
+    fontFamily: brandTypography.body,
+    fontSize: 11,
+    fontWeight: '700',
+    color: brandColors.ink,
+  },
 });

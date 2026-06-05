@@ -3,6 +3,9 @@ import React from 'react';
 import { StyleSheet } from 'react-native';
 import { type Agent } from '@/types';
 import { AgentCard } from './AgentCard';
+import codexIcon from '../../../../assets/agent-icons/blue-cloud-robot-transparent.png';
+import cursorIcon from '../../../../assets/agent-icons/orange-octopus-robot-transparent.png';
+import claudeCodeIcon from '../../../../assets/agent-icons/orange-pixel-robot-transparent.png';
 
 const agent: Agent = {
   id: 'a1',
@@ -14,34 +17,12 @@ const agent: Agent = {
   endpoint_label: 'Local',
 };
 
-function expectEqualWithReason<T>(actual: T, expected: T, reason: string) {
-  expect({ actual, reason }).toEqual({ actual: expected, reason });
-}
-
 describe('AgentCard', () => {
   afterEach(() => {
     jest.restoreAllMocks();
   });
 
-  it('renders project name and status meta for active rows', () => {
-    const { getByText, queryByText } = render(
-      <AgentCard
-        agent={agent}
-        onPress={() => {}}
-        index={0}
-        metaVariant="status"
-        statusLabel="Running"
-        isActive
-      />,
-    );
-    expect(getByText('My Agent')).toBeTruthy();
-    expect(getByText('Running')).toBeTruthy();
-    expect(queryByText('Running · Claude Code')).toBeNull();
-    expect(queryByText('/home/user/project')).toBeNull();
-    expect(queryByText('LOCAL')).toBeNull();
-  });
-
-  it('renders machine and relative age meta for All Projects rows', () => {
+  it('renders machine meta and compact project path for fleet rows', () => {
     jest.spyOn(Date, 'now').mockReturnValue(121_000);
 
     const { getByText, queryByText } = render(
@@ -53,264 +34,156 @@ describe('AgentCard', () => {
       />,
     );
 
+    expect(getByText('My Agent')).toBeTruthy();
     expect(getByText('mac-home · 2m ago')).toBeTruthy();
+    expect(getByText('~/project')).toBeTruthy();
+    expect(getByText('Idle')).toBeTruthy();
     expect(queryByText('Idle · Claude Code')).toBeNull();
   });
 
   it('calls onPress when tapped', () => {
     const onPress = jest.fn();
     const { getByText } = render(<AgentCard agent={agent} onPress={onPress} index={0} />);
+
     fireEvent.press(getByText('My Agent'));
+
     expect(onPress).toHaveBeenCalledTimes(1);
   });
 
-  /// Pencli project row: avatar, labels, and chevron stay in one native flex row.
-  ///
-  /// Data construction:
-  ///   agent = one Claude Code project.
-  ///   runtime = "claude-code" maps to the Claude pixel canvas, #252525.
-  ///   Row target from pencli:
-  ///     rowHeight = 68
-  ///     row horizontal padding = 14
-  ///     avatarWidth = 40, with the runtime-specific pixel icon inside.
-  ///     body starts after avatar marginRight = 10
-  ///     chevron separated by marginLeft = 10
-  ///
-  /// Execution:
-  ///   1. Render AgentCard.
-  ///   2. Resolve Pressable style for the default unpressed state.
-  ///   3. Read avatar, body, and chevron wrapper styles by testID.
-  ///
-  /// Expected:
-  ///   - Positive: row uses RN-native flex layout, so it contributes height to the list group.
-  ///   - Positive: text sits beside the avatar through explicit margins instead of unsupported gap.
-  ///   - Negative: Pressable must not use a style callback, because native iOS was rendering it as a
-  ///     default column and stacking avatar/text/chevron vertically.
-  it('uses stable native flex geometry for the pencli project row', () => {
+  it('uses stable native flex geometry for the cream fleet row', () => {
     const { getByTestId } = render(<AgentCard agent={agent} onPress={() => {}} index={0} />);
 
     const row = getByTestId('project-row');
-    expect(typeof row.props.style).toBe(
-      'object',
-      'project row should pass a static style object to Pressable; style callbacks broke native iOS layout',
-    );
     const rowStyle = StyleSheet.flatten(row.props.style);
     const avatarStyle = StyleSheet.flatten(getByTestId('project-avatar').props.style);
     const bodyStyle = StyleSheet.flatten(getByTestId('project-body').props.style);
-    const chevronStyle = StyleSheet.flatten(getByTestId('project-chevron').props.style);
+    const moreStyle = StyleSheet.flatten(getByTestId('project-chevron').props.style);
 
-    expectEqualWithReason(
-      rowStyle.flexDirection,
-      'row',
-      'project row must stay horizontal to keep labels beside avatars',
-    );
-    expectEqualWithReason(rowStyle.height, 68, 'project row height should match pencli');
-    expectEqualWithReason(
-      rowStyle.paddingHorizontal,
-      14,
-      'project row horizontal padding should match pencli',
-    );
-    expectEqualWithReason(avatarStyle.width, 40, 'avatar width should match pencli');
-    expectEqualWithReason(avatarStyle.height, 40, 'avatar height should match pencli');
-    expectEqualWithReason(
-      avatarStyle.marginRight,
-      10,
-      'avatar should create an explicit 10px gap before the text block',
-    );
-    expectEqualWithReason(avatarStyle.borderRadius, 9, 'avatar radius should match pencli');
-    expectEqualWithReason(
-      avatarStyle.backgroundColor,
-      '#252525',
-      'Claude Code avatar should use the dark pixel canvas behind the orange face',
-    );
-    expectEqualWithReason(
-      bodyStyle.flex,
-      1,
-      'project text block should fill the space between avatar and chevron',
-    );
-    expectEqualWithReason(
-      chevronStyle.marginLeft,
-      10,
-      'chevron should keep a stable 10px gap after the text block',
-    );
-    expectEqualWithReason(
-      chevronStyle.width,
-      14,
-      'chevron wrapper should reserve icon width without shifting row text',
-    );
+    expect(typeof row.props.style).toBe('object');
+    expect(rowStyle.flexDirection).toBe('row');
+    expect(rowStyle.minHeight).toBe(62);
+    expect(rowStyle.borderRadius).toBe(18);
+    expect(avatarStyle.width).toBe(30);
+    expect(avatarStyle.height).toBe(30);
+    expect(avatarStyle.borderRadius).toBe(9);
+    expect(avatarStyle.backgroundColor).toBe('#C6FF00');
+    expect(bodyStyle.flex).toBe(1);
+    expect(moreStyle.width).toBe(28);
   });
 
-  /// Runtime pixel icons: each supported agent runtime uses the first generated mascot image.
-  ///
-  /// Data construction:
-  ///   claudeAgent.runtime = "claude-code", so the card should show the generated orange mascot.
-  ///   codexAgent.runtime  = "codex", so the card should show the generated robot mascot.
-  ///   cursorAgent.runtime = "cursor-cli", so the card should show the generated cursor mascot.
-  ///
-  /// Execution:
-  ///   1. Render one AgentCard for each runtime.
-  ///   2. Query the runtime-specific image by testID.
-  ///   3. Read each avatar background color.
-  ///
-  /// Expected:
-  ///   - Positive: each runtime icon is an Image with a static local source.
-  ///   - Positive: Codex, Claude Code, and Cursor keep their generated canvas colors.
-  ///   - Negative: The three rows must not collapse to the old hand-built View icon.
-  it('renders first-batch generated mascot images for Claude Code, Codex, and Cursor runtimes', () => {
+  it('maps supported runtimes to prototype tile colors', () => {
     const claudeRender = render(<AgentCard agent={agent} onPress={() => {}} index={0} />);
-    const claudeIcon = claudeRender.getByTestId('runtime-pixel-claude-code');
-    const claudeGenericIcon = claudeRender.queryByTestId('runtime-pixel-generic-cpu');
     const claudeAvatarStyle = StyleSheet.flatten(
       claudeRender.getByTestId('project-avatar').props.style,
     );
-    const claudeIconSource = claudeIcon.props.source;
-    const claudeIconResizeMode = claudeIcon.props.resizeMode;
-    const claudeIconStyle = StyleSheet.flatten(claudeIcon.props.style);
     claudeRender.unmount();
 
     const codexRender = render(
       <AgentCard agent={{ ...agent, runtime: 'codex' }} onPress={() => {}} index={0} />,
     );
-    const codexIcon = codexRender.getByTestId('runtime-pixel-codex');
-    const codexGenericIcon = codexRender.queryByTestId('runtime-pixel-generic-cpu');
     const codexAvatarStyle = StyleSheet.flatten(
       codexRender.getByTestId('project-avatar').props.style,
     );
-    const codexIconSource = codexIcon.props.source;
-    const codexIconResizeMode = codexIcon.props.resizeMode;
-    const codexIconStyle = StyleSheet.flatten(codexIcon.props.style);
     codexRender.unmount();
 
     const cursorRender = render(
       <AgentCard agent={{ ...agent, runtime: 'cursor-cli' }} onPress={() => {}} index={0} />,
     );
-    const cursorIcon = cursorRender.getByTestId('runtime-pixel-cursor-cli');
-    const cursorGenericIcon = cursorRender.queryByTestId('runtime-pixel-generic-cpu');
     const cursorAvatarStyle = StyleSheet.flatten(
       cursorRender.getByTestId('project-avatar').props.style,
     );
-    const cursorIconSource = cursorIcon.props.source;
-    const cursorIconResizeMode = cursorIcon.props.resizeMode;
-    const cursorIconStyle = StyleSheet.flatten(cursorIcon.props.style);
 
-    expect(claudeIconSource).toBeTruthy();
-    expect(codexIconSource).toBeTruthy();
-    expect(cursorIconSource).toBeTruthy();
-    expectEqualWithReason(
-      claudeIconResizeMode,
-      'cover',
-      'Claude Code generated mascot should fill the 40px avatar frame',
-    );
-    expectEqualWithReason(
-      codexIconResizeMode,
-      'cover',
-      'Codex generated mascot should fill the 40px avatar frame',
-    );
-    expectEqualWithReason(
-      cursorIconResizeMode,
-      'cover',
-      'Cursor generated mascot should fill the 40px avatar frame',
-    );
-    expectEqualWithReason(claudeIconStyle.width, 40, 'Claude image width should match avatar');
-    expectEqualWithReason(codexIconStyle.width, 40, 'Codex image width should match avatar');
-    expectEqualWithReason(cursorIconStyle.width, 40, 'Cursor image width should match avatar');
-    expectEqualWithReason(
-      claudeAvatarStyle.backgroundColor,
-      '#252525',
-      'Claude Code should use a dark pixel canvas so the orange reference face is visible',
-    );
-    expectEqualWithReason(
-      codexAvatarStyle.backgroundColor,
-      '#FF6B35',
-      'Codex should keep the primary orange avatar canvas',
-    );
-    expectEqualWithReason(
-      cursorAvatarStyle.backgroundColor,
-      '#2563EB',
-      'Cursor should use the blue avatar canvas instead of the old index-based rotation',
-    );
-    expect(claudeGenericIcon).toBeNull();
-    expect(codexGenericIcon).toBeNull();
-    expect(cursorGenericIcon).toBeNull();
+    expect(claudeAvatarStyle.backgroundColor).toBe('#C6FF00');
+    expect(codexAvatarStyle.backgroundColor).toBe('#00E5FF');
+    expect(cursorAvatarStyle.backgroundColor).toBe('#B7C9AE');
   });
 
-  /// Running card breathing: AgentCard places life chrome behind existing row content.
+  /// Runtime PNG icons: supported runtimes must render the generated asset icons
   ///
   /// Data construction:
-  ///   agent.runtime       = codex
-  ///   showBreathingEffect = true
-  ///   codex accent color  = #FF6B35 from runtime avatar canvas
+  ///   claude-code runtime = orange-pixel-robot-transparent.png
+  ///   codex runtime       = blue-cloud-robot-transparent.png
+  ///   cursor-cli runtime  = orange-octopus-robot-transparent.png
+  ///   custom runtime      = no fixed PNG; it should keep the fallback vector avatar
   ///
-  /// Execution process:
-  ///   1. Render AgentCard with showBreathingEffect=true.
-  ///   2. Query the breathing layer and existing avatar/name/chevron.
-  ///   3. Inspect row geometry.
+  /// Execution:
+  ///   1. Render one AgentCard for each supported runtime.
+  ///   2. Read the Image source from testID="project-avatar-image".
+  ///   3. Render a custom runtime card and verify no runtime Image is mounted.
   ///
-  /// Expected result:
-  ///   - Positive: breathing layer renders when the caller opts in.
-  ///   - Positive: normal card content still renders above the effect.
-  ///   - Negative: the effect does not replace the runtime pixel avatar.
-  it('renders breathing chrome behind content when opted in', () => {
-    const { getByTestId, getByText } = render(
+  /// Expected:
+  ///   - claude-code uses the orange pixel robot PNG.
+  ///   - codex uses the blue cloud robot PNG.
+  ///   - cursor-cli uses the orange octopus robot PNG.
+  ///   - custom does not render a runtime PNG, preserving the fallback path.
+  it('renders generated agent icon assets for supported runtimes', () => {
+    const claudeRender = render(<AgentCard agent={agent} onPress={() => {}} index={0} />);
+    expect(claudeRender.getByTestId('project-avatar-image').props.source).toBe(
+      claudeCodeIcon,
+      'claude-code should use the orange pixel robot asset instead of the old vector avatar',
+    );
+    claudeRender.unmount();
+
+    const codexRender = render(
+      <AgentCard agent={{ ...agent, runtime: 'codex' }} onPress={() => {}} index={0} />,
+    );
+    expect(codexRender.getByTestId('project-avatar-image').props.source).toBe(
+      codexIcon,
+      'codex should use the blue cloud robot asset from mobile/assets/agent-icons',
+    );
+    codexRender.unmount();
+
+    const cursorRender = render(
+      <AgentCard agent={{ ...agent, runtime: 'cursor-cli' }} onPress={() => {}} index={0} />,
+    );
+    expect(cursorRender.getByTestId('project-avatar-image').props.source).toBe(
+      cursorIcon,
+      'cursor-cli should use the orange octopus robot asset from mobile/assets/agent-icons',
+    );
+    cursorRender.unmount();
+
+    const customRender = render(
+      <AgentCard agent={{ ...agent, runtime: 'custom' }} onPress={() => {}} index={0} />,
+    );
+    // Assertion failure means custom runtime claimed one of the fixed generated runtime icons.
+    expect(customRender.queryByTestId('project-avatar-image')).toBeNull();
+  });
+
+  it('renders status tones for running and pending projects', () => {
+    const running = render(
+      <AgentCard agent={agent} onPress={() => {}} statusLabel="Running" isActive />,
+    );
+    expect(running.getByText('Running')).toBeTruthy();
+    running.unmount();
+
+    const pending = render(
+      <AgentCard
+        agent={agent}
+        onPress={() => {}}
+        statusLabel="Running · Awaiting answer"
+        pendingCount={2}
+        isActive
+      />,
+    );
+    expect(pending.getByText('Needs Decision 2')).toBeTruthy();
+  });
+
+  it('renders breathing chrome only when explicitly opted in', () => {
+    const idle = render(<AgentCard agent={agent} onPress={() => {}} isActive />);
+    expect(idle.queryByTestId('running-agent-breath')).toBeNull();
+    idle.unmount();
+
+    const running = render(
       <AgentCard
         agent={{ ...agent, runtime: 'codex' }}
         onPress={() => {}}
-        index={0}
-        metaVariant="status"
         statusLabel="Running"
         isActive
         showBreathingEffect
       />,
     );
 
-    const rowStyle = StyleSheet.flatten(getByTestId('project-row').props.style);
-
-    expect(getByTestId('running-agent-breath')).toBeTruthy();
-    expect(getByTestId('runtime-pixel-codex')).toBeTruthy();
-    expect(getByText('My Agent')).toBeTruthy();
-    expect(getByTestId('project-chevron')).toBeTruthy();
-    expectEqualWithReason(
-      rowStyle.position,
-      'relative',
-      'project row should become a positioning context for absolute breathing chrome',
-    );
-    expectEqualWithReason(
-      rowStyle.height,
-      68,
-      'breathing chrome must not change the established project row height',
-    );
-  });
-
-  /// Idle card breathing: AgentCard does not add life chrome unless the list explicitly opts in.
-  ///
-  /// Data construction:
-  ///   showBreathingEffect = false by default
-  ///   isActive            = true to prove active alone is not enough
-  ///
-  /// Execution process:
-  ///   1. Render AgentCard without showBreathingEffect.
-  ///   2. Query the breathing layer and existing active status dot.
-  ///
-  /// Expected result:
-  ///   - Positive: active status metadata can still render.
-  ///   - Negative: breathing chrome is absent without the explicit prop.
-  it('does not render breathing chrome from isActive alone', () => {
-    const { getByText, queryByTestId } = render(
-      <AgentCard
-        agent={agent}
-        onPress={() => {}}
-        index={0}
-        metaVariant="status"
-        statusLabel="Running"
-        isActive
-      />,
-    );
-
-    expect(getByText('Running')).toBeTruthy();
-    expectEqualWithReason(
-      queryByTestId('running-agent-breath') === null,
-      true,
-      'AgentCard should require showBreathingEffect so awaiting-question rows can remain static',
-    );
+    expect(running.getByTestId('running-agent-breath')).toBeTruthy();
+    expect(running.getByText('My Agent')).toBeTruthy();
   });
 });

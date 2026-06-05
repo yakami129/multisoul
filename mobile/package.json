@@ -42,6 +42,7 @@
     "expo-router": "~55.0.16",
     "expo-sqlite": "~55.0.16",
     "expo-status-bar": "~55.0.6",
+    "expo-video": "~55.0.17",
     "mermaid": "11.15.0",
     "nativewind": "^4.2.3",
     "react": "19.2.0",

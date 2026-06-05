@@ -121,11 +121,18 @@ describe('AgentListScreen', () => {
     expect(screen.getByText('Idle Agent')).toBeTruthy();
   });
 
-  it('shows loading state initially', () => {
+  it('keeps the Agents page visible while only the fleet loads initially', () => {
     fetchAllAgents.mockImplementation(() => new Promise(() => {}));
 
     render(<AgentListScreen />, { wrapper });
+
+    expect(screen.getByText('MultiSoul')).toBeTruthy();
+    expect(screen.getByText(/Your agents/)).toBeTruthy();
+    expect(screen.getByPlaceholderText('Search agents...')).toBeTruthy();
+    expect(screen.getByText('Agent Fleet')).toBeTruthy();
     expect(screen.getByText('Loading agents...')).toBeTruthy();
+    expect(screen.getByText('Quick Workflows')).toBeTruthy();
+    expect(screen.queryByText('Weather Agent')).toBeNull();
   });
 
   it('shows empty state when no projects', async () => {

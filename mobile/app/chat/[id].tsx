@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useRef, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import { KeyboardAvoidingView, Platform, type FlatList, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { EMPTY_MESSAGES, STATUS_BADGE } from '@/features/chat/chatDetailConstants';
@@ -8,18 +8,20 @@ import CommandPopup, { type ComposerSheetMode } from '@/features/chat/components
 import { ModelSelector, useChatModelSelector } from '@/features/chat/components/ModelSelector';
 import { resolveUserMessageImageUri } from '@/features/chat/services/chatService';
 import {
+  type ChatTranscriptDisplayItem,
   getLatestAgentActivitySeq,
   getLatestAgentTextSeq,
 } from '@/features/chat/utils/chatRenderState';
 import { useWebSocket } from '@/hooks/useWebSocket';
 import { useChatStore } from '@/store/chatStore';
 import { useEndpointStore } from '@/store/endpointStore';
+import { brandColors, brandRgba } from '@/theme/brandRefresh';
 import { type WsMessage } from '@/types';
 import ChatHeader from './ChatHeader';
 import ChatTranscriptList from './ChatTranscriptList';
 import { s } from './styles';
 import { useChatDetailAgentTurn } from './useChatDetailAgentTurn';
-import { useChatDetailHistory } from './useChatDetailHistory';
+import { useChatDetailServerTranscript } from './useChatDetailServerTranscript';
 import { useChatDetailTranscriptScroll } from './useChatDetailTranscriptScroll';
 import { usePendingImageUploads } from './usePendingImageUploads';
 
@@ -42,7 +44,7 @@ export default function ChatDetailScreen() {
   const [composerSheetVisible, setComposerSheetVisible] = useState(false);
   const [composerSheetMode, setComposerSheetMode] = useState<ComposerSheetMode>('actions');
   const imageMapRef = useRef<Map<string, string>>(new Map());
-  const listRef = useRef<FlatList<WsMessage>>(null);
+  const listRef = useRef<FlatList<ChatTranscriptDisplayItem>>(null);
 
   const endpoint = useEndpointStore((s) => s.endpoints.find((e) => e.id === endpoint_id));
   const conversations = useChatStore((s) => s.conversations);
@@ -62,11 +64,14 @@ export default function ChatDetailScreen() {
   const {
     catchUpAfterSeq,
     transcriptMessages,
+    transcriptDisplayItems,
+    toolResultMessages,
     isLoadingOlder,
     hasUserScrolledHistoryRef,
     hasLoadedInitialMessagesRef,
     loadOlderMessages,
-  } = useChatDetailHistory({
+    loadServerWorkedMessages,
+  } = useChatDetailServerTranscript({
     conv_id,
     endpoint,
     endpoint_id,
@@ -79,6 +84,13 @@ export default function ChatDetailScreen() {
     lastSeenAgentActivitySeqRef,
     lastAnimatedAgentTextSeqRef,
   });
+
+  const handleLoadServerWorkedMessages = useCallback(
+    (turnId: string) => {
+      void loadServerWorkedMessages(turnId);
+    },
+    [loadServerWorkedMessages],
+  );
 
   const conversationStatus = conversation?.status ?? 'idle';
   const {
@@ -107,12 +119,14 @@ export default function ChatDetailScreen() {
   const {
     handleTranscriptScroll,
     handleTranscriptScrollBeginDrag,
+    handleViewableItemsChanged,
     handleContentSizeChange,
     handleScrollToIndexFailed,
   } = useChatDetailTranscriptScroll({
+    conv_id,
     listRef,
     focus_ask_id,
-    transcriptMessages,
+    transcriptItems: transcriptDisplayItems,
     isAgentRunning,
     hasUserScrolledHistoryRef,
     loadOlderMessages,
@@ -191,7 +205,7 @@ export default function ChatDetailScreen() {
     updateConversation,
   });
   const badge = isOffline
-    ? { label: 'OFFLINE', bg: '#1A1A1A', dot: '#FF4444' }
+    ? { label: 'OFFLINE', bg: brandRgba.white88, dot: brandColors.error }
     : (STATUS_BADGE[conversation?.status ?? 'idle'] ?? STATUS_BADGE.idle);
 
   return (
@@ -213,6 +227,8 @@ export default function ChatDetailScreen() {
         <ChatTranscriptList
           listRef={listRef}
           messages={transcriptMessages}
+          displayItems={transcriptDisplayItems}
+          conversationStatus={conversationStatus}
           isLoadingOlder={isLoadingOlder}
           isAgentRunning={isAgentRunning}
           incomingAgentActivitySeq={incomingAgentActivitySeq}
@@ -220,11 +236,14 @@ export default function ChatDetailScreen() {
           shouldForceComplete={shouldForceComplete}
           serverUrl={endpoint?.base_url ?? ''}
           token={endpoint?.token ?? ''}
+          toolResultMessages={toolResultMessages}
+          onLoadServerWorkedMessages={handleLoadServerWorkedMessages}
           onAnswer={sendAnswer}
           onAnswerMulti={sendAnswerMulti}
           imageUriForMessage={imageUriForMessage}
           onScroll={handleTranscriptScroll}
           onScrollBeginDrag={handleTranscriptScrollBeginDrag}
+          onViewableItemsChanged={handleViewableItemsChanged}
           onContentSizeChange={handleContentSizeChange}
           onScrollToIndexFailed={handleScrollToIndexFailed}
         />
