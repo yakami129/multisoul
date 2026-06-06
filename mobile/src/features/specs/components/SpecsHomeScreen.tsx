@@ -226,18 +226,20 @@ export function SpecsHomeScreen({
           void onCreateIdea?.(value);
           setEditorVisible(false);
         }}
-      />
-      <TargetPickerSheet
-        visible={targetPickerVisible}
-        endpoints={endpoints}
-        agents={agents}
-        selectedTarget={draftTarget}
-        onClose={() => setTargetPickerVisible(false)}
-        onDone={(target) => {
-          setDraftTarget(target);
-          setTargetPickerVisible(false);
-        }}
-      />
+      >
+        <TargetPickerSheet
+          visible={targetPickerVisible}
+          endpoints={endpoints}
+          agents={agents}
+          selectedTarget={draftTarget}
+          presentation="inline"
+          onClose={() => setTargetPickerVisible(false)}
+          onDone={(target) => {
+            setDraftTarget(target);
+            setTargetPickerVisible(false);
+          }}
+        />
+      </IdeaEditorSheet>
     </View>
   );
 }

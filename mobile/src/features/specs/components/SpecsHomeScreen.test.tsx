@@ -159,7 +159,8 @@ test('saves a new idea with a selected target from the picker', () => {
 
   fireEvent.press(getByLabelText('New Idea'));
   fireEvent.changeText(getByLabelText('Idea body'), 'Polish empty states');
-  fireEvent.press(getAllByText('Choose')[1]);
+  fireEvent.press(getByText('Project & Agent'));
+  expect(getByText('Choose Target')).toBeTruthy();
   fireEvent.press(getByText('Codex Runner'));
   fireEvent.press(getAllByText('Done')[1]);
   fireEvent.press(getAllByText('Done')[0]);

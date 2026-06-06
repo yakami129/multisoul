@@ -11,6 +11,7 @@ const mockCreateWorkflow = jest.fn();
 const mockDeleteWorkflow = jest.fn();
 const mockDisableWorkflow = jest.fn();
 const mockEnableWorkflow = jest.fn();
+const mockUpdateWorkflow = jest.fn();
 
 const endpoint = {
   id: 'ep-1',
@@ -50,6 +51,7 @@ jest.mock('../../src/features/workflows/services/workflowService', () => ({
   disableWorkflow: (...args: unknown[]) => mockDisableWorkflow(...args),
   enableWorkflow: (...args: unknown[]) => mockEnableWorkflow(...args),
   fetchWorkflows: (...args: unknown[]) => mockFetchWorkflows(...args),
+  updateWorkflow: (...args: unknown[]) => mockUpdateWorkflow(...args),
 }));
 
 jest.mock('react-native-safe-area-context', () => ({
@@ -89,12 +91,14 @@ beforeEach(() => {
   mockDeleteWorkflow.mockClear();
   mockDisableWorkflow.mockClear();
   mockEnableWorkflow.mockClear();
+  mockUpdateWorkflow.mockClear();
   mockFetchAllAgents.mockResolvedValue([agent]);
   mockFetchWorkflows.mockResolvedValue([]);
   mockCreateWorkflow.mockResolvedValue({});
   mockDeleteWorkflow.mockResolvedValue({});
   mockDisableWorkflow.mockResolvedValue({});
   mockEnableWorkflow.mockResolvedValue({});
+  mockUpdateWorkflow.mockResolvedValue({});
 });
 
 /// 场景：用户不使用模板，从 Blank Workflow 创建。

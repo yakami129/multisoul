@@ -38,11 +38,18 @@ function normalizeTimeOfDay(value: string): string | null {
 interface Props {
   agents: Agent[];
   initialValues?: Partial<WorkflowInput>;
+  title?: string;
   onSave: (input: WorkflowInput) => void;
   onCancel: () => void;
 }
 
-export function WorkflowFormScreen({ agents, initialValues, onSave, onCancel }: Props) {
+export function WorkflowFormScreen({
+  agents,
+  initialValues,
+  title = 'Workflow',
+  onSave,
+  onCancel,
+}: Props) {
   const insets = useSafeAreaInsets();
   const [name, setName] = useState(initialValues?.name ?? '');
   const [agentId, setAgentId] = useState(initialValues?.agent_id ?? agents[0]?.id ?? '');
@@ -90,7 +97,7 @@ export function WorkflowFormScreen({ agents, initialValues, onSave, onCancel }: 
         <TouchableOpacity onPress={onCancel} accessibilityRole="button">
           <Text style={s.formCancel}>Cancel</Text>
         </TouchableOpacity>
-        <Text style={s.formTitle}>Workflow</Text>
+        <Text style={s.formTitle}>{title}</Text>
         <TouchableOpacity onPress={handleSave} accessibilityRole="button" disabled={!canSave}>
           <Text style={[s.formSave, !canSave && s.formSaveDisabled]}>Save</Text>
         </TouchableOpacity>

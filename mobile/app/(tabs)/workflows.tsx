@@ -12,6 +12,7 @@ import {
   disableWorkflow,
   enableWorkflow,
   fetchWorkflows,
+  updateWorkflow,
 } from '@/features/workflows/services/workflowService';
 import {
   type WorkflowTemplate,
@@ -29,6 +30,7 @@ export default function WorkflowsTab() {
   const [showForm, setShowForm] = useState(false);
   const [templateInitialValues, setTemplateInitialValues] =
     useState<WorkflowTemplateInitialValues | null>(null);
+  const [editingWorkflow, setEditingWorkflow] = useState<Workflow | null>(null);
 
   const { data: workflows = [], isFetching } = useQuery({
     queryKey: ['workflows', endpoints.map((e) => e.id)],
@@ -82,8 +84,19 @@ export default function WorkflowsTab() {
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['workflows'] });
-      setShowForm(false);
-      setTemplateInitialValues(null);
+      closeWorkflowSheet();
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async ({ workflow, input }: { workflow: Workflow; input: WorkflowInput }) => {
+      const ep = endpoints.find((e) => e.id === workflow.endpoint_id);
+      if (!ep) throw new Error('Endpoint not found');
+      await updateWorkflow(ep, workflow.id, input);
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['workflows'] });
+      closeWorkflowSheet();
     },
   });
 
@@ -98,22 +111,36 @@ export default function WorkflowsTab() {
     },
   });
 
+  const visibleFormAgents = editingWorkflow
+    ? agents.filter((agent) => agent.endpoint_id === editingWorkflow.endpoint_id)
+    : agents;
+
   function openBlankWorkflow() {
+    setEditingWorkflow(null);
     setTemplateInitialValues(null);
     setShowTemplatePicker(false);
     setShowForm(true);
   }
 
   function openTemplateWorkflow(template: WorkflowTemplate) {
+    setEditingWorkflow(null);
     setTemplateInitialValues(template.initial_values);
     setShowTemplatePicker(false);
     setShowForm(true);
   }
 
-  function closeWorkflowCreateSheet() {
+  function openEditWorkflow(workflow: Workflow) {
     setShowTemplatePicker(false);
     setShowForm(false);
     setTemplateInitialValues(null);
+    setEditingWorkflow(workflow);
+  }
+
+  function closeWorkflowSheet() {
+    setShowTemplatePicker(false);
+    setShowForm(false);
+    setTemplateInitialValues(null);
+    setEditingWorkflow(null);
   }
 
   return (
@@ -129,28 +156,40 @@ export default function WorkflowsTab() {
         onOpenWorkflow={(wf) =>
           router.push(`/workflow/${encodeURIComponent(wf.id)}` as `/${string}`)
         }
+        onEditWorkflow={openEditWorkflow}
         onDeleteWorkflow={(wf) => deleteMutation.mutate(wf)}
       />
       <Modal
-        visible={showTemplatePicker || showForm}
+        visible={showTemplatePicker || showForm || editingWorkflow !== null}
         animationType="slide"
         presentationStyle="pageSheet"
-        onRequestClose={closeWorkflowCreateSheet}
+        onRequestClose={closeWorkflowSheet}
       >
         <View style={{ flex: 1, backgroundColor: brandColors.cream }}>
           {showTemplatePicker ? (
             <WorkflowTemplatePickerScreen
               onSelectBlank={openBlankWorkflow}
               onSelectTemplate={openTemplateWorkflow}
-              onCancel={closeWorkflowCreateSheet}
+              onCancel={closeWorkflowSheet}
             />
-          ) : showForm ? (
+          ) : showForm || editingWorkflow ? (
             <WorkflowFormScreen
-              key={templateInitialValues ? `template-${templateInitialValues.name}` : 'blank'}
-              agents={agents}
-              initialValues={templateInitialValues ?? undefined}
-              onSave={(input) => createMutation.mutate(input)}
-              onCancel={closeWorkflowCreateSheet}
+              key={
+                editingWorkflow
+                  ? `edit-${editingWorkflow.endpoint_id}-${editingWorkflow.id}`
+                  : templateInitialValues
+                    ? `template-${templateInitialValues.name}`
+                    : 'blank'
+              }
+              agents={visibleFormAgents}
+              initialValues={editingWorkflow ?? templateInitialValues ?? undefined}
+              title={editingWorkflow ? 'Edit Workflow' : 'New Workflow'}
+              onSave={(input) =>
+                editingWorkflow
+                  ? updateMutation.mutate({ workflow: editingWorkflow, input })
+                  : createMutation.mutate(input)
+              }
+              onCancel={closeWorkflowSheet}
             />
           ) : null}
         </View>
