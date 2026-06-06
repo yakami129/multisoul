@@ -510,9 +510,11 @@ test('does not load older history from initial top scroll before user drag', asy
 ///   4. Emit onContentSizeChange for the laid-out transcript.
 ///
 /// Expected result:
-///   - Positive: scrollToIndex runs once targeting the last AI message (index 1, animated=false).
+///   - Positive: scrollToEnd runs (animated=false) to reveal the newest AI message.
+///   - Negative: initial placement must not target a row by index (scrollToIndex can fail silently
+///     for any row below FlatList's initialNumToRender window).
 ///   - Negative: the synthetic top scroll must not make Chat Detail think the user is reading history.
-test('scrolls to last AI message after initial transcript layout despite an initial top scroll event', async () => {
+test('scrolls to the bottom after initial transcript layout despite an initial top scroll event', async () => {
   const flatListPrototype = FlatList.prototype as unknown as {
     scrollToIndex: (params: { index: number; animated?: boolean; viewPosition?: number }) => void;
     scrollToEnd: (params?: { animated?: boolean }) => void;
@@ -538,12 +540,14 @@ test('scrolls to last AI message after initial transcript layout despite an init
     });
 
     expect({
-      actual: scrollToIndexSpy.mock.calls,
-      reason: 'initial placement should scroll to the last AI message, not just the list end',
-    }).toEqual({
-      actual: [[{ index: 1, animated: false, viewPosition: 0 }]],
-      reason: expect.any(String),
-    });
+      actual: scrollToEndSpy.mock.calls.some(([params]) => params?.animated === false),
+      reason: 'initial placement should scroll to the bottom to reveal the newest AI message',
+    }).toEqual({ actual: true, reason: expect.any(String) });
+    expect({
+      actual: scrollToIndexSpy.mock.calls.length,
+      reason:
+        'initial placement must not depend on scrollToIndex (can fail silently for long lists)',
+    }).toEqual({ actual: 0, reason: expect.any(String) });
   } finally {
     scrollToIndexSpy.mockRestore();
     scrollToEndSpy.mockRestore();
@@ -563,9 +567,9 @@ test('scrolls to last AI message after initial transcript layout despite an init
 ///   3. Advance timers for the initial bottom-placement retries.
 ///
 /// Expected result:
-///   - Positive: scrollToIndex runs with animated=false targeting the last AI message after transcript data commits.
-///   - Negative: no manual onContentSizeChange callback is required.
-test('scrolls to last AI message when async transcript data arrives without content-size callback', async () => {
+///   - Positive: scrollToEnd runs with animated=false after transcript data commits, via the
+///     requestAnimationFrame/timeout retries (no onContentSizeChange callback required).
+test('scrolls to the bottom when async transcript data arrives without content-size callback', async () => {
   const flatListPrototype = FlatList.prototype as unknown as {
     scrollToIndex: (params: { index: number; animated?: boolean; viewPosition?: number }) => void;
     scrollToEnd: (params?: { animated?: boolean }) => void;
@@ -583,7 +587,7 @@ test('scrolls to last AI message when async transcript data arrives without cont
   jest.useFakeTimers();
   try {
     const { getByText } = render(<ChatDetailScreen />);
-    expect(scrollToIndexSpy).not.toHaveBeenCalled();
+    expect(scrollToEndSpy).not.toHaveBeenCalled();
 
     await act(async () => {
       resolveTranscript?.(makeRawTranscriptPage('conv-1', historyMessages));
@@ -596,8 +600,9 @@ test('scrolls to last AI message when async transcript data arrives without cont
     });
 
     expect({
-      actual: scrollToIndexSpy.mock.calls.some(([args]) => args?.animated === false),
-      reason: 'async transcript commit should schedule scroll to last AI message without onContentSizeChange',
+      actual: scrollToEndSpy.mock.calls.some(([args]) => args?.animated === false),
+      reason:
+        'async transcript commit should schedule a scroll to the bottom without onContentSizeChange',
     }).toEqual({ actual: true, reason: expect.any(String) });
   } finally {
     scrollToIndexSpy.mockRestore();

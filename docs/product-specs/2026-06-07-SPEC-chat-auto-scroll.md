@@ -1,12 +1,22 @@
 # SPEC: Chat 自动滚动修复
 
 **日期**: 2026-06-07  
-**状态**: 待实现  
+**状态**: 已实现（修订定位策略）  
 **关联模块**: `mobile/app/chat/`  
 **来源对话**: `5a82e5aa-f85b-49bd-95b8-fbb948765119`  
 **平台**: iOS（主要复现平台）
 
 ---
+
+## 0. 根因更正（重要）
+
+初版规格要求"打开时 `scrollToIndex(最后一条 agent_text, viewPosition: 0)`"。该方案在**真实长会话里几乎必然失效**：
+
+- FlatList 默认 `initialNumToRender = 10`，灌完数据时只渲染了顶部约 10 行；当最后一条 `agent_text` 的 index 落在未测量区时，`scrollToIndex` **不会同步抛错**，而是**异步**回调 `onScrollToIndexFailed`，`try/catch` 接不住。
+- 旧 `handleContentSizeChange` 在调用 `scrollToIndex` **之前**就把 `pendingInitialBottomScrollRef` 置成 `false`；于是 `onScrollToIndexFailed` 兜底与 100/300ms 重试**全部被守卫拦截**，列表停在顶部/中间。
+- 旧回归测试把 `scrollToIndex` mock 成 no-op，**永不触发** `onScrollToIndexFailed`，造成"假绿"。
+
+**更正后的定位策略**：初始与发送后的定位一律使用 `scrollToEnd`（不依赖目标行测量，不会静默失败；idle/completed 会话里最后一条 AI 回复就是列表末项）。`pendingInitialBottomScrollRef` 保持为 true，直到用户拖动列表才释放，期间每次 `onContentSizeChange` 都重新贴底，覆盖"数据分多帧到达 / 行高延迟测量"的情况。
 
 ## 1. 背景与目标
 
@@ -57,18 +67,19 @@ useChatDetailServerTranscript 异步加载服务端消息
 transcriptDisplayItems 更新（可能多次）
         │
         ▼
-找到最后一条 AI message（role=agent_text）的索引
-  ├── 找到 → scrollToIndex(index, animated: false, viewPosition: 0)
-  └── 未找到 → scrollToEnd(animated: false)
+scrollToEnd(animated: false) —— 贴到列表末项（最新一条 AI 回复）
         │
         ▼
-标记初始定位完成（pendingInitialBottomScrollRef = false）
+pendingInitialBottomScrollRef 保持 true，期间每次 onContentSizeChange 重新贴底
+        │
+        ▼
+用户拖动列表（onScrollBeginDrag）→ 释放 pending，交回 isNearBottom 跟随逻辑
 ```
 
 **关键点**：
 - 使用 `animated: false` 避免初始加载时的视觉跳动
-- 定位到最后一条 `agent_text`，而不是列表最底部（可能含 typing 指示器）
-- 监听 `transcriptDisplayItems` 变化，支持异步加载完成后重新定位
+- 用 `scrollToEnd` 而非 `scrollToIndex`：后者在目标行未测量时会异步失败（见 §0）
+- `pending` 直到用户拖动才释放，覆盖异步分帧加载 / 行高延迟测量
 
 ### 3.2 发送消息
 
@@ -117,8 +128,8 @@ isNearBottomRef.current === true？
 | 场景 | 预期行为 |
 |------|----------|
 | 打开时无任何消息 | 不触发滚动，等待消息加载后再定位 |
-| 打开时只有 User 消息、无 AI 消息 | 降级到 `scrollToEnd(animated: false)` |
-| 打开时有多条 AI message | 定位到**最新一条** AI message（最后一个 `agent_text`） |
+| 打开时只有 User 消息、无 AI 消息 | `scrollToEnd(animated: false)` 贴底 |
+| 打开时有多条 AI message | `scrollToEnd` 贴到列表末项，即最新一条 AI 回复 |
 | 服务端消息异步加载（延迟 300ms+） | 监听 `transcriptDisplayItems` 变化，多次尝试定位直到完成标记置 true |
 | 发送时 Agent 正在流式回复 | 强制滚底，流式跟随继续接管后续滚动 |
 | `focus_ask_id` 存在（Inbox 跳转） | 优先执行 focus 定位，跳过初始滚底逻辑（现有行为不变） |
@@ -132,9 +143,9 @@ isNearBottomRef.current === true？
 
 | 场景 | 动画 | 定位目标 |
 |------|------|----------|
-| 打开对话（普通入口） | `animated: false` | 最后一条 `agent_text` 或列表底部（降级） |
-| 发送消息通过校验 | `animated: true` | 列表底部（`scrollToEnd`） |
-| 流式回复跟随 | `animated: true` | 列表底部（现有逻辑） |
+| 打开对话（普通入口） | `animated: false` | 列表底部（`scrollToEnd`，即最新一条 AI 回复） |
+| 发送消息通过校验 | `animated: true` | 列表底部（`scrollToEnd`，并重置 pending 让回复跟随贴底） |
+| 流式回复跟随 | `animated: false/true` | 列表底部（pending 期间贴底；用户拖动后由 isNearBottom 接管） |
 
 ---
 
@@ -148,33 +159,25 @@ isNearBottomRef.current === true？
 ### 实现要点
 
 1. **打开定位**（`useChatDetailTranscriptScroll`）
-   - 在 `useEffect(() => { ... }, [transcriptItems])` 中执行 `scrollToLastAssistantOrEnd(transcriptItems, false)`
-   - `scrollToLastAssistantOrEnd` 逻辑：
-     ```ts
-     const lastIndex = findLastIndex(items, item => 
-       item.kind === 'message' && item.message.role === 'agent_text'
-     );
-     if (lastIndex >= 0) {
-       listRef.current.scrollToIndex({ index: lastIndex, animated: false, viewPosition: 0 });
-     } else {
-       listRef.current.scrollToEnd({ animated: false });
-     }
-     ```
-   - 保留 `pendingInitialBottomScrollRef` 标记，避免重复触发
-   - 保留重试机制（`requestAnimationFrame` + 100ms/300ms timeout）应对 FlatList 布局延迟
+   - `scrollToBottom(animated)` 仅 `listRef.current?.scrollToEnd({ animated })`，**不**用 `scrollToIndex`
+   - `useEffect([transcriptItems])` 在 pending 且未被用户接管时，`requestAnimationFrame` + 100ms/300ms 三次 `scrollToBottom(false)`，应对异步分帧 / 布局延迟
+   - `handleContentSizeChange`：pending 且有数据且用户未拖动 → `scrollToBottom(false)` 并 `return`；**不**在此提前清 pending
+   - `handleTranscriptScrollBeginDrag`：用户拖动时置 `hasUserScrolledHistoryRef = true` 且 `pendingInitialBottomScrollRef = false`，交回 isNearBottom 跟随
+   - `handleScrollToIndexFailed`（非 focus 分支）：pending 时降级 `scrollToEnd(false)`，不再翻转 pending
 
-2. **发送定位**（`[id].tsx` 的 `onSend`）
-   - 当前已有 `forceScrollToEnd()` 调用，确认其在 `handleSend(text)` **之前**执行
-   - `forceScrollToEnd` 实现：
+2. **发送定位**（`[id].tsx` 的 `onSend` 顺序不变：`forceScrollToEnd()` 在 `handleSend(text)` 之前）
+   - `handleSend` 不做本地乐观插入，user 消息经 WebSocket 回灌；`forceScrollToEnd` 重置 pending，使随后到达的消息与回复继续贴底
      ```ts
      const forceScrollToEnd = useCallback(() => {
        isNearBottomRef.current = true;
+       hasUserScrolledHistoryRef.current = false;
+       pendingInitialBottomScrollRef.current = true;
        listRef.current?.scrollToEnd({ animated: true });
-     }, [listRef]);
+     }, [listRef, hasUserScrolledHistoryRef]);
      ```
 
-3. **流式跟随**（无需改动）
-   - `handleContentSizeChange` 中的 `isNearBottomRef` 判断保持现状
+3. **流式跟随**
+   - pending 期间由打开定位的贴底逻辑接管；用户拖动后由既有 `isNearBottomRef` 判断接管
 
 ---
 
@@ -187,8 +190,8 @@ isNearBottomRef.current === true？
 - [ ] **AC-5**：用户上翻历史记录，然后点击发送；页面立即以动画跳回底部，刚发的 user 消息可见
 - [ ] **AC-6**：Agent 流式回复时，若用户未上翻（接近底部），页面持续跟随；若用户上翻则停止跟随
 - [ ] **AC-7**：从 Inbox 携带 `focus_ask_id` 跳转时，定位到对应问题卡片，不受上述逻辑影响
-- [ ] **AC-8**：只有 User 消息、无 AI message 的对话，打开后降级滚到列表底部
-- [ ] **AC-9**：iOS 平台上述场景全部通过，`pnpm typecheck` 通过，`pnpm test -- --watchAll=false` 无新增失败
+- [x] **AC-8**：只有 User 消息、无 AI message 的对话，打开后 `scrollToEnd` 贴到列表底部（回归测试覆盖）
+- [x] **AC-9**：`pnpm typecheck` 通过，`pnpm exec jest --watchAll=false` 546 passed（含新增的 long-list / 异步分帧 / 假绿防护回归测试）；iOS 真机场景待人工确认
 
 ---
 
