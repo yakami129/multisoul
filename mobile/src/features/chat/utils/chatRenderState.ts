@@ -2,7 +2,16 @@ import type { Conversation, WsMessage } from '@/types';
 
 export type ChatTranscriptDisplayItem =
   | { kind: 'message'; message: WsMessage }
-  | { kind: 'worked'; id: string; label: string; messages: WsMessage[] };
+  | { kind: 'worked'; id: string; label: string; messages: WsMessage[] }
+  | {
+      kind: 'server_worked';
+      id: string;
+      turnId: string;
+      label: string;
+      hiddenCount: number;
+      messages: WsMessage[];
+      isLoading?: boolean;
+    };
 
 export function getChatTranscriptDisplayItemKey(item: ChatTranscriptDisplayItem): string {
   return item.kind === 'message' ? `message-${item.message.seq}` : item.id;

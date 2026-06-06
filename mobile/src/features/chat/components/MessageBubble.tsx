@@ -22,7 +22,6 @@ const TYPEWRITER_LONG_DOC_MIN = 240;
 const TYPEWRITER_LONG_TAIL_SMOOTH = 64;
 const TYPEWRITER_MAX_STEP = 18;
 const DOT_PULSE_DURATION = 600;
-
 type SegmenterCtor = new (
   locales?: string,
   options?: { granularity: 'grapheme' },

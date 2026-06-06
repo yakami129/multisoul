@@ -54,6 +54,7 @@ pub struct AppState {
     pub token: String,                   // Bearer token
     pub uploads_dir: PathBuf,            // 文件上传目录
     pub bus: ConvBus,                    // conv_id → broadcast::Sender<String>（WS 推送）
+    pub activity_bus: ActivityBus,       // 全局 Activity refresh signal WS 推送
     pub sessions: SessionMap,            // conv_id → SessionHandle（消息队列 + 当前 runtime pid）
     pub answer_txs: AnswerMap,           // conv_id → AnswerChannel（交互回答 channel + 当前 pending ask_id）
     pub plugin_manager: Arc<PluginManager>, // plugin agent 进程管理器
@@ -414,6 +415,8 @@ KodaX 使用 `kodax --mode json --session <conversation_id> --agent-mode ama <pr
 >
 > **2026-05-24（chat performance）**：`GET /api/v1/conversations/:id/messages` 新增可选 query `limit` / `before_seq` / `around_ask_id`，用于有界历史分页；仅传 `since_seq` 时行为与原先一致。`cli/src/db.rs` 在 `init_schema` 中为 `messages(conversation_id, seq)` 与 `ask_answers(conversation_id, ask_id)` 增加索引以加速上述查询。`POST` 路径仍经 `serve/runtime/mod.rs` 分发，本文 §2 架构图与 Step 1–4 正文无需改动。
 
+> **2026-06-05（chat turn transcript）**：`GET /api/v1/conversations/:id/transcript-turns` 与 `GET /api/v1/conversations/:id/turns/:turn_id/hidden-messages` 新增为 Chat 历史摘要读取路径；`/messages` 仍保留 raw 消息增量、实时补洞和发送路径语义。`serve/routes/messages.rs` 的 message row SQL/序列化抽到 `serve/message_rows.rs` 以供 transcript routes 复用，`POST /api/v1/conversations/:id/messages` 仍经 `serve/runtime/mod.rs` 分发，本文 runtime 接入主流程无需改动。
+
 > **2026-05-24（runtime model switching）**：`conversations.model_id` 成为 conversation 级模型选择；`serve/routes/messages.rs` 在分发用户消息时读取该字段并放入 `DispatchMessage.model_id`，`SessionMessage` 同步携带该字段。Claude / Codex / Cursor adapter 都在具体模型存在时向底层 CLI 追加 `--model <model_id>`；Default 仍以 `NULL` 表示，不传 `--model`。Mobile 的 `Conversation` 和 message schema 同步增加 `model_id` / `system_event:model_changed`，用于 Chat header 展示和历史分隔行。
 
 > **2026-06-04（Codex tool cards）**：Codex adapter 已将工具事件解析拆到 `cli/src/serve/runtime/codex/events.rs`，覆盖 `command_execution`、`file_change`、`mcp_tool_call`、`collab_tool_call`、`web_search`、`todo_list` 和常见 raw tool fallback；`cli/src/serve/runtime/codex/mod.rs` 仅新增子模块声明，本文主体接入规则不变。
@@ -433,6 +436,10 @@ KodaX 使用 `kodax --mode json --session <conversation_id> --agent-mode ama <pr
 > **2026-06-03（state.rs CI split）**：`cli/src/serve/state.rs` 将内联测试迁移到相邻 `state/tests.rs`，并应用 `cargo fmt` 输出，解除单文件行数与格式化 CI 闸；`AppState`、`AnswerMap`、`SessionHandle` 运行时设计正文无需变更。
 
 > **2026-06-04（Claude AskUserQuestion answer key）**：Claude Code 2.1.126 SDK 要求 `updatedInput.answers` 使用原始 question text 作为 key（`question text -> answer string`），不是 MultiSoul mobile 内部的 question index。`cli/src/serve/interactive.rs` 因此只在 mobile/WS 边界继续使用 numeric question/option ids，回写 Claude `control_response.updatedInput` 时改为 question text key，并保留 multi-select 的 comma-separated answer string。
+>
+> **2026-06-04（Activity realtime events）**：`AppState` 新增全局 `activity_bus`，`serve/routes/messages.rs` 在用户消息成功入库和会话 WS 广播后发出 `activity_changed` refresh signal。该信号只用于 Activity 列表重新拉取 REST 快照，不改变 runtime adapter 的接入契约、`SessionMessage` 结构或 per-conversation WS 语义。
+
+> **2026-06-06（Ideas to Specs asset tables）**：`cli/src/db.rs` 新增 migration runner，并通过 `cli/migrations/20260606_spec_assets.sql` 创建 `spec_ideas`、`spec_idea_notes`、`spec_idea_attachments`、`spec_artifacts` 和 `spec_artifact_versions`，用于 Specs 资产工作流的 CLI 权威持久化。这些表与 runtime adapter 的 session、model、abort、AskUserQuestion 路由语义解耦；本文 runtime 接入流程和 Step 5 的“runtime 额外状态走 migration”纪律不变。
 
 完成实现后，按 `CLAUDE.md §5` 跑：
 

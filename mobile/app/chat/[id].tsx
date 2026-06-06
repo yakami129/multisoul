@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useRef, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import { KeyboardAvoidingView, Platform, type FlatList, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { EMPTY_MESSAGES, STATUS_BADGE } from '@/features/chat/chatDetailConstants';
@@ -8,7 +8,6 @@ import CommandPopup, { type ComposerSheetMode } from '@/features/chat/components
 import { ModelSelector, useChatModelSelector } from '@/features/chat/components/ModelSelector';
 import { resolveUserMessageImageUri } from '@/features/chat/services/chatService';
 import {
-  buildCompletedTranscriptDisplayItems,
   type ChatTranscriptDisplayItem,
   getLatestAgentActivitySeq,
   getLatestAgentTextSeq,
@@ -22,7 +21,7 @@ import ChatHeader from './ChatHeader';
 import ChatTranscriptList from './ChatTranscriptList';
 import { s } from './styles';
 import { useChatDetailAgentTurn } from './useChatDetailAgentTurn';
-import { useChatDetailHistory } from './useChatDetailHistory';
+import { useChatDetailServerTranscript } from './useChatDetailServerTranscript';
 import { useChatDetailTranscriptScroll } from './useChatDetailTranscriptScroll';
 import { usePendingImageUploads } from './usePendingImageUploads';
 
@@ -65,11 +64,14 @@ export default function ChatDetailScreen() {
   const {
     catchUpAfterSeq,
     transcriptMessages,
+    transcriptDisplayItems,
+    toolResultMessages,
     isLoadingOlder,
     hasUserScrolledHistoryRef,
     hasLoadedInitialMessagesRef,
     loadOlderMessages,
-  } = useChatDetailHistory({
+    loadServerWorkedMessages,
+  } = useChatDetailServerTranscript({
     conv_id,
     endpoint,
     endpoint_id,
@@ -78,16 +80,18 @@ export default function ChatDetailScreen() {
     focus_ask_id,
     messages,
     inboxMirrorStableKey,
-    listRef,
     lastSeenAgentActivitySeqRef,
     lastAnimatedAgentTextSeqRef,
   });
 
-  const conversationStatus = conversation?.status ?? 'idle';
-  const transcriptDisplayItems = React.useMemo(
-    () => buildCompletedTranscriptDisplayItems(transcriptMessages, conversationStatus),
-    [conversationStatus, transcriptMessages],
+  const handleLoadServerWorkedMessages = useCallback(
+    (turnId: string) => {
+      void loadServerWorkedMessages(turnId);
+    },
+    [loadServerWorkedMessages],
   );
+
+  const conversationStatus = conversation?.status ?? 'idle';
   const {
     isAwaitingResponse,
     incomingAgentActivitySeq,
@@ -231,7 +235,8 @@ export default function ChatDetailScreen() {
           shouldForceComplete={shouldForceComplete}
           serverUrl={endpoint?.base_url ?? ''}
           token={endpoint?.token ?? ''}
-          toolResultMessages={messages}
+          toolResultMessages={toolResultMessages}
+          onLoadServerWorkedMessages={handleLoadServerWorkedMessages}
           onAnswer={sendAnswer}
           onAnswerMulti={sendAnswerMulti}
           imageUriForMessage={imageUriForMessage}

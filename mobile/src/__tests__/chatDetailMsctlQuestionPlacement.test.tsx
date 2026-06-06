@@ -3,6 +3,11 @@ import React from 'react';
 import { FlatList } from 'react-native';
 import { fetchAgent } from '@/features/agents';
 import { fetchMessages, fetchRuntimeModels } from '@/features/chat/services/chatService';
+import {
+  fetchTranscriptTurns,
+  fetchTurnHiddenMessages,
+} from '@/features/chat/services/transcriptService';
+import type { TranscriptPage } from '@/features/chat/types';
 import { type ChatTranscriptDisplayItem } from '@/features/chat/utils/chatRenderState';
 import { useWebSocket } from '@/hooks/useWebSocket';
 import { useChatStore } from '@/store/chatStore';
@@ -39,6 +44,11 @@ jest.mock('@/features/chat/services/chatService', () => ({
   uploadImage: jest.fn(),
   abortConversation: jest.fn().mockResolvedValue(undefined),
   resolveUserMessageImageUri: jest.fn(),
+}));
+
+jest.mock('@/features/chat/services/transcriptService', () => ({
+  fetchTranscriptTurns: jest.fn(),
+  fetchTurnHiddenMessages: jest.fn(),
 }));
 
 jest.mock('@/features/inbox/services/inboxService', () => ({
@@ -84,6 +94,43 @@ function askQuestion(
     },
     created_at: seq,
   };
+}
+
+function makeRawTranscriptPage(convId: string, messages: WsMessage[]): TranscriptPage {
+  const firstSeq = messages[0]?.seq ?? null;
+  return {
+    conversation_id: convId,
+    status:
+      useChatStore.getState().conversations.find((conv) => conv.id === convId)?.status ?? 'idle',
+    items:
+      firstSeq == null
+        ? []
+        : [
+            {
+              kind: 'current_turn_raw',
+              turn_id: `turn-${firstSeq}`,
+              start_seq: firstSeq,
+              messages,
+            },
+          ],
+    page_info: {
+      oldest_turn_id: firstSeq == null ? null : `turn-${firstSeq}`,
+      has_older: false,
+    },
+  };
+}
+
+async function fetchMessagesBackedTranscript(
+  baseUrl: string,
+  token: string,
+  convId: string,
+  options?: { aroundAskId?: string },
+): Promise<TranscriptPage> {
+  const messages = await (fetchMessages as jest.Mock)(baseUrl, token, convId, {
+    limit: 100,
+    around_ask_id: options?.aroundAskId,
+  });
+  return makeRawTranscriptPage(convId, messages);
 }
 
 function expectScrollToIndexCall(
@@ -134,6 +181,13 @@ beforeEach(() => {
     ],
   });
   useInboxStore.setState({ items: [] });
+  (fetchMessages as jest.Mock).mockResolvedValue([]);
+  (fetchTranscriptTurns as jest.Mock).mockImplementation(fetchMessagesBackedTranscript);
+  (fetchTurnHiddenMessages as jest.Mock).mockResolvedValue({
+    conversation_id: 'conv-1',
+    turn_id: 'turn-1',
+    messages: [],
+  });
   (fetchAgent as jest.Mock).mockResolvedValue({
     id: 'agent-1',
     name: 'Agent',

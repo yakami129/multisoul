@@ -44,6 +44,8 @@ export function useChatDetailTranscriptScroll({
   const isNearBottomRef = useRef(true);
   const retryTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const firstVisibleDisplayItemKeyRef = useRef<string | null>(null);
+  const firstVisibleDisplayItemIndexRef = useRef<number | null>(null);
+  const pendingInitialBottomScrollRef = useRef(!focus_ask_id);
 
   const clearRetryTimeout = useCallback(() => {
     if (retryTimeoutRef.current === null) return;
@@ -76,11 +78,14 @@ export function useChatDetailTranscriptScroll({
     clearRetryTimeout();
     isNearBottomRef.current = true;
     firstVisibleDisplayItemKeyRef.current = null;
+    firstVisibleDisplayItemIndexRef.current = null;
     prevMessageCountRef.current = 0;
+    pendingInitialBottomScrollRef.current = !focus_ask_id;
     return clearRetryTimeout;
   }, [clearRetryTimeout, conv_id, focus_ask_id]);
 
   function handleTranscriptScroll(event: NativeSyntheticEvent<NativeScrollEvent>) {
+    if (pendingInitialBottomScrollRef.current && !hasUserScrolledHistoryRef.current) return;
     const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
     const distanceFromBottom = contentSize.height - (contentOffset.y + layoutMeasurement.height);
     isNearBottomRef.current = distanceFromBottom < BOTTOM_STICKY_THRESHOLD;
@@ -100,17 +105,32 @@ export function useChatDetailTranscriptScroll({
       firstVisibleDisplayItemKeyRef.current = getChatTranscriptDisplayItemKey(
         firstVisibleItem.item,
       );
+      firstVisibleDisplayItemIndexRef.current =
+        typeof firstVisibleItem.index === 'number' ? firstVisibleItem.index : null;
     },
     [],
   );
 
   function handleContentSizeChange() {
     scrollToFocusedAsk(transcriptItems);
-    if (!isNearBottomRef.current && firstVisibleDisplayItemKeyRef.current) {
+    const currentCount = transcriptItems.length + (isAgentRunning ? 1 : 0);
+    if (pendingInitialBottomScrollRef.current && transcriptItems.length > 0) {
+      pendingInitialBottomScrollRef.current = false;
+      prevMessageCountRef.current = currentCount;
+      if (!hasUserScrolledHistoryRef.current) {
+        listRef.current?.scrollToEnd({ animated: false });
+        return;
+      }
+    }
+    if (
+      !isNearBottomRef.current &&
+      firstVisibleDisplayItemKeyRef.current &&
+      firstVisibleDisplayItemIndexRef.current !== null
+    ) {
       const anchorIndex = transcriptItems.findIndex(
         (item) => getChatTranscriptDisplayItemKey(item) === firstVisibleDisplayItemKeyRef.current,
       );
-      if (anchorIndex >= 0) {
+      if (anchorIndex >= 0 && anchorIndex !== firstVisibleDisplayItemIndexRef.current) {
         listRef.current?.scrollToIndex({
           index: anchorIndex,
           animated: false,
@@ -120,7 +140,6 @@ export function useChatDetailTranscriptScroll({
       }
     }
     if (focus_ask_id && hasDisplayItemAskId(transcriptItems, focus_ask_id)) return;
-    const currentCount = transcriptItems.length + (isAgentRunning ? 1 : 0);
     if (currentCount > prevMessageCountRef.current) {
       prevMessageCountRef.current = currentCount;
       if (isNearBottomRef.current) {

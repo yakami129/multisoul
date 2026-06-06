@@ -37,6 +37,7 @@ Monorepo 两大件：
 - 结构化决策见 §7 **Ask User Question** —— 禁止自由文本列选项或让用户打字回答
 - **CI 未通过禁止合并 PR** —— 强约束，见 [`docs/runbooks/github-pr-merge-policy.md`](docs/runbooks/github-pr-merge-policy.md)
 - 同一用户流程只保留一个权威实现 —— 详见 [`CLAUDE.md`](CLAUDE.md) §2/§7
+- iOS 界面开发必须参考 Apple Human Interface Guidelines 与 Google Material Design 的 iOS/跨平台交互哲学；优先原生 iOS 心智模型、直接操控、即时反馈、可逆操作、清晰导航与无障碍。
 - Agent 执行本地 iOS 发布时必须从仓库根目录启动同一条 `cd mobile && ./scripts/publish-ios-local.sh` 命令，禁止把工具 `workdir` 直接设为 `mobile/`（ASC 环境变量可能按根目录注入）
 
 ## 3. 技术栈速览

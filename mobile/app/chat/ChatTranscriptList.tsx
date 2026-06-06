@@ -41,6 +41,7 @@ interface Props {
   serverUrl: string;
   token: string;
   toolResultMessages?: WsMessage[];
+  onLoadServerWorkedMessages?: (turnId: string) => void;
   onAnswer: (ask_id: string, choice_id?: string, freeform?: string) => void;
   onAnswerMulti: (ask_id: string, choice_ids: Record<string, string>) => void;
   imageUriForMessage: (msg: WsMessage) => string | undefined;
@@ -67,6 +68,7 @@ export default function ChatTranscriptList({
   serverUrl,
   token,
   toolResultMessages,
+  onLoadServerWorkedMessages,
   onAnswer,
   onAnswerMulti,
   imageUriForMessage,
@@ -93,14 +95,23 @@ export default function ChatTranscriptList({
   );
   const displayItems = providedDisplayItems ?? computedDisplayItems;
 
-  const toggleWorkedItem = React.useCallback((id: string) => {
-    setExpandedWorkedIds((current) => {
-      const next = new Set(current);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }, []);
+  const toggleWorkedItem = React.useCallback(
+    (item: Exclude<ChatTranscriptDisplayItem, { kind: 'message' }>) => {
+      setExpandedWorkedIds((current) => {
+        const next = new Set(current);
+        if (next.has(item.id)) {
+          next.delete(item.id);
+        } else {
+          next.add(item.id);
+          if (item.kind === 'server_worked') {
+            onLoadServerWorkedMessages?.(item.turnId);
+          }
+        }
+        return next;
+      });
+    },
+    [onLoadServerWorkedMessages],
+  );
 
   const renderMessage = (msg: WsMessage) => {
     const askId = getAskId(msg);
@@ -141,7 +152,7 @@ export default function ChatTranscriptList({
           accessibilityLabel={item.label}
           accessibilityState={{ expanded }}
           style={s.workedRow}
-          onPress={() => toggleWorkedItem(item.id)}
+          onPress={() => toggleWorkedItem(item)}
         >
           <Text style={s.workedText}>{item.label}</Text>
           {expanded ? (
@@ -152,6 +163,9 @@ export default function ChatTranscriptList({
         </Pressable>
         {expanded ? (
           <View style={s.workedExpandedItems}>
+            {item.kind === 'server_worked' && item.isLoading ? (
+              <ActivityIndicator testID="worked-row-loading-indicator" color={brandColors.cyan} />
+            ) : null}
             {item.messages.map((message) => (
               <View key={message.seq}>{renderMessage(message)}</View>
             ))}

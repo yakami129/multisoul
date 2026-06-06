@@ -16,6 +16,7 @@ msctl <COMMAND>
 | `agent` | Agent 注册与管理 |
 | `serve` | 启动本地 HTTP/WS 服务器 |
 | `ask-question` | Push a structured question card to mobile through `msctl serve` |
+| `save-spec` | Save a repo `docs/product-specs/*.md` file as an immutable Spec artifact snapshot |
 | `daemon` | 后台服务管理 |
 | `logs` | 查看 app/service 日志 |
 
@@ -155,6 +156,44 @@ msctl ask-question \
 ```
 
 When the iOS user answers, `msctl serve` marks the card answered and injects a structured Markdown `user_text` message into the same conversation. There is no separate HTTP answer polling step.
+
+---
+
+## `msctl save-spec`
+
+Source: `cli/src/commands/save_spec.rs`
+
+Reads a repo-relative product spec file through the provided conversation's target repo, saves an immutable artifact snapshot, and returns the saved spec/version ids.
+
+| 参数 | 默认值 | 说明 |
+|------|--------|------|
+| `--path <PATH>` | 必填 | Repo-relative path under `docs/product-specs/`, e.g. `docs/product-specs/2026-06-06-SPEC-example.md` |
+| `--conversation-id <ID>` | 必填 | Interview conversation used to resolve the target repo and source Idea |
+| `--output <text\|json>` | `json` | Output format |
+| `--token <TOKEN>` | saved auth token | Bearer token for the running `msctl serve` process |
+| `--port <PORT>` | saved config port, else `8765` | Local `msctl serve` port |
+| `--host <HOST>` | `127.0.0.1` | Host for the local `msctl serve` process |
+
+Example:
+
+```bash
+msctl save-spec \
+  --path docs/product-specs/2026-06-06-SPEC-example.md \
+  --conversation-id "$CONV_ID" \
+  --output json
+```
+
+Success response:
+
+```json
+{
+  "spec_id": "spec_uuid",
+  "version_id": "version_uuid",
+  "repo_spec_path": "docs/product-specs/2026-06-06-SPEC-example.md",
+  "revision": 1,
+  "status": "saved"
+}
+```
 
 ---
 

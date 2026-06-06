@@ -19,6 +19,8 @@ Notification ownership is centralized in the CLI to avoid duplicate local + remo
 
 2026-06-01 workflow update: runtime task completion now also finalizes any matching `workflow_runs` row for the conversation before sending the existing task status push. This records workflow run status and summary, while preserving the notification ownership rule and the task completion payload shape.
 
+2026-06-04 Activity realtime events update: runtime task completion still sends the same CLI-owned Expo push. Claude stream now also emits a global `activity_changed` refresh signal after broadcasting terminal `task_status`, so Activity can refetch its REST snapshot while the app is visible. This does not change notification ownership, push payload shape, or mobile-side local notification rules.
+
 ---
 
 ## Architecture
@@ -115,7 +117,7 @@ When active, the service plays the sound directly; the notification handler supp
 ## Files changed
 
 1. `cli/src/serve/push.rs` — task/ask push payload construction, token fan-out, mutual exclusion
-2. `cli/src/serve/runtime/claude/stream.rs` + `cli/src/serve/ask_question.rs` — register pending ask before ask-question push/broadcast（2026-05-31：`record_ask_question` 抽到 `ask_question.rs`，推送时机与 payload 不变）
+2. `cli/src/serve/runtime/claude/stream.rs` + `cli/src/serve/ask_question.rs` — register pending ask before ask-question push/broadcast（2026-05-31：`record_ask_question` 抽到 `ask_question.rs`，推送时机与 payload 不变；2026-06-04：terminal `task_status` 后追加 Activity refresh signal，推送 payload 不变）
 3. `src/hooks/useWebSocket.ts` — remove local completion notification scheduling and apply answered state only after `answer_status(ok=true)`
 4. `app/_layout.tsx` — token registration, handler, tap listener, cold-start navigation
 

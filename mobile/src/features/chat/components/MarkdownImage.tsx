@@ -62,7 +62,7 @@ export function MarkdownImage({ src, alt, serverUrl, token }: Props) {
   const [thumbLoading, setThumbLoading] = useState(true);
   const [fullscreenLoading, setFullscreenLoading] = useState(false);
   const probedUrisRef = React.useRef<Set<string>>(new Set());
-  const thumbPrefetchLoadedRef = React.useRef(false);
+  const imageAvailableRef = React.useRef(false);
 
   const source = resolveSource(src, serverUrl, token);
 
@@ -70,7 +70,7 @@ export function MarkdownImage({ src, alt, serverUrl, token }: Props) {
     probedUrisRef.current.clear();
     setThumbError(false);
     setFullscreenError(false);
-    thumbPrefetchLoadedRef.current = false;
+    imageAvailableRef.current = false;
     setThumbLoading(true);
     setFullscreenLoading(false);
   }, [source?.uri]);
@@ -83,8 +83,9 @@ export function MarkdownImage({ src, alt, serverUrl, token }: Props) {
     void Promise.resolve(prefetchFn(source.uri))
       .then((loaded) => {
         if (!cancelled && loaded) {
-          thumbPrefetchLoadedRef.current = true;
+          imageAvailableRef.current = true;
           setThumbLoading(false);
+          setFullscreenLoading(false);
         }
       })
       .catch(() => {
@@ -114,25 +115,26 @@ export function MarkdownImage({ src, alt, serverUrl, token }: Props) {
 
   const markThumbnailLoadFailed = React.useCallback(() => {
     recordImageLoadFailed('thumbnail');
-    thumbPrefetchLoadedRef.current = false;
+    imageAvailableRef.current = false;
     setThumbLoading(false);
     setThumbError(true);
   }, [recordImageLoadFailed]);
 
   const markThumbnailLoadStarted = React.useCallback(() => {
-    if (!thumbPrefetchLoadedRef.current) setThumbLoading(true);
+    if (!imageAvailableRef.current) setThumbLoading(true);
   }, []);
 
   const markThumbnailLoaded = React.useCallback(() => {
-    thumbPrefetchLoadedRef.current = true;
+    imageAvailableRef.current = true;
     setThumbLoading(false);
   }, []);
 
   const markFullscreenLoadStarted = React.useCallback(() => {
-    setFullscreenLoading(true);
+    if (!imageAvailableRef.current) setFullscreenLoading(true);
   }, []);
 
   const markFullscreenLoaded = React.useCallback(() => {
+    imageAvailableRef.current = true;
     setFullscreenLoading(false);
   }, []);
 
@@ -211,7 +213,7 @@ export function MarkdownImage({ src, alt, serverUrl, token }: Props) {
         style={s.thumbnailFrame}
         onPress={() => {
           setFullscreenError(false);
-          setFullscreenLoading(true);
+          setFullscreenLoading(!imageAvailableRef.current);
           setPreviewVisible(true);
         }}
       >

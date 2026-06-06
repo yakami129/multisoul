@@ -1,6 +1,17 @@
+use super::activity_events::{
+    emit_activity_changed, emit_spec_changed, REASON_CONVERSATION_CREATED, REASON_USER_MESSAGE,
+};
 use crate::{
     db::now_ms,
-    serve::{routes::messages::PostMessageBody, runtime, state::AppState},
+    serve::{
+        routes::messages::PostMessageBody,
+        runtime,
+        spec_assets::{
+            get_spec_artifact_detail, list_spec_artifacts, save_spec_from_path,
+            SaveSpecFromPathInput,
+        },
+        state::AppState,
+    },
 };
 use axum::{
     extract::{Path, State},
@@ -26,6 +37,12 @@ pub struct DispatchSpecBody {
 pub struct DispatchSpecResponse {
     pub conversation_id: String,
     pub repo_spec_path: String,
+}
+
+#[derive(Deserialize)]
+pub struct SaveSpecFromPathBody {
+    pub path: String,
+    pub conversation_id: String,
 }
 
 struct DispatchSpecOptions {
@@ -56,6 +73,62 @@ pub async fn dispatch_spec(
         },
     )
     .await
+}
+
+pub async fn save_from_path(
+    State(state): State<AppState>,
+    Json(body): Json<SaveSpecFromPathBody>,
+) -> Result<
+    Json<crate::serve::spec_assets::SaveSpecFromPathResult>,
+    (StatusCode, Json<serde_json::Value>),
+> {
+    let conversation_id = body.conversation_id.clone();
+    match save_spec_from_path(
+        &state,
+        SaveSpecFromPathInput {
+            repo_spec_path: body.path,
+            conversation_id: body.conversation_id,
+        },
+    ) {
+        Ok(result) => {
+            emit_spec_changed(&state, &result.spec_id, &conversation_id);
+            Ok(Json(result))
+        }
+        Err(err) => Err((
+            err.status_code(),
+            Json(serde_json::json!({ "error": err.code() })),
+        )),
+    }
+}
+
+pub async fn list_specs(
+    State(state): State<AppState>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
+    list_spec_artifacts(&state)
+        .map(|specs| Json(serde_json::json!({ "specs": specs })))
+        .map_err(|err| {
+            (
+                err.status_code(),
+                Json(serde_json::json!({ "error": err.code() })),
+            )
+        })
+}
+
+pub async fn get_spec(
+    State(state): State<AppState>,
+    Path(spec_id): Path<String>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
+    match get_spec_artifact_detail(&state, &spec_id) {
+        Ok(Some(detail)) => Ok(Json(detail)),
+        Ok(None) => Err((
+            StatusCode::NOT_FOUND,
+            Json(serde_json::json!({ "error": "not_found" })),
+        )),
+        Err(err) => Err((
+            err.status_code(),
+            Json(serde_json::json!({ "error": err.code() })),
+        )),
+    }
 }
 
 async fn dispatch_spec_core(
@@ -103,6 +176,12 @@ async fn dispatch_spec_core(
     }
 
     broadcast_initial_spec_message(&state, &options.conversation_id, next_seq, payload);
+    emit_activity_changed(
+        &state,
+        &options.conversation_id,
+        REASON_CONVERSATION_CREATED,
+    );
+    emit_activity_changed(&state, &options.conversation_id, REASON_USER_MESSAGE);
 
     Ok((
         StatusCode::CREATED,

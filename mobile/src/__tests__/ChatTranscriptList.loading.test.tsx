@@ -163,6 +163,49 @@ test('passes matching tool_result payload into tool call cards', () => {
   expect(queryByText('/Users/openclawd/Documents/code')).toBeNull();
 });
 
+test('loads server worked messages only when the row is expanded', () => {
+  const onLoadServerWorkedMessages = jest.fn();
+  const serverWorked = {
+    kind: 'server_worked' as const,
+    id: 'worked-turn-10',
+    turnId: 'turn-10',
+    label: 'Worked for 8s',
+    hiddenCount: 2,
+    messages: [],
+    isLoading: true,
+  };
+
+  const rendered = render(
+    <ChatTranscriptList
+      listRef={{ current: null }}
+      messages={[]}
+      displayItems={[serverWorked]}
+      conversationStatus="completed"
+      isLoadingOlder={false}
+      isAgentRunning={false}
+      incomingAgentActivitySeq={null}
+      activeTypewriterSeq={null}
+      shouldForceComplete={false}
+      serverUrl="http://localhost:8080"
+      token="token"
+      onLoadServerWorkedMessages={onLoadServerWorkedMessages}
+      onAnswer={jest.fn()}
+      onAnswerMulti={jest.fn()}
+      imageUriForMessage={() => undefined}
+      onScroll={jest.fn()}
+      onScrollBeginDrag={jest.fn()}
+      onContentSizeChange={jest.fn()}
+      onScrollToIndexFailed={jest.fn()}
+    />,
+  );
+
+  expect(onLoadServerWorkedMessages).not.toHaveBeenCalled();
+  fireEvent.press(rendered.getByTestId('worked-row'));
+
+  expect(onLoadServerWorkedMessages).toHaveBeenCalledWith('turn-10');
+  expect(rendered.getByTestId('worked-row-loading-indicator')).toBeTruthy();
+});
+
 function userText(seq: number, text: string, created_at = seq): WsMessage {
   return { type: 'message', seq, role: 'user_text', payload: { text }, created_at };
 }

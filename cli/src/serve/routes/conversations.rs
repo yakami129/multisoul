@@ -1,3 +1,6 @@
+use super::activity_events::{
+    emit_activity_changed, REASON_ABORTED, REASON_CONVERSATION_CREATED, REASON_DELETED,
+};
 use crate::{
     db::now_ms,
     serve::{
@@ -305,6 +308,8 @@ pub async fn create_conversation(
         rusqlite::params![id, agent_id, title, now, now],
     )
     .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    drop(db);
+    emit_activity_changed(&state, &id, REASON_CONVERSATION_CREATED);
 
     Ok((
         StatusCode::CREATED,
@@ -389,6 +394,7 @@ pub async fn abort_conversation(
         )
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     }
+    emit_activity_changed(&state, &conv_id, REASON_ABORTED);
 
     Ok(Json(serde_json::json!({ "ok": true })))
 }
@@ -407,6 +413,8 @@ pub async fn delete_conversation(
     if n == 0 {
         Err(StatusCode::NOT_FOUND)
     } else {
+        drop(db);
+        emit_activity_changed(&state, &conv_id, REASON_DELETED);
         Ok(StatusCode::NO_CONTENT)
     }
 }

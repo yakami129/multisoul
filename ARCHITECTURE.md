@@ -80,7 +80,8 @@ cli/src/
 │   ├── logs.rs
 │   └── serve.rs           # --relay flag parsing
 └── serve/
-    ├── mod.rs             # axum routes
+    ├── mod.rs             # serve module exports
+    ├── router.rs          # axum routes
     ├── auth.rs            # Bearer auth
     ├── state.rs           # shared AppState
     ├── push.rs            # Expo Push
@@ -144,7 +145,9 @@ mobile/
 | POST | `/api/v1/agents/:id/conversations` | 创建对话 |
 | DELETE | `/api/v1/conversations/:id` | 删除对话 |
 | POST | `/api/v1/conversations/:id/abort` | 中止运行中的对话 |
-| GET | `/api/v1/conversations/:id/messages` | 消息列表，支持增量拉取 |
+| GET | `/api/v1/conversations/:id/messages` | Raw 消息列表，支持实时补洞、增量拉取和 turn hidden 明细的兼容场景 |
+| GET | `/api/v1/conversations/:id/transcript-turns` | Chat 历史摘要页，按 turn 分页，返回 user / worked metadata / ask / final agent |
+| GET | `/api/v1/conversations/:id/turns/:turn_id/hidden-messages` | 懒加载指定 turn 的 worked row 隐藏消息 |
 | POST | `/api/v1/conversations/:id/messages` | 发送用户消息 |
 | POST | `/api/v1/push-tokens` | 注册 Expo Push Token |
 | DELETE | `/api/v1/push-tokens/:id` | 删除 Expo Push Token |
@@ -196,6 +199,24 @@ msctl 写入 agent_text/tool_call/tool_result/task_status
     ↓
 WebSocket 广播给 Mobile
 ```
+
+### Chat 历史加载
+
+```
+Mobile 打开 Chat
+  GET /api/v1/conversations/:id/transcript-turns?limit=20
+    ↓
+msctl 按 user_text 切分 turn
+    ↓
+返回摘要：user_text + Worked metadata + ask_question + final agent_text
+    ↓
+用户点击 Worked row
+  GET /api/v1/conversations/:id/turns/:turn_id/hidden-messages
+    ↓
+Mobile 内联展开该 turn 的隐藏 tool_call / agent_text 明细
+```
+
+运行中、等待问题和失败状态下，服务端仍将最新 turn 作为 raw messages 返回；更早 turn 保持摘要。WebSocket 和 `/messages` raw API 继续负责实时消息、断线补洞和发送后的 live tail。
 
 ### Agent 请求用户决策
 
