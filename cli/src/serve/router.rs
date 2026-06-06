@@ -92,6 +92,10 @@ pub async fn build_router(state: AppState) -> Router {
         )
         .route("/api/v1/specs/:id", axum::routing::get(specs::get_spec))
         .route(
+            "/api/v1/specs/:id/done",
+            axum::routing::post(specs::mark_spec_done),
+        )
+        .route(
             "/api/v1/specs/:id/implement",
             axum::routing::post(spec_implement::start_implementation),
         )

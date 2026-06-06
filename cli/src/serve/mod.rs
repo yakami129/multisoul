@@ -166,6 +166,31 @@ mod router_tests {
         );
     }
 
+    /// mark-spec-done REST endpoint is protected by Bearer auth.
+    ///
+    /// Execution: POST /api/v1/specs/spec-1/done without Authorization.
+    /// Expected: bearer_auth rejects before the route handler can mutate DB state.
+    #[tokio::test]
+    async fn test_mark_spec_done_no_auth_returns_401() {
+        let state = test_state().await;
+        let app = build_router(state).await;
+        let resp = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/v1/specs/spec-1/done")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(
+            resp.status(),
+            StatusCode::UNAUTHORIZED,
+            "mark-spec-done should require Bearer auth"
+        );
+    }
+
     /// Release logs websocket is protected by Bearer auth and is not a public endpoint.
     ///
     /// 数据构造（含关键数值的推导过程）：

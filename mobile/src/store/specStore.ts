@@ -31,6 +31,16 @@ import {
 } from '@/features/specs/types';
 import { type Endpoint } from '@/types';
 
+interface EditIdeaInput {
+  title: string;
+  body: string;
+  attachments: import('@/features/specs/types').SpecIdeaAttachment[];
+  targetAgentId?: string;
+  targetEndpointId?: string;
+  targetRepoPath?: string;
+  targetAgentName?: string;
+}
+
 interface SpecState {
   specs: SpecDraft[];
   ideas: SpecIdea[];
@@ -39,6 +49,7 @@ interface SpecState {
   loadAssets: () => Promise<void>;
   refreshAssets: (endpoints: Endpoint[]) => Promise<void>;
   createIdea: (input: CreateSpecIdeaInput) => Promise<SpecIdea>;
+  updateIdea: (ideaId: string, input: EditIdeaInput) => Promise<void>;
   archiveIdea: (ideaId: string) => Promise<void>;
   unarchiveIdea: (ideaId: string) => Promise<void>;
   deleteArchivedIdea: (ideaId: string, endpoint?: Endpoint) => Promise<void>;
@@ -147,6 +158,27 @@ export const useSpecStore = create<SpecState>((set, get) => ({
     await saveIdea(idea, 'create', null);
     set((state) => ({ ideas: [idea, ...state.ideas.filter((item) => item.id !== idea.id)] }));
     return idea;
+  },
+
+  updateIdea: async (ideaId, input) => {
+    const now = Date.now();
+    const ideas = get().ideas.map((idea) => {
+      if (idea.id !== ideaId) return idea;
+      return {
+        ...idea,
+        title: input.title || idea.title,
+        body: input.body,
+        attachments: input.attachments,
+        targetAgentId: input.targetAgentId ?? idea.targetAgentId,
+        targetEndpointId: input.targetEndpointId ?? idea.targetEndpointId,
+        targetRepoPath: input.targetRepoPath ?? idea.targetRepoPath,
+        targetAgentName: input.targetAgentName ?? idea.targetAgentName,
+        updatedAt: now,
+      };
+    });
+    const idea = ideas.find((item) => item.id === ideaId);
+    if (idea) await saveIdea(idea, 'update', null);
+    set({ ideas });
   },
 
   archiveIdea: async (ideaId) => {

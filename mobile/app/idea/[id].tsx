@@ -1,7 +1,12 @@
+import { useQuery } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React from 'react';
 import { buildChatDetailPath } from '@/features/chat/utils/chatRoutes';
+import { fetchAllAgents } from '@/features/agents/services/agentService';
 import { IdeaDetailScreen } from '@/features/specs/components/IdeaDetailScreen';
+import { IdeaEditorSheet, type IdeaEditorValue } from '@/features/specs/components/IdeaEditorSheet';
+import { TargetPickerSheet } from '@/features/specs/components/TargetPickerSheet';
+import { type SpecTarget } from '@/features/specs/components/specUiModels';
 import { saveIdea } from '@/features/specs/services/specAssetRepository';
 import {
   startSpecIdeaInterview,
@@ -25,8 +30,56 @@ export default function IdeaDetailRoute() {
   const loadAssets = useSpecStore((s) => s.loadAssets);
   const archiveIdea = useSpecStore((s) => s.archiveIdea);
   const unarchiveIdea = useSpecStore((s) => s.unarchiveIdea);
+  const updateIdea = useSpecStore((s) => s.updateIdea);
   const [isStartingInterview, setIsStartingInterview] = React.useState(false);
   const [errorMessage, setErrorMessage] = React.useState<string>();
+  const [editorVisible, setEditorVisible] = React.useState(false);
+  const [targetPickerVisible, setTargetPickerVisible] = React.useState(false);
+  const [draftTarget, setDraftTarget] = React.useState<SpecTarget | undefined>();
+
+  const { data: agents = [] } = useQuery({
+    queryKey: ['agents', endpoints.map((ep) => ep.id), 'idea-edit'],
+    queryFn: () => fetchAllAgents(endpoints),
+    refetchInterval: 30_000,
+    enabled: endpoints.length > 0,
+  });
+
+  const buildIdeaTarget = React.useCallback(
+    (current: typeof idea): SpecTarget | undefined => {
+      if (!current?.targetAgentId) return undefined;
+      return {
+        endpointId: current.targetEndpointId,
+        endpointLabel: endpoints.find((ep) => ep.id === current.targetEndpointId)?.label ?? '',
+        agentId: current.targetAgentId,
+        agentName: current.targetAgentName,
+        repoPath: current.targetRepoPath,
+      };
+    },
+    [endpoints],
+  );
+
+  const openEditor = React.useCallback(() => {
+    setDraftTarget(buildIdeaTarget(idea));
+    setEditorVisible(true);
+  }, [idea, buildIdeaTarget]);
+
+  const handleEditSave = React.useCallback(
+    (value: IdeaEditorValue) => {
+      if (!ideaId) return;
+      const target = value.target ?? draftTarget;
+      void updateIdea(ideaId, {
+        title: value.title,
+        body: value.body,
+        attachments: value.attachments,
+        targetAgentId: target?.agentId,
+        targetEndpointId: target?.endpointId,
+        targetRepoPath: target?.repoPath,
+        targetAgentName: target?.agentName,
+      });
+      setEditorVisible(false);
+    },
+    [ideaId, draftTarget, updateIdea],
+  );
 
   const openChat = React.useCallback(
     (conversationId: string) => {
@@ -75,26 +128,60 @@ export default function IdeaDetailRoute() {
       .finally(() => setIsStartingInterview(false));
   }, [endpoints, idea, isStartingInterview, loadAssets, openChat]);
 
+  const editorInitialValue: IdeaEditorValue | undefined = React.useMemo(() => {
+    if (!idea) return undefined;
+    return {
+      title: idea.title,
+      body: idea.body,
+      attachments: idea.attachments,
+      target: buildIdeaTarget(idea),
+    };
+  }, [idea, buildIdeaTarget]);
+
   return (
-    <IdeaDetailScreen
-      idea={idea}
-      isStartingInterview={isStartingInterview}
-      errorMessage={errorMessage}
-      onBack={() => router.back()}
-      onStartInterview={handleStartInterview}
-      onOpenInterviewChat={() => {
-        if (idea?.interviewConversationId) openChat(idea.interviewConversationId);
-      }}
-      onOpenConvertedSpec={() => {
-        if (idea?.convertedSpecId)
-          router.push(`/spec/${encodeURIComponent(idea.convertedSpecId)}` as `/${string}`);
-      }}
-      onArchive={() => {
-        if (ideaId) void archiveIdea(ideaId);
-      }}
-      onUnarchive={() => {
-        if (ideaId) void unarchiveIdea(ideaId);
-      }}
-    />
+    <>
+      <IdeaDetailScreen
+        idea={idea}
+        isStartingInterview={isStartingInterview}
+        errorMessage={errorMessage}
+        onBack={() => router.back()}
+        onEdit={openEditor}
+        onStartInterview={handleStartInterview}
+        onOpenInterviewChat={() => {
+          if (idea?.interviewConversationId) openChat(idea.interviewConversationId);
+        }}
+        onOpenConvertedSpec={() => {
+          if (idea?.convertedSpecId)
+            router.push(`/spec/${encodeURIComponent(idea.convertedSpecId)}` as `/${string}`);
+        }}
+        onArchive={() => {
+          if (ideaId) void archiveIdea(ideaId);
+        }}
+        onUnarchive={() => {
+          if (ideaId) void unarchiveIdea(ideaId);
+        }}
+      />
+      <IdeaEditorSheet
+        visible={editorVisible}
+        initialValue={editorInitialValue}
+        target={draftTarget}
+        onChooseTarget={() => setTargetPickerVisible(true)}
+        onClose={() => setEditorVisible(false)}
+        onSave={handleEditSave}
+      >
+        <TargetPickerSheet
+          visible={targetPickerVisible}
+          endpoints={endpoints}
+          agents={agents}
+          selectedTarget={draftTarget}
+          presentation="inline"
+          onClose={() => setTargetPickerVisible(false)}
+          onDone={(target) => {
+            setDraftTarget(target);
+            setTargetPickerVisible(false);
+          }}
+        />
+      </IdeaEditorSheet>
+    </>
   );
 }

@@ -214,14 +214,31 @@ fn build_interview_instruction(context: &InterviewIdeaContext, conversation_id: 
         context.attachment_summaries.join("\n")
     };
     format!(
-        "请把下面的 Idea 作为需求采访材料，使用普通对话帮助用户澄清需求并形成可执行产品规格。\n\nIdea: {}\nRepo: {}\nConversation: {}\n\nBody:\n{}\n\nNotes:\n{}\n\nAttachments:\n{}\n\n要求：先澄清背景、目标、范围、非目标、主要流程、边界情况、UI/UX 要求和验收标准。涉及结构化决策时必须使用 AskUserQuestion；如果当前 runtime 没有该工具，请调用 msctl ask-question。信息足够时先向用户确认是否生成 spec；用户确认后，在目标仓库写入 docs/product-specs/YYYY-MM-DD-SPEC-<slug>.md，然后调用 msctl save-spec --path <repo-relative-path> --conversation-id {}。不要跳过确认直接保存 spec。",
-        context.title,
-        context.target_repo_path,
-        conversation_id,
-        context.body,
-        notes,
-        attachments,
-        conversation_id
+        "Use the Idea below as interview material. Conduct a normal conversation to clarify requirements and produce an executable product spec.\n\n\
+         ## Context\n\
+         - Idea: {title}\n\
+         - Repo: {repo}\n\
+         - Conversation: {conversation_id}\n\n\
+         ### Body\n\
+         {body}\n\n\
+         ### Notes\n\
+         {notes}\n\n\
+         ### Attachments\n\
+         {attachments}\n\n\
+         ## Workflow\n\
+         1. Clarify background, goals, scope, non-goals, main flows, edge cases, UI/UX, and acceptance criteria.\n\
+         2. For structured decisions, use AskUserQuestion; if unavailable, run `msctl ask-question`.\n\
+         3. When information is sufficient, ask the user to confirm before generating the spec.\n\
+         4. After confirmation, write `docs/product-specs/YYYY-MM-DD-SPEC-<slug>.md` in the target repo, then run:\n\
+            `msctl save-spec --path <repo-relative-path> --conversation-id {conversation_id}`\n\
+         5. Do not save the spec without user confirmation.\n\n\
+         Respond in the user's language unless they prefer English.",
+        title = context.title,
+        repo = context.target_repo_path,
+        conversation_id = conversation_id,
+        body = context.body,
+        notes = notes,
+        attachments = attachments,
     )
 }
 

@@ -16,8 +16,7 @@ fn fixture() -> AppState {
         [project_dir.path().to_string_lossy().as_ref()],
     )
     .expect("agent should insert");
-    let plugin_db =
-        db::open_at(&db_dir.path().join("plugins.db")).expect("plugin db should open");
+    let plugin_db = db::open_at(&db_dir.path().join("plugins.db")).expect("plugin db should open");
     AppState::new(
         conn,
         "ms_v2_tok".to_string(),
@@ -79,8 +78,7 @@ fn create_update_and_read_interview_context_for_spec_idea() {
         idea.get("title").and_then(serde_json::Value::as_str),
         Some("Need a better specs workflow")
     );
-    let context =
-        get_interview_context(&state, "idea-1").expect("interview context should load");
+    let context = get_interview_context(&state, "idea-1").expect("interview context should load");
     assert_eq!(
         context.notes,
         vec!["Clarify acceptance criteria".to_string()]
