@@ -54,7 +54,9 @@ test('artifact detail shows latest snapshot metadata and related records', () =>
   );
 
   expect(getByText('Offline First Spec Manager')).toBeTruthy();
-  expect(getAllByText('docs/product-specs/2026-06-06-SPEC-offline-first.md').length).toBeGreaterThan(0);
+  expect(
+    getAllByText('docs/product-specs/2026-06-06-SPEC-offline-first.md').length,
+  ).toBeGreaterThan(0);
   expect(getByText('v3')).toBeTruthy();
   expect(getByText('abcdef12')).toBeTruthy();
   expect(getByText('Persist the asset snapshot.')).toBeTruthy();

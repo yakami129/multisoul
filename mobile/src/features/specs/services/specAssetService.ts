@@ -150,9 +150,7 @@ export function normalizeSpecArtifactVersion(value: unknown): SpecArtifactVersio
     repoSpecPath: asString(field(raw, 'repo_spec_path', 'repoSpecPath')),
     markdown: asString(field(raw, 'markdown')),
     markdownSha256: asString(field(raw, 'markdown_sha256', 'markdownSha256')),
-    sourceConversationId: asString(
-      field(raw, 'source_conversation_id', 'sourceConversationId'),
-    ),
+    sourceConversationId: asString(field(raw, 'source_conversation_id', 'sourceConversationId')),
     createdAt: asNumber(field(raw, 'created_at', 'createdAt')),
   };
 }
@@ -205,7 +203,10 @@ export async function updateSpecIdea(
   input: UpdateSpecIdeaInput,
 ): Promise<SpecIdea> {
   const client = getEndpointClient(endpoint.base_url, endpoint.token);
-  const res = await client.patch(`/api/v1/spec-ideas/${encodeURIComponent(id)}`, ideaPayload(input));
+  const res = await client.patch(
+    `/api/v1/spec-ideas/${encodeURIComponent(id)}`,
+    ideaPayload(input),
+  );
   return normalizeSpecIdea(field(rawObject(res.data), 'idea') ?? res.data, endpoint.id);
 }
 
@@ -226,7 +227,9 @@ export async function startSpecIdeaInterview(
 export async function fetchSpecArtifacts(endpoint: Endpoint): Promise<SpecArtifact[]> {
   const client = getEndpointClient(endpoint.base_url, endpoint.token);
   const res = await client.get('/api/v1/specs');
-  return listFromResponse(res.data, 'specs').map((item) => normalizeSpecArtifact(item, endpoint.id));
+  return listFromResponse(res.data, 'specs').map((item) =>
+    normalizeSpecArtifact(item, endpoint.id),
+  );
 }
 
 export async function fetchSpecArtifactDetail(

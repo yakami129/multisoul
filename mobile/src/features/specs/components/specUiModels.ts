@@ -178,7 +178,8 @@ export function summarizeMarkdown(markdown: string): string {
 function legacyStatusToIdea(status: SpecDraft['status']): IdeaStatus {
   if (status === 'failed') return 'failed';
   if (status === 'dispatched' || status === 'running' || status === 'done') return 'converted';
-  if (status === 'review' || status === 'approved' || status === 'dispatching') return 'interviewing';
+  if (status === 'review' || status === 'approved' || status === 'dispatching')
+    return 'interviewing';
   return 'open';
 }
 
@@ -226,7 +227,8 @@ export function specDraftToIdea(spec: SpecDraft): SpecIdea {
 }
 
 export function specDraftToArtifact(spec: SpecDraft): SpecArtifact {
-  const markdown = spec.markdownPreview ?? `# ${spec.title}\n\nSpec artifact has not been saved yet.`;
+  const markdown =
+    spec.markdownPreview ?? `# ${spec.title}\n\nSpec artifact has not been saved yet.`;
   const repoSpecPath = spec.repoSpecPath ?? `docs/product-specs/${spec.slug}.md`;
   const version: SpecArtifactVersion = {
     id: `${spec.id}-v1`,

@@ -106,22 +106,32 @@ export function IdeaDetailScreen({
                       {attachmentTitle(attachment)}
                     </Text>
                     <Text style={s.attachmentMeta} numberOfLines={2}>
-                      {attachment.uri || attachment.fileId || attachment.text || 'Saved with this idea'}
+                      {attachment.uri ||
+                        attachment.fileId ||
+                        attachment.text ||
+                        'Saved with this idea'}
                     </Text>
                   </View>
                 </View>
               ))}
             </View>
           ) : (
-            <Text style={s.mutedText}>Links, logs, and screenshots can be attached from capture.</Text>
+            <Text style={s.mutedText}>
+              Links, logs, and screenshots can be attached from capture.
+            </Text>
           )}
         </Section>
 
         <Section title="Target">
           <InfoRow label="Repo" value={idea.targetRepoPath || 'Not selected'} />
-          <InfoRow label="Agent" value={idea.targetAgentName || idea.targetAgentId || 'Not selected'} />
+          <InfoRow
+            label="Agent"
+            value={idea.targetAgentName || idea.targetAgentId || 'Not selected'}
+          />
           <InfoRow label="Endpoint" value={idea.targetEndpointId || 'Not selected'} />
-          {!hasTarget ? <Text style={s.errorText}>Choose a repo and agent before interviewing.</Text> : null}
+          {!hasTarget ? (
+            <Text style={s.errorText}>Choose a repo and agent before interviewing.</Text>
+          ) : null}
         </Section>
 
         <Section title="Related">
@@ -156,7 +166,9 @@ export function IdeaDetailScreen({
           ) : (
             <Archive size={17} color={brandColors.ink} />
           )}
-          <Text style={s.secondaryText}>{idea.status === 'archived' ? 'Unarchive' : 'Archive'}</Text>
+          <Text style={s.secondaryText}>
+            {idea.status === 'archived' ? 'Unarchive' : 'Archive'}
+          </Text>
         </TouchableOpacity>
         <TouchableOpacity
           accessibilityRole="button"
@@ -248,7 +260,12 @@ const s = StyleSheet.create({
     paddingHorizontal: 16,
   },
   backButton: { minWidth: 72, minHeight: 44, flexDirection: 'row', alignItems: 'center' },
-  backText: { fontFamily: brandTypography.body, fontSize: 13, fontWeight: '700', color: brandColors.ink },
+  backText: {
+    fontFamily: brandTypography.body,
+    fontSize: 13,
+    fontWeight: '700',
+    color: brandColors.ink,
+  },
   headerTitle: {
     fontFamily: brandTypography.display,
     fontSize: 18,
@@ -257,7 +274,12 @@ const s = StyleSheet.create({
   },
   headerSpacer: { width: 72 },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  emptyTitle: { fontFamily: brandTypography.display, fontSize: 20, fontWeight: '700', color: brandColors.ink },
+  emptyTitle: {
+    fontFamily: brandTypography.display,
+    fontSize: 20,
+    fontWeight: '700',
+    color: brandColors.ink,
+  },
   content: { padding: 16, gap: 12 },
   section: {
     borderRadius: 16,
@@ -273,12 +295,27 @@ const s = StyleSheet.create({
     fontWeight: '800',
     color: brandColors.coral,
   },
-  bodyText: { fontFamily: brandTypography.body, fontSize: 14, lineHeight: 20, color: brandColors.ink },
-  mutedText: { fontFamily: brandTypography.body, fontSize: 12, lineHeight: 18, color: brandColors.textSoft },
+  bodyText: {
+    fontFamily: brandTypography.body,
+    fontSize: 14,
+    lineHeight: 20,
+    color: brandColors.ink,
+  },
+  mutedText: {
+    fontFamily: brandTypography.body,
+    fontSize: 12,
+    lineHeight: 18,
+    color: brandColors.textSoft,
+  },
   noteList: { gap: 8 },
   note: { borderRadius: 12, backgroundColor: brandRgba.ink08, padding: 10, gap: 5 },
   noteMeta: { fontFamily: brandTypography.body, fontSize: 10, color: brandColors.textSoft },
-  noteBody: { fontFamily: brandTypography.body, fontSize: 13, lineHeight: 18, color: brandColors.ink },
+  noteBody: {
+    fontFamily: brandTypography.body,
+    fontSize: 13,
+    lineHeight: 18,
+    color: brandColors.ink,
+  },
   attachmentList: { gap: 8 },
   attachment: { minHeight: 54, flexDirection: 'row', alignItems: 'center', gap: 10 },
   attachmentIcon: {
@@ -290,8 +327,18 @@ const s = StyleSheet.create({
     justifyContent: 'center',
   },
   attachmentBody: { flex: 1, minWidth: 0 },
-  attachmentTitle: { fontFamily: brandTypography.body, fontSize: 13, fontWeight: '800', color: brandColors.ink },
-  attachmentMeta: { marginTop: 2, fontFamily: brandTypography.body, fontSize: 11, color: brandColors.textSoft },
+  attachmentTitle: {
+    fontFamily: brandTypography.body,
+    fontSize: 13,
+    fontWeight: '800',
+    color: brandColors.ink,
+  },
+  attachmentMeta: {
+    marginTop: 2,
+    fontFamily: brandTypography.body,
+    fontSize: 11,
+    color: brandColors.textSoft,
+  },
   infoRow: {
     minHeight: 34,
     flexDirection: 'row',
@@ -318,9 +365,24 @@ const s = StyleSheet.create({
     justifyContent: 'center',
   },
   actionBody: { flex: 1, minWidth: 0 },
-  actionLabel: { fontFamily: brandTypography.body, fontSize: 13, fontWeight: '800', color: brandColors.ink },
-  actionValue: { marginTop: 2, fontFamily: brandTypography.body, fontSize: 11, color: brandColors.textSoft },
-  errorText: { fontFamily: brandTypography.body, fontSize: 12, lineHeight: 17, color: brandColors.error },
+  actionLabel: {
+    fontFamily: brandTypography.body,
+    fontSize: 13,
+    fontWeight: '800',
+    color: brandColors.ink,
+  },
+  actionValue: {
+    marginTop: 2,
+    fontFamily: brandTypography.body,
+    fontSize: 11,
+    color: brandColors.textSoft,
+  },
+  errorText: {
+    fontFamily: brandTypography.body,
+    fontSize: 12,
+    lineHeight: 17,
+    color: brandColors.error,
+  },
   bottomBar: {
     position: 'absolute',
     left: 0,
@@ -344,7 +406,12 @@ const s = StyleSheet.create({
     gap: 7,
     backgroundColor: brandRgba.ink08,
   },
-  secondaryText: { fontFamily: brandTypography.body, fontSize: 13, fontWeight: '800', color: brandColors.ink },
+  secondaryText: {
+    fontFamily: brandTypography.body,
+    fontSize: 13,
+    fontWeight: '800',
+    color: brandColors.ink,
+  },
   primaryButton: {
     flex: 1,
     minHeight: 46,
@@ -355,6 +422,11 @@ const s = StyleSheet.create({
     gap: 7,
     backgroundColor: brandColors.ink,
   },
-  primaryText: { fontFamily: brandTypography.body, fontSize: 13, fontWeight: '800', color: brandColors.white },
+  primaryText: {
+    fontFamily: brandTypography.body,
+    fontSize: 13,
+    fontWeight: '800',
+    color: brandColors.white,
+  },
   disabled: { opacity: 0.45 },
 });

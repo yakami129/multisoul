@@ -100,8 +100,7 @@ export function SpecDetailScreen({
       : specActionLabel(currentSpec.status);
   const primaryDisabled =
     isStartingImplementation ||
-    (!implementationChatId &&
-      ['blocked', 'done', 'failed'].includes(currentSpec.status));
+    (!implementationChatId && ['blocked', 'done', 'failed'].includes(currentSpec.status));
 
   return (
     <View style={[s.root, { paddingTop: insets.top }]}>
@@ -125,13 +124,24 @@ export function SpecDetailScreen({
         </View>
 
         <View style={s.metricGrid}>
-          <Metric icon={<GitBranch size={15} color={brandColors.ink} />} label="Revision" value={`v${revision}`} />
-          <Metric icon={<Hash size={15} color={brandColors.ink} />} label="Hash" value={shortHash(hash)} />
+          <Metric
+            icon={<GitBranch size={15} color={brandColors.ink} />}
+            label="Revision"
+            value={`v${revision}`}
+          />
+          <Metric
+            icon={<Hash size={15} color={brandColors.ink} />}
+            label="Hash"
+            value={shortHash(hash)}
+          />
         </View>
 
         <Section title="Repository">
           <InfoRow label="Repo" value={currentSpec.targetRepoPath || 'Unknown repo'} />
-          <InfoRow label="Spec file" value={currentSpec.repoSpecPath || latest?.repoSpecPath || 'Not saved'} />
+          <InfoRow
+            label="Spec file"
+            value={currentSpec.repoSpecPath || latest?.repoSpecPath || 'Not saved'}
+          />
           <InfoRow label="Updated" value={relativeAge(currentSpec.updatedAt)} />
         </Section>
 
@@ -277,7 +287,12 @@ const s = StyleSheet.create({
     paddingHorizontal: 16,
   },
   backButton: { minWidth: 72, minHeight: 44, flexDirection: 'row', alignItems: 'center' },
-  backText: { fontFamily: brandTypography.body, fontSize: 13, fontWeight: '700', color: brandColors.ink },
+  backText: {
+    fontFamily: brandTypography.body,
+    fontSize: 13,
+    fontWeight: '700',
+    color: brandColors.ink,
+  },
   headerTitle: {
     fontFamily: brandTypography.display,
     fontSize: 18,
@@ -286,7 +301,12 @@ const s = StyleSheet.create({
   },
   headerSpacer: { width: 72 },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  emptyTitle: { fontFamily: brandTypography.display, fontSize: 20, fontWeight: '700', color: brandColors.ink },
+  emptyTitle: {
+    fontFamily: brandTypography.display,
+    fontSize: 20,
+    fontWeight: '700',
+    color: brandColors.ink,
+  },
   content: { padding: 16, gap: 12 },
   hero: {
     minHeight: 72,
@@ -315,7 +335,12 @@ const s = StyleSheet.create({
     fontWeight: '700',
     color: brandColors.ink,
   },
-  subtitle: { marginTop: 3, fontFamily: brandTypography.body, fontSize: 11, color: brandColors.textSoft },
+  subtitle: {
+    marginTop: 3,
+    fontFamily: brandTypography.body,
+    fontSize: 11,
+    color: brandColors.textSoft,
+  },
   statusPill: {
     minHeight: 26,
     borderRadius: 13,
@@ -324,7 +349,12 @@ const s = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: brandRgba.limeSoft,
   },
-  statusText: { fontFamily: brandTypography.body, fontSize: 10, fontWeight: '800', color: brandColors.ink },
+  statusText: {
+    fontFamily: brandTypography.body,
+    fontSize: 10,
+    fontWeight: '800',
+    color: brandColors.ink,
+  },
   metricGrid: { flexDirection: 'row', gap: 10 },
   metric: {
     flex: 1,
@@ -339,7 +369,13 @@ const s = StyleSheet.create({
     paddingHorizontal: 12,
   },
   metricLabel: { fontFamily: brandTypography.body, fontSize: 10, color: brandColors.textSoft },
-  metricValue: { marginTop: 2, fontFamily: brandTypography.body, fontSize: 13, fontWeight: '800', color: brandColors.ink },
+  metricValue: {
+    marginTop: 2,
+    fontFamily: brandTypography.body,
+    fontSize: 13,
+    fontWeight: '800',
+    color: brandColors.ink,
+  },
   section: {
     borderRadius: 16,
     borderWidth: 1,
@@ -348,9 +384,25 @@ const s = StyleSheet.create({
     padding: 14,
     gap: 10,
   },
-  sectionTitle: { fontFamily: brandTypography.body, fontSize: 11, fontWeight: '800', color: brandColors.coral },
-  bodyText: { fontFamily: brandTypography.body, fontSize: 13, lineHeight: 19, color: brandColors.ink },
-  infoRow: { minHeight: 34, flexDirection: 'row', justifyContent: 'space-between', gap: 12, alignItems: 'center' },
+  sectionTitle: {
+    fontFamily: brandTypography.body,
+    fontSize: 11,
+    fontWeight: '800',
+    color: brandColors.coral,
+  },
+  bodyText: {
+    fontFamily: brandTypography.body,
+    fontSize: 13,
+    lineHeight: 19,
+    color: brandColors.ink,
+  },
+  infoRow: {
+    minHeight: 34,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+    alignItems: 'center',
+  },
   infoLabel: { fontFamily: brandTypography.body, fontSize: 12, color: brandColors.textSoft },
   infoValue: {
     flex: 1,
@@ -369,7 +421,12 @@ const s = StyleSheet.create({
     justifyContent: 'center',
     gap: 7,
   },
-  inlineButtonText: { fontFamily: brandTypography.body, fontSize: 13, fontWeight: '800', color: brandColors.ink },
+  inlineButtonText: {
+    fontFamily: brandTypography.body,
+    fontSize: 13,
+    fontWeight: '800',
+    color: brandColors.ink,
+  },
   actionRow: { minHeight: 54, flexDirection: 'row', alignItems: 'center', gap: 10 },
   actionIcon: {
     width: 34,
@@ -380,9 +437,24 @@ const s = StyleSheet.create({
     justifyContent: 'center',
   },
   actionBody: { flex: 1, minWidth: 0 },
-  actionLabel: { fontFamily: brandTypography.body, fontSize: 13, fontWeight: '800', color: brandColors.ink },
-  actionValue: { marginTop: 2, fontFamily: brandTypography.body, fontSize: 11, color: brandColors.textSoft },
-  errorText: { fontFamily: brandTypography.body, fontSize: 12, lineHeight: 17, color: brandColors.error },
+  actionLabel: {
+    fontFamily: brandTypography.body,
+    fontSize: 13,
+    fontWeight: '800',
+    color: brandColors.ink,
+  },
+  actionValue: {
+    marginTop: 2,
+    fontFamily: brandTypography.body,
+    fontSize: 11,
+    color: brandColors.textSoft,
+  },
+  errorText: {
+    fontFamily: brandTypography.body,
+    fontSize: 12,
+    lineHeight: 17,
+    color: brandColors.error,
+  },
   bottomBar: {
     position: 'absolute',
     left: 0,
@@ -403,6 +475,11 @@ const s = StyleSheet.create({
     gap: 7,
     backgroundColor: brandColors.ink,
   },
-  primaryText: { fontFamily: brandTypography.body, fontSize: 13, fontWeight: '800', color: brandColors.white },
+  primaryText: {
+    fontFamily: brandTypography.body,
+    fontSize: 13,
+    fontWeight: '800',
+    color: brandColors.white,
+  },
   disabled: { opacity: 0.45 },
 });

@@ -111,6 +111,11 @@ const s = StyleSheet.create({
     color: brandColors.ink,
   },
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  meta: { flexShrink: 1, fontFamily: brandTypography.body, fontSize: 11, color: brandColors.textSoft },
+  meta: {
+    flexShrink: 1,
+    fontFamily: brandTypography.body,
+    fontSize: 11,
+    color: brandColors.textSoft,
+  },
   dot: { fontFamily: brandTypography.body, fontSize: 11, color: brandColors.textMuted },
 });

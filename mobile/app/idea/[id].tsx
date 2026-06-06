@@ -2,8 +2,8 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import React from 'react';
 import { buildChatDetailPath } from '@/features/chat/utils/chatRoutes';
 import { IdeaDetailScreen } from '@/features/specs/components/IdeaDetailScreen';
-import { startSpecIdeaInterview } from '@/features/specs/services/specAssetService';
 import { saveIdea } from '@/features/specs/services/specAssetRepository';
+import { startSpecIdeaInterview } from '@/features/specs/services/specAssetService';
 import { useEndpointStore } from '@/store/endpointStore';
 import { useSpecStore } from '../../src/store/specStore';
 
@@ -74,7 +74,8 @@ export default function IdeaDetailRoute() {
         if (idea?.interviewConversationId) openChat(idea.interviewConversationId);
       }}
       onOpenConvertedSpec={() => {
-        if (idea?.convertedSpecId) router.push(`/spec/${encodeURIComponent(idea.convertedSpecId)}` as `/${string}`);
+        if (idea?.convertedSpecId)
+          router.push(`/spec/${encodeURIComponent(idea.convertedSpecId)}` as `/${string}`);
       }}
       onArchive={() => {
         if (ideaId) void archiveIdea(ideaId);

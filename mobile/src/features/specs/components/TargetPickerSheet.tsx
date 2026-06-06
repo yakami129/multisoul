@@ -48,7 +48,9 @@ export function TargetPickerSheet({
     return `${agent.name} ${agent.project_path}`.toLowerCase().includes(needle);
   });
   const selectedEndpoint = endpoints.find((endpoint) => endpoint.id === endpointId);
-  const selectedAgent = agents.find((agent) => agent.id === agentId && agent.endpoint_id === endpointId);
+  const selectedAgent = agents.find(
+    (agent) => agent.id === agentId && agent.endpoint_id === endpointId,
+  );
   const canDone = Boolean(selectedEndpoint?.last_seen_at && selectedAgent);
 
   const finish = () => {
@@ -63,7 +65,12 @@ export function TargetPickerSheet({
   };
 
   return (
-    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
+    <Modal
+      visible={visible}
+      animationType="slide"
+      presentationStyle="pageSheet"
+      onRequestClose={onClose}
+    >
       <View style={s.root}>
         <View style={s.toolbar}>
           <TouchableOpacity accessibilityRole="button" onPress={onClose} style={s.toolbarButton}>
@@ -113,7 +120,9 @@ export function TargetPickerSheet({
                   <View style={s.rowBody}>
                     <Text style={s.rowTitle}>{endpoint.label}</Text>
                     <Text style={s.rowSubtitle}>
-                      {offline ? 'Offline. Reconnect before starting an interview.' : endpoint.base_url}
+                      {offline
+                        ? 'Offline. Reconnect before starting an interview.'
+                        : endpoint.base_url}
                     </Text>
                   </View>
                   {selected ? <Check size={17} color={brandColors.lime} /> : null}
@@ -232,5 +241,10 @@ const s = StyleSheet.create({
   rowSubtitle: { marginTop: 2, fontFamily: 'Inter', fontSize: 12, color: brandColors.textSoft },
   empty: { minHeight: 88, alignItems: 'center', justifyContent: 'center', padding: 14, gap: 4 },
   emptyTitle: { fontFamily: 'Inter', fontSize: 14, fontWeight: '800', color: brandColors.ink },
-  emptyBody: { fontFamily: 'Inter', fontSize: 12, color: brandColors.textSoft, textAlign: 'center' },
+  emptyBody: {
+    fontFamily: 'Inter',
+    fontSize: 12,
+    color: brandColors.textSoft,
+    textAlign: 'center',
+  },
 });

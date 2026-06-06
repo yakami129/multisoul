@@ -70,7 +70,9 @@ test('creates and updates ideas with asset payload fields', async () => {
     data: { idea: { id: 'idea-1', title: 'Saved', body: 'Body', created_at: 1, updated_at: 1 } },
   });
   mockPatch.mockResolvedValueOnce({
-    data: { idea: { id: 'idea-1', title: 'Archived', status: 'archived', created_at: 1, updated_at: 2 } },
+    data: {
+      idea: { id: 'idea-1', title: 'Archived', status: 'archived', created_at: 1, updated_at: 2 },
+    },
   });
 
   await createSpecIdea(endpoint, {
@@ -119,11 +121,7 @@ test('starts idea interview and spec implementation through the new endpoints', 
   const interview = await startSpecIdeaInterview(endpoint, 'idea/slash');
   const implementation = await startSpecImplementation(endpoint, 'spec/slash');
 
-  expect(mockPost).toHaveBeenNthCalledWith(
-    1,
-    '/api/v1/spec-ideas/idea%2Fslash/interview',
-    {},
-  );
+  expect(mockPost).toHaveBeenNthCalledWith(1, '/api/v1/spec-ideas/idea%2Fslash/interview', {});
   expect(mockPost).toHaveBeenNthCalledWith(2, '/api/v1/specs/spec%2Fslash/implement', {});
   expect(interview.conversationId).toBe('interview-conv');
   expect(implementation.conversationId).toBe('implementation-conv');
@@ -179,7 +177,11 @@ test('fetches specs and detail with latest version fallback', async () => {
   const specs = await fetchSpecArtifacts(endpoint);
   const detail = await fetchSpecArtifactDetail(endpoint, 'spec-1');
 
-  expect(specs[0]).toMatchObject({ id: 'spec-1', status: 'implementing', targetEndpointId: 'ep-1' });
+  expect(specs[0]).toMatchObject({
+    id: 'spec-1',
+    status: 'implementing',
+    targetEndpointId: 'ep-1',
+  });
   expect(mockGet).toHaveBeenNthCalledWith(2, '/api/v1/specs/spec-1');
   expect(detail.latestVersion).toMatchObject({
     id: 'ver-2',

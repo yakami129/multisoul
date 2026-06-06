@@ -280,9 +280,7 @@ export async function loadSpecs(): Promise<SpecArtifact[]> {
   return Promise.all(
     specs.map(async (spec) => ({
       ...spec,
-      latestVersion: spec.latestVersionId
-        ? await loadVersionById(spec.latestVersionId)
-        : undefined,
+      latestVersion: spec.latestVersionId ? await loadVersionById(spec.latestVersionId) : undefined,
     })),
   );
 }

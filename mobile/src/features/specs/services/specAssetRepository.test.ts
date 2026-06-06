@@ -41,26 +41,29 @@ test('saves ideas with serialized notes, attachments, and pending mutation state
     'offline',
   );
 
-  expect(mockRunAsync).toHaveBeenCalledWith(expect.stringContaining('INSERT OR REPLACE INTO spec_ideas'), [
-    'idea-1',
-    'Idea',
-    'open',
-    'agent-1',
-    'ep-1',
-    '/repo/multisoul',
-    'Codex Runner',
-    'Body',
-    JSON.stringify([{ id: 'note-1', body: 'Note', createdAt: 1, updatedAt: 2 }]),
-    JSON.stringify([{ id: 'att-1', kind: 'link', title: 'Issue', createdAt: 3 }]),
-    null,
-    null,
-    null,
-    'create',
-    'offline',
-    4,
-    5,
-    null,
-  ]);
+  expect(mockRunAsync).toHaveBeenCalledWith(
+    expect.stringContaining('INSERT OR REPLACE INTO spec_ideas'),
+    [
+      'idea-1',
+      'Idea',
+      'open',
+      'agent-1',
+      'ep-1',
+      '/repo/multisoul',
+      'Codex Runner',
+      'Body',
+      JSON.stringify([{ id: 'note-1', body: 'Note', createdAt: 1, updatedAt: 2 }]),
+      JSON.stringify([{ id: 'att-1', kind: 'link', title: 'Issue', createdAt: 3 }]),
+      null,
+      null,
+      null,
+      'create',
+      'offline',
+      4,
+      5,
+      null,
+    ],
+  );
 });
 
 test('loads cached ideas and pending endpoint mutations', async () => {
@@ -163,8 +166,14 @@ test('saves and loads spec artifact detail with latest version ordering', async 
     ],
   });
 
-  expect(mockRunAsync).toHaveBeenCalledWith(expect.stringContaining('INSERT OR REPLACE INTO spec_artifacts'), expect.any(Array));
-  expect(mockRunAsync).toHaveBeenCalledWith(expect.stringContaining('INSERT OR REPLACE INTO spec_artifact_versions'), expect.any(Array));
+  expect(mockRunAsync).toHaveBeenCalledWith(
+    expect.stringContaining('INSERT OR REPLACE INTO spec_artifacts'),
+    expect.any(Array),
+  );
+  expect(mockRunAsync).toHaveBeenCalledWith(
+    expect.stringContaining('INSERT OR REPLACE INTO spec_artifact_versions'),
+    expect.any(Array),
+  );
 
   mockGetAllAsync
     .mockResolvedValueOnce([
@@ -245,7 +254,8 @@ test('loads and replaces specs for one endpoint', async () => {
     expect.stringContaining('DELETE FROM spec_artifact_versions'),
     ['ep-1'],
   );
-  expect(mockRunAsync).toHaveBeenCalledWith('DELETE FROM spec_artifacts WHERE target_endpoint_id = ?', [
-    'ep-1',
-  ]);
+  expect(mockRunAsync).toHaveBeenCalledWith(
+    'DELETE FROM spec_artifacts WHERE target_endpoint_id = ?',
+    ['ep-1'],
+  );
 });

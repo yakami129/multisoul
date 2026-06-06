@@ -62,7 +62,9 @@ test('adds attachments from buttons and attachment presets', () => {
 
   const attachments = onSave.mock.calls[0][0].attachments;
   expect(attachments.map((item: { kind: string }) => item.kind)).toEqual(['link', 'log']);
-  expect(attachments.filter((item: { title?: string }) => item.title === 'New attachment')).toHaveLength(1);
+  expect(
+    attachments.filter((item: { title?: string }) => item.title === 'New attachment'),
+  ).toHaveLength(1);
 });
 
 test('asks before closing a dirty draft and supports save from the alert', () => {
@@ -70,12 +72,7 @@ test('asks before closing a dirty draft and supports save from the alert', () =>
   const onSave = jest.fn();
   const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
   const { getByLabelText, getByText } = render(
-    <IdeaEditorSheet
-      visible
-      onChooseTarget={() => {}}
-      onClose={onClose}
-      onSave={onSave}
-    />,
+    <IdeaEditorSheet visible onChooseTarget={() => {}} onClose={onClose} onSave={onSave} />,
   );
 
   fireEvent.changeText(getByLabelText('Idea title'), 'Draft title');

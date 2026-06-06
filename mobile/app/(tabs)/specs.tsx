@@ -47,7 +47,8 @@ export default function SpecsTab() {
       onCreateIdea={(value) => {
         const targetAgent = value.target
           ? agents.find(
-              (agent) => agent.id === value.target?.agentId && agent.endpoint_id === value.target.endpointId,
+              (agent) =>
+                agent.id === value.target?.agentId && agent.endpoint_id === value.target.endpointId,
             )
           : undefined;
         void createIdea({

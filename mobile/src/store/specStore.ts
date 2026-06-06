@@ -1,7 +1,6 @@
 import 'react-native-get-random-values';
 import { v4 as uuidv4 } from 'uuid';
 import { create } from 'zustand';
-import { dispatchSpecToAgent } from '@/features/specs/services/specDispatchService';
 import {
   loadIdeas,
   loadSpecs as loadSpecArtifacts,
@@ -9,6 +8,7 @@ import {
   replaceSpecsForEndpoint,
   saveIdea,
 } from '@/features/specs/services/specAssetRepository';
+import { dispatchSpecToAgent } from '@/features/specs/services/specDispatchService';
 import {
   getFirstOpenQuestionId,
   SPEC_INTERVIEW_QUESTIONS,
@@ -95,9 +95,8 @@ export const useSpecStore = create<SpecState>((set, get) => ({
   },
 
   refreshAssets: async (endpoints) => {
-    const { fetchSpecArtifacts, fetchSpecIdeas } = await import(
-      '@/features/specs/services/specAssetService'
-    );
+    const { fetchSpecArtifacts, fetchSpecIdeas } =
+      await import('@/features/specs/services/specAssetService');
     const [ideaResults, specResults] = await Promise.all([
       Promise.allSettled(endpoints.map(fetchSpecIdeas)),
       Promise.allSettled(endpoints.map(fetchSpecArtifacts)),

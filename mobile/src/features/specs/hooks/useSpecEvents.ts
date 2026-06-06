@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef } from 'react';
-import { type Endpoint } from '@/types';
 import { buildActivityEventsWsUrl } from '@/features/activity/services/activityEventService';
+import { type Endpoint } from '@/types';
 
 export const SPEC_EVENT_DEBOUNCE_MS = 250;
 

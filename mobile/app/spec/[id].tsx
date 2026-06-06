@@ -3,14 +3,14 @@ import React from 'react';
 import { buildChatDetailPath } from '@/features/chat/utils/chatRoutes';
 import { SpecDetailScreen } from '@/features/specs/components/SpecDetailScreen';
 import {
-  fetchSpecArtifactDetail,
-  startSpecImplementation,
-} from '@/features/specs/services/specAssetService';
-import {
   loadSpecDetail,
   saveSpecArtifact,
   saveSpecArtifactDetail,
 } from '@/features/specs/services/specAssetRepository';
+import {
+  fetchSpecArtifactDetail,
+  startSpecImplementation,
+} from '@/features/specs/services/specAssetService';
 import { type SpecArtifactDetail } from '@/features/specs/types';
 import { useEndpointStore } from '@/store/endpointStore';
 import { useSpecStore } from '../../src/store/specStore';
@@ -125,7 +125,8 @@ export default function SpecDetailRoute() {
       onOpenInterviewChat={() => openChat(spec?.interviewConversationId)}
       onOpenImplementationChat={() => openChat(spec?.latestImplementationConversationId)}
       onOpenSourceIdea={() => {
-        if (spec?.sourceIdeaId) router.push(`/idea/${encodeURIComponent(spec.sourceIdeaId)}` as `/${string}`);
+        if (spec?.sourceIdeaId)
+          router.push(`/idea/${encodeURIComponent(spec.sourceIdeaId)}` as `/${string}`);
       }}
       onReadFull={() => setShowFullMarkdown((value) => !value)}
     />

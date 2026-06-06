@@ -54,7 +54,9 @@ export function IdeaEditorSheet({
   React.useEffect(() => {
     if (!visible || !attachmentPreset) return;
     setAttachments((current) => {
-      if (current.some((item) => item.kind === attachmentPreset && item.title === 'New attachment')) {
+      if (
+        current.some((item) => item.kind === attachmentPreset && item.title === 'New attachment')
+      ) {
         return current;
       }
       return [
@@ -100,13 +102,19 @@ export function IdeaEditorSheet({
   };
 
   return (
-    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={handleClose}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={s.root}
-      >
+    <Modal
+      visible={visible}
+      animationType="slide"
+      presentationStyle="pageSheet"
+      onRequestClose={handleClose}
+    >
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={s.root}>
         <View style={s.toolbar}>
-          <TouchableOpacity accessibilityRole="button" onPress={handleClose} style={s.toolbarButton}>
+          <TouchableOpacity
+            accessibilityRole="button"
+            onPress={handleClose}
+            style={s.toolbarButton}
+          >
             <X size={18} color={brandColors.ink} />
             <Text style={s.toolbarText}>Cancel</Text>
           </TouchableOpacity>
@@ -142,9 +150,21 @@ export function IdeaEditorSheet({
 
           <View style={s.group}>
             <Text style={s.sectionTitle}>Attachments</Text>
-            <AttachmentButton icon={<Link size={16} color={brandColors.ink} />} label="Add Link" onPress={() => addAttachment('link')} />
-            <AttachmentButton icon={<MessageSquare size={16} color={brandColors.ink} />} label="Add Log Snippet" onPress={() => addAttachment('log')} />
-            <AttachmentButton icon={<Image size={16} color={brandColors.ink} />} label="Add Screenshot" onPress={() => addAttachment('image')} />
+            <AttachmentButton
+              icon={<Link size={16} color={brandColors.ink} />}
+              label="Add Link"
+              onPress={() => addAttachment('link')}
+            />
+            <AttachmentButton
+              icon={<MessageSquare size={16} color={brandColors.ink} />}
+              label="Add Log Snippet"
+              onPress={() => addAttachment('log')}
+            />
+            <AttachmentButton
+              icon={<Image size={16} color={brandColors.ink} />}
+              label="Add Screenshot"
+              onPress={() => addAttachment('image')}
+            />
             {attachments.map((attachment) => (
               <View key={attachment.id} style={s.attachmentRow}>
                 <Text style={s.attachmentTitle}>{attachment.title ?? attachment.kind}</Text>
@@ -155,7 +175,11 @@ export function IdeaEditorSheet({
 
           <View style={s.group}>
             <Text style={s.sectionTitle}>Target</Text>
-            <TouchableOpacity accessibilityRole="button" onPress={onChooseTarget} style={s.targetRow}>
+            <TouchableOpacity
+              accessibilityRole="button"
+              onPress={onChooseTarget}
+              style={s.targetRow}
+            >
               <View style={s.targetBody}>
                 <Text style={s.targetTitle}>Project & Agent</Text>
                 <Text style={s.targetSubtitle} numberOfLines={1}>
@@ -247,7 +271,12 @@ const s = StyleSheet.create({
     backgroundColor: brandRgba.ink08,
     paddingHorizontal: 12,
   },
-  attachmentButtonText: { fontFamily: 'Inter', fontSize: 13, fontWeight: '700', color: brandColors.ink },
+  attachmentButtonText: {
+    fontFamily: 'Inter',
+    fontSize: 13,
+    fontWeight: '700',
+    color: brandColors.ink,
+  },
   attachmentRow: {
     minHeight: 44,
     borderTopWidth: 1,

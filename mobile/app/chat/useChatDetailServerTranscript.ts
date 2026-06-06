@@ -221,7 +221,6 @@ export function useChatDetailServerTranscript({
         conversation_id: conv_id,
         addItem: addInboxItem,
       });
-
     }
 
     return () => {
