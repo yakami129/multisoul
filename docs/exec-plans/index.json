@@ -4,7 +4,8 @@
   "documents": [
     {
       "file": "2026-06-06-ideas-to-specs-refactor.md",
-      "title": "Ideas to Specs Refactor Implementation Plan"
+      "title": "Ideas to Specs Refactor Implementation Plan",
+      "lastCompletedCommit": "87edf1a52bc93fd0784eaa7f0c34f058450e68f7"
     },
     {
       "file": "2026-06-05-chat-server-turn-transcript.md",
