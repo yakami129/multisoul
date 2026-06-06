@@ -121,6 +121,7 @@ export default function ChatDetailScreen() {
     handleViewableItemsChanged,
     handleContentSizeChange,
     handleScrollToIndexFailed,
+    forceScrollToEnd,
   } = useChatDetailTranscriptScroll({
     conv_id,
     listRef,
@@ -187,6 +188,7 @@ export default function ChatDetailScreen() {
     const hasUploadedImages = pendingImages.some((img) => img.status === 'uploaded' && img.fileId);
     if ((!text && !hasUploadedImages) || !endpoint) return;
     setInput('');
+    forceScrollToEnd();
     void handleSend(text);
   };
 

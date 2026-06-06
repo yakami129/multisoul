@@ -11,6 +11,7 @@ interface ChatState {
   messages: Record<string, WsMessage[]>;
   setConversations: (convs: Conversation[]) => void;
   addConversation: (conv: Conversation) => void;
+  mergeConversations: (convs: Conversation[]) => void;
   updateConversation: (id: string, patch: Partial<Conversation>) => void;
   removeConversation: (id: string) => void;
   restoreConversation: (conv: Conversation, index: number) => void;
@@ -62,6 +63,14 @@ export const useChatStore = create<ChatState>((set) => ({
     set((s) => {
       if (s.conversations.some((c) => c.id === conv.id)) return s;
       return { conversations: [conv, ...s.conversations] };
+    }),
+  mergeConversations: (convs) =>
+    set((s) => {
+      const freshById = new Map(convs.map((c) => [c.id, c]));
+      const updated = s.conversations.map((c) => freshById.get(c.id) ?? c);
+      const existingIds = new Set(s.conversations.map((c) => c.id));
+      const brandNew = convs.filter((c) => !existingIds.has(c.id));
+      return { conversations: [...brandNew, ...updated] };
     }),
   updateConversation: (id, patch) =>
     set((s) => ({

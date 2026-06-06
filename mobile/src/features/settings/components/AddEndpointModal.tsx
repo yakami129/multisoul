@@ -45,6 +45,11 @@ const SETUP_COMMANDS: SetupCommand[] = [
     command: 'cd /path/to/project\nmsctl agent cursor-cli',
   },
 ];
+const LOCAL_TEST_ENDPOINT = {
+  label: '127.0.0.1',
+  url: 'http://127.0.0.1:8765',
+  token: 'test',
+};
 
 export function AddEndpointModal({ visible, onClose, onAdd }: Props) {
   const [status, setStatus] = useState<ScanStatus>('idle');
@@ -226,6 +231,25 @@ export function AddEndpointModal({ visible, onClose, onAdd }: Props) {
         <Text style={s.commandHintText} numberOfLines={2}>
           Need commands? Tap the help icon next to SCAN QR.
         </Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        accessibilityRole="button"
+        accessibilityLabel="Add local test endpoint"
+        disabled={status === 'checking'}
+        style={[s.localTestButton, status === 'checking' && s.localTestButtonDisabled]}
+        onPress={() => {
+          void handleAdd(LOCAL_TEST_ENDPOINT.url, LOCAL_TEST_ENDPOINT.token);
+        }}
+      >
+        <Terminal size={16} color={brandColors.ink} />
+        <View style={s.localTestCopy}>
+          <Text style={s.localTestTitle} numberOfLines={1}>
+            Add local test endpoint
+          </Text>
+          <Text style={s.localTestUrl} numberOfLines={1}>
+            {LOCAL_TEST_ENDPOINT.url}
+          </Text>
+        </View>
       </TouchableOpacity>
     </>
   );

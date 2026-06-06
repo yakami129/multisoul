@@ -21,9 +21,22 @@ jest.mock('../../src/features/agents/services/agentService', () => ({
   fetchAllAgents: jest.fn(),
 }));
 
+jest.mock('../../src/features/chat/services/chatService', () => ({
+  fetchConversations: jest.fn().mockResolvedValue([]),
+}));
+
 jest.mock('expo-router', () => ({
   useRouter: () => ({ push: jest.fn() }),
   Link: ({ children }: any) => children,
+  useFocusEffect: (cb: () => (() => void) | void) => {
+    const { useEffect } = require('react');
+    useEffect(() => {
+      const cleanup = cb();
+      return () => {
+        if (typeof cleanup === 'function') cleanup();
+      };
+    }, [cb]);
+  },
 }));
 
 jest.mock('react-native-safe-area-context', () => ({
@@ -108,6 +121,9 @@ describe('AgentListScreen', () => {
       useEndpointStore.setState({ endpoints: [] });
     });
     fetchAllAgents.mockReset();
+    const { fetchConversations } = require('../../src/features/chat/services/chatService');
+    fetchConversations.mockReset();
+    fetchConversations.mockResolvedValue([]);
   });
 
   it('renders project list with runtime badges', async () => {
@@ -171,5 +187,41 @@ describe('AgentListScreen', () => {
     expect(screen.getByText('Connect a machine')).toBeTruthy();
     expect(screen.getByText('TAP TO ALLOW CAMERA')).toBeTruthy();
     expect(screen.queryByText('ADD ENDPOINT')).toBeNull();
+  });
+
+  /// Agents tab focus refresh: fetchConversations is called for each agent on tab focus
+  ///
+  /// Data:
+  ///   3 agents on ep-1
+  ///   fetchAllAgents resolves with mockAgents
+  ///   fetchConversations resolves with []
+  ///
+  /// Execution:
+  ///   1. Render AgentListScreen (focus triggers useFocusEffect, but data=undefined initially)
+  ///   2. Wait for agents to load (fetchAllAgents resolves → data set → useFocusEffect re-runs)
+  ///   3. Assert fetchConversations called for each agent
+  ///
+  /// Expected:
+  ///   - Positive: fetchConversations called once per agent (3 times total)
+  ///   - Positive: each call passes the correct agent_id
+  ///
+  /// Regression: before fix, Agents tab had no useFocusEffect so conversations were never refreshed
+  it('fetches conversations for all agents on tab focus', async () => {
+    const { fetchConversations } = require('../../src/features/chat/services/chatService');
+
+    render(<AgentListScreen />, { wrapper });
+
+    await waitFor(() => {
+      expect(screen.getByText('Weather Agent')).toBeTruthy();
+    });
+
+    await waitFor(() => {
+      expect(fetchConversations).toHaveBeenCalledTimes(mockAgents.length);
+    });
+
+    const calledAgentIds = fetchConversations.mock.calls.map((call: unknown[]) => call[2]);
+    expect(calledAgentIds).toContain('uuid-1');
+    expect(calledAgentIds).toContain('uuid-2');
+    expect(calledAgentIds).toContain('uuid-3');
   });
 });

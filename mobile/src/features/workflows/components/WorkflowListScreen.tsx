@@ -30,6 +30,7 @@ interface Props {
   onCreateWorkflow: () => void;
   onToggleEnabled: (workflowId: string, enabled: boolean, endpointId: string) => void;
   onOpenWorkflow: (workflow: Workflow) => void;
+  onEditWorkflow?: (workflow: Workflow) => void;
   onDeleteWorkflow?: (workflow: Workflow) => void;
 }
 
@@ -39,6 +40,7 @@ export function WorkflowListScreen({
   onCreateWorkflow,
   onToggleEnabled,
   onOpenWorkflow,
+  onEditWorkflow,
   onDeleteWorkflow,
 }: Props) {
   const insets = useSafeAreaInsets();
@@ -86,16 +88,30 @@ export function WorkflowListScreen({
               }}
               overshootRight={false}
               renderRightActions={() => (
-                <TouchableOpacity
-                  style={ds.deleteAction}
-                  onPress={() => {
-                    swipeableRefs.current.get(workflowKey(item))?.close();
-                    onDeleteWorkflow?.(item);
-                  }}
-                  accessibilityLabel={`Delete ${item.name}`}
-                >
-                  <Text style={ds.deleteText}>DELETE</Text>
-                </TouchableOpacity>
+                <View style={ds.actions}>
+                  {onEditWorkflow ? (
+                    <TouchableOpacity
+                      style={ds.editAction}
+                      onPress={() => {
+                        swipeableRefs.current.get(workflowKey(item))?.close();
+                        onEditWorkflow(item);
+                      }}
+                      accessibilityLabel={`Edit ${item.name}`}
+                    >
+                      <Text style={ds.editText}>EDIT</Text>
+                    </TouchableOpacity>
+                  ) : null}
+                  <TouchableOpacity
+                    style={ds.deleteAction}
+                    onPress={() => {
+                      swipeableRefs.current.get(workflowKey(item))?.close();
+                      onDeleteWorkflow?.(item);
+                    }}
+                    accessibilityLabel={`Delete ${item.name}`}
+                  >
+                    <Text style={ds.deleteText}>DELETE</Text>
+                  </TouchableOpacity>
+                </View>
               )}
             >
               <TouchableOpacity
@@ -129,6 +145,18 @@ export function WorkflowListScreen({
 }
 
 const ds = StyleSheet.create({
+  actions: {
+    flexDirection: 'row',
+    marginBottom: 8,
+  },
+  editAction: {
+    width: 66,
+    backgroundColor: brandRgba.white88,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderLeftWidth: 1,
+    borderLeftColor: brandColors.coral,
+  },
   deleteAction: {
     width: 74,
     backgroundColor: brandColors.white,
@@ -136,7 +164,7 @@ const ds = StyleSheet.create({
     justifyContent: 'center',
     borderLeftWidth: 1,
     borderLeftColor: brandColors.error,
-    marginBottom: 8,
   },
+  editText: { fontFamily: 'Inter', fontSize: 12, fontWeight: '600', color: brandColors.coral },
   deleteText: { fontFamily: 'Inter', fontSize: 12, fontWeight: '600', color: brandColors.error },
 });

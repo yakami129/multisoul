@@ -26,7 +26,7 @@ export type SpecStatus = SpecAssetStatus | LegacySpecStatus;
 
 export type SpecIdeaAttachmentKind = 'link' | 'log' | 'image';
 
-export type SpecIdeaPendingMutation = 'create' | 'update' | 'archive';
+export type SpecIdeaPendingMutation = 'create' | 'update' | 'archive' | 'delete';
 
 export interface SpecIdeaNote {
   id: string;

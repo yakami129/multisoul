@@ -18,6 +18,7 @@ interface Props {
   endpoints: Endpoint[];
   agents: Agent[];
   selectedTarget?: SpecTarget;
+  presentation?: 'modal' | 'inline';
   onClose: () => void;
   onDone: (target: SpecTarget) => void;
 }
@@ -27,19 +28,20 @@ export function TargetPickerSheet({
   endpoints,
   agents,
   selectedTarget,
+  presentation = 'modal',
   onClose,
   onDone,
 }: Props) {
   const [query, setQuery] = React.useState('');
-  const [endpointId, setEndpointId] = React.useState(selectedTarget?.endpointId ?? '');
+  const [endpointId, setEndpointId] = React.useState('');
   const [agentId, setAgentId] = React.useState(selectedTarget?.agentId ?? '');
 
   React.useEffect(() => {
     if (!visible) return;
-    setEndpointId(selectedTarget?.endpointId ?? endpoints[0]?.id ?? '');
+    setEndpointId(selectedTarget?.endpointId ?? '');
     setAgentId(selectedTarget?.agentId ?? '');
     setQuery('');
-  }, [endpoints, selectedTarget, visible]);
+  }, [selectedTarget, visible]);
 
   const filteredAgents = agents.filter((agent) => {
     if (endpointId && agent.endpoint_id !== endpointId) return false;
@@ -51,7 +53,8 @@ export function TargetPickerSheet({
   const selectedAgent = agents.find(
     (agent) => agent.id === agentId && agent.endpoint_id === endpointId,
   );
-  const canDone = Boolean(selectedEndpoint?.last_seen_at && selectedAgent);
+  const canDone = Boolean(selectedEndpoint && selectedAgent);
+  const agentEndpointIds = new Set(agents.map((agent) => agent.endpoint_id));
 
   const finish = () => {
     if (!selectedEndpoint || !selectedAgent || !canDone) return;
@@ -64,6 +67,110 @@ export function TargetPickerSheet({
     });
   };
 
+  const content = (
+    <View style={s.root}>
+      <View style={s.toolbar}>
+        <TouchableOpacity accessibilityRole="button" onPress={onClose} style={s.toolbarButton}>
+          <X size={18} color={brandColors.ink} />
+          <Text style={s.toolbarText}>Cancel</Text>
+        </TouchableOpacity>
+        <Text style={s.toolbarTitle}>Choose Target</Text>
+        <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityState={{ disabled: !canDone }}
+          disabled={!canDone}
+          onPress={finish}
+          style={[s.doneButton, !canDone && s.doneDisabled]}
+        >
+          <Text style={s.doneText}>Done</Text>
+        </TouchableOpacity>
+      </View>
+
+      <ScrollView contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
+        <TextInput
+          accessibilityLabel="Search agents"
+          value={query}
+          onChangeText={setQuery}
+          placeholder="Search agents or repos"
+          placeholderTextColor={brandColors.textMuted}
+          style={s.search}
+        />
+
+        <View style={s.group}>
+          <Text style={s.sectionTitle}>Endpoints</Text>
+          {endpoints.map((endpoint) => {
+            const offline = !endpoint.last_seen_at && !agentEndpointIds.has(endpoint.id);
+            const selected = endpoint.id === endpointId;
+            return (
+              <TouchableOpacity
+                key={endpoint.id}
+                accessibilityRole="button"
+                accessibilityState={{ selected, disabled: offline }}
+                disabled={offline}
+                onPress={() => {
+                  setEndpointId(endpoint.id);
+                  setAgentId('');
+                }}
+                style={[s.row, offline && s.disabledRow]}
+              >
+                <Server size={17} color={offline ? brandColors.textMuted : brandColors.ink} />
+                <View style={s.rowBody}>
+                  <Text style={s.rowTitle}>{endpoint.label}</Text>
+                  <Text style={s.rowSubtitle}>
+                    {offline
+                      ? 'Offline. Reconnect before starting an interview.'
+                      : endpoint.base_url}
+                  </Text>
+                </View>
+                {selected ? <Check size={17} color={brandColors.lime} /> : null}
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
+        <View style={s.group}>
+          <Text style={s.sectionTitle}>Agents</Text>
+          {filteredAgents.length > 0 ? (
+            filteredAgents.map((agent) => {
+              const selected = agent.id === agentId;
+              return (
+                <TouchableOpacity
+                  key={`${agent.endpoint_id}:${agent.id}`}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected }}
+                  onPress={() => {
+                    setEndpointId(agent.endpoint_id);
+                    setAgentId(agent.id);
+                  }}
+                  style={s.row}
+                >
+                  <Bot size={17} color={brandColors.ink} />
+                  <View style={s.rowBody}>
+                    <Text style={s.rowTitle}>{agent.name}</Text>
+                    <Text style={s.rowSubtitle} numberOfLines={1}>
+                      {agent.project_path}
+                    </Text>
+                  </View>
+                  {selected ? <Check size={17} color={brandColors.lime} /> : null}
+                </TouchableOpacity>
+              );
+            })
+          ) : (
+            <View style={s.empty}>
+              <Text style={s.emptyTitle}>No agents for this target</Text>
+              <Text style={s.emptyBody}>Open Agents to register a runner for this repo.</Text>
+            </View>
+          )}
+        </View>
+      </ScrollView>
+    </View>
+  );
+
+  if (presentation === 'inline') {
+    if (!visible) return null;
+    return <View style={s.inlineOverlay}>{content}</View>;
+  }
+
   return (
     <Modal
       visible={visible}
@@ -71,104 +178,18 @@ export function TargetPickerSheet({
       presentationStyle="pageSheet"
       onRequestClose={onClose}
     >
-      <View style={s.root}>
-        <View style={s.toolbar}>
-          <TouchableOpacity accessibilityRole="button" onPress={onClose} style={s.toolbarButton}>
-            <X size={18} color={brandColors.ink} />
-            <Text style={s.toolbarText}>Cancel</Text>
-          </TouchableOpacity>
-          <Text style={s.toolbarTitle}>Choose Target</Text>
-          <TouchableOpacity
-            accessibilityRole="button"
-            accessibilityState={{ disabled: !canDone }}
-            disabled={!canDone}
-            onPress={finish}
-            style={[s.doneButton, !canDone && s.doneDisabled]}
-          >
-            <Text style={s.doneText}>Done</Text>
-          </TouchableOpacity>
-        </View>
-
-        <ScrollView contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
-          <TextInput
-            accessibilityLabel="Search agents"
-            value={query}
-            onChangeText={setQuery}
-            placeholder="Search agents or repos"
-            placeholderTextColor={brandColors.textMuted}
-            style={s.search}
-          />
-
-          <View style={s.group}>
-            <Text style={s.sectionTitle}>Endpoints</Text>
-            {endpoints.map((endpoint) => {
-              const offline = !endpoint.last_seen_at;
-              const selected = endpoint.id === endpointId;
-              return (
-                <TouchableOpacity
-                  key={endpoint.id}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected, disabled: offline }}
-                  disabled={offline}
-                  onPress={() => {
-                    setEndpointId(endpoint.id);
-                    setAgentId('');
-                  }}
-                  style={[s.row, offline && s.disabledRow]}
-                >
-                  <Server size={17} color={offline ? brandColors.textMuted : brandColors.ink} />
-                  <View style={s.rowBody}>
-                    <Text style={s.rowTitle}>{endpoint.label}</Text>
-                    <Text style={s.rowSubtitle}>
-                      {offline
-                        ? 'Offline. Reconnect before starting an interview.'
-                        : endpoint.base_url}
-                    </Text>
-                  </View>
-                  {selected ? <Check size={17} color={brandColors.lime} /> : null}
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-
-          <View style={s.group}>
-            <Text style={s.sectionTitle}>Agents</Text>
-            {filteredAgents.length > 0 ? (
-              filteredAgents.map((agent) => {
-                const selected = agent.id === agentId;
-                return (
-                  <TouchableOpacity
-                    key={`${agent.endpoint_id}:${agent.id}`}
-                    accessibilityRole="button"
-                    accessibilityState={{ selected }}
-                    onPress={() => setAgentId(agent.id)}
-                    style={s.row}
-                  >
-                    <Bot size={17} color={brandColors.ink} />
-                    <View style={s.rowBody}>
-                      <Text style={s.rowTitle}>{agent.name}</Text>
-                      <Text style={s.rowSubtitle} numberOfLines={1}>
-                        {agent.project_path}
-                      </Text>
-                    </View>
-                    {selected ? <Check size={17} color={brandColors.lime} /> : null}
-                  </TouchableOpacity>
-                );
-              })
-            ) : (
-              <View style={s.empty}>
-                <Text style={s.emptyTitle}>No agents for this target</Text>
-                <Text style={s.emptyBody}>Open Agents to register a runner for this repo.</Text>
-              </View>
-            )}
-          </View>
-        </ScrollView>
-      </View>
+      {content}
     </Modal>
   );
 }
 
 const s = StyleSheet.create({
+  inlineOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 10,
+    elevation: 10,
+    backgroundColor: brandColors.cream,
+  },
   root: { flex: 1, backgroundColor: brandColors.cream },
   toolbar: {
     minHeight: 58,

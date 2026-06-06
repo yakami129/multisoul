@@ -1,5 +1,13 @@
 # Cloudflare Tunnel 自动隧道 Implementation Plan
 
+> **⚠️ SUPERSEDED WIRE CONTRACT (历史记录，勿照抄):** 本计划内嵌的 Worker 源码与 CLI `report_tunnel`
+> 片段使用了 **`POST /tunnel` + `{ user_token, tunnel_url }`（token 放 body）** 的写入形状。该形状与实际
+> 部署的 Worker 不一致，导致 `msctl serve --relay` 注册时返回 `404 {"status":"not_found"}`。
+> **权威契约是 token 放 path**：`POST /tunnel/<token>`，body `{ status: "active", tunnel_url }`；
+> 删除 `DELETE /tunnel/<token>`；读取 `GET /tunnel/<token>`。以
+> [`docs/design-docs/2026-05-29-cloudflare-tunnel-relay-design.md`](../design-docs/2026-05-29-cloudflare-tunnel-relay-design.md) §3.3
+> 与当前 `cli/src/serve/relay.rs` 为准。
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** 实现 `msctl serve --relay` 自动建立 Cloudflare Tunnel，通过 Workers KV 分发隧道地址，mobile 端自动获取并连接，全链路无付费门禁。
@@ -47,9 +55,12 @@ mobile/src/
 ### 背景
 
 Workers KV 服务是中间层：msctl 上报隧道 URL，mobile 轮询获取。接口设计：
-- `POST /tunnel` — msctl 上报（body: `{ user_token, tunnel_url }`）
+- `POST /tunnel/:token` — msctl 上报（body: `{ status: "active", tunnel_url }`）
 - `GET /tunnel/:token` — mobile 获取
 - `DELETE /tunnel/:token` — msctl 退出时清理
+
+> ⚠️ 下方 Step 4 内嵌的 Worker 源码与 Task 3 的 `report_tunnel` 片段仍是历史的 `POST /tunnel`
+> (token in body) 形状，保留作记录。实际权威契约见本文件顶部 banner 与 design-doc §3.3。
 
 - [ ] **Step 1: 初始化 Worker 项目**
 

@@ -44,7 +44,6 @@ function stepForGap(gap: number) {
   const frames = 72;
   return Math.min(gap, Math.min(TYPEWRITER_MAX_STEP, Math.max(1, Math.ceil(gap / frames))));
 }
-
 function bulkAdvanceEndUnits(units: string[], from: number) {
   const end = units.length;
   for (let i = from; i < end; i++) {
@@ -70,7 +69,6 @@ function bulkAdvanceEndUnits(units: string[], from: number) {
   for (let i = edge; i > from + slab * 0.42; i--) if (units[i - 1] === ' ') return i;
   return edge;
 }
-
 function nextTypewriterCount(units: string[], current: number) {
   const targetLen = units.length;
   const gap = targetLen - current;

@@ -1,8 +1,9 @@
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React from 'react';
+import React, { useState } from 'react';
 import {
   ActivityIndicator,
+  Modal,
   ScrollView,
   StyleSheet,
   Text,
@@ -10,9 +11,15 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { fetchAllAgents } from '@/features/agents/services/agentService';
 import { buildChatDetailPath } from '@/features/chat/utils/chatRoutes';
-import { fetchWorkflows, fetchWorkflowRuns } from '@/features/workflows/services/workflowService';
-import { type Workflow, type WorkflowRun } from '@/features/workflows/types';
+import { WorkflowFormScreen } from '@/features/workflows/components/WorkflowFormScreen';
+import {
+  fetchWorkflows,
+  fetchWorkflowRuns,
+  updateWorkflow,
+} from '@/features/workflows/services/workflowService';
+import { type Workflow, type WorkflowInput, type WorkflowRun } from '@/features/workflows/types';
 import { useEndpointStore } from '@/store/endpointStore';
 import { brandColors, brandRgba } from '@/theme/brandRefresh';
 
@@ -59,7 +66,9 @@ function formatRunTime(ts: number): string {
 
 export default function WorkflowDetailRoute() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
+  const [showEdit, setShowEdit] = useState(false);
   const params = useLocalSearchParams();
   const idParam = params.id;
   const workflowId = Array.isArray(idParam)
@@ -93,6 +102,31 @@ export default function WorkflowDetailRoute() {
     refetchInterval: 15_000,
   });
 
+  const { data: agents = [] } = useQuery({
+    queryKey: ['agents', endpoints.map((e) => e.id), 'workflow-detail'],
+    queryFn: () => fetchAllAgents(endpoints),
+    refetchInterval: 30_000,
+    enabled: endpoints.length > 0,
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async (input: WorkflowInput) => {
+      if (!workflow) throw new Error('Workflow not found');
+      const ep = endpoints.find((e) => e.id === workflow.endpoint_id);
+      if (!ep) throw new Error('Endpoint not found');
+      await updateWorkflow(ep, workflow.id, input);
+    },
+    onSuccess: () => {
+      setShowEdit(false);
+      void queryClient.invalidateQueries({ queryKey: ['workflows'] });
+      void queryClient.invalidateQueries({ queryKey: ['workflow'] });
+    },
+  });
+
+  const editAgents = workflow
+    ? agents.filter((agent) => agent.endpoint_id === workflow.endpoint_id)
+    : [];
+
   const scheduleLabel =
     workflow?.schedule_kind === 'weekly'
       ? `Weekly at ${workflow.time_of_day}`
@@ -116,7 +150,18 @@ export default function WorkflowDetailRoute() {
           <Text style={s.backChevron}>‹</Text>
         </TouchableOpacity>
         <Text style={s.headerTitle}>Workflow Detail</Text>
-        <View style={s.headerSide} />
+        {workflow ? (
+          <TouchableOpacity
+            onPress={() => setShowEdit(true)}
+            accessibilityRole="button"
+            accessibilityLabel="Edit Workflow"
+            style={s.headerSide}
+          >
+            <Text style={s.headerEditText}>Edit</Text>
+          </TouchableOpacity>
+        ) : (
+          <View style={s.headerSide} />
+        )}
       </View>
 
       {isLoading ? (
@@ -230,6 +275,25 @@ export default function WorkflowDetailRoute() {
           )}
         </ScrollView>
       )}
+      <Modal
+        visible={showEdit && !!workflow}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowEdit(false)}
+      >
+        <View style={{ flex: 1, backgroundColor: brandColors.cream }}>
+          {showEdit && workflow ? (
+            <WorkflowFormScreen
+              key={`edit-${workflow.endpoint_id}-${workflow.id}-${workflow.updated_at}`}
+              agents={editAgents}
+              initialValues={workflow}
+              title="Edit Workflow"
+              onSave={(input) => updateMutation.mutate(input)}
+              onCancel={() => setShowEdit(false)}
+            />
+          ) : null}
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -244,6 +308,13 @@ const s = StyleSheet.create({
   },
   headerSide: { width: 48 },
   backChevron: { fontFamily: 'Inter', fontSize: 20, color: brandColors.ink },
+  headerEditText: {
+    fontFamily: 'Inter',
+    fontSize: 13,
+    fontWeight: '600',
+    color: brandColors.coral,
+    textAlign: 'right',
+  },
   headerTitle: {
     flex: 1,
     fontFamily: 'Inter',

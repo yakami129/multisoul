@@ -5,6 +5,7 @@ import {
   FileText,
   Link,
   MessageSquare,
+  Pencil,
   Play,
   RotateCcw,
 } from 'lucide-react-native';
@@ -21,6 +22,7 @@ interface Props {
   isStartingInterview?: boolean;
   errorMessage?: string;
   onBack: () => void;
+  onEdit?: () => void;
   onStartInterview?: () => void;
   onOpenInterviewChat?: () => void;
   onOpenConvertedSpec?: () => void;
@@ -46,6 +48,7 @@ export function IdeaDetailScreen({
   isStartingInterview = false,
   errorMessage,
   onBack,
+  onEdit,
   onStartInterview,
   onOpenInterviewChat,
   onOpenConvertedSpec,
@@ -57,7 +60,7 @@ export function IdeaDetailScreen({
   if (!idea) {
     return (
       <View style={[s.root, { paddingTop: insets.top }]}>
-        <Header onBack={onBack} />
+        <Header onBack={onBack} onEdit={undefined} />
         <View style={s.centered}>
           <Text style={s.emptyTitle}>Idea not found</Text>
         </View>
@@ -75,7 +78,7 @@ export function IdeaDetailScreen({
 
   return (
     <View style={[s.root, { paddingTop: insets.top }]}>
-      <Header onBack={onBack} />
+      <Header onBack={onBack} onEdit={onEdit} />
       <ScrollView contentContainerStyle={[s.content, { paddingBottom: insets.bottom + 96 }]}>
         <PinnedIdeaSummary idea={idea} />
 
@@ -185,7 +188,7 @@ export function IdeaDetailScreen({
   );
 }
 
-function Header({ onBack }: { onBack: () => void }) {
+function Header({ onBack, onEdit }: { onBack: () => void; onEdit?: () => void }) {
   return (
     <View style={s.header}>
       <TouchableOpacity accessibilityRole="button" onPress={onBack} style={s.backButton}>
@@ -193,7 +196,18 @@ function Header({ onBack }: { onBack: () => void }) {
         <Text style={s.backText}>Ideas</Text>
       </TouchableOpacity>
       <Text style={s.headerTitle}>Idea</Text>
-      <View style={s.headerSpacer} />
+      {onEdit ? (
+        <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityLabel="Edit idea"
+          onPress={onEdit}
+          style={s.editButton}
+        >
+          <Pencil size={18} color={brandColors.ink} />
+        </TouchableOpacity>
+      ) : (
+        <View style={s.headerSpacer} />
+      )}
     </View>
   );
 }
@@ -273,6 +287,7 @@ const s = StyleSheet.create({
     color: brandColors.ink,
   },
   headerSpacer: { width: 72 },
+  editButton: { minWidth: 44, minHeight: 44, alignItems: 'flex-end', justifyContent: 'center' },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   emptyTitle: {
     fontFamily: brandTypography.display,

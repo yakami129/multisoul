@@ -210,6 +210,11 @@ export async function updateSpecIdea(
   return normalizeSpecIdea(field(rawObject(res.data), 'idea') ?? res.data, endpoint.id);
 }
 
+export async function deleteSpecIdea(endpoint: Endpoint, id: string): Promise<void> {
+  const client = getEndpointClient(endpoint.base_url, endpoint.token);
+  await client.delete(`/api/v1/spec-ideas/${encodeURIComponent(id)}`);
+}
+
 export async function startSpecIdeaInterview(
   endpoint: Endpoint,
   id: string,
@@ -222,6 +227,34 @@ export async function startSpecIdeaInterview(
     idea: rawIdea ? normalizeSpecIdea(rawIdea, endpoint.id) : undefined,
     conversationId: asString(field(raw, 'conversation_id', 'conversationId')),
   };
+}
+
+export async function syncSpecIdeaBeforeServerAction(
+  endpoint: Endpoint,
+  idea: SpecIdea,
+): Promise<SpecIdea> {
+  if (!idea.pendingMutation) return idea;
+  const input: UpdateSpecIdeaInput & { id: string; body: string } = {
+    id: idea.id,
+    title: idea.title,
+    body: idea.body,
+    status: idea.status,
+    targetAgentId: idea.targetAgentId,
+    targetEndpointId: idea.targetEndpointId,
+    targetRepoPath: idea.targetRepoPath,
+    targetAgentName: idea.targetAgentName,
+    notes: idea.notes,
+    attachments: idea.attachments,
+    interviewConversationId: idea.interviewConversationId,
+    convertedSpecId: idea.convertedSpecId,
+    errorMessage: idea.errorMessage,
+    archivedAt: idea.archivedAt ?? null,
+  };
+
+  if (idea.pendingMutation === 'create') {
+    return createSpecIdea(endpoint, input);
+  }
+  return updateSpecIdea(endpoint, idea.id, input);
 }
 
 export async function fetchSpecArtifacts(endpoint: Endpoint): Promise<SpecArtifact[]> {

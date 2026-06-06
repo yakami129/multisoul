@@ -150,6 +150,67 @@ test('save normalizes time before submitting workflow input', () => {
   }).not.toEqual({ actual: '9:5', reason: expect.any(String) });
 });
 
+/// 场景：编辑 workflow 时，表单应带入现有配置，保存后走同一份 normalized payload。
+///
+/// 数据构造：
+///   initialValues = weekly workflow，agent-2，time = 17:30，weekday = Friday。
+///
+/// 执行过程：
+///   1. 渲染 WorkflowFormScreen，传入 initialValues 和 title。
+///   2. 检查标题、名称、prompt、时间和 weekly 字段已显示。
+///   3. 点击 Save。
+///
+/// 预期结果：
+///   - 正断言：表单显示 Edit Workflow。
+///   - 正断言：保存 payload 保留 workflow 的 agent、schedule 和 prompt。
+///   - 负断言：编辑不会退回默认 daily 09:00。
+test('edit mode pre-fills workflow values before saving', () => {
+  const onSave = jest.fn();
+  const { getByDisplayValue, getByText } = render(
+    <WorkflowFormScreen
+      agents={agents}
+      title="Edit Workflow"
+      initialValues={{
+        name: 'Friday Review',
+        agent_id: 'agent-2',
+        prompt: 'Review release risk',
+        schedule_kind: 'weekly',
+        time_of_day: '17:30',
+        day_of_week: 5,
+      }}
+      onSave={onSave}
+      onCancel={() => {}}
+    />,
+  );
+
+  expect(getByText('Edit Workflow')).toBeTruthy();
+  expect(getByDisplayValue('Friday Review')).toBeTruthy();
+  expect(getByDisplayValue('Review release risk')).toBeTruthy();
+  expect(getByDisplayValue('17:30')).toBeTruthy();
+  expect(getByText('Weekday')).toBeTruthy();
+
+  fireEvent.press(getByText('Save'));
+
+  expect({
+    actual: onSave.mock.calls[0][0],
+    reason: 'editing should submit the existing workflow fields unless the user changes them',
+  }).toEqual({
+    actual: {
+      name: 'Friday Review',
+      agent_id: 'agent-2',
+      prompt: 'Review release risk',
+      schedule_kind: 'weekly',
+      time_of_day: '17:30',
+      day_of_week: 5,
+    },
+    reason: expect.any(String),
+  });
+  expect({
+    actual: onSave.mock.calls[0][0].schedule_kind,
+    reason: 'edit mode must not reset an existing weekly workflow to the default daily schedule',
+  }).not.toEqual({ actual: 'daily', reason: expect.any(String) });
+});
+
 /// 场景：创建 workflow 时，键盘弹出后表单仍可把 Time 输入区滚到可见区域。
 ///
 /// 数据构造：

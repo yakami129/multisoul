@@ -18,6 +18,13 @@ const endpoints: Endpoint[] = [
     token: 'tok-travel',
     last_seen_at: null,
   },
+  {
+    id: 'ep-empty',
+    label: 'Spare Mac',
+    base_url: 'http://spare.local:8765',
+    token: 'tok-spare',
+    last_seen_at: null,
+  },
 ];
 
 const agents: Agent[] = [
@@ -41,7 +48,7 @@ const agents: Agent[] = [
   },
 ];
 
-test('keeps Done disabled until an online endpoint agent is selected', () => {
+test('keeps Done disabled until an agent is selected', () => {
   const onDone = jest.fn();
   const { getByText } = render(
     <TargetPickerSheet
@@ -62,6 +69,21 @@ test('keeps Done disabled until an online endpoint agent is selected', () => {
   expect(onDone).toHaveBeenCalledWith(expect.objectContaining({ agentId: 'agent-1' }));
 });
 
+test('shows all agents before endpoint filtering', () => {
+  const { getByText } = render(
+    <TargetPickerSheet
+      visible
+      endpoints={endpoints}
+      agents={agents}
+      onClose={() => {}}
+      onDone={() => {}}
+    />,
+  );
+
+  expect(getByText('Codex Runner')).toBeTruthy();
+  expect(getByText('Docs Runner')).toBeTruthy();
+});
+
 test('filters agents by search query and selected endpoint', () => {
   const { getByLabelText, getByText, queryByText } = render(
     <TargetPickerSheet
@@ -74,6 +96,9 @@ test('filters agents by search query and selected endpoint', () => {
   );
 
   expect(getByText('Codex Runner')).toBeTruthy();
+  expect(getByText('Docs Runner')).toBeTruthy();
+
+  fireEvent.press(getByText('Office Mac'));
   expect(queryByText('Docs Runner')).toBeNull();
 
   fireEvent.changeText(getByLabelText('Search agents'), 'docs');

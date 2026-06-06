@@ -27,6 +27,7 @@ interface Props {
   initialValue?: Partial<IdeaEditorValue>;
   target?: SpecTarget;
   attachmentPreset?: SpecIdeaAttachment['kind'];
+  children?: React.ReactNode;
   onChooseTarget: () => void;
   onClose: () => void;
   onSave: (value: IdeaEditorValue) => void;
@@ -37,6 +38,7 @@ export function IdeaEditorSheet({
   initialValue,
   target,
   attachmentPreset,
+  children,
   onChooseTarget,
   onClose,
   onSave,
@@ -108,89 +110,95 @@ export function IdeaEditorSheet({
       presentationStyle="pageSheet"
       onRequestClose={handleClose}
     >
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={s.root}>
-        <View style={s.toolbar}>
-          <TouchableOpacity
-            accessibilityRole="button"
-            onPress={handleClose}
-            style={s.toolbarButton}
-          >
-            <X size={18} color={brandColors.ink} />
-            <Text style={s.toolbarText}>Cancel</Text>
-          </TouchableOpacity>
-          <Text style={s.toolbarTitle}>{initialValue ? 'Edit Idea' : 'New Idea'}</Text>
-          <TouchableOpacity accessibilityRole="button" onPress={handleSave} style={s.doneButton}>
-            <Text style={s.doneText}>Done</Text>
-          </TouchableOpacity>
-        </View>
-
-        <ScrollView contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
-          <View style={s.group}>
-            <Text style={s.label}>Title, optional</Text>
-            <TextInput
-              accessibilityLabel="Idea title"
-              value={title}
-              onChangeText={setTitle}
-              placeholder="Auto-derived from the first line"
-              placeholderTextColor={brandColors.textMuted}
-              style={s.input}
-            />
-            <Text style={s.label}>Body</Text>
-            <TextInput
-              accessibilityLabel="Idea body"
-              value={body}
-              onChangeText={setBody}
-              multiline
-              textAlignVertical="top"
-              placeholder="Capture the rough idea, bug, link, or context..."
-              placeholderTextColor={brandColors.textMuted}
-              style={[s.input, s.bodyInput]}
-            />
-          </View>
-
-          <View style={s.group}>
-            <Text style={s.sectionTitle}>Attachments</Text>
-            <AttachmentButton
-              icon={<Link size={16} color={brandColors.ink} />}
-              label="Add Link"
-              onPress={() => addAttachment('link')}
-            />
-            <AttachmentButton
-              icon={<MessageSquare size={16} color={brandColors.ink} />}
-              label="Add Log Snippet"
-              onPress={() => addAttachment('log')}
-            />
-            <AttachmentButton
-              icon={<Image size={16} color={brandColors.ink} />}
-              label="Add Screenshot"
-              onPress={() => addAttachment('image')}
-            />
-            {attachments.map((attachment) => (
-              <View key={attachment.id} style={s.attachmentRow}>
-                <Text style={s.attachmentTitle}>{attachment.title ?? attachment.kind}</Text>
-                <Text style={s.attachmentKind}>{attachment.kind}</Text>
-              </View>
-            ))}
-          </View>
-
-          <View style={s.group}>
-            <Text style={s.sectionTitle}>Target</Text>
+      <View style={s.modalRoot}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={s.root}
+        >
+          <View style={s.toolbar}>
             <TouchableOpacity
               accessibilityRole="button"
-              onPress={onChooseTarget}
-              style={s.targetRow}
+              onPress={handleClose}
+              style={s.toolbarButton}
             >
-              <View style={s.targetBody}>
-                <Text style={s.targetTitle}>Project & Agent</Text>
-                <Text style={s.targetSubtitle} numberOfLines={1}>
-                  {target ? `${target.repoPath} · ${target.agentName}` : 'Choose'}
-                </Text>
-              </View>
-              <Text style={s.chooseText}>{target ? 'Change' : 'Choose'}</Text>
+              <X size={18} color={brandColors.ink} />
+              <Text style={s.toolbarText}>Cancel</Text>
+            </TouchableOpacity>
+            <Text style={s.toolbarTitle}>{initialValue ? 'Edit Idea' : 'New Idea'}</Text>
+            <TouchableOpacity accessibilityRole="button" onPress={handleSave} style={s.doneButton}>
+              <Text style={s.doneText}>Done</Text>
             </TouchableOpacity>
           </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
+
+          <ScrollView contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
+            <View style={s.group}>
+              <Text style={s.label}>Title, optional</Text>
+              <TextInput
+                accessibilityLabel="Idea title"
+                value={title}
+                onChangeText={setTitle}
+                placeholder="Auto-derived from the first line"
+                placeholderTextColor={brandColors.textMuted}
+                style={s.input}
+              />
+              <Text style={s.label}>Body</Text>
+              <TextInput
+                accessibilityLabel="Idea body"
+                value={body}
+                onChangeText={setBody}
+                multiline
+                textAlignVertical="top"
+                placeholder="Capture the rough idea, bug, link, or context..."
+                placeholderTextColor={brandColors.textMuted}
+                style={[s.input, s.bodyInput]}
+              />
+            </View>
+
+            <View style={s.group}>
+              <Text style={s.sectionTitle}>Attachments</Text>
+              <AttachmentButton
+                icon={<Link size={16} color={brandColors.ink} />}
+                label="Add Link"
+                onPress={() => addAttachment('link')}
+              />
+              <AttachmentButton
+                icon={<MessageSquare size={16} color={brandColors.ink} />}
+                label="Add Log Snippet"
+                onPress={() => addAttachment('log')}
+              />
+              <AttachmentButton
+                icon={<Image size={16} color={brandColors.ink} />}
+                label="Add Screenshot"
+                onPress={() => addAttachment('image')}
+              />
+              {attachments.map((attachment) => (
+                <View key={attachment.id} style={s.attachmentRow}>
+                  <Text style={s.attachmentTitle}>{attachment.title ?? attachment.kind}</Text>
+                  <Text style={s.attachmentKind}>{attachment.kind}</Text>
+                </View>
+              ))}
+            </View>
+
+            <View style={s.group}>
+              <Text style={s.sectionTitle}>Target</Text>
+              <TouchableOpacity
+                accessibilityRole="button"
+                onPress={onChooseTarget}
+                style={s.targetRow}
+              >
+                <View style={s.targetBody}>
+                  <Text style={s.targetTitle}>Project & Agent</Text>
+                  <Text style={s.targetSubtitle} numberOfLines={1}>
+                    {target ? `${target.repoPath} · ${target.agentName}` : 'Choose'}
+                  </Text>
+                </View>
+                <Text style={s.chooseText}>{target ? 'Change' : 'Choose'}</Text>
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
+        {children}
+      </View>
     </Modal>
   );
 }
@@ -213,6 +221,7 @@ function AttachmentButton({
 }
 
 const s = StyleSheet.create({
+  modalRoot: { flex: 1, backgroundColor: brandColors.cream },
   root: { flex: 1, backgroundColor: brandColors.cream },
   toolbar: {
     minHeight: 58,

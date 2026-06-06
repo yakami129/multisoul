@@ -1,6 +1,6 @@
 import { ChevronDown, ChevronUp, CircleAlert, Plus, Search } from 'lucide-react-native';
 import React from 'react';
-import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { brandColors } from '@/theme/brandRefresh';
 import { type Agent, type Endpoint } from '@/types';
@@ -30,6 +30,7 @@ interface Props {
   onOpenSpec: (id: string) => void;
   onArchiveIdea?: (id: string) => void;
   onUnarchiveIdea?: (id: string) => void;
+  onDeleteArchivedIdea?: (id: string) => void;
 }
 
 const SEGMENTS: Array<{ key: Segment; label: string }> = [
@@ -48,6 +49,7 @@ export function SpecsHomeScreen({
   onOpenSpec,
   onArchiveIdea,
   onUnarchiveIdea,
+  onDeleteArchivedIdea,
 }: Props) {
   const insets = useSafeAreaInsets();
   const [segment, setSegment] = React.useState<Segment>('ideas');
@@ -76,6 +78,17 @@ export function SpecsHomeScreen({
   const handleArchive = (idea: SpecIdea) => {
     onArchiveIdea?.(idea.id);
     setUndoIdea(idea);
+  };
+
+  const handleDeleteIdea = (ideaId: string) => {
+    Alert.alert('Delete idea?', 'This idea will be permanently removed. This cannot be undone.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: () => onDeleteArchivedIdea?.(ideaId),
+      },
+    ]);
   };
 
   return (
@@ -178,6 +191,7 @@ export function SpecsHomeScreen({
                   ideas={archivedIdeas}
                   onOpenIdea={onOpenIdea}
                   onUnarchive={onUnarchiveIdea}
+                  onDelete={handleDeleteIdea}
                 />
               ) : null}
             </View>
@@ -226,18 +240,20 @@ export function SpecsHomeScreen({
           void onCreateIdea?.(value);
           setEditorVisible(false);
         }}
-      />
-      <TargetPickerSheet
-        visible={targetPickerVisible}
-        endpoints={endpoints}
-        agents={agents}
-        selectedTarget={draftTarget}
-        onClose={() => setTargetPickerVisible(false)}
-        onDone={(target) => {
-          setDraftTarget(target);
-          setTargetPickerVisible(false);
-        }}
-      />
+      >
+        <TargetPickerSheet
+          visible={targetPickerVisible}
+          endpoints={endpoints}
+          agents={agents}
+          selectedTarget={draftTarget}
+          presentation="inline"
+          onClose={() => setTargetPickerVisible(false)}
+          onDone={(target) => {
+            setDraftTarget(target);
+            setTargetPickerVisible(false);
+          }}
+        />
+      </IdeaEditorSheet>
     </View>
   );
 }

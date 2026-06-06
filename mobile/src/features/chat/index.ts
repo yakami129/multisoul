@@ -6,3 +6,4 @@ export {
   conversationDisplaySummary,
   conversationDisplayTitle,
 } from './utils/conversationPreview';
+export { MarkdownMessage } from './components/MarkdownMessage';

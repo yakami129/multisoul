@@ -61,10 +61,19 @@ Users running `msctl serve` on their local machine need a way for the mobile app
 └─────────────────────────────────────────────────────────────┘
 ```
 
+**Pairing QR in `--relay` mode:** the local base URL (`http://127.0.0.1:<port>`) is unreachable
+from the phone, so `serve` **defers** printing the pairing QR until cloudflared reports the tunnel
+URL, then renders `multisoul://pair?url=<tunnel_url>&token=<token>` with the public
+`trycloudflare.com` URL. (`run_relay` signals the URL back to `serve` via a one-shot channel; the QR
+task runs concurrently with the server because `run_relay` must wait for the listener first.)
+
+> Note: the mobile "Auto Tunnel" path (`tunnelService.ts` + `SettingsForm.tsx`) that would instead
+> poll KV for the tunnel URL is **not currently mounted** in any screen; the live pairing path is
+> `AddEndpointModal` (QR scan), which is why the QR must carry the tunnel URL.
+
 **Key files:**
-- `cli/src/commands/serve.rs`: `--relay` flag parsing
-- `cli/src/serve/tunnel.rs`: Tunnel launch and KV reporting
-- `cli/src/serve/cloudflared.rs`: Binary download and caching
+- `cli/src/commands/serve.rs`: `--relay` flag parsing, deferred pairing QR
+- `cli/src/serve/relay.rs`: cloudflared download/launch, KV report/heartbeat/cleanup, tunnel-URL ready signal
 
 ### 3.2 Mobile Polling Flow
 
@@ -96,7 +105,20 @@ Users running `msctl serve` on their local machine need a way for the mobile app
 
 ### 3.3 Cloudflare Workers KV Schema
 
-**Endpoint:** `GET /tunnel/<token>`
+> **Authoritative wire contract — token is always in the PATH.** All three sides agree:
+> CLI `cli/src/serve/relay.rs` (`report_tunnel` POST / `cleanup_tunnel` DELETE), mobile
+> `tunnelService.ts` (GET), and the deployed Worker. Do **not** reintroduce the
+> `POST /tunnel` + `{ user_token, ... }` (token-in-body) shape — the deployed Worker does
+> not route it and returns `404 {"status":"not_found"}` (the exact `serve --relay` bug fixed in this contract).
+
+**Write (CLI report / heartbeat):** `POST /tunnel/<token>`
+```json
+{ "status": "active", "tunnel_url": "https://abc-def-ghi.trycloudflare.com" }
+```
+
+**Delete (CLI cleanup on exit):** `DELETE /tunnel/<token>`
+
+**Read (mobile poll):** `GET /tunnel/<token>`
 
 **Response (active):**
 ```json
@@ -114,7 +136,10 @@ Users running `msctl serve` on their local machine need a way for the mobile app
 }
 ```
 
-**KV Key:** `ms_v2_<token>` (40-char hex token)  
+**KV Key:** the full token string `ms_v2_<32-hex>` (Worker stores under the raw token, no prefix transform)  
+**Token format (authoritative):** `^ms_v2_[a-f0-9]{32}$` — 32 **lowercase hex** chars. The Worker
+rejects anything else with `400 {"status":"invalid_token"}`. `cli` `generate_token()` must emit this
+exact charset; mixed-case alphanumeric tokens (the original implementation) break Auto Tunnel.  
 **TTL:** 5 minutes (auto-expire if no heartbeat)
 
 ---
@@ -183,9 +208,9 @@ interface Settings {
 
 ### 5.1 Token Format
 
-- Bearer tokens are 40-char hex (e.g., `ms_v2_abc123...`)
+- Bearer tokens match `^ms_v2_[a-f0-9]{32}$` (prefix + 32 lowercase hex; 128-bit entropy)
 - Tokens are user-generated and stored locally
-- No token validation on mobile (Workers endpoint validates)
+- No token validation on mobile (Workers endpoint validates format with the regex above)
 - Tokens are **not** hardcoded in code (checked by pre-commit hook)
 
 ### 5.2 HTTPS & TLS
