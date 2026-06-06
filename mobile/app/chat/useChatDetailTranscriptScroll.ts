@@ -73,6 +73,30 @@ export function useChatDetailTranscriptScroll({
     scrollToFocusedAsk(transcriptItems);
   }, [transcriptItems, scrollToFocusedAsk]);
 
+  const scrollToLastAssistantOrEnd = useCallback(
+    (items: ChatTranscriptDisplayItem[], animated: boolean) => {
+      if (!listRef.current || items.length === 0) return;
+      let lastIndex = -1;
+      for (let i = items.length - 1; i >= 0; i--) {
+        const item = items[i];
+        if (item.kind === 'message' && item.message.role === 'agent_text') {
+          lastIndex = i;
+          break;
+        }
+      }
+      if (lastIndex >= 0) {
+        try {
+          listRef.current.scrollToIndex({ index: lastIndex, animated, viewPosition: 0 });
+        } catch {
+          listRef.current.scrollToEnd({ animated });
+        }
+      } else {
+        listRef.current.scrollToEnd({ animated });
+      }
+    },
+    [listRef],
+  );
+
   // Async transcript pages can populate FlatList data without a follow-up
   // onContentSizeChange on some RN builds; retry bottom placement until the
   // first content-size handler marks the initial scroll complete.
@@ -80,19 +104,19 @@ export function useChatDetailTranscriptScroll({
     if (focus_ask_id || hasUserScrolledHistoryRef.current) return;
     if (!pendingInitialBottomScrollRef.current || transcriptItems.length === 0) return;
 
-    const scrollToBottom = () => {
+    const scrollToInitialPosition = () => {
       if (!pendingInitialBottomScrollRef.current || hasUserScrolledHistoryRef.current) return;
-      listRef.current?.scrollToEnd({ animated: false });
+      scrollToLastAssistantOrEnd(transcriptItems, false);
     };
 
-    requestAnimationFrame(scrollToBottom);
-    const retry100 = setTimeout(scrollToBottom, 100);
-    const retry300 = setTimeout(scrollToBottom, 300);
+    requestAnimationFrame(scrollToInitialPosition);
+    const retry100 = setTimeout(scrollToInitialPosition, 100);
+    const retry300 = setTimeout(scrollToInitialPosition, 300);
     return () => {
       clearTimeout(retry100);
       clearTimeout(retry300);
     };
-  }, [focus_ask_id, listRef, transcriptItems]);
+  }, [focus_ask_id, listRef, transcriptItems, scrollToLastAssistantOrEnd]);
 
   useEffect(() => {
     lastScrolledFocusTargetRef.current = null;
@@ -139,7 +163,7 @@ export function useChatDetailTranscriptScroll({
       pendingInitialBottomScrollRef.current = false;
       prevMessageCountRef.current = currentCount;
       if (!hasUserScrolledHistoryRef.current) {
-        listRef.current?.scrollToEnd({ animated: false });
+        scrollToLastAssistantOrEnd(transcriptItems, false);
         return;
       }
     }
@@ -169,8 +193,20 @@ export function useChatDetailTranscriptScroll({
     }
   }
 
+  const forceScrollToEnd = useCallback(() => {
+    isNearBottomRef.current = true;
+    listRef.current?.scrollToEnd({ animated: true });
+  }, [listRef]);
+
   function handleScrollToIndexFailed(info: { index: number; averageItemLength: number }) {
-    if (!focus_ask_id || !hasDisplayItemAskId(transcriptItems, focus_ask_id)) return;
+    if (!focus_ask_id) {
+      if (pendingInitialBottomScrollRef.current) {
+        pendingInitialBottomScrollRef.current = false;
+        listRef.current?.scrollToEnd({ animated: false });
+      }
+      return;
+    }
+    if (!hasDisplayItemAskId(transcriptItems, focus_ask_id)) return;
     lastScrolledFocusTargetRef.current = null;
     clearRetryTimeout();
     listRef.current?.scrollToOffset({
@@ -189,5 +225,6 @@ export function useChatDetailTranscriptScroll({
     handleViewableItemsChanged,
     handleContentSizeChange,
     handleScrollToIndexFailed,
+    forceScrollToEnd,
   };
 }

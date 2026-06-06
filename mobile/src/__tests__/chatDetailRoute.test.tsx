@@ -494,13 +494,13 @@ test('does not load older history from initial top scroll before user drag', asy
   }).toEqual({ actual: 0, reason: expect.any(String) });
 });
 
-/// Initial bottom position: opening a normal Chat Detail route should land at
-/// the latest transcript row even if FlatList emits a top-position layout
-/// scroll before the first content-size callback.
+/// Initial scroll position: opening a normal Chat Detail route should land at
+/// the last AI message even if FlatList emits a top-position layout scroll
+/// before the first content-size callback.
 ///
 /// Data construction:
 ///   route focus_ask_id = undefined
-///   initial page       = default historical prompt + response
+///   initial page       = default historical prompt + response (agent_text at index 1)
 ///   layout scroll      = y 0, content much taller than viewport
 ///
 /// Execution process:
@@ -510,17 +510,20 @@ test('does not load older history from initial top scroll before user drag', asy
 ///   4. Emit onContentSizeChange for the laid-out transcript.
 ///
 /// Expected result:
-///   - Positive: scrollToEnd runs once with animated=false for initial placement.
+///   - Positive: scrollToIndex runs once targeting the last AI message (index 1, animated=false).
 ///   - Negative: the synthetic top scroll must not make Chat Detail think the user is reading history.
-test('scrolls to bottom after initial transcript layout despite an initial top scroll event', async () => {
+test('scrolls to last AI message after initial transcript layout despite an initial top scroll event', async () => {
   const flatListPrototype = FlatList.prototype as unknown as {
+    scrollToIndex: (params: { index: number; animated?: boolean; viewPosition?: number }) => void;
     scrollToEnd: (params?: { animated?: boolean }) => void;
   };
+  const scrollToIndexSpy = jest.spyOn(flatListPrototype, 'scrollToIndex').mockImplementation();
   const scrollToEndSpy = jest.spyOn(flatListPrototype, 'scrollToEnd').mockImplementation();
   try {
     const { UNSAFE_getByType, getByText } = render(<ChatDetailScreen />);
 
     await waitFor(() => expect(getByText('historical response')).toBeTruthy());
+    scrollToIndexSpy.mockClear();
     scrollToEndSpy.mockClear();
 
     act(() => {
@@ -535,19 +538,20 @@ test('scrolls to bottom after initial transcript layout despite an initial top s
     });
 
     expect({
-      actual: scrollToEndSpy.mock.calls,
-      reason: 'initial transcript layout should place an unfocused chat at the bottom',
+      actual: scrollToIndexSpy.mock.calls,
+      reason: 'initial placement should scroll to the last AI message, not just the list end',
     }).toEqual({
-      actual: [[{ animated: false }]],
+      actual: [[{ index: 1, animated: false, viewPosition: 0 }]],
       reason: expect.any(String),
     });
   } finally {
+    scrollToIndexSpy.mockRestore();
     scrollToEndSpy.mockRestore();
   }
 });
 
 /// Activity reopen: deferred transcript-turns resolution must still land at the
-/// latest row even when FlatList never emits onContentSizeChange after data arrives.
+/// last AI message even when FlatList never emits onContentSizeChange after data arrives.
 ///
 /// Data construction:
 ///   route focus_ask_id = undefined (running/done Activity rows)
@@ -559,12 +563,14 @@ test('scrolls to bottom after initial transcript layout despite an initial top s
 ///   3. Advance timers for the initial bottom-placement retries.
 ///
 /// Expected result:
-///   - Positive: scrollToEnd runs with animated=false after transcript data commits.
+///   - Positive: scrollToIndex runs with animated=false targeting the last AI message after transcript data commits.
 ///   - Negative: no manual onContentSizeChange callback is required.
-test('scrolls to bottom when async transcript data arrives without content-size callback', async () => {
+test('scrolls to last AI message when async transcript data arrives without content-size callback', async () => {
   const flatListPrototype = FlatList.prototype as unknown as {
+    scrollToIndex: (params: { index: number; animated?: boolean; viewPosition?: number }) => void;
     scrollToEnd: (params?: { animated?: boolean }) => void;
   };
+  const scrollToIndexSpy = jest.spyOn(flatListPrototype, 'scrollToIndex').mockImplementation();
   const scrollToEndSpy = jest.spyOn(flatListPrototype, 'scrollToEnd').mockImplementation();
   let resolveTranscript: ((page: TranscriptPage) => void) | undefined;
   (fetchTranscriptTurns as jest.Mock).mockImplementation(
@@ -577,7 +583,7 @@ test('scrolls to bottom when async transcript data arrives without content-size 
   jest.useFakeTimers();
   try {
     const { getByText } = render(<ChatDetailScreen />);
-    expect(scrollToEndSpy).not.toHaveBeenCalled();
+    expect(scrollToIndexSpy).not.toHaveBeenCalled();
 
     await act(async () => {
       resolveTranscript?.(makeRawTranscriptPage('conv-1', historyMessages));
@@ -590,10 +596,11 @@ test('scrolls to bottom when async transcript data arrives without content-size 
     });
 
     expect({
-      actual: scrollToEndSpy.mock.calls.some(([args]) => args?.animated === false),
-      reason: 'async transcript commit should schedule bottom placement without onContentSizeChange',
+      actual: scrollToIndexSpy.mock.calls.some(([args]) => args?.animated === false),
+      reason: 'async transcript commit should schedule scroll to last AI message without onContentSizeChange',
     }).toEqual({ actual: true, reason: expect.any(String) });
   } finally {
+    scrollToIndexSpy.mockRestore();
     scrollToEndSpy.mockRestore();
     jest.useRealTimers();
   }
