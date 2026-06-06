@@ -254,6 +254,72 @@ describe('chatStore conversation previews', () => {
     expect(conversation.status).not.toBe('failed');
   });
 
+  /// mergeConversations: REST status must overwrite stale WS status for existing conversation
+  ///
+  /// Data:
+  ///   conv-1 in chatStore with status 'running' (set by WS during active task)
+  ///   REST fetchConversations returns conv-1 with status 'completed'
+  ///
+  /// Execution:
+  ///   1. Seed chatStore with conv-1 status='running'
+  ///   2. mergeConversations([conv-1 status='completed'])
+  ///
+  /// Expected:
+  ///   - Positive: conv-1.status is 'completed' (REST result wins)
+  ///   - Negative: conv-1.status is not 'running' (stale WS state cleared)
+  ///
+  /// Regression: addConversation skipped existing IDs so status was never updated on focus refresh
+  it('overwrites stale status of existing conversations with REST result', () => {
+    useChatStore.getState().addConversation(makeConversation('conv-1'));
+
+    useChatStore.getState().mergeConversations([{ ...makeConversation('conv-1'), status: 'completed' }]);
+
+    const conv = useChatStore.getState().conversations.find((c) => c.id === 'conv-1');
+    expect(conv?.status).toBe('completed');
+    expect(conv?.status).not.toBe('running');
+  });
+
+  /// mergeConversations: new conversations are added without removing existing ones
+  ///
+  /// Data:
+  ///   chatStore has conv-1
+  ///   mergeConversations receives conv-2 (new)
+  ///
+  /// Expected:
+  ///   - Positive: conv-1 still present
+  ///   - Positive: conv-2 was added
+  it('adds new conversations while preserving existing ones', () => {
+    useChatStore.getState().addConversation(makeConversation('conv-1'));
+
+    useChatStore.getState().mergeConversations([makeConversation('conv-2')]);
+
+    const ids = useChatStore.getState().conversations.map((c) => c.id);
+    expect(ids).toContain('conv-1');
+    expect(ids).toContain('conv-2');
+  });
+
+  /// mergeConversations: handles mixed batch of updates and new additions in one call
+  ///
+  /// Data:
+  ///   chatStore has conv-1 (running)
+  ///   mergeConversations receives [conv-1 (idle), conv-2 (new running)]
+  ///
+  /// Expected:
+  ///   - conv-1.status becomes 'idle'
+  ///   - conv-2 exists in store
+  it('updates existing and adds new conversations in a single merge', () => {
+    useChatStore.getState().addConversation(makeConversation('conv-1'));
+
+    useChatStore.getState().mergeConversations([
+      { ...makeConversation('conv-1'), status: 'idle' },
+      makeConversation('conv-2'),
+    ]);
+
+    const state = useChatStore.getState();
+    expect(state.conversations.find((c) => c.id === 'conv-1')?.status).toBe('idle');
+    expect(state.conversations.some((c) => c.id === 'conv-2')).toBe(true);
+  });
+
   /// Partial window reset: loaded pages must not erase server-provided preview fields
   ///
   /// Data construction:

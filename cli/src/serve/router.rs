@@ -79,7 +79,7 @@ pub async fn build_router(state: AppState) -> Router {
         )
         .route(
             "/api/v1/spec-ideas/:id",
-            axum::routing::patch(spec_ideas::patch),
+            axum::routing::patch(spec_ideas::patch).delete(spec_ideas::delete),
         )
         .route(
             "/api/v1/spec-ideas/:id/interview",
@@ -91,6 +91,10 @@ pub async fn build_router(state: AppState) -> Router {
             axum::routing::post(specs::save_from_path),
         )
         .route("/api/v1/specs/:id", axum::routing::get(specs::get_spec))
+        .route(
+            "/api/v1/specs/:id/done",
+            axum::routing::post(specs::mark_spec_done),
+        )
         .route(
             "/api/v1/specs/:id/implement",
             axum::routing::post(spec_implement::start_implementation),

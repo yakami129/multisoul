@@ -210,16 +210,33 @@ fn build_implementation_instruction(
         .map(|value| value.to_string())
         .unwrap_or_else(|| "unknown".to_string());
     format!(
-        "请基于已保存的产品规格启动实施流程。\n\nSpec: {}\nSpec ID: {}\nSpec path: {}\nRevision: {}\nMarkdown SHA-256: {}\nInterview conversation: {}\nSource idea: {}\nImplementation conversation: {}\nCurrent status: {}\n\n要求：先阅读仓库协作规则和该 spec 文件；先生成实施计划，不要直接改代码；计划完成后必须通过 AskUserQuestion 请求用户确认执行方式。如果当前 runtime 没有 AskUserQuestion，请调用 msctl ask-question。用户确认后再实施。遇到阻塞或风险取舍时继续使用问答卡片。完成后报告修改文件和验证结果。",
-        context.title,
-        context.spec_id,
-        context.repo_spec_path,
-        revision,
-        hash,
-        context.interview_conversation_id,
-        context.source_idea_id.as_deref().unwrap_or("none"),
-        conversation_id,
-        context.status
+        "Start implementation from the saved product spec below.\n\n\
+         ## Context\n\
+         - Spec: {title}\n\
+         - Spec ID: {spec_id}\n\
+         - Path: {repo_spec_path}\n\
+         - Revision: {revision}\n\
+         - SHA-256: {hash}\n\
+         - Interview conversation: {interview_conversation_id}\n\
+         - Source idea: {source_idea_id}\n\
+         - Implementation conversation: {conversation_id}\n\
+         - Status: {status}\n\n\
+         ## Workflow\n\
+         1. Read AGENTS.md, CLAUDE.md, and the spec file.\n\
+         2. Write an implementation plan first — do not change code yet.\n\
+         3. After the plan, use AskUserQuestion (or `msctl ask-question`) to confirm execution approach.\n\
+         4. Implement only after confirmation.\n\
+         5. Use question cards for blockers or trade-offs.\n\
+         6. Report changed files and verification results when done.",
+        title = context.title,
+        spec_id = context.spec_id,
+        repo_spec_path = context.repo_spec_path,
+        revision = revision,
+        hash = hash,
+        interview_conversation_id = context.interview_conversation_id,
+        source_idea_id = context.source_idea_id.as_deref().unwrap_or("none"),
+        conversation_id = conversation_id,
+        status = context.status,
     )
 }
 
@@ -330,7 +347,8 @@ mod tests {
                 |row| row.get(0),
             )
             .expect("initial implementation message should be inserted");
-        assert!(payload.contains("先生成实施计划"));
+        assert!(payload.contains("Write an implementation plan first"));
         assert!(payload.contains("msctl ask-question"));
+        assert!(payload.contains("AGENTS.md"));
     }
 }

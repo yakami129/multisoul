@@ -8,6 +8,7 @@ const mockSaveIdea = jest.fn();
 const mockLoadAssets = jest.fn();
 const mockSyncSpecIdeaBeforeServerAction = jest.fn();
 const mockStartSpecIdeaInterview = jest.fn();
+const mockUpdateIdea = jest.fn();
 
 const endpoint: Endpoint = {
   id: 'ep-1',
@@ -33,6 +34,22 @@ const pendingIdea = {
   pendingMutation: 'create' as const,
 };
 
+jest.mock('@tanstack/react-query', () => ({
+  useQuery: () => ({ data: [] }),
+}));
+
+jest.mock('@/features/agents/services/agentService', () => ({
+  fetchAllAgents: jest.fn().mockResolvedValue([]),
+}));
+
+jest.mock('@/features/specs/components/IdeaEditorSheet', () => ({
+  IdeaEditorSheet: () => null,
+}));
+
+jest.mock('@/features/specs/components/TargetPickerSheet', () => ({
+  TargetPickerSheet: () => null,
+}));
+
 jest.mock('expo-router', () => ({
   useLocalSearchParams: () => ({ id: 'idea-1' }),
   useRouter: () => ({ back: jest.fn(), push: mockPush }),
@@ -50,6 +67,7 @@ jest.mock('../../src/store/specStore', () => ({
       loadAssets: typeof mockLoadAssets;
       archiveIdea: jest.Mock;
       unarchiveIdea: jest.Mock;
+      updateIdea: jest.Mock;
     }) => unknown,
   ) =>
     selector({
@@ -57,6 +75,7 @@ jest.mock('../../src/store/specStore', () => ({
       loadAssets: mockLoadAssets,
       archiveIdea: jest.fn(),
       unarchiveIdea: jest.fn(),
+      updateIdea: mockUpdateIdea,
     }),
 }));
 

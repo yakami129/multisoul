@@ -2,6 +2,7 @@ import 'react-native-get-random-values';
 import { v4 as uuidv4 } from 'uuid';
 import { create } from 'zustand';
 import {
+  deleteIdea,
   loadIdeas,
   loadSpecs as loadSpecArtifacts,
   replaceIdeasForEndpoint,
@@ -30,6 +31,16 @@ import {
 } from '@/features/specs/types';
 import { type Endpoint } from '@/types';
 
+interface EditIdeaInput {
+  title: string;
+  body: string;
+  attachments: import('@/features/specs/types').SpecIdeaAttachment[];
+  targetAgentId?: string;
+  targetEndpointId?: string;
+  targetRepoPath?: string;
+  targetAgentName?: string;
+}
+
 interface SpecState {
   specs: SpecDraft[];
   ideas: SpecIdea[];
@@ -38,8 +49,10 @@ interface SpecState {
   loadAssets: () => Promise<void>;
   refreshAssets: (endpoints: Endpoint[]) => Promise<void>;
   createIdea: (input: CreateSpecIdeaInput) => Promise<SpecIdea>;
+  updateIdea: (ideaId: string, input: EditIdeaInput) => Promise<void>;
   archiveIdea: (ideaId: string) => Promise<void>;
   unarchiveIdea: (ideaId: string) => Promise<void>;
+  deleteArchivedIdea: (ideaId: string, endpoint?: Endpoint) => Promise<void>;
   createSpec: (input: CreateSpecInput) => Promise<SpecDraft>;
   answerQuestion: (specId: string, answer: SpecAnswer) => Promise<void>;
   generatePreview: (specId: string) => Promise<void>;
@@ -147,6 +160,27 @@ export const useSpecStore = create<SpecState>((set, get) => ({
     return idea;
   },
 
+  updateIdea: async (ideaId, input) => {
+    const now = Date.now();
+    const ideas = get().ideas.map((idea) => {
+      if (idea.id !== ideaId) return idea;
+      return {
+        ...idea,
+        title: input.title || idea.title,
+        body: input.body,
+        attachments: input.attachments,
+        targetAgentId: input.targetAgentId ?? idea.targetAgentId,
+        targetEndpointId: input.targetEndpointId ?? idea.targetEndpointId,
+        targetRepoPath: input.targetRepoPath ?? idea.targetRepoPath,
+        targetAgentName: input.targetAgentName ?? idea.targetAgentName,
+        updatedAt: now,
+      };
+    });
+    const idea = ideas.find((item) => item.id === ideaId);
+    if (idea) await saveIdea(idea, 'update', null);
+    set({ ideas });
+  },
+
   archiveIdea: async (ideaId) => {
     const now = Date.now();
     const ideas = get().ideas.map((idea) =>
@@ -169,6 +203,21 @@ export const useSpecStore = create<SpecState>((set, get) => ({
     const idea = ideas.find((item) => item.id === ideaId);
     if (idea) await saveIdea(idea, 'update', null);
     set({ ideas });
+  },
+
+  deleteArchivedIdea: async (ideaId, endpoint?) => {
+    const idea = get().ideas.find((item) => item.id === ideaId);
+    if (!idea || idea.status !== 'archived') return;
+    set((state) => ({ ideas: state.ideas.filter((item) => item.id !== ideaId) }));
+    await deleteIdea(ideaId);
+    if (endpoint) {
+      const { deleteSpecIdea } = await import('@/features/specs/services/specAssetService');
+      try {
+        await deleteSpecIdea(endpoint, ideaId);
+      } catch (_) {
+        // best-effort; local already deleted
+      }
+    }
   },
 
   createSpec: async ({ title, targetAgent }) => {

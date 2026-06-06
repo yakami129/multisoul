@@ -3,9 +3,29 @@
   "version": 1,
   "documents": [
     {
+      "file": "2026-06-06-agent-status-consistency.md",
+      "title": "Agent / Chat / Activity Status Consistency Fix Implementation Plan",
+      "lastCompletedCommit": "05302c4ebb4fb333c53bb059d0dc06de0d7dc7c1"
+    },
+    {
+      "file": "2026-06-06-spec-detail-rich-text.md",
+      "title": "Spec Detail Artifact Snapshot Rich Text Rendering Implementation Plan",
+      "lastCompletedCommit": "68f461791ce8a3b2b4decf4ab4bd68ddd5c83097"
+    },
+    {
+      "file": "2026-06-06-chat-auto-scroll.md",
+      "title": "Chat Auto-Scroll Enhancement Implementation Plan",
+      "lastCompletedCommit": "7916d03f966cc4545fc7d94c60fb68aa7c5c855e"
+    },
+    {
       "file": "2026-06-06-workflow-template-library.md",
       "title": "Workflow Template Library Implementation Plan",
       "lastCompletedCommit": "7abafe6216196120706b430c213a557a6d26965b"
+    },
+    {
+      "file": "2026-06-06-archived-idea-delete.md",
+      "title": "Archived Idea Permanent Delete Implementation Plan",
+      "lastCompletedCommit": "9e40d1ae31c7757489a13479b8d950d349cf0a87"
     },
     {
       "file": "2026-06-06-ideas-to-specs-refactor.md",

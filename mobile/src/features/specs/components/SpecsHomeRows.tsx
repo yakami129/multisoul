@@ -8,6 +8,7 @@ import {
   Link,
   List,
   MessageSquare,
+  Trash2,
 } from 'lucide-react-native';
 import React from 'react';
 import { Text, TouchableOpacity, View } from 'react-native';
@@ -115,11 +116,13 @@ export function IdeaRows({
   onOpenIdea,
   onArchive,
   onUnarchive,
+  onDelete,
 }: {
   ideas: SpecIdea[];
   onOpenIdea: (id: string) => void;
   onArchive?: (idea: SpecIdea) => void;
   onUnarchive?: (id: string) => void;
+  onDelete?: (id: string) => void;
 }) {
   if (ideas.length === 0) {
     return (
@@ -143,7 +146,15 @@ export function IdeaRows({
             ) : onUnarchive ? (
               <Swipeable
                 renderRightActions={() => (
-                  <RowAction label="Unarchive" onPress={() => onUnarchive(idea.id)} />
+                  <>
+                    <RowAction label="Unarchive" onPress={() => onUnarchive(idea.id)} />
+                    {onDelete ? (
+                      <RowDeleteAction
+                        accessibilityLabel={`Delete ${idea.title}`}
+                        onPress={() => onDelete(idea.id)}
+                      />
+                    ) : null}
+                  </>
                 )}
               >
                 {row}
@@ -277,6 +288,26 @@ function RowAction({ label, onPress }: { label: string; onPress: () => void }) {
     <TouchableOpacity accessibilityRole="button" onPress={onPress} style={s.rowAction}>
       <Archive size={16} color={brandColors.ink} />
       <Text style={s.rowActionText}>{label}</Text>
+    </TouchableOpacity>
+  );
+}
+
+function RowDeleteAction({
+  accessibilityLabel,
+  onPress,
+}: {
+  accessibilityLabel: string;
+  onPress: () => void;
+}) {
+  return (
+    <TouchableOpacity
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+      onPress={onPress}
+      style={s.rowDeleteAction}
+    >
+      <Trash2 size={16} color={brandColors.error} />
+      <Text style={s.rowDeleteText}>DELETE</Text>
     </TouchableOpacity>
   );
 }

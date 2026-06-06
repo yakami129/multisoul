@@ -178,6 +178,16 @@ export const specsHomeStyles = StyleSheet.create({
     gap: 4,
   },
   rowActionText: { fontFamily: 'Inter', fontSize: 11, fontWeight: '800', color: brandColors.ink },
+  rowDeleteAction: {
+    width: 74,
+    backgroundColor: brandColors.white,
+    borderLeftWidth: 1,
+    borderLeftColor: brandColors.error,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    gap: 4,
+  },
+  rowDeleteText: { fontFamily: 'Inter', fontSize: 11, fontWeight: '700' as const, color: brandColors.error },
   empty: {
     minHeight: 88,
     borderRadius: 14,

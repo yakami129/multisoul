@@ -159,6 +159,31 @@ fn save_spec_from_path_creates_new_revision_for_existing_path() {
     assert_eq!(count, 2, "both immutable versions should remain stored");
 }
 
+/// list_spec_artifacts returns specs saved through save_spec_from_path.
+#[test]
+fn list_spec_artifacts_returns_saved_spec_with_empty_target_endpoint_id() {
+    let fixture = fixture();
+    let spec_dir = fixture.project_dir.path().join("docs/product-specs");
+    std::fs::create_dir_all(&spec_dir).expect("spec dir should be created");
+    std::fs::write(
+        spec_dir.join("2026-06-06-SPEC-demo.md"),
+        "# Demo Spec\n\nShip the workflow.\n",
+    )
+    .expect("spec markdown should be written");
+
+    save_spec_from_path(
+        &fixture.state,
+        SaveSpecFromPathInput {
+            repo_spec_path: "docs/product-specs/2026-06-06-SPEC-demo.md".to_string(),
+            conversation_id: "conv-1".to_string(),
+        },
+    )
+    .expect("valid spec path should save");
+
+    let specs = list_spec_artifacts(&fixture.state).expect("list should succeed");
+    assert_eq!(specs.len(), 1, "saved spec should appear in list");
+}
+
 /// save_spec_from_path rejects paths outside docs/product-specs before reading files.
 ///
 /// Execution:

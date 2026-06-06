@@ -61,19 +61,19 @@ test('renders all 10 workflow templates', () => {
   }
 });
 
-/// 场景：模板卡片展示行为边界文案和由 initial_values 推导的推荐 schedule。
+/// Scenario: template cards render boundary copy and recommended schedules derived from initial_values.
 ///
-/// 数据构造：
-///   项目周报 = weekly, day_of_week 5, time_of_day 17:00。
+/// Data construction:
+///   Weekly Project Review = weekly, day_of_week 5, time_of_day 17:00.
 ///
 /// 执行过程：
 ///   1. 渲染 WorkflowTemplatePickerScreen。
 ///   2. 查找 boundary label、boundary description 和 schedule chip。
 ///
-/// 预期结果：
-///   - 正断言：显示 boundary_label。
-///   - 正断言：显示 boundary_description。
-///   - 正断言：weekly schedule 显示为 Weekly Fri 17:00。
+/// Expected results:
+///   - Positive: boundary_label is visible.
+///   - Positive: boundary_description is visible.
+///   - Positive: weekly schedule renders as Weekly Fri 17:00.
 test('renders boundary copy and recommended schedule for templates', () => {
   const { getAllByText, getByText } = render(
     <WorkflowTemplatePickerScreen
@@ -83,8 +83,8 @@ test('renders boundary copy and recommended schedule for templates', () => {
     />,
   );
 
-  expect(getAllByText('只读汇报').length).toBeGreaterThan(0);
-  expect(getAllByText('只检查并总结，不修改文件').length).toBeGreaterThan(0);
+  expect(getAllByText('Read-only report').length).toBeGreaterThan(0);
+  expect(getAllByText('Inspect and summarize only; do not modify files').length).toBeGreaterThan(0);
   expect(getByText('Weekly Fri 17:00')).toBeTruthy();
 });
 

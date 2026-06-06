@@ -114,6 +114,42 @@ pub async fn list_specs(
         })
 }
 
+pub async fn mark_spec_done(
+    State(state): State<AppState>,
+    Path(spec_id): Path<String>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
+    let db = state.db.lock().map_err(|_| spec_error("internal"))?;
+    let exists: bool = db
+        .query_row(
+            "SELECT COUNT(*) FROM spec_artifacts WHERE id = ?1",
+            [&spec_id],
+            |row| row.get::<_, i64>(0),
+        )
+        .map(|n| n > 0)
+        .map_err(|_| spec_error("internal"))?;
+    if !exists {
+        return Err(spec_error("not_found"));
+    }
+    db.execute(
+        "UPDATE spec_artifacts SET status = 'done', updated_at = ?1 WHERE id = ?2",
+        rusqlite::params![now_ms(), spec_id],
+    )
+    .map_err(|_| spec_error("internal"))?;
+    drop(db);
+    emit_spec_changed(&state, &spec_id, "");
+    Ok(Json(
+        serde_json::json!({ "spec_id": spec_id, "status": "done" }),
+    ))
+}
+
+fn spec_error(code: &'static str) -> (StatusCode, Json<serde_json::Value>) {
+    let status = match code {
+        "not_found" => StatusCode::NOT_FOUND,
+        _ => StatusCode::INTERNAL_SERVER_ERROR,
+    };
+    (status, Json(serde_json::json!({ "error": code })))
+}
+
 pub async fn get_spec(
     State(state): State<AppState>,
     Path(spec_id): Path<String>,
