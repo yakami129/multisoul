@@ -20,6 +20,19 @@ jest.mock('../../src/api/endpointClient', () => ({
 
 jest.mock('expo-router', () => ({
   useRouter: () => ({ push: mockPush }),
+  useFocusEffect: (cb: () => (() => void) | void) => {
+    const { useEffect } = require('react');
+    useEffect(() => {
+      const cleanup = cb();
+      return () => {
+        if (typeof cleanup === 'function') cleanup();
+      };
+    }, [cb]);
+  },
+}));
+
+jest.mock('../../src/features/chat/services/chatService', () => ({
+  fetchConversations: jest.fn().mockResolvedValue([]),
 }));
 
 jest.mock('../../src/store/endpointStore', () => ({

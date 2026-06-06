@@ -1,6 +1,7 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import React from 'react';
 import AgentDetailScreen from '../../app/agent/[id]/index';
+import { useChatStore } from '../store/chatStore';
 import { useEndpointStore } from '../store/endpointStore';
 
 const mockPush = jest.fn();
@@ -101,6 +102,7 @@ describe('AgentDetailScreen', () => {
 
   beforeEach(() => {
     mockPush.mockClear();
+    useChatStore.setState({ conversations: [], messages: {} });
     useEndpointStore.setState({
       endpoints: [
         {
@@ -142,6 +144,7 @@ describe('AgentDetailScreen', () => {
   afterEach(() => {
     act(() => {
       useEndpointStore.setState({ endpoints: [] });
+      useChatStore.setState({ conversations: [], messages: {} });
     });
     fetchAgent.mockReset();
     fetchConversations.mockReset();
@@ -351,6 +354,77 @@ describe('AgentDetailScreen', () => {
 
     expect(screen.getByText('Keep this row')).toBeTruthy();
     expect(abortConversation).not.toHaveBeenCalled();
+  });
+
+  /// AgentDetail refocus: mergeConversations must update status of an already-stored conversation
+  ///
+  /// Data:
+  ///   chatStore has conv-existing with status='running' (seeded before render, simulates WS state)
+  ///   After refocus, fetchConversations returns conv-existing with status='completed'
+  ///
+  /// Execution:
+  ///   1. Seed chatStore with conv-existing status='running'
+  ///   2. Render AgentDetailScreen (initial fetch sets conv-existing running too)
+  ///   3. Update fetchConversations to return conv-existing status='completed'
+  ///   4. simulateRefocus — triggers useFocusEffect callback again
+  ///
+  /// Expected:
+  ///   - Positive: chatStore conv-existing.status becomes 'completed' after refocus
+  ///   - Negative: chatStore conv-existing.status is not still 'running'
+  ///
+  /// Regression: before fix, addConversation skipped existing IDs so focus refresh never updated status
+  it('updates existing conversation status in chatStore on refocus', async () => {
+    const g = (globalThis as unknown as { __MS_AGENT_FOCUS: AgentDetailFocusHarness })
+      .__MS_AGENT_FOCUS;
+
+    useChatStore.setState({
+      conversations: [
+        {
+          id: 'conv-existing',
+          agent_id: 'uuid-1',
+          title: 'New Chat',
+          created_at: 1,
+          last_message_at: 2,
+          status: 'running',
+          endpoint_id: 'ep-1',
+          agent_name: 'Weather Agent',
+        },
+      ],
+      messages: {},
+    });
+
+    render(<AgentDetailScreen />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Weather Agent')).toBeTruthy();
+    });
+
+    fetchConversations.mockResolvedValue([
+      {
+        id: 'conv-existing',
+        agent_id: 'uuid-1',
+        title: 'New Chat',
+        created_at: 1,
+        last_message_at: 2,
+        status: 'completed',
+        endpoint_id: 'ep-1',
+        agent_name: 'Weather Agent',
+        first_user_message: 'Look for severe weather warnings',
+        last_ai_reply: 'Done',
+      },
+    ]);
+
+    await act(async () => {
+      g.simulateRefocus?.();
+    });
+
+    await waitFor(() => {
+      const conv = useChatStore
+        .getState()
+        .conversations.find((c) => c.id === 'conv-existing');
+      expect(conv?.status).toBe('completed');
+      expect(conv?.status).not.toBe('running');
+    });
   });
 
   it('refocus silently refreshes data without returning to loading screen', async () => {

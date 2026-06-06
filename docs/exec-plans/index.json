@@ -3,6 +3,10 @@
   "version": 1,
   "documents": [
     {
+      "file": "2026-06-06-agent-status-consistency.md",
+      "title": "Agent / Chat / Activity Status Consistency Fix Implementation Plan"
+    },
+    {
       "file": "2026-06-06-spec-detail-rich-text.md",
       "title": "Spec Detail Artifact Snapshot Rich Text Rendering Implementation Plan",
       "lastCompletedCommit": "68f461791ce8a3b2b4decf4ab4bd68ddd5c83097"
