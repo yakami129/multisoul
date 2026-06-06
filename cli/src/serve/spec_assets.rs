@@ -404,6 +404,7 @@ pub enum SaveSpecError {
     EmptyMarkdown,
     MissingTitle,
     NotFound,
+    Conflict,
     Internal,
 }
 
@@ -417,6 +418,7 @@ impl SaveSpecError {
             SaveSpecError::FileNotFound | SaveSpecError::NotFound => {
                 axum::http::StatusCode::NOT_FOUND
             }
+            SaveSpecError::Conflict => axum::http::StatusCode::CONFLICT,
             SaveSpecError::Internal => axum::http::StatusCode::INTERNAL_SERVER_ERROR,
         }
     }
@@ -429,6 +431,7 @@ impl SaveSpecError {
             SaveSpecError::EmptyMarkdown => "empty_markdown",
             SaveSpecError::MissingTitle => "missing_title",
             SaveSpecError::NotFound => "not_found",
+            SaveSpecError::Conflict => "conflict",
             SaveSpecError::Internal => "internal",
         }
     }

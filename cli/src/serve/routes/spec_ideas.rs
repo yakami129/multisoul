@@ -8,8 +8,9 @@ use crate::{
         runtime,
         spec_assets::SaveSpecError,
         spec_ideas::{
-            create_spec_idea, get_interview_context, get_spec_idea, list_spec_ideas,
-            mark_idea_interviewing, update_spec_idea, InterviewIdeaContext, SpecIdeaMutation,
+            create_spec_idea, delete_spec_idea, get_interview_context, get_spec_idea,
+            list_spec_ideas, mark_idea_interviewing, update_spec_idea, InterviewIdeaContext,
+            SpecIdeaMutation,
         },
         state::AppState,
     },
@@ -63,6 +64,15 @@ pub async fn patch(
     let idea = update_spec_idea(&state, &idea_id, body).map_err(error_response)?;
     emit_spec_changed(&state, &idea_id, "");
     Ok(Json(serde_json::json!({ "idea": idea })))
+}
+
+pub async fn delete(
+    State(state): State<AppState>,
+    Path(idea_id): Path<String>,
+) -> Result<StatusCode, (StatusCode, Json<serde_json::Value>)> {
+    delete_spec_idea(&state, &idea_id).map_err(error_response)?;
+    emit_spec_changed(&state, &idea_id, "");
+    Ok(StatusCode::NO_CONTENT)
 }
 
 pub async fn start_interview(

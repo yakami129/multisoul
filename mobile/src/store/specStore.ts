@@ -2,6 +2,7 @@ import 'react-native-get-random-values';
 import { v4 as uuidv4 } from 'uuid';
 import { create } from 'zustand';
 import {
+  deleteIdea,
   loadIdeas,
   loadSpecs as loadSpecArtifacts,
   replaceIdeasForEndpoint,
@@ -40,6 +41,7 @@ interface SpecState {
   createIdea: (input: CreateSpecIdeaInput) => Promise<SpecIdea>;
   archiveIdea: (ideaId: string) => Promise<void>;
   unarchiveIdea: (ideaId: string) => Promise<void>;
+  deleteArchivedIdea: (ideaId: string, endpoint?: Endpoint) => Promise<void>;
   createSpec: (input: CreateSpecInput) => Promise<SpecDraft>;
   answerQuestion: (specId: string, answer: SpecAnswer) => Promise<void>;
   generatePreview: (specId: string) => Promise<void>;
@@ -169,6 +171,21 @@ export const useSpecStore = create<SpecState>((set, get) => ({
     const idea = ideas.find((item) => item.id === ideaId);
     if (idea) await saveIdea(idea, 'update', null);
     set({ ideas });
+  },
+
+  deleteArchivedIdea: async (ideaId, endpoint?) => {
+    const idea = get().ideas.find((item) => item.id === ideaId);
+    if (!idea || idea.status !== 'archived') return;
+    set((state) => ({ ideas: state.ideas.filter((item) => item.id !== ideaId) }));
+    await deleteIdea(ideaId);
+    if (endpoint) {
+      const { deleteSpecIdea } = await import('@/features/specs/services/specAssetService');
+      try {
+        await deleteSpecIdea(endpoint, ideaId);
+      } catch (_) {
+        // best-effort; local already deleted
+      }
+    }
   },
 
   createSpec: async ({ title, targetAgent }) => {

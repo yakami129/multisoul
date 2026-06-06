@@ -17,6 +17,7 @@ export default function SpecsTab() {
   const createIdea = useSpecStore((s) => s.createIdea);
   const archiveIdea = useSpecStore((s) => s.archiveIdea);
   const unarchiveIdea = useSpecStore((s) => s.unarchiveIdea);
+  const deleteArchivedIdea = useSpecStore((s) => s.deleteArchivedIdea);
 
   const { data: agents = [] } = useQuery({
     queryKey: ['agents', endpoints.map((endpoint) => endpoint.id), 'spec-create'],
@@ -69,6 +70,13 @@ export default function SpecsTab() {
       }}
       onUnarchiveIdea={(id) => {
         void unarchiveIdea(id);
+      }}
+      onDeleteArchivedIdea={(id) => {
+        const idea = ideas.find((item) => item.id === id);
+        const endpoint = idea
+          ? endpoints.find((ep) => ep.id === idea.targetEndpointId)
+          : undefined;
+        void deleteArchivedIdea(id, endpoint);
       }}
     />
   );

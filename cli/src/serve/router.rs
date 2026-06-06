@@ -79,7 +79,7 @@ pub async fn build_router(state: AppState) -> Router {
         )
         .route(
             "/api/v1/spec-ideas/:id",
-            axum::routing::patch(spec_ideas::patch),
+            axum::routing::patch(spec_ideas::patch).delete(spec_ideas::delete),
         )
         .route(
             "/api/v1/spec-ideas/:id/interview",
