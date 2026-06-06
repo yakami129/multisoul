@@ -130,10 +130,10 @@ pub fn list_spec_artifacts(state: &AppState) -> Result<Vec<serde_json::Value>, S
     let db = state.db.lock().map_err(|_| SaveSpecError::Internal)?;
     let mut stmt = db
         .prepare(
-            "SELECT id, title, slug, status, target_agent_id, target_endpoint_id,
-                    target_repo_path, repo_spec_path, latest_version_id, source_idea_id,
-                    interview_conversation_id, latest_implementation_conversation_id,
-                    linked_activity_item_id, created_at, updated_at, v.revision,
+            "SELECT s.id, s.title, s.slug, s.status, s.target_agent_id, s.target_endpoint_id,
+                    s.target_repo_path, s.repo_spec_path, s.latest_version_id, s.source_idea_id,
+                    s.interview_conversation_id, s.latest_implementation_conversation_id,
+                    s.linked_activity_item_id, s.created_at, s.updated_at, v.revision,
                     v.repo_spec_path, v.markdown_sha256, v.source_conversation_id, v.created_at
              FROM spec_artifacts s
              LEFT JOIN spec_artifact_versions v ON v.id = s.latest_version_id
@@ -142,41 +142,60 @@ pub fn list_spec_artifacts(state: &AppState) -> Result<Vec<serde_json::Value>, S
         .map_err(|_| SaveSpecError::Internal)?;
     let rows = stmt
         .query_map([], |row| {
-            let latest_version_id = row.get::<_, Option<String>>(8)?.unwrap_or_default();
-            let latest_version = row.get::<_, Option<i64>>(15)?.map(|revision| {
+            let id: String = row.get(0)?;
+            let title: String = row.get(1)?;
+            let slug: String = row.get(2)?;
+            let status: String = row.get(3)?;
+            let target_agent_id: String = row.get(4)?;
+            let target_endpoint_id: String = row.get(5)?;
+            let target_repo_path: String = row.get(6)?;
+            let repo_spec_path: String = row.get(7)?;
+            let latest_version_id: String = row.get::<_, Option<String>>(8)?.unwrap_or_default();
+            let source_idea_id: Option<String> = row.get(9)?;
+            let interview_conversation_id: String = row.get(10)?;
+            let latest_implementation_conversation_id: Option<String> = row.get(11)?;
+            let linked_activity_item_id: Option<String> = row.get(12)?;
+            let created_at: i64 = row.get(13)?;
+            let updated_at: i64 = row.get(14)?;
+            let revision: Option<i64> = row.get(15)?;
+            let version_repo_spec_path: Option<String> = row.get(16)?;
+            let markdown_sha256: Option<String> = row.get(17)?;
+            let source_conversation_id: Option<String> = row.get(18)?;
+            let version_created_at: Option<i64> = row.get(19)?;
+            let latest_version = revision.map(|revision| {
                 serde_json::json!({
                     "id": latest_version_id.clone(),
-                    "spec_id": row.get::<_, String>(0).unwrap_or_default(),
+                    "spec_id": id.clone(),
                     "revision": revision,
-                    "repo_spec_path": row.get::<_, Option<String>>(16).unwrap_or(None).unwrap_or_default(),
+                    "repo_spec_path": version_repo_spec_path.clone().unwrap_or_default(),
                     "markdown": "",
-                    "markdown_sha256": row.get::<_, Option<String>>(17).unwrap_or(None).unwrap_or_default(),
-                    "source_conversation_id": row.get::<_, Option<String>>(18).unwrap_or(None).unwrap_or_default(),
-                    "created_at": row.get::<_, Option<i64>>(19).unwrap_or(None).unwrap_or_default(),
+                    "markdown_sha256": markdown_sha256.clone().unwrap_or_default(),
+                    "source_conversation_id": source_conversation_id.clone().unwrap_or_default(),
+                    "created_at": version_created_at.unwrap_or_default(),
                 })
             });
             Ok(serde_json::json!({
-                "id": row.get::<_, String>(0)?,
-                "title": row.get::<_, String>(1)?,
-                "slug": row.get::<_, String>(2)?,
-                "status": row.get::<_, String>(3)?,
-                "target_agent_id": row.get::<_, String>(4)?,
-                "target_endpoint_id": row.get::<_, String>(5)?,
-                "target_repo_path": row.get::<_, String>(6)?,
-                "repo_spec_path": row.get::<_, String>(7)?,
+                "id": id,
+                "title": title,
+                "slug": slug,
+                "status": status,
+                "target_agent_id": target_agent_id,
+                "target_endpoint_id": target_endpoint_id,
+                "target_repo_path": target_repo_path,
+                "repo_spec_path": repo_spec_path,
                 "latest_version_id": latest_version_id,
                 "latest_version": latest_version,
-                "source_idea_id": row.get::<_, Option<String>>(9)?,
-                "interview_conversation_id": row.get::<_, String>(10)?,
-                "latest_implementation_conversation_id": row.get::<_, Option<String>>(11)?,
-                "linked_activity_item_id": row.get::<_, Option<String>>(12)?,
-                "created_at": row.get::<_, i64>(13)?,
-                "updated_at": row.get::<_, i64>(14)?,
+                "source_idea_id": source_idea_id,
+                "interview_conversation_id": interview_conversation_id,
+                "latest_implementation_conversation_id": latest_implementation_conversation_id,
+                "linked_activity_item_id": linked_activity_item_id,
+                "created_at": created_at,
+                "updated_at": updated_at,
             }))
         })
         .map_err(|_| SaveSpecError::Internal)?
-        .filter_map(Result::ok)
-        .collect();
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|_| SaveSpecError::Internal)?;
     Ok(rows)
 }
 

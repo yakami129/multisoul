@@ -73,6 +73,27 @@ export function useChatDetailTranscriptScroll({
     scrollToFocusedAsk(transcriptItems);
   }, [transcriptItems, scrollToFocusedAsk]);
 
+  // Async transcript pages can populate FlatList data without a follow-up
+  // onContentSizeChange on some RN builds; retry bottom placement until the
+  // first content-size handler marks the initial scroll complete.
+  useEffect(() => {
+    if (focus_ask_id || hasUserScrolledHistoryRef.current) return;
+    if (!pendingInitialBottomScrollRef.current || transcriptItems.length === 0) return;
+
+    const scrollToBottom = () => {
+      if (!pendingInitialBottomScrollRef.current || hasUserScrolledHistoryRef.current) return;
+      listRef.current?.scrollToEnd({ animated: false });
+    };
+
+    requestAnimationFrame(scrollToBottom);
+    const retry100 = setTimeout(scrollToBottom, 100);
+    const retry300 = setTimeout(scrollToBottom, 300);
+    return () => {
+      clearTimeout(retry100);
+      clearTimeout(retry300);
+    };
+  }, [focus_ask_id, listRef, transcriptItems]);
+
   useEffect(() => {
     lastScrolledFocusTargetRef.current = null;
     clearRetryTimeout();

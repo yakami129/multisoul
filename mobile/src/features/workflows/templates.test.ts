@@ -60,12 +60,12 @@ describe('workflow templates', () => {
   it('uses supported behavioral boundaries and states confirmation limits in prompts', () => {
     for (const template of WORKFLOW_TEMPLATES) {
       expect(SUPPORTED_BOUNDARIES.has(template.boundary)).toBe(true);
-      expect(template.initial_values.prompt).toContain('行为边界');
+      expect(template.initial_values.prompt).toContain('Behavior boundary');
       expect(template.initial_values.prompt).toContain('commit');
       expect(template.initial_values.prompt).toContain('push');
       expect(template.initial_values.prompt).toContain('merge');
       expect(template.initial_values.prompt).toContain('release');
-      expect(template.initial_values.prompt).toContain('确认');
+      expect(template.initial_values.prompt).toMatch(/confirm/i);
     }
   });
 });

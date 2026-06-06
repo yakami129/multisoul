@@ -546,6 +546,59 @@ test('scrolls to bottom after initial transcript layout despite an initial top s
   }
 });
 
+/// Activity reopen: deferred transcript-turns resolution must still land at the
+/// latest row even when FlatList never emits onContentSizeChange after data arrives.
+///
+/// Data construction:
+///   route focus_ask_id = undefined (running/done Activity rows)
+///   transcript request = unresolved until after first render
+///
+/// Execution process:
+///   1. Render ChatDetailScreen with a pending transcript fetch.
+///   2. Resolve the fetch with the default historical prompt + response.
+///   3. Advance timers for the initial bottom-placement retries.
+///
+/// Expected result:
+///   - Positive: scrollToEnd runs with animated=false after transcript data commits.
+///   - Negative: no manual onContentSizeChange callback is required.
+test('scrolls to bottom when async transcript data arrives without content-size callback', async () => {
+  const flatListPrototype = FlatList.prototype as unknown as {
+    scrollToEnd: (params?: { animated?: boolean }) => void;
+  };
+  const scrollToEndSpy = jest.spyOn(flatListPrototype, 'scrollToEnd').mockImplementation();
+  let resolveTranscript: ((page: TranscriptPage) => void) | undefined;
+  (fetchTranscriptTurns as jest.Mock).mockImplementation(
+    () =>
+      new Promise<TranscriptPage>((resolve) => {
+        resolveTranscript = resolve;
+      }),
+  );
+
+  jest.useFakeTimers();
+  try {
+    const { getByText } = render(<ChatDetailScreen />);
+    expect(scrollToEndSpy).not.toHaveBeenCalled();
+
+    await act(async () => {
+      resolveTranscript?.(makeRawTranscriptPage('conv-1', historyMessages));
+      await Promise.resolve();
+    });
+    await waitFor(() => expect(getByText('historical response')).toBeTruthy());
+
+    act(() => {
+      jest.runOnlyPendingTimers();
+    });
+
+    expect({
+      actual: scrollToEndSpy.mock.calls.some(([args]) => args?.animated === false),
+      reason: 'async transcript commit should schedule bottom placement without onContentSizeChange',
+    }).toEqual({ actual: true, reason: expect.any(String) });
+  } finally {
+    scrollToEndSpy.mockRestore();
+    jest.useRealTimers();
+  }
+});
+
 /// Content resize while reading: away-from-bottom anchor restore is only for
 /// older-message prepend, not for ordinary row height changes such as
 /// typewriter text growth, markdown image load, or waiting footer changes.
