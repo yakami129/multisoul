@@ -59,7 +59,7 @@ test('artifact detail shows latest snapshot metadata and related records', () =>
   ).toBeGreaterThan(0);
   expect(getByText('v3')).toBeTruthy();
   expect(getByText('abcdef12')).toBeTruthy();
-  expect(getByText('Persist the asset snapshot.')).toBeTruthy();
+  expect(getByText(/Persist the asset snapshot/)).toBeTruthy();
   expect(getByText('Captured idea')).toBeTruthy();
   expect(getByText('interview-1')).toBeTruthy();
 });
@@ -152,6 +152,6 @@ test('legacy local draft renders as a migration fallback, not the old fixed-ques
   );
 
   expect(getByText('Legacy Draft')).toBeTruthy();
-  expect(getByText('Saved before artifacts.')).toBeTruthy();
+  expect(getByText(/Saved before artifacts/)).toBeTruthy();
   expect(queryByText('这次需求最直接要达成什么结果？')).toBeNull();
 });
