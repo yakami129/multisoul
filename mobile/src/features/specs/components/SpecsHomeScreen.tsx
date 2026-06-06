@@ -1,6 +1,6 @@
 import { ChevronDown, ChevronUp, CircleAlert, Plus, Search } from 'lucide-react-native';
 import React from 'react';
-import { Alert, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { brandColors } from '@/theme/brandRefresh';
 import { type Agent, type Endpoint } from '@/types';
@@ -14,7 +14,7 @@ import {
   type AttachmentPreset,
 } from './SpecsHomeRows';
 import { specsHomeStyles as s } from './SpecsHomeStyles';
-import { deriveIdeaTitle, type SpecArtifact, type SpecIdea, type SpecTarget } from './specUiModels';
+import { type SpecArtifact, type SpecIdea, type SpecTarget } from './specUiModels';
 import { TargetPickerSheet } from './TargetPickerSheet';
 
 type Segment = 'ideas' | 'specs';
@@ -58,7 +58,6 @@ export function SpecsHomeScreen({
   const [attachmentPreset, setAttachmentPreset] = React.useState<AttachmentPreset>();
   const [draftTarget, setDraftTarget] = React.useState<SpecTarget | undefined>();
   const [archivedExpanded, setArchivedExpanded] = React.useState(false);
-  const [undoIdea, setUndoIdea] = React.useState<SpecIdea | null>(null);
 
   const openEditor = (preset?: AttachmentPreset) => {
     setAttachmentPreset(preset);
@@ -77,22 +76,10 @@ export function SpecsHomeScreen({
 
   const handleArchive = (idea: SpecIdea) => {
     onArchiveIdea?.(idea.id);
-    setUndoIdea(idea);
   };
 
   const handleDeleteIdea = (ideaId: string) => {
-    Alert.alert(
-      'Delete idea?',
-      'This idea will be permanently removed. This cannot be undone.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: () => onDeleteArchivedIdea?.(ideaId),
-        },
-      ],
-    );
+    onDeleteArchivedIdea?.(ideaId);
   };
 
   return (
@@ -217,22 +204,6 @@ export function SpecsHomeScreen({
           </>
         )}
       </ScrollView>
-
-      {undoIdea ? (
-        <View style={[s.undo, { bottom: insets.bottom + 96 }]}>
-          <Text style={s.undoText}>Archived {deriveIdeaTitle(undoIdea.title, undoIdea.body)}</Text>
-          <TouchableOpacity
-            accessibilityRole="button"
-            onPress={() => {
-              onUnarchiveIdea?.(undoIdea.id);
-              setUndoIdea(null);
-            }}
-            style={s.undoButton}
-          >
-            <Text style={s.undoButtonText}>Undo</Text>
-          </TouchableOpacity>
-        </View>
-      ) : null}
 
       <IdeaEditorSheet
         visible={editorVisible}

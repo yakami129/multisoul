@@ -1,6 +1,5 @@
 import { fireEvent, render } from '@testing-library/react-native';
 import React from 'react';
-import { Alert } from 'react-native';
 import { type Agent, type Endpoint } from '@/types';
 import { SpecsHomeScreen } from './SpecsHomeScreen';
 import { type SpecArtifact, type SpecIdea } from './specUiModels';
@@ -118,11 +117,10 @@ test('switches to Specs segment and opens ready spec rows', () => {
   expect(onOpenSpec).toHaveBeenCalledWith('spec-1');
 });
 
-test('archives an idea and exposes undo without opening the row', () => {
+test('archives an idea without opening the row', () => {
   const onArchiveIdea = jest.fn();
-  const onUnarchiveIdea = jest.fn();
   const onOpenIdea = jest.fn();
-  const { getByText } = render(
+  const { getByText, queryByText } = render(
     <SpecsHomeScreen
       ideas={[idea]}
       specs={[]}
@@ -131,17 +129,13 @@ test('archives an idea and exposes undo without opening the row', () => {
       onOpenIdea={onOpenIdea}
       onOpenSpec={() => {}}
       onArchiveIdea={onArchiveIdea}
-      onUnarchiveIdea={onUnarchiveIdea}
     />,
   );
 
   fireEvent.press(getByText('Archive'));
   expect(onArchiveIdea).toHaveBeenCalledWith('idea-1');
   expect(onOpenIdea).not.toHaveBeenCalled();
-  expect(getByText('Archived Improve onboarding')).toBeTruthy();
-
-  fireEvent.press(getByText('Undo'));
-  expect(onUnarchiveIdea).toHaveBeenCalledWith('idea-1');
+  expect(queryByText('Archived Improve onboarding')).toBeNull();
 });
 
 const archivedIdea: SpecIdea = {
@@ -172,35 +166,8 @@ test('archived idea shows both Unarchive and Delete actions', () => {
   expect(getByText('DELETE')).toBeTruthy();
 });
 
-test('clicking DELETE shows confirmation alert without calling onDeleteArchivedIdea', () => {
+test('clicking DELETE directly calls onDeleteArchivedIdea', () => {
   const onDeleteArchivedIdea = jest.fn();
-  const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
-  const { getByText } = render(
-    <SpecsHomeScreen
-      ideas={[archivedIdea]}
-      specs={[]}
-      endpoints={[endpoint]}
-      agents={[agent]}
-      onOpenIdea={() => {}}
-      onOpenSpec={() => {}}
-      onUnarchiveIdea={() => {}}
-      onDeleteArchivedIdea={onDeleteArchivedIdea}
-    />,
-  );
-
-  fireEvent.press(getByText('Archived'));
-  fireEvent.press(getByText('DELETE'));
-  expect(alertSpy).toHaveBeenCalled();
-  expect(onDeleteArchivedIdea).not.toHaveBeenCalled();
-  alertSpy.mockRestore();
-});
-
-test('confirming delete calls onDeleteArchivedIdea', () => {
-  const onDeleteArchivedIdea = jest.fn();
-  const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation((_title, _msg, buttons) => {
-    const deleteButton = buttons?.find((btn) => btn.text === 'Delete');
-    deleteButton?.onPress?.();
-  });
   const { getByText } = render(
     <SpecsHomeScreen
       ideas={[archivedIdea]}
@@ -217,7 +184,6 @@ test('confirming delete calls onDeleteArchivedIdea', () => {
   fireEvent.press(getByText('Archived'));
   fireEvent.press(getByText('DELETE'));
   expect(onDeleteArchivedIdea).toHaveBeenCalledWith('idea-1');
-  alertSpy.mockRestore();
 });
 
 test('saves a new idea with a selected target from the picker', () => {
