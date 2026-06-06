@@ -38,7 +38,7 @@ export function useChatDetailAgentTurn({
   lastAnimatedAgentTextSeqRef,
   pendingImages,
   clearPendingImages,
-  listRef,
+  listRef: _listRef,
 }: AgentTurnParams) {
   const [isAwaitingResponse, setIsAwaitingResponse] = useState(false);
   const [typewriterSeq, setTypewriterSeq] = useState<number | null>(null);

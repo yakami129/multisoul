@@ -597,7 +597,8 @@ test('scrolls to last AI message when async transcript data arrives without cont
 
     expect({
       actual: scrollToIndexSpy.mock.calls.some(([args]) => args?.animated === false),
-      reason: 'async transcript commit should schedule scroll to last AI message without onContentSizeChange',
+      reason:
+        'async transcript commit should schedule scroll to last AI message without onContentSizeChange',
     }).toEqual({ actual: true, reason: expect.any(String) });
   } finally {
     scrollToIndexSpy.mockRestore();

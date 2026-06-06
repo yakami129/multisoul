@@ -116,7 +116,13 @@ export function useChatDetailTranscriptScroll({
       clearTimeout(retry100);
       clearTimeout(retry300);
     };
-  }, [focus_ask_id, listRef, transcriptItems, scrollToLastAssistantOrEnd]);
+  }, [
+    focus_ask_id,
+    hasUserScrolledHistoryRef,
+    listRef,
+    transcriptItems,
+    scrollToLastAssistantOrEnd,
+  ]);
 
   useEffect(() => {
     lastScrolledFocusTargetRef.current = null;

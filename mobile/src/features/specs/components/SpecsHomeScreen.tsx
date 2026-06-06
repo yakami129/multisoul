@@ -81,18 +81,14 @@ export function SpecsHomeScreen({
   };
 
   const handleDeleteIdea = (ideaId: string) => {
-    Alert.alert(
-      'Delete idea?',
-      'This idea will be permanently removed. This cannot be undone.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: () => onDeleteArchivedIdea?.(ideaId),
-        },
-      ],
-    );
+    Alert.alert('Delete idea?', 'This idea will be permanently removed. This cannot be undone.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: () => onDeleteArchivedIdea?.(ideaId),
+      },
+    ]);
   };
 
   return (

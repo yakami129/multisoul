@@ -28,13 +28,14 @@ import {
   type SpecAnswer,
   type SpecDraft,
   type SpecIdea,
+  type SpecIdeaAttachment,
 } from '@/features/specs/types';
 import { type Endpoint } from '@/types';
 
 interface EditIdeaInput {
   title: string;
   body: string;
-  attachments: import('@/features/specs/types').SpecIdeaAttachment[];
+  attachments: SpecIdeaAttachment[];
   targetAgentId?: string;
   targetEndpointId?: string;
   targetRepoPath?: string;
@@ -214,7 +215,7 @@ export const useSpecStore = create<SpecState>((set, get) => ({
       const { deleteSpecIdea } = await import('@/features/specs/services/specAssetService');
       try {
         await deleteSpecIdea(endpoint, ideaId);
-      } catch (_) {
+      } catch {
         // best-effort; local already deleted
       }
     }

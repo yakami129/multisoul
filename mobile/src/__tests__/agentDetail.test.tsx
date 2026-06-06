@@ -419,9 +419,7 @@ describe('AgentDetailScreen', () => {
     });
 
     await waitFor(() => {
-      const conv = useChatStore
-        .getState()
-        .conversations.find((c) => c.id === 'conv-existing');
+      const conv = useChatStore.getState().conversations.find((c) => c.id === 'conv-existing');
       expect(conv?.status).toBe('completed');
       expect(conv?.status).not.toBe('running');
     });

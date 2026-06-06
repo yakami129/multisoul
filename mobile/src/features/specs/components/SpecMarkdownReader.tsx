@@ -1,7 +1,7 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { brandColors, brandRgba, brandTypography } from '@/theme/brandRefresh';
 import { MarkdownMessage } from '@/features/chat';
+import { brandColors, brandRgba, brandTypography } from '@/theme/brandRefresh';
 
 interface Props {
   markdown?: string;

@@ -272,7 +272,9 @@ describe('chatStore conversation previews', () => {
   it('overwrites stale status of existing conversations with REST result', () => {
     useChatStore.getState().addConversation(makeConversation('conv-1'));
 
-    useChatStore.getState().mergeConversations([{ ...makeConversation('conv-1'), status: 'completed' }]);
+    useChatStore
+      .getState()
+      .mergeConversations([{ ...makeConversation('conv-1'), status: 'completed' }]);
 
     const conv = useChatStore.getState().conversations.find((c) => c.id === 'conv-1');
     expect(conv?.status).toBe('completed');
@@ -310,10 +312,12 @@ describe('chatStore conversation previews', () => {
   it('updates existing and adds new conversations in a single merge', () => {
     useChatStore.getState().addConversation(makeConversation('conv-1'));
 
-    useChatStore.getState().mergeConversations([
-      { ...makeConversation('conv-1'), status: 'idle' },
-      makeConversation('conv-2'),
-    ]);
+    useChatStore
+      .getState()
+      .mergeConversations([
+        { ...makeConversation('conv-1'), status: 'idle' },
+        makeConversation('conv-2'),
+      ]);
 
     const state = useChatStore.getState();
     expect(state.conversations.find((c) => c.id === 'conv-1')?.status).toBe('idle');
