@@ -13,6 +13,8 @@ pub mod messages;
 mod messages_tests;
 pub mod push_tokens;
 pub mod runtime_models;
+pub mod spec_ideas;
+pub mod spec_implement;
 pub mod specs;
 pub mod transcript;
 #[cfg(test)]

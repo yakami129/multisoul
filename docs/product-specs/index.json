@@ -35,6 +35,10 @@
       "title": "Chat Server Turn Transcript SPEC"
     },
     {
+      "file": "2026-06-06-SPEC-ideas-to-specs-refactor.md",
+      "title": "Ideas to Specs 重构 SPEC"
+    },
+    {
       "file": "SPEC-activity-pagination.md",
       "title": "Activity 模块分页滚动加载优化 SPEC"
     },

@@ -27,6 +27,15 @@ struct ActivityChangedEvent<'a> {
     timestamp: i64,
 }
 
+#[derive(Serialize)]
+struct SpecChangedEvent<'a> {
+    #[serde(rename = "type")]
+    kind: &'static str,
+    spec_id: &'a str,
+    conversation_id: &'a str,
+    timestamp: i64,
+}
+
 pub async fn activity_ws_handler(ws: WebSocketUpgrade, State(state): State<AppState>) -> Response {
     ws.on_upgrade(move |socket| handle_activity_socket(socket, state))
 }
@@ -85,6 +94,22 @@ pub fn emit_activity_changed(state: &AppState, conversation_id: &str, reason: &s
         debug!(
             conversation_id,
             reason, receivers, "activity_changed_broadcast"
+        );
+    }
+}
+
+pub fn emit_spec_changed(state: &AppState, spec_id: &str, conversation_id: &str) {
+    let event = SpecChangedEvent {
+        kind: "spec_changed",
+        spec_id,
+        conversation_id,
+        timestamp: crate::db::now_ms(),
+    };
+    if let Ok(json) = serde_json::to_string(&event) {
+        let receivers = state.activity_bus.send(json).unwrap_or(0);
+        debug!(
+            spec_id,
+            conversation_id, receivers, "spec_changed_broadcast"
         );
     }
 }

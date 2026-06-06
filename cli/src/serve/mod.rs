@@ -14,6 +14,10 @@ pub mod relay;
 pub mod router;
 pub mod routes;
 pub mod runtime;
+pub mod sha256;
+pub mod spec_assets;
+pub mod spec_idea_rows;
+pub mod spec_ideas;
 pub mod state;
 pub mod transcript;
 #[cfg(test)]

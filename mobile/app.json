@@ -16,7 +16,7 @@
       "icon": "./assets/ios-icon.png",
       "supportsTablet": true,
       "bundleIdentifier": "com.yakami0129.multisoul",
-      "buildNumber": "103",
+      "buildNumber": "105",
       "splash": {
         "backgroundColor": "#ffffff"
       },
