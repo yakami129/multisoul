@@ -4,7 +4,8 @@
   "documents": [
     {
       "file": "2026-06-06-workflow-template-library.md",
-      "title": "Workflow Template Library Implementation Plan"
+      "title": "Workflow Template Library Implementation Plan",
+      "lastCompletedCommit": "7abafe6216196120706b430c213a557a6d26965b"
     },
     {
       "file": "2026-06-06-ideas-to-specs-refactor.md",
