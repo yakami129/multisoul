@@ -3,7 +3,10 @@ import React from 'react';
 import { buildChatDetailPath } from '@/features/chat/utils/chatRoutes';
 import { IdeaDetailScreen } from '@/features/specs/components/IdeaDetailScreen';
 import { saveIdea } from '@/features/specs/services/specAssetRepository';
-import { startSpecIdeaInterview } from '@/features/specs/services/specAssetService';
+import {
+  startSpecIdeaInterview,
+  syncSpecIdeaBeforeServerAction,
+} from '@/features/specs/services/specAssetService';
 import { useEndpointStore } from '@/store/endpointStore';
 import { useSpecStore } from '../../src/store/specStore';
 
@@ -49,7 +52,14 @@ export default function IdeaDetailRoute() {
     }
     setIsStartingInterview(true);
     setErrorMessage(undefined);
-    void startSpecIdeaInterview(endpoint, idea.id)
+    void syncSpecIdeaBeforeServerAction(endpoint, idea)
+      .then(async (syncedIdea) => {
+        if (syncedIdea !== idea || idea.pendingMutation) {
+          await saveIdea(syncedIdea, null, null);
+          await loadAssets();
+        }
+        return startSpecIdeaInterview(endpoint, syncedIdea.id);
+      })
       .then(async (result) => {
         if (result.idea) {
           await saveIdea(result.idea, null, null);
@@ -58,7 +68,9 @@ export default function IdeaDetailRoute() {
         openChat(result.conversationId);
       })
       .catch((error: unknown) => {
-        setErrorMessage(error instanceof Error ? error.message : 'Failed to start interview.');
+        const message = error instanceof Error ? error.message : 'Failed to start interview.';
+        if (idea.pendingMutation) void saveIdea(idea, idea.pendingMutation, message);
+        setErrorMessage(message);
       })
       .finally(() => setIsStartingInterview(false));
   }, [endpoints, idea, isStartingInterview, loadAssets, openChat]);

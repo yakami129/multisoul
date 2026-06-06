@@ -7,6 +7,7 @@ import {
   fetchSpecIdeas,
   startSpecIdeaInterview,
   startSpecImplementation,
+  syncSpecIdeaBeforeServerAction,
   updateSpecIdea,
 } from './specAssetService';
 
@@ -125,6 +126,73 @@ test('starts idea interview and spec implementation through the new endpoints', 
   expect(mockPost).toHaveBeenNthCalledWith(2, '/api/v1/specs/spec%2Fslash/implement', {});
   expect(interview.conversationId).toBe('interview-conv');
   expect(implementation.conversationId).toBe('implementation-conv');
+});
+
+test('syncs pending local idea create before server actions', async () => {
+  mockPost.mockResolvedValueOnce({
+    data: {
+      idea: {
+        id: 'local-idea',
+        title: 'New idea',
+        body: 'Body',
+        target_agent_id: 'agent-1',
+        target_endpoint_id: 'ep-1',
+        target_repo_path: '/repo/multisoul',
+        target_agent_name: 'Codex Runner',
+        created_at: 1,
+        updated_at: 2,
+      },
+    },
+  });
+
+  const synced = await syncSpecIdeaBeforeServerAction(endpoint, {
+    id: 'local-idea',
+    title: 'New idea',
+    status: 'open',
+    targetAgentId: 'agent-1',
+    targetEndpointId: 'ep-1',
+    targetRepoPath: '/repo/multisoul',
+    targetAgentName: 'Codex Runner',
+    body: 'Body',
+    notes: [],
+    attachments: [],
+    createdAt: 1,
+    updatedAt: 1,
+    pendingMutation: 'create',
+  });
+
+  expect(mockPost).toHaveBeenCalledWith(
+    '/api/v1/spec-ideas',
+    expect.objectContaining({
+      id: 'local-idea',
+      title: 'New idea',
+      body: 'Body',
+      target_agent_id: 'agent-1',
+    }),
+  );
+  expect(synced.pendingMutation).toBeUndefined();
+  expect(synced.updatedAt).toBe(2);
+});
+
+test('does not resync ideas that are already authoritative', async () => {
+  const idea = {
+    id: 'remote-idea',
+    title: 'Remote idea',
+    status: 'open' as const,
+    targetAgentId: 'agent-1',
+    targetEndpointId: 'ep-1',
+    targetRepoPath: '/repo/multisoul',
+    targetAgentName: 'Codex Runner',
+    body: 'Body',
+    notes: [],
+    attachments: [],
+    createdAt: 1,
+    updatedAt: 1,
+  };
+
+  await expect(syncSpecIdeaBeforeServerAction(endpoint, idea)).resolves.toBe(idea);
+  expect(mockPost).not.toHaveBeenCalled();
+  expect(mockPatch).not.toHaveBeenCalled();
 });
 
 test('fetches specs and detail with latest version fallback', async () => {

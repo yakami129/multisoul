@@ -224,6 +224,34 @@ export async function startSpecIdeaInterview(
   };
 }
 
+export async function syncSpecIdeaBeforeServerAction(
+  endpoint: Endpoint,
+  idea: SpecIdea,
+): Promise<SpecIdea> {
+  if (!idea.pendingMutation) return idea;
+  const input: UpdateSpecIdeaInput & { id: string; body: string } = {
+    id: idea.id,
+    title: idea.title,
+    body: idea.body,
+    status: idea.status,
+    targetAgentId: idea.targetAgentId,
+    targetEndpointId: idea.targetEndpointId,
+    targetRepoPath: idea.targetRepoPath,
+    targetAgentName: idea.targetAgentName,
+    notes: idea.notes,
+    attachments: idea.attachments,
+    interviewConversationId: idea.interviewConversationId,
+    convertedSpecId: idea.convertedSpecId,
+    errorMessage: idea.errorMessage,
+    archivedAt: idea.archivedAt ?? null,
+  };
+
+  if (idea.pendingMutation === 'create') {
+    return createSpecIdea(endpoint, input);
+  }
+  return updateSpecIdea(endpoint, idea.id, input);
+}
+
 export async function fetchSpecArtifacts(endpoint: Endpoint): Promise<SpecArtifact[]> {
   const client = getEndpointClient(endpoint.base_url, endpoint.token);
   const res = await client.get('/api/v1/specs');
