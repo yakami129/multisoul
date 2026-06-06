@@ -1,6 +1,4 @@
-import type React from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { type FlatList } from 'react-native';
 import {
   fetchTranscriptTurns,
   fetchTurnHiddenMessages,
@@ -9,7 +7,6 @@ import type { TranscriptItem, TranscriptPage } from '@/features/chat/types';
 import { getMaxMessageSeq, hydrateAnswered } from '@/features/chat/utils/chatMessageWindows';
 import {
   collapseTodoToolCallSnapshots,
-  type ChatTranscriptDisplayItem,
   getLatestAgentActivitySeq,
   getLatestAgentTextSeq,
   isRenderableInChatTranscript,
@@ -37,7 +34,6 @@ type ServerTranscriptParams = {
   focus_ask_id: string | undefined;
   messages: WsMessage[];
   inboxMirrorStableKey: string;
-  listRef: React.RefObject<FlatList<ChatTranscriptDisplayItem> | null>;
   lastSeenAgentActivitySeqRef: React.MutableRefObject<number>;
   lastAnimatedAgentTextSeqRef: React.MutableRefObject<number>;
 };
@@ -120,7 +116,6 @@ export function useChatDetailServerTranscript({
   focus_ask_id,
   messages,
   inboxMirrorStableKey,
-  listRef,
   lastSeenAgentActivitySeqRef,
   lastAnimatedAgentTextSeqRef,
 }: ServerTranscriptParams) {
@@ -227,11 +222,6 @@ export function useChatDetailServerTranscript({
         addItem: addInboxItem,
       });
 
-      if (!focus_ask_id) {
-        requestAnimationFrame(() => {
-          listRef.current?.scrollToEnd({ animated: false });
-        });
-      }
     }
 
     return () => {
@@ -249,7 +239,6 @@ export function useChatDetailServerTranscript({
     mergeMessages,
     updateConversation,
     addInboxItem,
-    listRef,
     lastSeenAgentActivitySeqRef,
     lastAnimatedAgentTextSeqRef,
   ]);

@@ -494,6 +494,125 @@ test('does not load older history from initial top scroll before user drag', asy
   }).toEqual({ actual: 0, reason: expect.any(String) });
 });
 
+/// Initial bottom position: opening a normal Chat Detail route should land at
+/// the latest transcript row even if FlatList emits a top-position layout
+/// scroll before the first content-size callback.
+///
+/// Data construction:
+///   route focus_ask_id = undefined
+///   initial page       = default historical prompt + response
+///   layout scroll      = y 0, content much taller than viewport
+///
+/// Execution process:
+///   1. Render ChatDetailScreen without a focus target.
+///   2. Wait for the initial transcript page to render.
+///   3. Clear any setup scroll calls and emit a top-position onScroll.
+///   4. Emit onContentSizeChange for the laid-out transcript.
+///
+/// Expected result:
+///   - Positive: scrollToEnd runs once with animated=false for initial placement.
+///   - Negative: the synthetic top scroll must not make Chat Detail think the user is reading history.
+test('scrolls to bottom after initial transcript layout despite an initial top scroll event', async () => {
+  const flatListPrototype = FlatList.prototype as unknown as {
+    scrollToEnd: (params?: { animated?: boolean }) => void;
+  };
+  const scrollToEndSpy = jest.spyOn(flatListPrototype, 'scrollToEnd').mockImplementation();
+  try {
+    const { UNSAFE_getByType, getByText } = render(<ChatDetailScreen />);
+
+    await waitFor(() => expect(getByText('historical response')).toBeTruthy());
+    scrollToEndSpy.mockClear();
+
+    act(() => {
+      UNSAFE_getByType(FlatList).props.onScroll({
+        nativeEvent: {
+          contentOffset: { y: 0 },
+          layoutMeasurement: { height: 400 },
+          contentSize: { height: 1600 },
+        },
+      });
+      UNSAFE_getByType(FlatList).props.onContentSizeChange(320, 1600);
+    });
+
+    expect({
+      actual: scrollToEndSpy.mock.calls,
+      reason: 'initial transcript layout should place an unfocused chat at the bottom',
+    }).toEqual({
+      actual: [[{ animated: false }]],
+      reason: expect.any(String),
+    });
+  } finally {
+    scrollToEndSpy.mockRestore();
+  }
+});
+
+/// Content resize while reading: away-from-bottom anchor restore is only for
+/// older-message prepend, not for ordinary row height changes such as
+/// typewriter text growth, markdown image load, or waiting footer changes.
+///
+/// Data construction:
+///   initial page = default historical prompt + response
+///   first visible item = existing row at index 0
+///   no older rows are prepended, so that row's index remains 0
+///
+/// Execution process:
+///   1. Render ChatDetailScreen and let initial bottom placement finish.
+///   2. Mark a user drag and emit an away-from-bottom scroll.
+///   3. Record the first visible item through onViewableItemsChanged.
+///   4. Emit onContentSizeChange without changing FlatList data order.
+///
+/// Expected result:
+///   - Positive: no manual scrollToIndex runs for ordinary content resize.
+///   - Negative: content-size handling still must not jump to bottom while away from bottom.
+test('does not restore an anchor for ordinary content resize while away from bottom', async () => {
+  const flatListPrototype = FlatList.prototype as unknown as {
+    scrollToIndex: (params: { index: number; animated?: boolean; viewPosition?: number }) => void;
+    scrollToEnd: (params?: { animated?: boolean }) => void;
+  };
+  const scrollToIndexSpy = jest.spyOn(flatListPrototype, 'scrollToIndex').mockImplementation();
+  const scrollToEndSpy = jest.spyOn(flatListPrototype, 'scrollToEnd').mockImplementation();
+  try {
+    const { UNSAFE_getByType, getByText } = render(<ChatDetailScreen />);
+
+    await waitFor(() => expect(getByText('historical response')).toBeTruthy());
+
+    act(() => {
+      UNSAFE_getByType(FlatList).props.onContentSizeChange(320, 1600);
+    });
+    scrollToIndexSpy.mockClear();
+    scrollToEndSpy.mockClear();
+
+    act(() => {
+      const list = UNSAFE_getByType(FlatList);
+      list.props.onScrollBeginDrag?.({ nativeEvent: {} });
+      list.props.onScroll({
+        nativeEvent: {
+          contentOffset: { y: 200 },
+          layoutMeasurement: { height: 400 },
+          contentSize: { height: 1600 },
+        },
+      });
+      list.props.onViewableItemsChanged?.({
+        viewableItems: [{ item: list.props.data[0], index: 0, isViewable: true }],
+        changed: [],
+      });
+      list.props.onContentSizeChange(320, 1680);
+    });
+
+    expect({
+      actual: scrollToIndexSpy.mock.calls.length,
+      reason: 'ordinary content resize must not restore a stable-index visible row',
+    }).toEqual({ actual: 0, reason: expect.any(String) });
+    expect({
+      actual: scrollToEndSpy.mock.calls.length,
+      reason: 'away-from-bottom ordinary resize must not jump to the newest row',
+    }).toEqual({ actual: 0, reason: expect.any(String) });
+  } finally {
+    scrollToIndexSpy.mockRestore();
+    scrollToEndSpy.mockRestore();
+  }
+});
+
 /// Initial history race: a live WebSocket message appended while the limited
 /// REST history request is in flight must not be erased by the history commit.
 ///

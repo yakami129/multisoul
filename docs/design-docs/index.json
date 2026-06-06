@@ -3,6 +3,10 @@
   "version": 1,
   "documents": [
     {
+      "file": "2026-06-06-ideas-to-specs-refactor-design.md",
+      "title": "Ideas to Specs 重构功能交互与 UI 设计"
+    },
+    {
       "file": "2026-05-29-cloudflare-tunnel-relay-design.md",
       "title": "Cloudflare Tunnel Relay 设计（Auto Tunnel 模式）"
     },
@@ -57,7 +61,7 @@
         },
         {
           "path": "cli/src/db.rs",
-          "sha256": "06fb2e1d85a969c801d0cf3fb27b2ab92df6bc5b1e70cbfd76a7372d5c48d7fe",
+          "sha256": "bec9c04b28a796f4e5b60248237f9a69a9a42d17397be4ba8f79e8d5927413ae",
           "reason": "文档说明 runtime 持久化字段和 migration 纪律；DB schema 演进会影响该章节。"
         },
         {

@@ -439,6 +439,8 @@ KodaX 使用 `kodax --mode json --session <conversation_id> --agent-mode ama <pr
 >
 > **2026-06-04（Activity realtime events）**：`AppState` 新增全局 `activity_bus`，`serve/routes/messages.rs` 在用户消息成功入库和会话 WS 广播后发出 `activity_changed` refresh signal。该信号只用于 Activity 列表重新拉取 REST 快照，不改变 runtime adapter 的接入契约、`SessionMessage` 结构或 per-conversation WS 语义。
 
+> **2026-06-06（Ideas to Specs asset tables）**：`cli/src/db.rs` 新增 migration runner，并通过 `cli/migrations/20260606_spec_assets.sql` 创建 `spec_ideas`、`spec_idea_notes`、`spec_idea_attachments`、`spec_artifacts` 和 `spec_artifact_versions`，用于 Specs 资产工作流的 CLI 权威持久化。这些表与 runtime adapter 的 session、model、abort、AskUserQuestion 路由语义解耦；本文 runtime 接入流程和 Step 5 的“runtime 额外状态走 migration”纪律不变。
+
 完成实现后，按 `CLAUDE.md §5` 跑：
 
 ```bash

@@ -1,8 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import React from 'react';
-import { Alert } from 'react-native';
-import { SpecsListScreen } from '@/features/specs/components/SpecsListScreen';
+import { SpecsHomeScreen } from '@/features/specs/components/SpecsHomeScreen';
+import { useSpecEvents } from '@/features/specs/hooks/useSpecEvents';
 import { fetchAllAgents } from '../../src/features/agents/services/agentService';
 import { useEndpointStore } from '../../src/store/endpointStore';
 import { useSpecStore } from '../../src/store/specStore';
@@ -10,9 +10,13 @@ import { useSpecStore } from '../../src/store/specStore';
 export default function SpecsTab() {
   const router = useRouter();
   const endpoints = useEndpointStore((s) => s.endpoints);
-  const specs = useSpecStore((s) => s.specs);
-  const createSpec = useSpecStore((s) => s.createSpec);
-  const deleteSpec = useSpecStore((s) => s.deleteSpec);
+  const ideas = useSpecStore((s) => s.ideas);
+  const specArtifacts = useSpecStore((s) => s.specArtifacts);
+  const loadAssets = useSpecStore((s) => s.loadAssets);
+  const refreshAssets = useSpecStore((s) => s.refreshAssets);
+  const createIdea = useSpecStore((s) => s.createIdea);
+  const archiveIdea = useSpecStore((s) => s.archiveIdea);
+  const unarchiveIdea = useSpecStore((s) => s.unarchiveIdea);
 
   const { data: agents = [] } = useQuery({
     queryKey: ['agents', endpoints.map((endpoint) => endpoint.id), 'spec-create'],
@@ -21,40 +25,50 @@ export default function SpecsTab() {
     enabled: endpoints.length > 0,
   });
 
-  const handleCreateSpec = React.useCallback(async () => {
-    const targetAgent = agents[0];
-    if (!targetAgent) return;
-    const spec = await createSpec({ title: 'Untitled Spec', targetAgent });
-    router.push(`/spec/${encodeURIComponent(spec.id)}` as `/${string}`);
-  }, [agents, createSpec, router]);
+  React.useEffect(() => {
+    void loadAssets().then(() => {
+      if (endpoints.length > 0) void refreshAssets(endpoints);
+    });
+  }, [endpoints, loadAssets, refreshAssets]);
 
-  const handleDeleteSpec = React.useCallback(
-    (id: string) => {
-      const spec = specs.find((item) => item.id === id);
-      if (!spec) return;
-      Alert.alert('Delete Spec', `Delete "${spec.title}"? This cannot be undone.`, [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: () => {
-            void deleteSpec(id);
-          },
-        },
-      ]);
-    },
-    [deleteSpec, specs],
-  );
+  useSpecEvents({
+    endpoints,
+    enabled: endpoints.length > 0,
+    onRefresh: () => refreshAssets(endpoints),
+  });
 
   return (
-    <SpecsListScreen
-      specs={specs}
-      canCreate={agents.length > 0}
-      onCreateSpec={() => {
-        void handleCreateSpec();
+    <SpecsHomeScreen
+      ideas={ideas}
+      specs={specArtifacts}
+      endpoints={endpoints}
+      agents={agents}
+      canCreateIdea
+      onCreateIdea={(value) => {
+        const targetAgent = value.target
+          ? agents.find(
+              (agent) => agent.id === value.target?.agentId && agent.endpoint_id === value.target.endpointId,
+            )
+          : undefined;
+        void createIdea({
+          title: value.title,
+          body: value.body,
+          attachments: value.attachments,
+          targetAgent,
+          targetAgentId: value.target?.agentId,
+          targetEndpointId: value.target?.endpointId,
+          targetRepoPath: value.target?.repoPath,
+          targetAgentName: value.target?.agentName,
+        });
       }}
+      onOpenIdea={(id) => router.push(`/idea/${encodeURIComponent(id)}` as `/${string}`)}
       onOpenSpec={(id) => router.push(`/spec/${encodeURIComponent(id)}` as `/${string}`)}
-      onDeleteSpec={handleDeleteSpec}
+      onArchiveIdea={(id) => {
+        void archiveIdea(id);
+      }}
+      onUnarchiveIdea={(id) => {
+        void unarchiveIdea(id);
+      }}
     />
   );
 }

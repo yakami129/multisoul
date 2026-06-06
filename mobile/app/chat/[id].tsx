@@ -80,7 +80,6 @@ export default function ChatDetailScreen() {
     focus_ask_id,
     messages,
     inboxMirrorStableKey,
-    listRef,
     lastSeenAgentActivitySeqRef,
     lastAnimatedAgentTextSeqRef,
   });

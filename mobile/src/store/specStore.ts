@@ -3,6 +3,13 @@ import { v4 as uuidv4 } from 'uuid';
 import { create } from 'zustand';
 import { dispatchSpecToAgent } from '@/features/specs/services/specDispatchService';
 import {
+  loadIdeas,
+  loadSpecs as loadSpecArtifacts,
+  replaceIdeasForEndpoint,
+  replaceSpecsForEndpoint,
+  saveIdea,
+} from '@/features/specs/services/specAssetRepository';
+import {
   getFirstOpenQuestionId,
   SPEC_INTERVIEW_QUESTIONS,
 } from '@/features/specs/services/specInterview';
@@ -13,16 +20,26 @@ import {
   saveSpec,
 } from '@/features/specs/services/specRepository';
 import {
+  type CreateSpecIdeaInput,
   type CreateSpecInput,
   type DispatchSpecResult,
+  type SpecArtifact,
   type SpecAnswer,
   type SpecDraft,
+  type SpecIdea,
 } from '@/features/specs/types';
 import { type Endpoint } from '@/types';
 
 interface SpecState {
   specs: SpecDraft[];
+  ideas: SpecIdea[];
+  specArtifacts: SpecArtifact[];
   load: () => Promise<void>;
+  loadAssets: () => Promise<void>;
+  refreshAssets: (endpoints: Endpoint[]) => Promise<void>;
+  createIdea: (input: CreateSpecIdeaInput) => Promise<SpecIdea>;
+  archiveIdea: (ideaId: string) => Promise<void>;
+  unarchiveIdea: (ideaId: string) => Promise<void>;
   createSpec: (input: CreateSpecInput) => Promise<SpecDraft>;
   answerQuestion: (specId: string, answer: SpecAnswer) => Promise<void>;
   generatePreview: (specId: string) => Promise<void>;
@@ -64,10 +81,95 @@ function errorMessageFrom(error: unknown): string {
 
 export const useSpecStore = create<SpecState>((set, get) => ({
   specs: [],
+  ideas: [],
+  specArtifacts: [],
 
   load: async () => {
     const specs = await loadSpecs();
     set({ specs });
+  },
+
+  loadAssets: async () => {
+    const [ideas, specArtifacts] = await Promise.all([loadIdeas(), loadSpecArtifacts()]);
+    set({ ideas, specArtifacts });
+  },
+
+  refreshAssets: async (endpoints) => {
+    const { fetchSpecArtifacts, fetchSpecIdeas } = await import(
+      '@/features/specs/services/specAssetService'
+    );
+    const [ideaResults, specResults] = await Promise.all([
+      Promise.allSettled(endpoints.map(fetchSpecIdeas)),
+      Promise.allSettled(endpoints.map(fetchSpecArtifacts)),
+    ]);
+    await Promise.all(
+      endpoints.map(async (endpoint, index) => {
+        const ideas = ideaResults[index];
+        if (ideas?.status === 'fulfilled') {
+          await replaceIdeasForEndpoint(endpoint.id, ideas.value);
+        }
+        const specs = specResults[index];
+        if (specs?.status === 'fulfilled') {
+          await replaceSpecsForEndpoint(endpoint.id, specs.value);
+        }
+      }),
+    );
+    await get().loadAssets();
+  },
+
+  createIdea: async (input) => {
+    const now = Date.now();
+    const targetAgent = input.targetAgent;
+    const title =
+      input.title?.trim() ||
+      input.body
+        .split('\n')
+        .map((line) => line.trim())
+        .find(Boolean)
+        ?.slice(0, 80) ||
+      'Untitled idea';
+    const idea: SpecIdea = {
+      id: uuidv4(),
+      title,
+      status: 'open',
+      targetAgentId: input.targetAgentId ?? targetAgent?.id ?? '',
+      targetEndpointId: input.targetEndpointId ?? targetAgent?.endpoint_id ?? '',
+      targetRepoPath: input.targetRepoPath ?? targetAgent?.project_path ?? '',
+      targetAgentName: input.targetAgentName ?? targetAgent?.name ?? '',
+      body: input.body,
+      notes: input.notes ?? [],
+      attachments: input.attachments ?? [],
+      createdAt: now,
+      updatedAt: now,
+      pendingMutation: 'create',
+    };
+    await saveIdea(idea, 'create', null);
+    set((state) => ({ ideas: [idea, ...state.ideas.filter((item) => item.id !== idea.id)] }));
+    return idea;
+  },
+
+  archiveIdea: async (ideaId) => {
+    const now = Date.now();
+    const ideas = get().ideas.map((idea) =>
+      idea.id === ideaId
+        ? { ...idea, status: 'archived' as const, archivedAt: now, updatedAt: now }
+        : idea,
+    );
+    const idea = ideas.find((item) => item.id === ideaId);
+    if (idea) await saveIdea(idea, 'archive', null);
+    set({ ideas });
+  },
+
+  unarchiveIdea: async (ideaId) => {
+    const now = Date.now();
+    const ideas = get().ideas.map((idea) =>
+      idea.id === ideaId
+        ? { ...idea, status: 'open' as const, archivedAt: undefined, updatedAt: now }
+        : idea,
+    );
+    const idea = ideas.find((item) => item.id === ideaId);
+    if (idea) await saveIdea(idea, 'update', null);
+    set({ ideas });
   },
 
   createSpec: async ({ title, targetAgent }) => {
