@@ -411,9 +411,13 @@ mod tests {
             .create_async()
             .await;
 
-        let err = report_tunnel(&server.url(), "probe_token_404", "https://probe.trycloudflare.com")
-            .await
-            .expect_err("non-2xx KV response must be reported as an error");
+        let err = report_tunnel(
+            &server.url(),
+            "probe_token_404",
+            "https://probe.trycloudflare.com",
+        )
+        .await
+        .expect_err("non-2xx KV response must be reported as an error");
 
         assert!(
             err.to_string().contains("KV report failed"),
