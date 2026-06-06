@@ -72,6 +72,16 @@ function userText(seq: number, text: string): WsMessage {
   };
 }
 
+function agentText(seq: number, text: string): WsMessage {
+  return {
+    type: 'message',
+    seq,
+    role: 'agent_text',
+    payload: { text },
+    created_at: seq,
+  };
+}
+
 function makeRawTranscriptPage(convId: string, messages: WsMessage[]): TranscriptPage {
   const firstSeq = messages[0]?.seq ?? null;
   return {
@@ -191,6 +201,100 @@ test('falls back to bottom placement when opening a transcript without AI messag
       actual: scrollToEndSpy.mock.calls,
       reason: 'transcripts without agent_text should fall back to bottom placement',
     }).toEqual({ actual: [[{ animated: false }]], reason: expect.any(String) });
+  } finally {
+    scrollToIndexSpy.mockRestore();
+    scrollToEndSpy.mockRestore();
+  }
+});
+
+test('scrolls to last agent_text message when opening a conversation', async () => {
+  (fetchMessages as jest.Mock).mockResolvedValue([
+    userText(1, 'first'),
+    agentText(2, 'response 1'),
+    userText(3, 'second'),
+    agentText(4, 'response 2'),
+    userText(5, 'third'),
+    agentText(6, 'final AI response'),
+  ]);
+
+  const flatListPrototype = FlatList.prototype as unknown as {
+    scrollToIndex: (params: { index: number; animated?: boolean; viewPosition?: number }) => void;
+    scrollToEnd: (params?: { animated?: boolean }) => void;
+  };
+  const scrollToIndexSpy = jest.spyOn(flatListPrototype, 'scrollToIndex').mockImplementation();
+  const scrollToEndSpy = jest.spyOn(flatListPrototype, 'scrollToEnd').mockImplementation();
+  try {
+    const { UNSAFE_getByType, getByText } = render(<ChatDetailScreen />);
+
+    await waitFor(() => expect(getByText('final AI response')).toBeTruthy());
+    scrollToIndexSpy.mockClear();
+    scrollToEndSpy.mockClear();
+
+    act(() => {
+      UNSAFE_getByType(FlatList).props.onContentSizeChange(320, 1200);
+    });
+
+    expect({
+      actual: scrollToIndexSpy.mock.calls.length,
+      reason: 'should call scrollToIndex for last agent_text',
+    }).toEqual({ actual: 1, reason: expect.any(String) });
+
+    const [scrollParams] = scrollToIndexSpy.mock.calls[0];
+    expect({
+      actual: scrollParams,
+      reason: 'should scroll to last agent_text with correct params',
+    }).toMatchObject({
+      actual: { index: 5, animated: false, viewPosition: 0 },
+      reason: expect.any(String),
+    });
+
+    expect({
+      actual: scrollToEndSpy.mock.calls.length,
+      reason: 'should not fall back to scrollToEnd when agent_text exists',
+    }).toEqual({ actual: 0, reason: expect.any(String) });
+  } finally {
+    scrollToIndexSpy.mockRestore();
+    scrollToEndSpy.mockRestore();
+  }
+});
+
+test('respects focus_ask_id and skips initial bottom scroll', async () => {
+  mockSearchParams = { id: 'conv-1', endpoint_id: 'endpoint-1', focus_ask_id: 'ask-123' };
+
+  (fetchMessages as jest.Mock).mockResolvedValue([
+    userText(1, 'first'),
+    agentText(2, 'response 1'),
+    { ...userText(3, 'question'), ask_id: 'ask-123' } as WsMessage,
+    agentText(4, 'response 2'),
+  ]);
+
+  const flatListPrototype = FlatList.prototype as unknown as {
+    scrollToIndex: (params: { index: number; animated?: boolean; viewPosition?: number }) => void;
+    scrollToEnd: (params?: { animated?: boolean }) => void;
+  };
+  const scrollToIndexSpy = jest.spyOn(flatListPrototype, 'scrollToIndex').mockImplementation();
+  const scrollToEndSpy = jest.spyOn(flatListPrototype, 'scrollToEnd').mockImplementation();
+  try {
+    const { UNSAFE_getByType, getByText } = render(<ChatDetailScreen />);
+
+    await waitFor(() => expect(getByText('response 2')).toBeTruthy());
+    scrollToIndexSpy.mockClear();
+    scrollToEndSpy.mockClear();
+
+    act(() => {
+      UNSAFE_getByType(FlatList).props.onContentSizeChange(320, 1200);
+    });
+
+    const lastAgentIndex = 3;
+    const initialBottomScrollCalls = scrollToIndexSpy.mock.calls.filter(
+      ([params]) =>
+        params.index === lastAgentIndex && params.animated === false && params.viewPosition === 0,
+    );
+    expect({
+      actual: initialBottomScrollCalls.length,
+      reason:
+        'should not execute initial bottom scroll to last agent_text when focus_ask_id exists',
+    }).toEqual({ actual: 0, reason: expect.any(String) });
   } finally {
     scrollToIndexSpy.mockRestore();
     scrollToEndSpy.mockRestore();

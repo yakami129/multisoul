@@ -35,12 +35,40 @@
       "title": "Chat Server Turn Transcript SPEC"
     },
     {
+      "file": "2026-06-06-SPEC-agent-status-consistency.md",
+      "title": "Agent Status Consistency Fix SPEC"
+    },
+    {
+      "file": "2026-06-06-SPEC-archived-idea-delete.md",
+      "title": "Archived Idea Permanent Delete SPEC"
+    },
+    {
+      "file": "2026-06-06-SPEC-chat-auto-scroll.md",
+      "title": "Chat Auto-Scroll Enhancement SPEC"
+    },
+    {
       "file": "2026-06-06-SPEC-ideas-to-specs-refactor.md",
       "title": "Ideas to Specs 重构 SPEC"
     },
     {
+      "file": "2026-06-06-SPEC-mark-spec-done.md",
+      "title": "Mark Spec Done SPEC"
+    },
+    {
+      "file": "2026-06-06-SPEC-spec-detail-rich-text.md",
+      "title": "Spec Detail Artifact Snapshot Rich Text Rendering SPEC"
+    },
+    {
       "file": "2026-06-06-SPEC-workflow-template-library.md",
       "title": "Workflow 模板库 SPEC"
+    },
+    {
+      "file": "2026-06-07-SPEC-chat-auto-scroll.md",
+      "title": "Chat 自动滚动修复 SPEC"
+    },
+    {
+      "file": "2026-06-07-SPEC-idea-share-attachments.md",
+      "title": "Idea Share Attachments SPEC"
     },
     {
       "file": "SPEC-activity-pagination.md",
