@@ -39,6 +39,10 @@
       "title": "Ideas to Specs 重构 SPEC"
     },
     {
+      "file": "2026-06-06-SPEC-workflow-template-library.md",
+      "title": "Workflow 模板库 SPEC"
+    },
+    {
       "file": "SPEC-activity-pagination.md",
       "title": "Activity 模块分页滚动加载优化 SPEC"
     },
