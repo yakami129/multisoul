@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -52,6 +52,15 @@ export function WorkflowFormScreen({ agents, initialValues, onSave, onCancel }: 
   );
   const [timeOfDay, setTimeOfDay] = useState(initialValues?.time_of_day ?? '09:00');
   const [dayOfWeek, setDayOfWeek] = useState<number>(initialValues?.day_of_week ?? 1);
+
+  useEffect(() => {
+    if (agentId.length > 0) return;
+    if (initialValues?.agent_id && agents.some((agent) => agent.id === initialValues.agent_id)) {
+      setAgentId(initialValues.agent_id);
+      return;
+    }
+    if (agents[0]) setAgentId(agents[0].id);
+  }, [agentId, agents, initialValues?.agent_id]);
 
   const normalizedTimeOfDay = normalizeTimeOfDay(timeOfDay);
   const canSave =

@@ -5,6 +5,7 @@ import { Modal, View } from 'react-native';
 import { fetchAllAgents } from '@/features/agents/services/agentService';
 import { WorkflowFormScreen } from '@/features/workflows/components/WorkflowFormScreen';
 import { WorkflowListScreen } from '@/features/workflows/components/WorkflowListScreen';
+import { WorkflowTemplatePickerScreen } from '@/features/workflows/components/WorkflowTemplatePickerScreen';
 import {
   createWorkflow,
   deleteWorkflow,
@@ -12,6 +13,10 @@ import {
   enableWorkflow,
   fetchWorkflows,
 } from '@/features/workflows/services/workflowService';
+import {
+  type WorkflowTemplate,
+  type WorkflowTemplateInitialValues,
+} from '@/features/workflows/templates';
 import { type WorkflowInput, type Workflow } from '@/features/workflows/types';
 import { useEndpointStore } from '@/store/endpointStore';
 import { brandColors } from '@/theme/brandRefresh';
@@ -20,7 +25,10 @@ export default function WorkflowsTab() {
   const router = useRouter();
   const endpoints = useEndpointStore((s) => s.endpoints);
   const queryClient = useQueryClient();
+  const [showTemplatePicker, setShowTemplatePicker] = useState(false);
   const [showForm, setShowForm] = useState(false);
+  const [templateInitialValues, setTemplateInitialValues] =
+    useState<WorkflowTemplateInitialValues | null>(null);
 
   const { data: workflows = [], isFetching } = useQuery({
     queryKey: ['workflows', endpoints.map((e) => e.id)],
@@ -75,6 +83,7 @@ export default function WorkflowsTab() {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['workflows'] });
       setShowForm(false);
+      setTemplateInitialValues(null);
     },
   });
 
@@ -89,13 +98,31 @@ export default function WorkflowsTab() {
     },
   });
 
+  function openBlankWorkflow() {
+    setTemplateInitialValues(null);
+    setShowTemplatePicker(false);
+    setShowForm(true);
+  }
+
+  function openTemplateWorkflow(template: WorkflowTemplate) {
+    setTemplateInitialValues(template.initial_values);
+    setShowTemplatePicker(false);
+    setShowForm(true);
+  }
+
+  function closeWorkflowCreateSheet() {
+    setShowTemplatePicker(false);
+    setShowForm(false);
+    setTemplateInitialValues(null);
+  }
+
   return (
     <>
       <WorkflowListScreen
         workflows={workflows}
         hasEndpoints={endpoints.length > 0}
         isRefreshing={isFetching}
-        onCreateWorkflow={() => setShowForm(true)}
+        onCreateWorkflow={() => setShowTemplatePicker(true)}
         onToggleEnabled={(workflowId, enabled, endpointId) =>
           toggleMutation.mutate({ workflowId, enabled, endpointId })
         }
@@ -104,13 +131,28 @@ export default function WorkflowsTab() {
         }
         onDeleteWorkflow={(wf) => deleteMutation.mutate(wf)}
       />
-      <Modal visible={showForm} animationType="slide" presentationStyle="pageSheet">
+      <Modal
+        visible={showTemplatePicker || showForm}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={closeWorkflowCreateSheet}
+      >
         <View style={{ flex: 1, backgroundColor: brandColors.cream }}>
-          <WorkflowFormScreen
-            agents={agents}
-            onSave={(input) => createMutation.mutate(input)}
-            onCancel={() => setShowForm(false)}
-          />
+          {showTemplatePicker ? (
+            <WorkflowTemplatePickerScreen
+              onSelectBlank={openBlankWorkflow}
+              onSelectTemplate={openTemplateWorkflow}
+              onCancel={closeWorkflowCreateSheet}
+            />
+          ) : showForm ? (
+            <WorkflowFormScreen
+              key={templateInitialValues ? `template-${templateInitialValues.name}` : 'blank'}
+              agents={agents}
+              initialValues={templateInitialValues ?? undefined}
+              onSave={(input) => createMutation.mutate(input)}
+              onCancel={closeWorkflowCreateSheet}
+            />
+          ) : null}
         </View>
       </Modal>
     </>
