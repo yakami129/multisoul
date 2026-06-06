@@ -151,13 +151,18 @@ pub fn parse_tunnel_url(line: &str) -> Option<String> {
         .map(|m| m.as_str().to_string())
 }
 
-/// Reports tunnel URL to Workers KV
+/// Reports tunnel URL to Workers KV.
+///
+/// Contract is token-in-path (`POST /tunnel/<token>`) with a `status` field in the body,
+/// matching the deployed Worker and mobile's `GET /tunnel/<token>` / this module's
+/// `cleanup_tunnel` `DELETE /tunnel/<token>`. The earlier `POST /tunnel` + `{user_token, ...}`
+/// shape did not match the deployed Worker and returned 404 `{"status":"not_found"}`.
 async fn report_tunnel(relay_url: &str, user_token: &str, tunnel_url: &str) -> Result<()> {
     let client = reqwest::Client::new();
     let resp = client
-        .post(format!("{}/tunnel", relay_url))
+        .post(format!("{}/tunnel/{}", relay_url, user_token))
         .json(&serde_json::json!({
-            "user_token": user_token,
+            "status": "active",
             "tunnel_url": tunnel_url,
         }))
         .send()
@@ -200,7 +205,16 @@ async fn wait_for_serve_port(port: u16) -> Result<()> {
 ///
 /// Fix: uses a shutdown channel so that when the tokio runtime drops (Ctrl+C / SIGTERM),
 /// the cloudflared child is killed and cleanup_tunnel runs before exit.
-pub async fn run_relay(relay_url: String, user_token: String, port: u16) -> Result<()> {
+///
+/// `ready_tx`: optional one-shot fired with the public tunnel URL once cloudflared reports it.
+/// `serve` uses this to render the pairing QR with the reachable `trycloudflare.com` URL instead
+/// of the local `127.0.0.1` address (which the phone cannot reach).
+pub async fn run_relay(
+    relay_url: String,
+    user_token: String,
+    port: u16,
+    ready_tx: Option<tokio::sync::oneshot::Sender<String>>,
+) -> Result<()> {
     use tokio::io::{AsyncBufReadExt, BufReader};
 
     let bin = ensure_cloudflared().await?;
@@ -242,6 +256,10 @@ pub async fn run_relay(relay_url: String, user_token: String, port: u16) -> Resu
 
     println!("Cloudflare Tunnel ready: {}", tunnel_url);
     tracing::info!(tunnel_url = %tunnel_url, "relay_tunnel_ready");
+
+    if let Some(tx) = ready_tx {
+        let _ = tx.send(tunnel_url.clone());
+    }
 
     if let Err(e) = report_tunnel(&relay_url, &user_token, &tunnel_url).await {
         tracing::warn!(err = %e, "relay_kv_report_failed");
@@ -348,5 +366,60 @@ mod tests {
             Some("https://my-tunnel.trycloudflare.com".to_string()),
             "regex should work correctly on repeated calls"
         );
+    }
+
+    /// Regression: `report_tunnel` must POST to `/tunnel/<token>` (token in path)
+    /// with a `{ "status": "active", "tunnel_url": ... }` body.
+    ///
+    /// Before the fix it posted to `/tunnel` (no token segment) with a
+    /// `{ "user_token", "tunnel_url" }` body, which the deployed Worker did not
+    /// route, yielding `404 {"status":"not_found"}` and breaking Auto Tunnel.
+    /// The mock only matches the correct path + JSON body, so the old shape
+    /// would leave the mock unhit and fail `assert_async`.
+    #[tokio::test]
+    async fn report_tunnel_posts_to_token_path_with_active_status() {
+        let mut server = mockito::Server::new_async().await;
+        let token = "probe_token_123";
+        let mock = server
+            .mock("POST", "/tunnel/probe_token_123")
+            .match_body(mockito::Matcher::Json(serde_json::json!({
+                "status": "active",
+                "tunnel_url": "https://probe.trycloudflare.com",
+            })))
+            .with_status(200)
+            .with_body(r#"{"status":"ok"}"#)
+            .create_async()
+            .await;
+
+        report_tunnel(&server.url(), token, "https://probe.trycloudflare.com")
+            .await
+            .expect("report_tunnel should succeed against the token-path endpoint");
+
+        mock.assert_async().await;
+    }
+
+    /// Regression: `report_tunnel` surfaces a non-2xx response (e.g. the 404 the
+    /// deployed Worker returned) as an error so the caller can warn the user
+    /// instead of silently treating registration as successful.
+    #[tokio::test]
+    async fn report_tunnel_errors_on_not_found() {
+        let mut server = mockito::Server::new_async().await;
+        let mock = server
+            .mock("POST", "/tunnel/probe_token_404")
+            .with_status(404)
+            .with_body(r#"{"status":"not_found"}"#)
+            .create_async()
+            .await;
+
+        let err = report_tunnel(&server.url(), "probe_token_404", "https://probe.trycloudflare.com")
+            .await
+            .expect_err("non-2xx KV response must be reported as an error");
+
+        assert!(
+            err.to_string().contains("KV report failed"),
+            "error should explain the KV report failure, got: {}",
+            err
+        );
+        mock.assert_async().await;
     }
 }

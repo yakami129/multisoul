@@ -40,11 +40,17 @@ pub struct ServeArgs {
     pub relay_url: String,
 }
 
+/// Generates a Bearer token of the form `ms_v2_` + 32 lowercase hex chars.
+///
+/// The hex charset (not mixed-case alphanumeric) is REQUIRED: the relay Worker
+/// validates tokens with `^ms_v2_[a-f0-9]{32}$` and rejects anything else with
+/// `400 {"status":"invalid_token"}`, which breaks `serve --relay` Auto Tunnel.
+/// 32 hex chars = 128 bits of entropy.
 pub fn generate_token() -> String {
-    let suffix: String = rand::thread_rng()
-        .sample_iter(&rand::distributions::Alphanumeric)
-        .take(32)
-        .map(char::from)
+    const HEX: &[u8] = b"0123456789abcdef";
+    let mut rng = rand::thread_rng();
+    let suffix: String = (0..32)
+        .map(|_| HEX[rng.gen_range(0..HEX.len())] as char)
         .collect();
     format!("ms_v2_{}", suffix)
 }
@@ -97,19 +103,48 @@ pub async fn handle(args: ServeArgs) -> Result<()> {
 
     println!("Bearer token: {}", token);
     println!();
-    print_qr(&token, &base_url);
 
     if args.relay {
+        // In relay mode the local `base_url` (127.0.0.1) is unreachable from the phone, so we
+        // defer the pairing QR until the public tunnel URL is ready and render it with that URL.
+        // The QR task runs concurrently with run_server because run_relay must wait for the
+        // server to be listening before launching cloudflared.
         let relay_url = args.relay_url.clone();
         let token_for_relay = token.clone();
         let port_for_relay = args.port;
+        let token_for_qr = token.clone();
+        let (ready_tx, ready_rx) = tokio::sync::oneshot::channel::<String>();
+
         tokio::spawn(async move {
-            if let Err(e) =
-                crate::serve::relay::run_relay(relay_url, token_for_relay, port_for_relay).await
+            if let Err(e) = crate::serve::relay::run_relay(
+                relay_url,
+                token_for_relay,
+                port_for_relay,
+                Some(ready_tx),
+            )
+            .await
             {
                 tracing::error!(err = %e, "relay_failed");
             }
         });
+
+        println!("Waiting for Cloudflare Tunnel to print the pairing QR...");
+        tokio::spawn(async move {
+            match ready_rx.await {
+                Ok(tunnel_url) => {
+                    println!();
+                    print_qr(&token_for_qr, &tunnel_url);
+                }
+                Err(_) => {
+                    eprintln!(
+                        "[warn] Relay tunnel URL unavailable; no pairing QR printed. \
+                         Check relay logs, or use --tailnet/--funnel for a reachable address."
+                    );
+                }
+            }
+        });
+    } else {
+        print_qr(&token, &base_url);
     }
 
     run_server(state, bind_addr).await
@@ -262,16 +297,22 @@ fn format_host_for_url(host: &str) -> String {
 mod tests {
     use super::*;
 
-    /// generate_token produces a 32-char alphanumeric string prefixed with "ms_v2_".
+    /// generate_token must satisfy the relay Worker's regex `^ms_v2_[a-f0-9]{32}$`.
     ///
-    /// Expected:
-    ///   - starts with "ms_v2_"
-    ///   - total length == 38 (6 prefix + 32 random)
+    /// Regression: tokens used to be mixed-case alphanumeric, which the Worker
+    /// rejects with `400 invalid_token`, breaking `serve --relay`. This asserts
+    /// the exact charset/length the Worker accepts.
     #[test]
     fn test_generate_token_format() {
         let token = generate_token();
         assert!(token.starts_with("ms_v2_"), "token must start with ms_v2_");
         assert_eq!(token.len(), 38, "token must be 38 chars total");
+        let re = regex::Regex::new(r"^ms_v2_[a-f0-9]{32}$").expect("valid regex");
+        assert!(
+            re.is_match(&token),
+            "token must match the relay Worker contract ^ms_v2_[a-f0-9]{{32}}$, got: {}",
+            token
+        );
     }
 
     /// Two calls to generate_token produce different tokens.
