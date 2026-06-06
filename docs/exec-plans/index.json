@@ -4,7 +4,8 @@
   "documents": [
     {
       "file": "2026-06-06-agent-status-consistency.md",
-      "title": "Agent / Chat / Activity Status Consistency Fix Implementation Plan"
+      "title": "Agent / Chat / Activity Status Consistency Fix Implementation Plan",
+      "lastCompletedCommit": "05302c4ebb4fb333c53bb059d0dc06de0d7dc7c1"
     },
     {
       "file": "2026-06-06-spec-detail-rich-text.md",
