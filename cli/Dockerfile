@@ -8,6 +8,7 @@ RUN apt-get update \
 
 COPY cli/Cargo.toml cli/Cargo.lock ./cli/
 COPY cli/src ./cli/src
+COPY cli/migrations ./cli/migrations
 COPY cli/README.md ./cli/README.md
 
 WORKDIR /workspace/cli
