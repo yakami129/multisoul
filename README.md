@@ -19,7 +19,11 @@
 </p>
 
 <p align="center">
-  <img src="docs/assets/multisoul-core-features.png" alt="MultiSoul core features: connect local agents, track live activity, and answer decisions from iOS or Android" width="860" />
+  <img src="docs/assets/multisoul-feature-intro-en-v2.png" alt="MultiSoul product overview: playful command, serious work, with local agent control, activity tracking, and decision approval screens" width="920" />
+</p>
+
+<p align="center">
+  <img src="docs/assets/multisoul-feature-intro-en-v3.png" alt="MultiSoul feature flow: connect the agent fleet, track the mission log, and review approval cards from a phone" width="920" />
 </p>
 
 ---
