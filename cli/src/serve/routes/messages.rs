@@ -197,7 +197,7 @@ pub(super) fn dispatch_user_message(
     Ok(())
 }
 
-pub(super) fn broadcast_user_message(
+pub(crate) fn broadcast_user_message(
     state: &AppState,
     conv_id: &str,
     seq: i64,
@@ -212,7 +212,7 @@ pub(super) fn broadcast_user_message(
     let _ = sender.send(envelope.to_string());
 }
 
-pub(super) fn insert_user_message_and_mark_running(
+pub(crate) fn insert_user_message_and_mark_running(
     db: &rusqlite::Connection,
     conv_id: &str,
     body: &PostMessageBody,

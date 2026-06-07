@@ -151,5 +151,5 @@ pub(crate) fn quick_register(args: Vec<String>) -> Result<()> {
 }
 
 #[cfg(test)]
-#[path = "agent_quick_register_tests.rs"]
+#[path = "../../tests/commands/agent_quick_register_tests.rs"]
 mod tests;

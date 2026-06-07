@@ -72,6 +72,16 @@ function userText(seq: number, text: string): WsMessage {
   };
 }
 
+function agentText(seq: number, text: string): WsMessage {
+  return {
+    type: 'message',
+    seq,
+    role: 'agent_text',
+    payload: { text },
+    created_at: seq,
+  };
+}
+
 function makeRawTranscriptPage(convId: string, messages: WsMessage[]): TranscriptPage {
   const firstSeq = messages[0]?.seq ?? null;
   return {
@@ -165,7 +175,7 @@ beforeEach(() => {
   ]);
 });
 
-test('falls back to bottom placement when opening a transcript without AI messages', async () => {
+test('scrolls to the bottom when opening a transcript without AI messages', async () => {
   const flatListPrototype = FlatList.prototype as unknown as {
     scrollToIndex: (params: { index: number; animated?: boolean; viewPosition?: number }) => void;
     scrollToEnd: (params?: { animated?: boolean }) => void;
@@ -185,12 +195,135 @@ test('falls back to bottom placement when opening a transcript without AI messag
 
     expect({
       actual: scrollToIndexSpy.mock.calls.length,
-      reason: 'transcripts without agent_text should not try to target an AI row',
+      reason: 'initial placement must not target a row by index (scrollToIndex can fail silently)',
     }).toEqual({ actual: 0, reason: expect.any(String) });
     expect({
-      actual: scrollToEndSpy.mock.calls,
-      reason: 'transcripts without agent_text should fall back to bottom placement',
-    }).toEqual({ actual: [[{ animated: false }]], reason: expect.any(String) });
+      actual: scrollToEndSpy.mock.calls.some(([params]) => params?.animated === false),
+      reason: 'opening should place the list at the bottom without animation',
+    }).toEqual({ actual: true, reason: expect.any(String) });
+  } finally {
+    scrollToIndexSpy.mockRestore();
+    scrollToEndSpy.mockRestore();
+  }
+});
+
+// Regression: opening a conversation longer than one screen must land at the
+// newest AI message. The previous implementation used scrollToIndex(lastAgentText),
+// which fails asynchronously via onScrollToIndexFailed whenever the target row is
+// below FlatList's initialNumToRender window, leaving the list stuck near the top.
+test('scrolls to the bottom (latest AI message) when opening a conversation', async () => {
+  (fetchMessages as jest.Mock).mockResolvedValue([
+    userText(1, 'first'),
+    agentText(2, 'response 1'),
+    userText(3, 'second'),
+    agentText(4, 'response 2'),
+    userText(5, 'third'),
+    agentText(6, 'final AI response'),
+  ]);
+
+  const flatListPrototype = FlatList.prototype as unknown as {
+    scrollToIndex: (params: { index: number; animated?: boolean; viewPosition?: number }) => void;
+    scrollToEnd: (params?: { animated?: boolean }) => void;
+  };
+  const scrollToIndexSpy = jest.spyOn(flatListPrototype, 'scrollToIndex').mockImplementation();
+  const scrollToEndSpy = jest.spyOn(flatListPrototype, 'scrollToEnd').mockImplementation();
+  try {
+    const { UNSAFE_getByType, getByText } = render(<ChatDetailScreen />);
+
+    await waitFor(() => expect(getByText('final AI response')).toBeTruthy());
+    scrollToIndexSpy.mockClear();
+    scrollToEndSpy.mockClear();
+
+    act(() => {
+      UNSAFE_getByType(FlatList).props.onContentSizeChange(320, 1200);
+    });
+
+    expect({
+      actual: scrollToEndSpy.mock.calls.some(([params]) => params?.animated === false),
+      reason: 'should scroll to the bottom to reveal the latest AI message',
+    }).toEqual({ actual: true, reason: expect.any(String) });
+
+    expect({
+      actual: scrollToIndexSpy.mock.calls.length,
+      reason: 'must not use scrollToIndex for initial placement (can fail silently for long lists)',
+    }).toEqual({ actual: 0, reason: expect.any(String) });
+  } finally {
+    scrollToIndexSpy.mockRestore();
+    scrollToEndSpy.mockRestore();
+  }
+});
+
+// Regression: server transcript data can arrive / grow across several frames.
+// The list must keep re-pinning to the bottom on each content-size change until
+// the user takes over, instead of clearing the pending flag after the first frame.
+test('keeps pinning to the bottom across async content growth on open', async () => {
+  (fetchMessages as jest.Mock).mockResolvedValue([
+    userText(1, 'first'),
+    agentText(2, 'response 1'),
+    userText(3, 'second'),
+    agentText(4, 'final AI response'),
+  ]);
+
+  const flatListPrototype = FlatList.prototype as unknown as {
+    scrollToIndex: (params: { index: number; animated?: boolean; viewPosition?: number }) => void;
+    scrollToEnd: (params?: { animated?: boolean }) => void;
+  };
+  const scrollToIndexSpy = jest.spyOn(flatListPrototype, 'scrollToIndex').mockImplementation();
+  const scrollToEndSpy = jest.spyOn(flatListPrototype, 'scrollToEnd').mockImplementation();
+  try {
+    const { UNSAFE_getByType, getByText } = render(<ChatDetailScreen />);
+
+    await waitFor(() => expect(getByText('final AI response')).toBeTruthy());
+    scrollToIndexSpy.mockClear();
+    scrollToEndSpy.mockClear();
+
+    act(() => {
+      UNSAFE_getByType(FlatList).props.onContentSizeChange(320, 800);
+      UNSAFE_getByType(FlatList).props.onContentSizeChange(320, 1400);
+    });
+
+    expect({
+      actual: scrollToEndSpy.mock.calls.filter(([params]) => params?.animated === false).length,
+      reason: 'each content-size growth before user interaction must re-pin to the bottom',
+    }).toEqual({ actual: 2, reason: expect.any(String) });
+  } finally {
+    scrollToIndexSpy.mockRestore();
+    scrollToEndSpy.mockRestore();
+  }
+});
+
+test('respects focus_ask_id and skips initial bottom scroll', async () => {
+  mockSearchParams = { id: 'conv-1', endpoint_id: 'endpoint-1', focus_ask_id: 'ask-123' };
+
+  (fetchMessages as jest.Mock).mockResolvedValue([
+    userText(1, 'first'),
+    agentText(2, 'response 1'),
+    { ...userText(3, 'question'), ask_id: 'ask-123' } as WsMessage,
+    agentText(4, 'response 2'),
+  ]);
+
+  const flatListPrototype = FlatList.prototype as unknown as {
+    scrollToIndex: (params: { index: number; animated?: boolean; viewPosition?: number }) => void;
+    scrollToEnd: (params?: { animated?: boolean }) => void;
+  };
+  const scrollToIndexSpy = jest.spyOn(flatListPrototype, 'scrollToIndex').mockImplementation();
+  const scrollToEndSpy = jest.spyOn(flatListPrototype, 'scrollToEnd').mockImplementation();
+  try {
+    const { UNSAFE_getByType, getByText } = render(<ChatDetailScreen />);
+
+    await waitFor(() => expect(getByText('response 2')).toBeTruthy());
+    scrollToIndexSpy.mockClear();
+    scrollToEndSpy.mockClear();
+
+    act(() => {
+      UNSAFE_getByType(FlatList).props.onContentSizeChange(320, 1200);
+    });
+
+    expect({
+      actual: scrollToEndSpy.mock.calls.some(([params]) => params?.animated === false),
+      reason:
+        'should not run the initial forced bottom pin when focus_ask_id targets a specific row',
+    }).toEqual({ actual: false, reason: expect.any(String) });
   } finally {
     scrollToIndexSpy.mockRestore();
     scrollToEndSpy.mockRestore();

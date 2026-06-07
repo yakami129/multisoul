@@ -1,6 +1,6 @@
 use crate::serve::{
-    spec_assets::SaveSpecError,
-    spec_ideas::{SpecIdeaAttachmentMutation, SpecIdeaNoteMutation},
+    spec::assets::SaveSpecError,
+    spec::ideas::{SpecIdeaAttachmentMutation, SpecIdeaNoteMutation},
 };
 use rusqlite::{params, Connection, OptionalExtension};
 use uuid::Uuid;

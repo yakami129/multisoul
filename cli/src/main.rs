@@ -4,6 +4,7 @@ mod commands;
 mod config;
 mod db;
 #[cfg(test)]
+#[path = "../tests/src/db_workflows_tests.rs"]
 mod db_workflows_tests;
 mod logging;
 mod serve;

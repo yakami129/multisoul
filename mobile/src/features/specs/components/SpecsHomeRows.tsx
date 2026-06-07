@@ -5,9 +5,7 @@ import {
   FileText,
   Image,
   Lightbulb,
-  Link,
   List,
-  MessageSquare,
   Trash2,
 } from 'lucide-react-native';
 import React from 'react';
@@ -26,7 +24,7 @@ import {
   specStatusLabel,
 } from './specUiModels';
 
-export type AttachmentPreset = 'link' | 'log' | 'image' | undefined;
+export type AttachmentPreset = 'image' | undefined;
 
 export function CaptureRow({
   disabled,
@@ -53,16 +51,6 @@ export function CaptureRow({
           icon={<List size={14} color={brandColors.ink} />}
           label="Text"
           onPress={onPress}
-        />
-        <MiniAction
-          icon={<Link size={14} color={brandColors.ink} />}
-          label="Link"
-          onPress={() => onPreset('link')}
-        />
-        <MiniAction
-          icon={<MessageSquare size={14} color={brandColors.ink} />}
-          label="Log"
-          onPress={() => onPreset('log')}
         />
         <MiniAction
           icon={<Image size={14} color={brandColors.ink} />}

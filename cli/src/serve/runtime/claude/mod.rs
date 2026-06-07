@@ -409,7 +409,9 @@ fn is_stale_session_error(raw: &Value) -> bool {
 mod tests;
 
 #[cfg(test)]
+#[path = "../../../../tests/serve/runtime/claude/model_tests.rs"]
 mod model_tests;
 
 #[cfg(test)]
+#[path = "../../../../tests/serve/runtime/claude/ask_tests.rs"]
 mod ask_tests;

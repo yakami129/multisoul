@@ -19,11 +19,13 @@ export interface SpecIdeaNote {
 
 export interface SpecIdeaAttachment {
   id: string;
-  kind: 'link' | 'log' | 'image';
+  kind: 'link' | 'image';
   title?: string;
   uri?: string;
   text?: string;
   fileId?: string;
+  status?: 'pending' | 'uploading' | 'done' | 'error';
+  errorMessage?: string;
   createdAt: number;
 }
 

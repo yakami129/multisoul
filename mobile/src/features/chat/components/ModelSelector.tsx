@@ -1,7 +1,16 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Check, X } from 'lucide-react-native';
 import React from 'react';
-import { Alert, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  Alert,
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
+} from 'react-native';
 import { fetchAgent } from '@/features/agents';
 import { fetchRuntimeModels, switchConversationModel } from '@/features/chat/services/chatService';
 import { recordDiagnosticsEvent } from '@/services/diagnosticsLog';
@@ -199,7 +208,10 @@ export function ModelSelector({
   onClose,
   onSelect,
 }: Props) {
+  const { height } = useWindowDimensions();
   const currentId = currentModelId ?? models.find((model) => model.is_default)?.id ?? 'default';
+  // Reserve space for header (72) + helper text (20) + padding (28) ≈ 120
+  const maxListHeight = height * 0.5 - 120;
 
   function handleSelect(model: RuntimeModel) {
     if (disabled || !model.available) return;
@@ -217,7 +229,11 @@ export function ModelSelector({
             </Pressable>
           </View>
           {disabled ? <Text style={s.helper}>Available when idle</Text> : null}
-          <View style={s.list}>
+          <ScrollView
+            testID="model-list-scroll"
+            style={[s.list, { maxHeight: maxListHeight }]}
+            showsVerticalScrollIndicator
+          >
             {models.map((model) => {
               const selected = model.id === currentId;
               const rowDisabled = disabled || !model.available;
@@ -241,7 +257,7 @@ export function ModelSelector({
                 </Pressable>
               );
             })}
-          </View>
+          </ScrollView>
         </Pressable>
       </Pressable>
     </Modal>

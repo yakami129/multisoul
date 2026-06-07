@@ -420,9 +420,9 @@ pub async fn delete_conversation(
 }
 
 #[cfg(test)]
-#[path = "conversations_tests.rs"]
+#[path = "../../../tests/serve/routes/conversations_tests.rs"]
 mod tests;
 
 #[cfg(test)]
-#[path = "conversations_abort_tests.rs"]
+#[path = "../../../tests/serve/routes/conversations_abort_tests.rs"]
 mod abort_tests;

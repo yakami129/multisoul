@@ -93,6 +93,15 @@
 | 修复方式 | 解决根本原因：`too_many_arguments` → 封 context struct；`dead_code` → 删未使用代码或接入调用链；`unused_imports` → 删 import；`unused_variables` → 前缀 `_` |
 | 例外 | 无。真的需要 `#[allow]` 意味着代码需要重构 |
 
+### R13 · CLI 单元测试文件布局（`cli/tests/` 镜像 `cli/src/`）
+
+| | |
+|---|---|
+| 脚本 | [`scripts/check-cli-test-layout.sh`](../../scripts/check-cli-test-layout.sh) |
+| 起因 | `cli/src` 下散落的 `*_tests.rs` 与业务代码混排，不利于审阅与 Agent 局部修改 |
+| 检测 | `cli/src/**/*_tests.rs` 不得存在；`cli/tests/*.rs` 顶层仅允许集成测试（当前白名单：`logs_smoke.rs`）；单元测试镜像路径如 `cli/src/serve/foo.rs` → `cli/tests/serve/foo_tests.rs`，`cli/src/db_workflows_tests.rs` → `cli/tests/src/db_workflows_tests.rs` |
+| 修复方式 | 将独立测试文件移到 `cli/tests/` 对应目录，在源模块用 `#[path = "..."]` 或 `include!()` 引入；新增集成测试可保留在 `cli/tests/*.rs` 并更新脚本白名单 |
+
 ### R9 · 权威文档目录清单与磁盘一致
 
 | | |
@@ -162,7 +171,7 @@
 |---|---|
 | 实现 | [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml) |
 | 触发 | `pull_request` 与 `push: main` |
-| Job 1 (`repo-checks`) | 跑 R1-R3、R6、R8、R9、R11-R12 共八个脚本 |
+| Job 1 (`repo-checks`) | 跑 R1-R3、R6、R8、R9、R11-R13 共九个脚本 |
 | Job 2 (`mobile-check`) | `pnpm typecheck` + `pnpm lint`（含 R4、R10）+ `pnpm test` |
 | Job 3 (`cli-check`) | `cargo build --all-targets` + `cargo test` |
 | 角色 | 兜底 —— 若开发者本地用 `--no-verify` 跳过 husky，CI 仍应在合并前拦住坏变更 |

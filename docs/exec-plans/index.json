@@ -3,6 +3,19 @@
   "version": 1,
   "documents": [
     {
+      "file": "2026-06-07-test-spec-workflow.md",
+      "title": "Test Spec Workflow Implementation Plan"
+    },
+    {
+      "file": "2026-06-07-idea-share-attachments.md",
+      "title": "Idea 快速采集与附件支持 Implementation Plan"
+    },
+    {
+      "file": "2026-06-07-chat-auto-scroll.md",
+      "title": "Chat 自动滚动修复实施计划",
+      "lastCompletedCommit": "c17e3b72f937513d4d3a1316621545b3d80a9add"
+    },
+    {
       "file": "2026-06-06-workflow-template-library.md",
       "title": "Workflow Template Library Implementation Plan",
       "lastCompletedCommit": "7abafe6216196120706b430c213a557a6d26965b"

@@ -73,56 +73,40 @@ export function useChatDetailTranscriptScroll({
     scrollToFocusedAsk(transcriptItems);
   }, [transcriptItems, scrollToFocusedAsk]);
 
-  const scrollToLastAssistantOrEnd = useCallback(
-    (items: ChatTranscriptDisplayItem[], animated: boolean) => {
-      if (!listRef.current || items.length === 0) return;
-      let lastIndex = -1;
-      for (let i = items.length - 1; i >= 0; i--) {
-        const item = items[i];
-        if (item.kind === 'message' && item.message.role === 'agent_text') {
-          lastIndex = i;
-          break;
-        }
-      }
-      if (lastIndex >= 0) {
-        try {
-          listRef.current.scrollToIndex({ index: lastIndex, animated, viewPosition: 0 });
-        } catch {
-          listRef.current.scrollToEnd({ animated });
-        }
-      } else {
-        listRef.current.scrollToEnd({ animated });
-      }
+  // Initial / post-send placement uses scrollToEnd, which does not depend on the
+  // target row being measured. scrollToIndex(lastAgentText) silently fails via the
+  // async onScrollToIndexFailed path whenever the target is below FlatList's
+  // initialNumToRender window (the common case for any conversation longer than a
+  // screen), leaving the list stuck near the top. scrollToEnd always lands at the
+  // newest content (the latest AI reply is the last item in idle/completed turns).
+  const scrollToBottom = useCallback(
+    (animated: boolean) => {
+      listRef.current?.scrollToEnd({ animated });
     },
     [listRef],
   );
 
-  // Async transcript pages can populate FlatList data without a follow-up
-  // onContentSizeChange on some RN builds; retry bottom placement until the
-  // first content-size handler marks the initial scroll complete.
+  // Async transcript pages can populate / grow FlatList data across several frames
+  // without a reliable follow-up onContentSizeChange on some RN builds; keep
+  // re-pinning to the bottom until the user takes control of the scroll position.
   useEffect(() => {
     if (focus_ask_id || hasUserScrolledHistoryRef.current) return;
     if (!pendingInitialBottomScrollRef.current || transcriptItems.length === 0) return;
 
-    const scrollToInitialPosition = () => {
+    const settleToBottom = () => {
       if (!pendingInitialBottomScrollRef.current || hasUserScrolledHistoryRef.current) return;
-      scrollToLastAssistantOrEnd(transcriptItems, false);
+      scrollToBottom(false);
     };
 
-    requestAnimationFrame(scrollToInitialPosition);
-    const retry100 = setTimeout(scrollToInitialPosition, 100);
-    const retry300 = setTimeout(scrollToInitialPosition, 300);
+    const raf = requestAnimationFrame(settleToBottom);
+    const retry100 = setTimeout(settleToBottom, 100);
+    const retry300 = setTimeout(settleToBottom, 300);
     return () => {
+      cancelAnimationFrame(raf);
       clearTimeout(retry100);
       clearTimeout(retry300);
     };
-  }, [
-    focus_ask_id,
-    hasUserScrolledHistoryRef,
-    listRef,
-    transcriptItems,
-    scrollToLastAssistantOrEnd,
-  ]);
+  }, [focus_ask_id, transcriptItems, scrollToBottom, hasUserScrolledHistoryRef]);
 
   useEffect(() => {
     lastScrolledFocusTargetRef.current = null;
@@ -147,6 +131,9 @@ export function useChatDetailTranscriptScroll({
 
   function handleTranscriptScrollBeginDrag() {
     hasUserScrolledHistoryRef.current = true;
+    // User took control of the scroll position: stop force-pinning to the bottom
+    // and hand off to the isNearBottom follow logic below.
+    pendingInitialBottomScrollRef.current = false;
   }
 
   const handleViewableItemsChanged = useCallback(
@@ -166,12 +153,15 @@ export function useChatDetailTranscriptScroll({
     scrollToFocusedAsk(transcriptItems);
     const currentCount = transcriptItems.length + (isAgentRunning ? 1 : 0);
     if (pendingInitialBottomScrollRef.current && transcriptItems.length > 0) {
-      pendingInitialBottomScrollRef.current = false;
       prevMessageCountRef.current = currentCount;
       if (!hasUserScrolledHistoryRef.current) {
-        scrollToLastAssistantOrEnd(transcriptItems, false);
+        // Keep pinning to the bottom while content keeps growing (async pages,
+        // late row measurement). pendingInitialBottomScrollRef is released only
+        // when the user drags, so we recover even if data arrives over many frames.
+        scrollToBottom(false);
         return;
       }
+      pendingInitialBottomScrollRef.current = false;
     }
     if (
       !isNearBottomRef.current &&
@@ -200,14 +190,20 @@ export function useChatDetailTranscriptScroll({
   }
 
   const forceScrollToEnd = useCallback(() => {
+    // Sending re-pins to the bottom regardless of where the user was reading, so
+    // the just-sent message and the streamed reply stay visible. handleSend posts
+    // to the server (no optimistic local append), so the actual message arrives a
+    // frame later via WebSocket; re-arming the pin makes that growth follow to the
+    // bottom too.
     isNearBottomRef.current = true;
+    hasUserScrolledHistoryRef.current = false;
+    pendingInitialBottomScrollRef.current = true;
     listRef.current?.scrollToEnd({ animated: true });
-  }, [listRef]);
+  }, [listRef, hasUserScrolledHistoryRef]);
 
   function handleScrollToIndexFailed(info: { index: number; averageItemLength: number }) {
     if (!focus_ask_id) {
       if (pendingInitialBottomScrollRef.current) {
-        pendingInitialBottomScrollRef.current = false;
         listRef.current?.scrollToEnd({ animated: false });
       }
       return;

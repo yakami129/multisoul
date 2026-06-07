@@ -457,5 +457,5 @@ impl SaveSpecError {
 }
 
 #[cfg(test)]
-#[path = "spec_assets_tests.rs"]
+#[path = "../../../tests/serve/spec_assets_tests.rs"]
 mod tests;

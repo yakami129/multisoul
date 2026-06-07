@@ -14,7 +14,7 @@ import {
   type AttachmentPreset,
 } from './SpecsHomeRows';
 import { specsHomeStyles as s } from './SpecsHomeStyles';
-import { deriveIdeaTitle, type SpecArtifact, type SpecIdea, type SpecTarget } from './specUiModels';
+import { type SpecArtifact, type SpecIdea, type SpecTarget } from './specUiModels';
 import { TargetPickerSheet } from './TargetPickerSheet';
 
 type Segment = 'ideas' | 'specs';
@@ -58,7 +58,6 @@ export function SpecsHomeScreen({
   const [attachmentPreset, setAttachmentPreset] = React.useState<AttachmentPreset>();
   const [draftTarget, setDraftTarget] = React.useState<SpecTarget | undefined>();
   const [archivedExpanded, setArchivedExpanded] = React.useState(false);
-  const [undoIdea, setUndoIdea] = React.useState<SpecIdea | null>(null);
 
   const openEditor = (preset?: AttachmentPreset) => {
     setAttachmentPreset(preset);
@@ -77,7 +76,6 @@ export function SpecsHomeScreen({
 
   const handleArchive = (idea: SpecIdea) => {
     onArchiveIdea?.(idea.id);
-    setUndoIdea(idea);
   };
 
   const handleDeleteIdea = (ideaId: string) => {
@@ -213,22 +211,6 @@ export function SpecsHomeScreen({
           </>
         )}
       </ScrollView>
-
-      {undoIdea ? (
-        <View style={[s.undo, { bottom: insets.bottom + 96 }]}>
-          <Text style={s.undoText}>Archived {deriveIdeaTitle(undoIdea.title, undoIdea.body)}</Text>
-          <TouchableOpacity
-            accessibilityRole="button"
-            onPress={() => {
-              onUnarchiveIdea?.(undoIdea.id);
-              setUndoIdea(null);
-            }}
-            style={s.undoButton}
-          >
-            <Text style={s.undoButtonText}>Undo</Text>
-          </TouchableOpacity>
-        </View>
-      ) : null}
 
       <IdeaEditorSheet
         visible={editorVisible}
