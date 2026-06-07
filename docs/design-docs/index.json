@@ -41,12 +41,12 @@
         },
         {
           "path": "cli/src/serve/routes/messages.rs",
-          "sha256": "5eb5eb9317835c09d958d25d0becca682681b03514de224c81efae26992b60d7",
+          "sha256": "9405d0d9ce456ded21d868577d41d7a540022a28529e1be447da2c5ec0c973f2",
           "reason": "HTTP message route 调用 runtime 分发；文档架构图与入口流程依赖该行为。"
         },
         {
           "path": "cli/src/serve/runtime/claude/mod.rs",
-          "sha256": "da2933d3f34911002992382a7932d133a463d2b1178913a75f5aa3fc3dd9e911",
+          "sha256": "c060fe890307daf19dfd340e47472dfe8c3709dd9202c5828f85596477d8575b",
           "reason": "Claude runtime 是默认 adapter，文档以其行为说明 runtime 模板与特殊注意事项。"
         },
         {

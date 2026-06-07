@@ -5,25 +5,27 @@ pub mod daemon;
 pub mod interactive;
 pub mod message_rows;
 #[cfg(test)]
+#[path = "../../tests/serve/message_rows_tests.rs"]
 mod message_rows_tests;
 pub mod plugin;
 pub mod push;
 #[cfg(test)]
+#[path = "../../tests/serve/push_tests.rs"]
 mod push_tests;
 pub mod relay;
 pub mod router;
 pub mod routes;
 pub mod runtime;
 pub mod sha256;
-pub mod spec_assets;
-pub mod spec_idea_rows;
-pub mod spec_ideas;
+pub mod spec;
 pub mod state;
 pub mod transcript;
 #[cfg(test)]
+#[path = "../../tests/serve/transcript_tests.rs"]
 mod transcript_tests;
 pub mod workflows;
 #[cfg(test)]
+#[path = "../../tests/serve/workflows_tests.rs"]
 mod workflows_tests;
 
 use anyhow::Result;

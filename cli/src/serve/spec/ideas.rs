@@ -1,7 +1,7 @@
 use crate::db::now_ms;
 use crate::serve::{
-    spec_assets::SaveSpecError,
-    spec_idea_rows::{
+    spec::assets::SaveSpecError,
+    spec::idea_rows::{
         clean_required, clean_string, clean_title, idea_detail_json, load_agent_target,
         load_attachment_summaries, load_idea_base, load_note_bodies, normalize_idea_status,
         replace_attachments, replace_notes,
@@ -285,5 +285,5 @@ pub fn mark_idea_interviewing(
 }
 
 #[cfg(test)]
-#[path = "spec_ideas_tests.rs"]
+#[path = "../../../tests/serve/spec_ideas_tests.rs"]
 mod tests;

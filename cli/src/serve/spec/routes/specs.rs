@@ -1,12 +1,15 @@
-use super::activity_events::{
-    emit_activity_changed, emit_spec_changed, REASON_CONVERSATION_CREATED, REASON_USER_MESSAGE,
-};
 use crate::{
     db::now_ms,
     serve::{
-        routes::messages::PostMessageBody,
+        routes::{
+            activity_events::{
+                emit_activity_changed, emit_spec_changed, REASON_CONVERSATION_CREATED,
+                REASON_USER_MESSAGE,
+            },
+            messages::PostMessageBody,
+        },
         runtime,
-        spec_assets::{
+        spec::assets::{
             get_spec_artifact_detail, list_spec_artifacts, save_spec_from_path,
             SaveSpecFromPathInput,
         },
@@ -79,7 +82,7 @@ pub async fn save_from_path(
     State(state): State<AppState>,
     Json(body): Json<SaveSpecFromPathBody>,
 ) -> Result<
-    Json<crate::serve::spec_assets::SaveSpecFromPathResult>,
+    Json<crate::serve::spec::assets::SaveSpecFromPathResult>,
     (StatusCode, Json<serde_json::Value>),
 > {
     let conversation_id = body.conversation_id.clone();
@@ -354,8 +357,12 @@ fn create_spec_conversation_and_message(
     )
     .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     let (next_seq, _id, _created_at, payload) =
-        super::messages::insert_user_message_and_mark_running(&db, conversation_id, message_body)
-            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        crate::serve::routes::messages::insert_user_message_and_mark_running(
+            &db,
+            conversation_id,
+            message_body,
+        )
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     Ok((next_seq, payload))
 }
 
@@ -383,5 +390,5 @@ fn broadcast_initial_spec_message(
 }
 
 #[cfg(test)]
-#[path = "specs_tests.rs"]
+#[path = "../../../../tests/serve/routes/specs_tests.rs"]
 mod tests;

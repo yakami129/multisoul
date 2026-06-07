@@ -1,12 +1,15 @@
-use super::activity_events::{
-    emit_activity_changed, emit_spec_changed, REASON_CONVERSATION_CREATED, REASON_USER_MESSAGE,
-};
 use crate::{
     db::now_ms,
     serve::{
-        routes::messages::PostMessageBody,
+        routes::{
+            activity_events::{
+                emit_activity_changed, emit_spec_changed, REASON_CONVERSATION_CREATED,
+                REASON_USER_MESSAGE,
+            },
+            messages::PostMessageBody,
+        },
         runtime,
-        spec_assets::{get_spec_artifact_detail, SaveSpecError},
+        spec::assets::{get_spec_artifact_detail, SaveSpecError},
         state::AppState,
     },
 };
@@ -89,7 +92,7 @@ async fn start_implementation_core(
             &context.mode,
         );
     }
-    super::messages::broadcast_user_message(
+    crate::serve::routes::messages::broadcast_user_message(
         &state,
         &conversation_id,
         next_seq,
@@ -172,7 +175,7 @@ fn create_conversation(
     )
     .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     let (next_seq, _id, created_at, payload) =
-        super::messages::insert_user_message_and_mark_running(
+        crate::serve::routes::messages::insert_user_message_and_mark_running(
             &db,
             conversation_id,
             &PostMessageBody {

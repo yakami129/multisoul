@@ -307,5 +307,5 @@ fn label_from_model_id(id: &str) -> String {
 }
 
 #[cfg(test)]
-#[path = "models_tests.rs"]
+#[path = "../../../tests/serve/runtime/models_tests.rs"]
 mod tests;

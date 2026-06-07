@@ -23,6 +23,9 @@ bash scripts/check-max-file-lines.sh --staged
 # 3c. No #[allow(...)] in Rust source (staged paths only)
 bash scripts/check-no-allow.sh --staged
 
+# 3c1. CLI unit tests live under cli/tests/ (staged paths only)
+bash scripts/check-cli-test-layout.sh --staged
+
 # 3e. iOS Info.plist permission alignment (staged paths only)
 bash scripts/check-ios-permissions.sh --staged
 
