@@ -29,6 +29,14 @@ pub struct WorkflowRow {
     pub last_run_at: Option<i64>,
     pub created_at: i64,
     pub updated_at: i64,
+    // watch mode fields
+    pub mode: String,
+    pub interval_minutes: Option<i64>,
+    pub max_runs: Option<i64>,
+    pub expires_at: Option<i64>,
+    pub stop_condition: Option<String>,
+    pub watch_status: Option<String>,
+    pub run_count: i64,
 }
 
 #[derive(Debug, Serialize)]
@@ -43,6 +51,9 @@ pub struct WorkflowRunRow {
     pub summary: Option<String>,
     pub error_message: Option<String>,
     pub created_at: i64,
+    pub run_number: Option<i64>,
+    pub stop_condition_satisfied: Option<bool>,
+    pub stop_condition_reason: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -50,9 +61,17 @@ pub struct WorkflowWriteBody {
     pub name: String,
     pub agent_id: String,
     pub prompt: String,
-    pub schedule_kind: String,
-    pub time_of_day: String,
+    // recurring fields (optional when mode = 'watch')
+    pub schedule_kind: Option<String>,
+    pub time_of_day: Option<String>,
     pub day_of_week: Option<i64>,
+    // mode: 'recurring' | 'watch', default 'recurring'
+    pub mode: Option<String>,
+    // watch-only fields
+    pub interval_minutes: Option<i64>,
+    pub max_runs: Option<i64>,
+    pub expires_at: Option<i64>,
+    pub stop_condition: Option<String>,
 }
 
 pub async fn list_workflows(
@@ -65,7 +84,9 @@ pub async fn list_workflows(
     let mut stmt = db
         .prepare(
             "SELECT id, name, agent_id, prompt, enabled, schedule_kind, time_of_day,
-                    day_of_week, next_run_at, last_run_at, created_at, updated_at
+                    day_of_week, next_run_at, last_run_at, created_at, updated_at,
+                    mode, interval_minutes, max_runs, expires_at, stop_condition,
+                    watch_status, run_count
              FROM workflows
              ORDER BY updated_at DESC",
         )
@@ -82,37 +103,82 @@ pub async fn create_workflow(
     State(state): State<AppState>,
     Json(body): Json<WorkflowWriteBody>,
 ) -> Result<(StatusCode, Json<WorkflowRow>), StatusCode> {
-    let spec = schedule_spec_from_body(&body)?;
-    validate_workflow_input(&body.name, &body.prompt, &spec)
-        .map_err(|_| StatusCode::BAD_REQUEST)?;
     let now = now_ms();
-    let next_run_at = next_run_after_ms(&spec, now).map_err(|_| StatusCode::BAD_REQUEST)?;
+    let mode = body.mode.as_deref().unwrap_or("recurring");
     let id = Uuid::new_v4().to_string();
 
-    {
-        let db = state
-            .db
-            .lock()
+    if mode == "watch" {
+        validate_watch_body(&body, now)?;
+        let interval = body.interval_minutes.unwrap_or(10);
+        let (sk, tod) = ("none".to_string(), "00:00".to_string());
+        {
+            let db = state
+                .db
+                .lock()
+                .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+            ensure_agent_exists(&db, &body.agent_id)?;
+            db.execute(
+                "INSERT INTO workflows
+                 (id, name, agent_id, prompt, enabled, schedule_kind, time_of_day, day_of_week,
+                  next_run_at, last_run_at, created_at, updated_at,
+                  mode, interval_minutes, max_runs, expires_at, stop_condition,
+                  watch_status, run_count)
+                 VALUES (?1,?2,?3,?4,1,?5,?6,NULL,?7,NULL,?8,?8,'watch',?9,?10,?11,?12,'active',0)",
+                rusqlite::params![
+                    id,
+                    body.name.trim(),
+                    body.agent_id,
+                    body.prompt.trim(),
+                    sk,
+                    tod,
+                    now, // next_run_at = now => immediate first run
+                    now,
+                    interval,
+                    body.max_runs,
+                    body.expires_at,
+                    body.stop_condition
+                ],
+            )
             .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-        ensure_agent_exists(&db, &body.agent_id)?;
-        db.execute(
-            "INSERT INTO workflows
-             (id, name, agent_id, prompt, enabled, schedule_kind, time_of_day, day_of_week,
-              next_run_at, last_run_at, created_at, updated_at)
-             VALUES (?1, ?2, ?3, ?4, 1, ?5, ?6, ?7, ?8, NULL, ?9, ?9)",
-            rusqlite::params![
-                id,
-                body.name.trim(),
-                body.agent_id,
-                body.prompt.trim(),
-                body.schedule_kind,
-                body.time_of_day,
-                body.day_of_week,
-                next_run_at,
-                now
-            ],
-        )
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        }
+    } else {
+        let sk = body.schedule_kind.as_deref().unwrap_or("daily");
+        let tod = body.time_of_day.as_deref().unwrap_or("09:00");
+        let spec = WorkflowScheduleSpec {
+            kind: parse_schedule_kind(sk)?,
+            time_of_day: tod.to_string(),
+            day_of_week: body.day_of_week.map(|d| d as u32),
+        };
+        validate_workflow_input(&body.name, &body.prompt, &spec)
+            .map_err(|_| StatusCode::BAD_REQUEST)?;
+        let next_run_at = next_run_after_ms(&spec, now).map_err(|_| StatusCode::BAD_REQUEST)?;
+        {
+            let db = state
+                .db
+                .lock()
+                .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+            ensure_agent_exists(&db, &body.agent_id)?;
+            db.execute(
+                "INSERT INTO workflows
+                 (id, name, agent_id, prompt, enabled, schedule_kind, time_of_day, day_of_week,
+                  next_run_at, last_run_at, created_at, updated_at,
+                  mode, interval_minutes, max_runs, expires_at, stop_condition,
+                  watch_status, run_count)
+                 VALUES (?1,?2,?3,?4,1,?5,?6,?7,?8,NULL,?9,?9,'recurring',NULL,NULL,NULL,NULL,NULL,0)",
+                rusqlite::params![
+                    id,
+                    body.name.trim(),
+                    body.agent_id,
+                    body.prompt.trim(),
+                    sk,
+                    tod,
+                    body.day_of_week,
+                    next_run_at,
+                    now
+                ],
+            )
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        }
     }
 
     load_workflow(&state, &id).map(|row| (StatusCode::CREATED, Json(row)))
@@ -123,52 +189,78 @@ pub async fn update_workflow(
     Path(id): Path<String>,
     Json(body): Json<WorkflowWriteBody>,
 ) -> Result<Json<WorkflowRow>, StatusCode> {
-    let spec = schedule_spec_from_body(&body)?;
-    validate_workflow_input(&body.name, &body.prompt, &spec)
-        .map_err(|_| StatusCode::BAD_REQUEST)?;
+    let mode = body.mode.as_deref().unwrap_or("recurring");
     let existing = load_workflow(&state, &id)?;
     let now = now_ms();
-    let next_run_at = if existing.enabled {
-        next_run_after_ms(&spec, now)
-            .map(Some)
-            .map_err(|_| StatusCode::BAD_REQUEST)?
-    } else {
-        None
-    };
 
-    {
-        let db = state
-            .db
-            .lock()
-            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-        ensure_agent_exists(&db, &body.agent_id)?;
-        let changed = db
-            .execute(
-                "UPDATE workflows
-                 SET name = ?1,
-                     agent_id = ?2,
-                     prompt = ?3,
-                     schedule_kind = ?4,
-                     time_of_day = ?5,
-                     day_of_week = ?6,
-                     next_run_at = ?7,
-                     updated_at = ?8
-                 WHERE id = ?9",
-                rusqlite::params![
-                    body.name.trim(),
-                    body.agent_id,
-                    body.prompt.trim(),
-                    body.schedule_kind,
-                    body.time_of_day,
-                    body.day_of_week,
-                    next_run_at,
-                    now,
-                    id
-                ],
-            )
-            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-        if changed == 0 {
-            return Err(StatusCode::NOT_FOUND);
+    if mode == "watch" {
+        validate_watch_body(&body, now)?;
+        let interval = body.interval_minutes.unwrap_or(10);
+        let next_run_at = if existing.enabled { Some(now) } else { None };
+        {
+            let db = state
+                .db
+                .lock()
+                .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+            ensure_agent_exists(&db, &body.agent_id)?;
+            let changed = db
+                .execute(
+                    "UPDATE workflows
+                     SET name=?1, agent_id=?2, prompt=?3, schedule_kind='none',
+                         time_of_day='00:00', day_of_week=NULL,
+                         mode='watch', interval_minutes=?4, max_runs=?5,
+                         expires_at=?6, stop_condition=?7,
+                         next_run_at=?8, updated_at=?9
+                     WHERE id=?10",
+                    rusqlite::params![
+                        body.name.trim(), body.agent_id, body.prompt.trim(),
+                        interval, body.max_runs, body.expires_at, body.stop_condition,
+                        next_run_at, now, id
+                    ],
+                )
+                .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+            if changed == 0 {
+                return Err(StatusCode::NOT_FOUND);
+            }
+        }
+    } else {
+        let sk = body.schedule_kind.as_deref().unwrap_or("daily");
+        let tod = body.time_of_day.as_deref().unwrap_or("09:00");
+        let spec = WorkflowScheduleSpec {
+            kind: parse_schedule_kind(sk)?,
+            time_of_day: tod.to_string(),
+            day_of_week: body.day_of_week.map(|d| d as u32),
+        };
+        validate_workflow_input(&body.name, &body.prompt, &spec)
+            .map_err(|_| StatusCode::BAD_REQUEST)?;
+        let next_run_at = if existing.enabled {
+            next_run_after_ms(&spec, now)
+                .map(Some)
+                .map_err(|_| StatusCode::BAD_REQUEST)?
+        } else {
+            None
+        };
+        {
+            let db = state
+                .db
+                .lock()
+                .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+            ensure_agent_exists(&db, &body.agent_id)?;
+            let changed = db
+                .execute(
+                    "UPDATE workflows
+                     SET name=?1, agent_id=?2, prompt=?3, schedule_kind=?4,
+                         time_of_day=?5, day_of_week=?6, next_run_at=?7, updated_at=?8
+                     WHERE id=?9",
+                    rusqlite::params![
+                        body.name.trim(), body.agent_id, body.prompt.trim(),
+                        sk, tod, body.day_of_week, next_run_at, now, id
+                    ],
+                )
+                .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+            if changed == 0 {
+                return Err(StatusCode::NOT_FOUND);
+            }
         }
     }
 
@@ -210,16 +302,16 @@ pub async fn enable_workflow(
             .db
             .lock()
             .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-        // Read and write in a single lock scope to avoid TOCTOU.
         let row = db
             .query_row(
-                "SELECT schedule_kind, time_of_day, day_of_week FROM workflows WHERE id = ?1",
+                "SELECT schedule_kind, time_of_day, day_of_week, mode FROM workflows WHERE id = ?1",
                 [&id],
                 |row| {
                     Ok((
                         row.get::<_, String>(0)?,
                         row.get::<_, String>(1)?,
                         row.get::<_, Option<i64>>(2)?,
+                        row.get::<_, String>(3)?,
                     ))
                 },
             )
@@ -227,12 +319,17 @@ pub async fn enable_workflow(
                 rusqlite::Error::QueryReturnedNoRows => StatusCode::NOT_FOUND,
                 _ => StatusCode::INTERNAL_SERVER_ERROR,
             })?;
-        let spec = WorkflowScheduleSpec {
-            kind: parse_schedule_kind(&row.0)?,
-            time_of_day: row.1,
-            day_of_week: row.2.map(|d| d as u32),
+        let next_run_at = if row.3 == "watch" {
+            // For watch workflows, enabling sets next_run_at = now (immediate)
+            now
+        } else {
+            let spec = WorkflowScheduleSpec {
+                kind: parse_schedule_kind(&row.0)?,
+                time_of_day: row.1,
+                day_of_week: row.2.map(|d| d as u32),
+            };
+            next_run_after_ms(&spec, now).map_err(|_| StatusCode::BAD_REQUEST)?
         };
-        let next_run_at = next_run_after_ms(&spec, now).map_err(|_| StatusCode::BAD_REQUEST)?;
         let changed = db
             .execute(
                 "UPDATE workflows
@@ -242,10 +339,89 @@ pub async fn enable_workflow(
             )
             .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
         if changed == 0 {
-            // Either not found or already enabled — load to return current state.
             db.query_row("SELECT 1 FROM workflows WHERE id = ?1", [&id], |_| Ok(()))
                 .map_err(|_| StatusCode::NOT_FOUND)?;
         }
+    }
+    load_workflow(&state, &id).map(Json)
+}
+
+pub async fn stop_watch(
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+) -> Result<Json<WorkflowRow>, StatusCode> {
+    let now = now_ms();
+    {
+        let db = state
+            .db
+            .lock()
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        let mode: Option<String> = db
+            .query_row(
+                "SELECT mode FROM workflows WHERE id = ?1",
+                [&id],
+                |row| row.get(0),
+            )
+            .map_err(|err| match err {
+                rusqlite::Error::QueryReturnedNoRows => StatusCode::NOT_FOUND,
+                _ => StatusCode::INTERNAL_SERVER_ERROR,
+            })?;
+        if mode.as_deref() != Some("watch") {
+            return Err(StatusCode::BAD_REQUEST);
+        }
+        let changed = db
+            .execute(
+                "UPDATE workflows
+                 SET enabled = 0, watch_status = 'stopped', next_run_at = NULL, updated_at = ?1
+                 WHERE id = ?2",
+                rusqlite::params![now, id],
+            )
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        if changed == 0 {
+            return Err(StatusCode::NOT_FOUND);
+        }
+    }
+    load_workflow(&state, &id).map(Json)
+}
+
+pub async fn restart_watch(
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+) -> Result<Json<WorkflowRow>, StatusCode> {
+    let now = now_ms();
+    {
+        let db = state
+            .db
+            .lock()
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        let (mode, watch_status): (Option<String>, Option<String>) = db
+            .query_row(
+                "SELECT mode, watch_status FROM workflows WHERE id = ?1",
+                [&id],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .map_err(|err| match err {
+                rusqlite::Error::QueryReturnedNoRows => StatusCode::NOT_FOUND,
+                _ => StatusCode::INTERNAL_SERVER_ERROR,
+            })?;
+        if mode.as_deref() != Some("watch") {
+            return Err(StatusCode::BAD_REQUEST);
+        }
+        let is_ended = matches!(
+            watch_status.as_deref(),
+            Some("completed") | Some("stopped") | Some("expired") | Some("failed")
+        );
+        if !is_ended {
+            return Err(StatusCode::BAD_REQUEST);
+        }
+        db.execute(
+            "UPDATE workflows
+             SET enabled = 1, watch_status = 'active', run_count = 0,
+                 next_run_at = ?1, updated_at = ?1
+             WHERE id = ?2",
+            rusqlite::params![now, id],
+        )
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     }
     load_workflow(&state, &id).map(Json)
 }
@@ -258,7 +434,6 @@ pub async fn list_workflow_runs(
         .db
         .lock()
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-    // Verify workflow exists before returning an empty list.
     let exists = db
         .query_row(
             "SELECT EXISTS(SELECT 1 FROM workflows WHERE id = ?1)",
@@ -273,7 +448,8 @@ pub async fn list_workflow_runs(
     let mut stmt = db
         .prepare(
             "SELECT id, workflow_id, conversation_id, status, scheduled_for, started_at,
-                    ended_at, summary, error_message, created_at
+                    ended_at, summary, error_message, created_at,
+                    run_number, stop_condition_satisfied, stop_condition_reason
              FROM workflow_runs
              WHERE workflow_id = ?1
              ORDER BY created_at DESC",
@@ -281,6 +457,7 @@ pub async fn list_workflow_runs(
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     let rows = stmt
         .query_map([id], |row| {
+            let satisfied_raw: Option<i64> = row.get(11)?;
             Ok(WorkflowRunRow {
                 id: row.get(0)?,
                 workflow_id: row.get(1)?,
@@ -292,6 +469,9 @@ pub async fn list_workflow_runs(
                 summary: row.get(7)?,
                 error_message: row.get(8)?,
                 created_at: row.get(9)?,
+                run_number: row.get(10)?,
+                stop_condition_satisfied: satisfied_raw.map(|v| v != 0),
+                stop_condition_reason: row.get(12)?,
             })
         })
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
@@ -307,7 +487,9 @@ fn load_workflow(state: &AppState, id: &str) -> Result<WorkflowRow, StatusCode> 
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     db.query_row(
         "SELECT id, name, agent_id, prompt, enabled, schedule_kind, time_of_day,
-                day_of_week, next_run_at, last_run_at, created_at, updated_at
+                day_of_week, next_run_at, last_run_at, created_at, updated_at,
+                mode, interval_minutes, max_runs, expires_at, stop_condition,
+                watch_status, run_count
          FROM workflows
          WHERE id = ?1",
         [id],
@@ -334,6 +516,13 @@ fn row_to_workflow(row: &rusqlite::Row<'_>) -> rusqlite::Result<WorkflowRow> {
         last_run_at: row.get(9)?,
         created_at: row.get(10)?,
         updated_at: row.get(11)?,
+        mode: row.get(12)?,
+        interval_minutes: row.get(13)?,
+        max_runs: row.get(14)?,
+        expires_at: row.get(15)?,
+        stop_condition: row.get(16)?,
+        watch_status: row.get(17)?,
+        run_count: row.get(18)?,
     })
 }
 
@@ -353,12 +542,25 @@ fn ensure_agent_exists(db: &rusqlite::Connection, agent_id: &str) -> Result<(), 
     }
 }
 
-fn schedule_spec_from_body(body: &WorkflowWriteBody) -> Result<WorkflowScheduleSpec, StatusCode> {
-    Ok(WorkflowScheduleSpec {
-        kind: parse_schedule_kind(&body.schedule_kind)?,
-        time_of_day: body.time_of_day.clone(),
-        day_of_week: body.day_of_week.map(|day| day as u32),
-    })
+fn validate_watch_body(body: &WorkflowWriteBody, now: i64) -> Result<(), StatusCode> {
+    if body.name.trim().is_empty() || body.prompt.trim().is_empty() {
+        return Err(StatusCode::BAD_REQUEST);
+    }
+    let interval = body.interval_minutes.unwrap_or(0);
+    if interval <= 0 {
+        return Err(StatusCode::BAD_REQUEST);
+    }
+    if let Some(max) = body.max_runs {
+        if max <= 0 {
+            return Err(StatusCode::BAD_REQUEST);
+        }
+    }
+    if let Some(exp) = body.expires_at {
+        if exp <= now {
+            return Err(StatusCode::BAD_REQUEST);
+        }
+    }
+    Ok(())
 }
 
 fn parse_schedule_kind(value: &str) -> Result<WorkflowScheduleKind, StatusCode> {

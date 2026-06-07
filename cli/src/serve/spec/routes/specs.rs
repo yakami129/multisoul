@@ -10,8 +10,8 @@ use crate::{
         },
         runtime,
         spec::assets::{
-            get_spec_artifact_detail, list_spec_artifacts, save_spec_from_path,
-            SaveSpecFromPathInput,
+            delete_spec_artifact, get_spec_artifact_detail, list_spec_artifacts,
+            save_spec_from_path, SaveSpecFromPathInput,
         },
         state::AppState,
     },
@@ -168,6 +168,20 @@ pub async fn get_spec(
             Json(serde_json::json!({ "error": err.code() })),
         )),
     }
+}
+
+pub async fn delete_spec(
+    State(state): State<AppState>,
+    Path(spec_id): Path<String>,
+) -> Result<StatusCode, (StatusCode, Json<serde_json::Value>)> {
+    delete_spec_artifact(&state, &spec_id).map_err(|err| {
+        (
+            err.status_code(),
+            Json(serde_json::json!({ "error": err.code() })),
+        )
+    })?;
+    emit_spec_changed(&state, &spec_id, "");
+    Ok(StatusCode::NO_CONTENT)
 }
 
 async fn dispatch_spec_core(

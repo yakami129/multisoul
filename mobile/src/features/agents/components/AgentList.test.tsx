@@ -315,6 +315,61 @@ describe('AgentList', () => {
     ).toBeTruthy();
   });
 
+  it('shows Idle when only older failed conversations exist and a newer completed one follows', () => {
+    /// projectStatus must reflect the most recent conversation's status, not any historical failure.
+    ///
+    /// Setup:
+    ///   agent a1 has two conversations:
+    ///     - conv-old: status=failed, last_message_at=1 (older)
+    ///     - conv-new: status=completed, last_message_at=100 (newer)
+    ///
+    /// Expected:
+    ///   - Positive: agent row shows "Idle" (most recent is completed, not failed)
+    ///   - Negative: agent row does NOT show "Failed"
+    useChatStore.setState({
+      conversations: [
+        {
+          id: 'conv-old',
+          agent_id: 'a1',
+          title: 'Old task',
+          created_at: 1,
+          last_message_at: 1,
+          status: 'failed',
+          endpoint_id: 'ep-1',
+          agent_name: 'Alpha',
+          model_id: null,
+        },
+        {
+          id: 'conv-new',
+          agent_id: 'a1',
+          title: 'New task',
+          created_at: 50,
+          last_message_at: 100,
+          status: 'completed',
+          endpoint_id: 'ep-1',
+          agent_name: 'Alpha',
+          model_id: null,
+        },
+      ],
+      messages: {},
+    });
+
+    const { getAllByText, queryByText } = render(
+      <AgentList
+        agents={agents}
+        isLoading={false}
+        isError={false}
+        error={null}
+        isFetching={false}
+        onRefetch={() => {}}
+        onAgentPress={() => {}}
+      />,
+    );
+
+    expect(getAllByText('Idle').length).toBeGreaterThanOrEqual(1);
+    expect(queryByText('Failed')).toBeNull();
+  });
+
   it('surfaces running and pending state in the fleet and hero stats', () => {
     useChatStore.setState({
       conversations: [

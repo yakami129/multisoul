@@ -1,5 +1,12 @@
 use super::*;
-use crate::{db, serve::plugin::PluginManager, serve::state::AppState};
+use crate::{
+    db,
+    serve::{
+        plugin::PluginManager,
+        spec::ideas::{create_spec_idea, SpecIdeaMutation},
+        state::AppState,
+    },
+};
 use std::sync::{Arc, Mutex};
 use tempfile::tempdir;
 
@@ -212,4 +219,101 @@ fn save_spec_from_path_rejects_path_traversal() {
         .query_row("SELECT COUNT(*) FROM spec_artifacts", [], |row| row.get(0))
         .expect("artifact count should query");
     assert_eq!(count, 0, "invalid paths must not create artifacts");
+}
+
+/// delete_spec_artifact removes artifact metadata and restores linked converted ideas.
+#[test]
+fn delete_spec_artifact_removes_versions_and_unlinks_source_idea() {
+    let fixture = fixture();
+    let spec_dir = fixture.project_dir.path().join("docs/product-specs");
+    std::fs::create_dir_all(&spec_dir).expect("spec dir should be created");
+    std::fs::write(
+        spec_dir.join("2026-06-06-SPEC-demo.md"),
+        "# Demo Spec\n\nShip the workflow.\n",
+    )
+    .expect("spec markdown should be written");
+
+    create_spec_idea(
+        &fixture.state,
+        SpecIdeaMutation {
+            id: Some("idea-1".to_string()),
+            title: None,
+            status: None,
+            target_agent_id: Some("agent-1".to_string()),
+            target_endpoint_id: Some("endpoint-1".to_string()),
+            target_repo_path: Some(fixture.project_dir.path().to_string_lossy().into_owned()),
+            target_agent_name: None,
+            body: Some("Need a better specs workflow".to_string()),
+            notes: None,
+            attachments: None,
+            interview_conversation_id: Some("conv-1".to_string()),
+            converted_spec_id: None,
+            error_message: None,
+            archived_at: None,
+        },
+    )
+    .expect("source idea should create");
+
+    let saved = save_spec_from_path(
+        &fixture.state,
+        SaveSpecFromPathInput {
+            repo_spec_path: "docs/product-specs/2026-06-06-SPEC-demo.md".to_string(),
+            conversation_id: "conv-1".to_string(),
+        },
+    )
+    .expect("valid spec path should save");
+
+    let converted_status: String = fixture
+        .state
+        .db
+        .lock()
+        .expect("db mutex should be available")
+        .query_row(
+            "SELECT status FROM spec_ideas WHERE id = 'idea-1'",
+            [],
+            |row| row.get(0),
+        )
+        .expect("source idea should exist");
+    assert_eq!(converted_status, "converted", "save should convert source idea");
+
+    delete_spec_artifact(&fixture.state, &saved.spec_id).expect("delete should succeed");
+
+    let artifact_count: i64 = fixture
+        .state
+        .db
+        .lock()
+        .expect("db mutex should be available")
+        .query_row("SELECT COUNT(*) FROM spec_artifacts", [], |row| row.get(0))
+        .expect("artifact count should query");
+    assert_eq!(artifact_count, 0, "artifact row should be deleted");
+
+    let version_count: i64 = fixture
+        .state
+        .db
+        .lock()
+        .expect("db mutex should be available")
+        .query_row("SELECT COUNT(*) FROM spec_artifact_versions", [], |row| row.get(0))
+        .expect("version count should query");
+    assert_eq!(version_count, 0, "version rows should be deleted");
+
+    let (status, converted_spec_id): (String, Option<String>) = fixture
+        .state
+        .db
+        .lock()
+        .expect("db mutex should be available")
+        .query_row(
+            "SELECT status, converted_spec_id FROM spec_ideas WHERE id = 'idea-1'",
+            [],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .expect("source idea should remain");
+    assert_eq!(status, "open", "converted idea should revert to open");
+    assert_eq!(converted_spec_id, None, "converted_spec_id should be cleared");
+}
+
+#[test]
+fn delete_spec_artifact_returns_not_found_for_missing_id() {
+    let fixture = fixture();
+    let result = delete_spec_artifact(&fixture.state, "missing-spec");
+    assert_eq!(result, Err(SaveSpecError::NotFound));
 }

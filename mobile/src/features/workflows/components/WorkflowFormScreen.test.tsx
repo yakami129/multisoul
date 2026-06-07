@@ -131,7 +131,7 @@ test('save normalizes time before submitting workflow input', () => {
     <WorkflowFormScreen agents={agents} onSave={onSave} onCancel={() => {}} />,
   );
 
-  fireEvent.changeText(getByPlaceholderText('e.g. Morning Report'), 'Morning report');
+  fireEvent.changeText(getByPlaceholderText('e.g. CI Watch'), 'Morning report');
   fireEvent.changeText(getByPlaceholderText('HH:MM'), '9:5');
   fireEvent.changeText(getByPlaceholderText('What should the agent do?'), 'Summarize repository');
   fireEvent.press(getByText('Save'));
@@ -199,6 +199,7 @@ test('edit mode pre-fills workflow values before saving', () => {
       name: 'Friday Review',
       agent_id: 'agent-2',
       prompt: 'Review release risk',
+      mode: 'recurring',
       schedule_kind: 'weekly',
       time_of_day: '17:30',
       day_of_week: 5,

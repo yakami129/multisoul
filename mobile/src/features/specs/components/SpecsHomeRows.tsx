@@ -198,22 +198,40 @@ export function SpecSection({
   title,
   specs,
   onOpenSpec,
+  onDeleteSpec,
 }: {
   title: string;
   specs: SpecArtifact[];
   onOpenSpec: (id: string) => void;
+  onDeleteSpec?: (id: string) => void;
 }) {
   if (specs.length === 0) return null;
   return (
     <View style={s.section}>
       <Text style={s.sectionTitle}>{title}</Text>
       <View style={s.group}>
-        {specs.map((spec, index) => (
-          <View key={spec.id}>
-            <SpecRow spec={spec} onOpen={() => onOpenSpec(spec.id)} />
-            {index < specs.length - 1 ? <View style={s.divider} /> : null}
-          </View>
-        ))}
+        {specs.map((spec, index) => {
+          const row = <SpecRow spec={spec} onOpen={() => onOpenSpec(spec.id)} />;
+          return (
+            <View key={spec.id}>
+              {onDeleteSpec ? (
+                <Swipeable
+                  renderRightActions={() => (
+                    <RowDeleteAction
+                      accessibilityLabel={`Delete ${spec.title}`}
+                      onPress={() => onDeleteSpec(spec.id)}
+                    />
+                  )}
+                >
+                  {row}
+                </Swipeable>
+              ) : (
+                row
+              )}
+              {index < specs.length - 1 ? <View style={s.divider} /> : null}
+            </View>
+          );
+        })}
       </View>
     </View>
   );

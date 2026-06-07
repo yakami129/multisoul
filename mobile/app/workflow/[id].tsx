@@ -13,29 +13,24 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fetchAllAgents } from '@/features/agents/services/agentService';
 import { buildChatDetailPath } from '@/features/chat/utils/chatRoutes';
-import { WorkflowFormScreen } from '@/features/workflows/components/WorkflowFormScreen';
+import {
+  WorkflowRunsCard,
+  WorkflowWatchCard,
+} from '@/features/workflows/components/WorkflowDetailCards';
+import {
+  WorkflowFormScreen,
+  type WorkflowFormInitialValues,
+} from '@/features/workflows/components/WorkflowFormScreen';
 import {
   fetchWorkflows,
   fetchWorkflowRuns,
   updateWorkflow,
+  stopWatch,
+  restartWatch,
 } from '@/features/workflows/services/workflowService';
 import { type Workflow, type WorkflowInput, type WorkflowRun } from '@/features/workflows/types';
 import { useEndpointStore } from '@/store/endpointStore';
 import { brandColors, brandRgba } from '@/theme/brandRefresh';
-
-const DOT_COLOR: Record<string, string> = {
-  running: brandColors.cyan,
-  completed: brandColors.lime,
-  failed: brandColors.error,
-  skipped_overlap: brandColors.textMuted,
-};
-
-const STATUS_LABEL: Record<string, string> = {
-  running: 'Running',
-  completed: 'Completed',
-  failed: 'Failed',
-  skipped_overlap: 'Skipped Overlap',
-};
 
 function formatNextRun(ts: number | null): string {
   if (!ts) return '—';
@@ -51,17 +46,20 @@ function formatNextRun(ts: number | null): string {
     : `${d.toLocaleDateString([], { month: 'short', day: 'numeric' })} ${time}`;
 }
 
-function formatRunTime(ts: number): string {
-  const d = new Date(ts);
-  const today = new Date();
-  const isToday =
-    d.getDate() === today.getDate() &&
-    d.getMonth() === today.getMonth() &&
-    d.getFullYear() === today.getFullYear();
-  const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  return isToday
-    ? `Today ${time}`
-    : `${d.toLocaleDateString([], { month: 'short', day: 'numeric' })} ${time}`;
+function workflowToFormValues(wf: Workflow): WorkflowFormInitialValues {
+  return {
+    name: wf.name,
+    agent_id: wf.agent_id,
+    prompt: wf.prompt,
+    mode: wf.mode,
+    schedule_kind: wf.schedule_kind,
+    time_of_day: wf.time_of_day,
+    day_of_week: wf.day_of_week,
+    interval_minutes: wf.interval_minutes,
+    max_runs: wf.max_runs,
+    expires_at: wf.expires_at,
+    stop_condition: wf.stop_condition,
+  };
 }
 
 export default function WorkflowDetailRoute() {
@@ -123,14 +121,42 @@ export default function WorkflowDetailRoute() {
     },
   });
 
+  const stopWatchMutation = useMutation({
+    mutationFn: async () => {
+      if (!workflow) throw new Error('Workflow not found');
+      const ep = endpoints.find((e) => e.id === workflow.endpoint_id);
+      if (!ep) throw new Error('Endpoint not found');
+      await stopWatch(ep, workflow.id);
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['workflows'] });
+      void queryClient.invalidateQueries({ queryKey: ['workflow'] });
+    },
+  });
+
+  const restartWatchMutation = useMutation({
+    mutationFn: async () => {
+      if (!workflow) throw new Error('Workflow not found');
+      const ep = endpoints.find((e) => e.id === workflow.endpoint_id);
+      if (!ep) throw new Error('Endpoint not found');
+      await restartWatch(ep, workflow.id);
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['workflows'] });
+      void queryClient.invalidateQueries({ queryKey: ['workflow'] });
+    },
+  });
+
   const editAgents = workflow
     ? agents.filter((agent) => agent.endpoint_id === workflow.endpoint_id)
     : [];
 
   const scheduleLabel =
-    workflow?.schedule_kind === 'weekly'
-      ? `Weekly at ${workflow.time_of_day}`
-      : `Daily at ${workflow?.time_of_day ?? '—'}`;
+    workflow?.mode === 'watch'
+      ? `Every ${workflow.interval_minutes ?? '?'} min`
+      : workflow?.schedule_kind === 'weekly'
+        ? `Weekly at ${workflow.time_of_day}`
+        : `Daily at ${workflow?.time_of_day ?? '—'}`;
 
   const promptPreview = workflow?.prompt
     ? workflow.prompt.length > 40
@@ -214,64 +240,33 @@ export default function WorkflowDetailRoute() {
             </View>
           </View>
 
+          {/* Watch controls */}
+          {workflow.mode === 'watch' ? (
+            <WorkflowWatchCard
+              workflow={workflow}
+              stopWatchPending={stopWatchMutation.isPending}
+              restartWatchPending={restartWatchMutation.isPending}
+              onStopWatch={() => stopWatchMutation.mutate()}
+              onRestartWatch={() => restartWatchMutation.mutate()}
+            />
+          ) : null}
+
           {/* Recent Runs */}
           <Text style={s.sectionHeader}>RECENT RUNS</Text>
           {runs.length === 0 ? (
             <Text style={s.noRuns}>No runs yet</Text>
           ) : (
-            <View style={s.runsCard}>
-              {runs.map((run, idx) => {
-                const isLast = idx === runs.length - 1;
-                const canOpen = !!run.conversation_id;
-                return (
-                  <View key={run.id}>
-                    <View style={s.runRow}>
-                      <View
-                        style={[
-                          s.dot,
-                          { backgroundColor: DOT_COLOR[run.status] ?? brandColors.textMuted },
-                        ]}
-                      />
-                      <View style={s.runInfo}>
-                        <Text style={s.runStatus} numberOfLines={1}>
-                          {STATUS_LABEL[run.status] ?? run.status}
-                        </Text>
-                        <Text style={s.runTime} numberOfLines={1}>
-                          {formatRunTime(run.scheduled_for)}
-                        </Text>
-                        {run.error_message ? (
-                          <Text style={s.runError} numberOfLines={2}>
-                            {run.error_message}
-                          </Text>
-                        ) : null}
-                      </View>
-                      {canOpen ? (
-                        <TouchableOpacity
-                          onPress={() =>
-                            router.push(
-                              buildChatDetailPath({
-                                conversationId: run.conversation_id!,
-                                endpointId: run.endpoint_id,
-                              }) as `/${string}`,
-                            )
-                          }
-                          accessibilityRole="button"
-                        >
-                          <Text style={s.openLink} numberOfLines={1}>
-                            Open Conversation
-                          </Text>
-                        </TouchableOpacity>
-                      ) : (
-                        <Text style={s.noConv} numberOfLines={1}>
-                          No conversation
-                        </Text>
-                      )}
-                    </View>
-                    {!isLast && <View style={s.divider} />}
-                  </View>
-                );
-              })}
-            </View>
+            <WorkflowRunsCard
+              runs={runs}
+              onOpenConversation={(run) =>
+                router.push(
+                  buildChatDetailPath({
+                    conversationId: run.conversation_id!,
+                    endpointId: run.endpoint_id,
+                  }) as `/${string}`,
+                )
+              }
+            />
           )}
         </ScrollView>
       )}
@@ -286,7 +281,7 @@ export default function WorkflowDetailRoute() {
             <WorkflowFormScreen
               key={`edit-${workflow.endpoint_id}-${workflow.id}-${workflow.updated_at}`}
               agents={editAgents}
-              initialValues={workflow}
+              initialValues={workflowToFormValues(workflow)}
               title="Edit Workflow"
               onSave={(input) => updateMutation.mutate(input)}
               onCancel={() => setShowEdit(false)}
@@ -324,7 +319,6 @@ const s = StyleSheet.create({
     textAlign: 'center',
   },
   scroll: { paddingHorizontal: 16, paddingTop: 8 },
-  // Identity card
   identityCard: {
     backgroundColor: brandRgba.white88,
     borderWidth: 1,
@@ -372,7 +366,6 @@ const s = StyleSheet.create({
   },
   thumbRight: { alignSelf: 'flex-end' },
   thumbLeft: { alignSelf: 'flex-start' },
-  // Info card
   infoCard: {
     backgroundColor: brandRgba.white88,
     borderWidth: 1,
@@ -396,7 +389,6 @@ const s = StyleSheet.create({
     textAlign: 'right',
   },
   divider: { height: 1, backgroundColor: brandRgba.silver78 },
-  // Section header
   sectionHeader: {
     fontFamily: 'Inter',
     fontSize: 10,
@@ -406,51 +398,6 @@ const s = StyleSheet.create({
     marginBottom: 8,
   },
   noRuns: { fontFamily: 'Inter', fontSize: 12, color: brandColors.textMuted },
-  // Runs card
-  runsCard: {
-    backgroundColor: brandRgba.white88,
-    borderWidth: 1,
-    borderColor: brandColors.silver,
-    borderRadius: 12,
-    paddingHorizontal: 12,
-  },
-  runRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    paddingVertical: 11,
-  },
-  dot: {
-    width: 7,
-    height: 7,
-    borderRadius: 3.5,
-    marginTop: 4,
-    marginRight: 9,
-  },
-  runInfo: { flex: 1, minWidth: 0 },
-  runStatus: {
-    fontFamily: 'Inter',
-    fontSize: 13,
-    lineHeight: 17,
-    fontWeight: '700',
-    color: brandColors.ink,
-    marginBottom: 2,
-  },
-  runTime: { fontFamily: 'Inter', fontSize: 11, color: brandColors.textSoft },
-  runError: { fontFamily: 'Inter', fontSize: 11, color: brandColors.error, marginTop: 2 },
-  openLink: {
-    maxWidth: 96,
-    fontFamily: 'Inter',
-    fontSize: 11,
-    color: brandColors.coral,
-    textAlign: 'right',
-  },
-  noConv: {
-    maxWidth: 88,
-    fontFamily: 'Inter',
-    fontSize: 11,
-    color: brandColors.textMuted,
-    textAlign: 'right',
-  },
   empty: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   emptyText: { fontFamily: 'Inter', fontSize: 13, color: brandColors.textSoft },
 });

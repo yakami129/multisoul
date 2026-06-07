@@ -301,6 +301,32 @@ pub fn send_task_status_push(
     }
 }
 
+pub fn send_watch_completion_push(
+    db: &rusqlite::Connection,
+    workflow_name: &str,
+    workflow_id: &str,
+    stop_status: &str,
+    run_count: i64,
+) {
+    let body = match stop_status {
+        "completed" => format!("Completed {} run(s)", run_count),
+        "expired" => format!("Watch window expired ({} run(s))", run_count),
+        "stopped" => "Watch stopped by user".to_string(),
+        "failed" => "Watch failed".to_string(),
+        _ => format!("Watch ended after {} run(s)", run_count),
+    };
+    let push = TaskStatusPush {
+        title: format!("Watch completed \u{2014} {}", workflow_name),
+        body,
+        data: serde_json::json!({
+            "type": "watch_completed",
+            "workflow_id": workflow_id,
+            "watch_status": stop_status,
+        }),
+    };
+    send_push_to_tokens_async(db, &push);
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -72,7 +72,10 @@ function projectStatus(conversations: Conversation[]): ProjectStatus {
   if (conversations.some((conv) => conv.status === 'running')) {
     return { label: 'Running', kind: 'running', isActive: true, pendingCount: 0 };
   }
-  if (conversations.some((conv) => conv.status === 'failed')) {
+  // Only show Failed if the most recent conversation is failed; historical failures don't
+  // affect fleet status once newer conversations exist.
+  const mostRecent = [...conversations].sort((a, b) => b.last_message_at - a.last_message_at)[0];
+  if (mostRecent?.status === 'failed') {
     return { label: 'Failed', kind: 'failed', isActive: false, pendingCount: 0 };
   }
   return { label: 'Idle', kind: 'idle', isActive: false, pendingCount: 0 };

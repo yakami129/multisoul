@@ -141,6 +141,11 @@ fn init_schema(conn: &Connection) -> Result<()> {
         "20260606_spec_assets",
         include_str!("../migrations/20260606_spec_assets.sql"),
     )?;
+    apply_migration(
+        conn,
+        "20260607_workflow_watch_mode",
+        include_str!("../migrations/20260607_workflow_watch_mode.sql"),
+    )?;
     Ok(())
 }
 

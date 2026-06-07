@@ -29,22 +29,22 @@ test('renders Blank Workflow as the first-class entry', () => {
   );
 
   expect(getByText('Blank Workflow')).toBeTruthy();
-  expect(getByText('Default: Daily 09:00')).toBeTruthy();
+  expect(getByText('Default: Daily 09:00 · or Watch mode')).toBeTruthy();
 });
 
 /// 场景：picker 渲染模板库中的全部模板。
 ///
 /// 数据构造：
-///   WORKFLOW_TEMPLATES = 10 个真实内置模板。
+///   WORKFLOW_TEMPLATES = 14 个真实内置模板（10 recurring + 4 watch）。
 ///
 /// 执行过程：
 ///   1. 渲染 WorkflowTemplatePickerScreen。
 ///   2. 逐个查找模板标题和描述。
 ///
 /// 预期结果：
-///   - 正断言：10 个模板标题全部显示。
-///   - 正断言：10 个模板描述全部显示。
-test('renders all 10 workflow templates', () => {
+///   - 正断言：14 个模板标题全部显示。
+///   - 正断言：14 个模板描述全部显示。
+test('renders all 14 workflow templates', () => {
   const { getByText } = render(
     <WorkflowTemplatePickerScreen
       onSelectBlank={() => {}}
@@ -53,7 +53,7 @@ test('renders all 10 workflow templates', () => {
     />,
   );
 
-  expect(WORKFLOW_TEMPLATES).toHaveLength(10);
+  expect(WORKFLOW_TEMPLATES).toHaveLength(14);
 
   for (const template of WORKFLOW_TEMPLATES) {
     expect(getByText(template.title)).toBeTruthy();

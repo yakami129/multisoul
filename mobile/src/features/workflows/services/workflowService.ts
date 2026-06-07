@@ -84,3 +84,21 @@ export async function deleteWorkflow(
   const client = getEndpointClient(endpoint.base_url, endpoint.token);
   await client.delete(`/api/v1/workflows/${workflowId}`);
 }
+
+export async function stopWatch(endpoint: WorkflowEndpoint, workflowId: string): Promise<Workflow> {
+  const client = getEndpointClient(endpoint.base_url, endpoint.token);
+  const res = await client.post<WorkflowApiRow>(`/api/v1/workflows/${workflowId}/stop-watch`, {});
+  return withWorkflowEndpoint(res.data, endpoint);
+}
+
+export async function restartWatch(
+  endpoint: WorkflowEndpoint,
+  workflowId: string,
+): Promise<Workflow> {
+  const client = getEndpointClient(endpoint.base_url, endpoint.token);
+  const res = await client.post<WorkflowApiRow>(
+    `/api/v1/workflows/${workflowId}/restart-watch`,
+    {},
+  );
+  return withWorkflowEndpoint(res.data, endpoint);
+}
