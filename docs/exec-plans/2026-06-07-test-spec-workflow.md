@@ -8,7 +8,7 @@
 
 ## Overview
 
-This plan validates the spec generation and save workflow for MultiSoul. The spec file already exists at `docs/product-specs/2026-06-07-SPEC-test-spec-workflow.md`. Our task is to execute `msctl save-spec` to persist it to the database and verify the workflow is functional.
+This plan validates the spec generation and save workflow for MultiSoul. The spec file already exists at `docs/product-specs/2026-06-07-SPEC-test-spec-workflow.md`. Our task is to execute `msctl spec save` to persist it to the database and verify the workflow is functional.
 
 ---
 
@@ -39,13 +39,13 @@ This plan validates the spec generation and save workflow for MultiSoul. The spe
 
 ---
 
-### Task 2: Execute `msctl save-spec` Command
+### Task 2: Execute `msctl spec save` Command
 
 **Objective**: Save the test spec to the database using the CLI command.
 
 **Command**:
 ```bash
-msctl save-spec \
+msctl spec save \
   --path docs/product-specs/2026-06-07-SPEC-test-spec-workflow.md \
   --conversation-id e2652cba-77cd-4c57-8357-f08df7eedb05 \
   --output json
@@ -111,7 +111,7 @@ msctl save-spec \
 
 After completing all tasks, verify:
 - [x] Spec document exists in `docs/product-specs/2026-06-07-SPEC-test-spec-workflow.md`
-- [ ] `msctl save-spec` command executed successfully
+- [ ] `msctl spec save` command executed successfully
 - [ ] Database contains the spec artifact with correct metadata
 - [ ] Database contains the spec version with correct markdown and hash
 - [ ] Spec can be retrieved via REST API (if mobile API is accessible)
@@ -130,7 +130,7 @@ After completing all tasks, verify:
 
 - ✅ Spec file already written
 - ✅ Database migration `20260606_spec_assets` applied
-- ✅ `msctl save-spec` command implemented
+- ✅ `msctl spec save` command implemented
 - ✅ REST API endpoint `/api/v1/specs/save-from-path` available
 
 ---

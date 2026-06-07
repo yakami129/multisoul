@@ -16,7 +16,7 @@ msctl <COMMAND>
 | `agent` | Agent 注册与管理 |
 | `serve` | 启动本地 HTTP/WS 服务器 |
 | `ask-question` | Push a structured question card to mobile through `msctl serve` |
-| `save-spec` | Save a repo `docs/product-specs/*.md` file as an immutable Spec artifact snapshot |
+| `spec` | Spec artifact commands (`save`, `mark-done`) |
 | `daemon` | 后台服务管理 |
 | `logs` | 查看 app/service 日志 |
 
@@ -159,9 +159,16 @@ When the iOS user answers, `msctl serve` marks the card answered and injects a s
 
 ---
 
-## `msctl save-spec`
+## `msctl spec`
 
-Source: `cli/src/commands/save_spec.rs`
+Source: `cli/src/commands/spec.rs`, `cli/src/commands/save_spec.rs`, `cli/src/commands/mark_spec_done.rs`
+
+| 子命令 | 说明 |
+|--------|------|
+| `spec save` | Save a repo `docs/product-specs/*.md` file as an immutable Spec artifact snapshot |
+| `spec mark-done` | Mark a SpecArtifact as implementation-complete |
+
+### `msctl spec save`
 
 Reads a repo-relative product spec file through the provided conversation's target repo, saves an immutable artifact snapshot, and returns the saved spec/version ids.
 
@@ -177,7 +184,7 @@ Reads a repo-relative product spec file through the provided conversation's targ
 Example:
 
 ```bash
-msctl save-spec \
+msctl spec save \
   --path docs/product-specs/2026-06-06-SPEC-example.md \
   --conversation-id "$CONV_ID" \
   --output json
@@ -193,6 +200,30 @@ Success response:
   "revision": 1,
   "status": "saved"
 }
+```
+
+### `msctl spec mark-done`
+
+Marks the given SpecArtifact as implementation-complete and broadcasts a `spec_changed` event so connected mobile clients refresh immediately.
+
+| 参数 | 默认值 | 说明 |
+|------|--------|------|
+| `--spec-id <ID>` | 必填 | UUID of the SpecArtifact to mark as done |
+| `--token <TOKEN>` | saved auth token | Bearer token for the running `msctl serve` process |
+| `--port <PORT>` | saved config port, else `8765` | Local `msctl serve` port |
+| `--host <HOST>` | `127.0.0.1` | Host for the local `msctl serve` process |
+
+Example:
+
+```bash
+msctl spec mark-done \
+  --spec-id 05521d4e-021e-43eb-9f7e-fa97d8b91fda
+```
+
+Success output (text mode):
+
+```
+marked done: 05521d4e-021e-43eb-9f7e-fa97d8b91fda status=done
 ```
 
 ---

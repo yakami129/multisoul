@@ -26,6 +26,9 @@ bash scripts/check-no-allow.sh --staged
 # 3c1. CLI unit tests live under cli/tests/ (staged paths only)
 bash scripts/check-cli-test-layout.sh --staged
 
+# 3c1b. CLI top-level command grouping (always scans cli/src/main.rs)
+bash scripts/check-cli-command-layout.sh --staged
+
 # 3e. iOS Info.plist permission alignment (staged paths only)
 bash scripts/check-ios-permissions.sh --staged
 

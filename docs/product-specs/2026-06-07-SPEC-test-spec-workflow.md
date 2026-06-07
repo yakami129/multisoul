@@ -15,13 +15,13 @@
 
 MultiSoul 引入了产品规格文档管理机制，需要验证：
 - Spec 文档的生成流程
-- `msctl save-spec` 命令的功能
+- `msctl spec save` 命令的功能
 - Spec 文档与 conversation 的关联
 
 ### 1.2 目标
 
 - ✅ 生成符合格式要求的 spec 文档
-- ✅ 验证 `msctl save-spec` 命令正常工作
+- ✅ 验证 `msctl spec save` 命令正常工作
 - ✅ 确认 spec 与 conversation 的关联关系
 - ✅ 测试 spec 文档的可读性和结构完整性
 
@@ -44,7 +44,7 @@ MultiSoul 引入了产品规格文档管理机制，需要验证：
 - 文档内容使用 Markdown 格式
 
 **F2: Spec 保存与关联**
-- 使用 `msctl save-spec` 命令将 spec 保存到数据库
+- 使用 `msctl spec save` 命令将 spec 保存到数据库
 - Spec 关联到特定的 conversation ID
 - Spec 元数据包含路径、创建时间等信息
 
@@ -53,7 +53,7 @@ MultiSoul 引入了产品规格文档管理机制，需要验证：
 1. 用户发起 spec 生成请求
 2. Agent 收集需求信息（可跳过，用于测试）
 3. Agent 生成 spec 文档并写入文件系统
-4. Agent 调用 `msctl save-spec` 保存到数据库
+4. Agent 调用 `msctl spec save` 保存到数据库
 5. 用户可通过 conversation 查看关联的 spec
 
 ---
@@ -63,7 +63,7 @@ MultiSoul 引入了产品规格文档管理机制，需要验证：
 ### 3.1 性能
 
 - Spec 文档生成应在 5 秒内完成
-- `msctl save-spec` 命令应在 1 秒内返回
+- `msctl spec save` 命令应在 1 秒内返回
 
 ### 3.2 可维护性
 
@@ -83,7 +83,7 @@ MultiSoul 引入了产品规格文档管理机制，需要验证：
 
 - 如果 `docs/product-specs/` 目录不存在，应自动创建
 - 如果同名文件已存在，不应覆盖（或提示用户）
-- 如果 `msctl save-spec` 失败，应返回明确的错误信息
+- 如果 `msctl spec save` 失败，应返回明确的错误信息
 
 ### 4.2 输入验证
 
@@ -106,7 +106,7 @@ MultiSoul 引入了产品规格文档管理机制，需要验证：
 ### 6.1 必须满足
 
 - [x] Spec 文档成功生成在 `docs/product-specs/2026-06-07-SPEC-test-spec-workflow.md`
-- [x] `msctl save-spec` 命令执行成功，无错误输出
+- [x] `msctl spec save` 命令执行成功，无错误输出
 - [x] Spec 在数据库中正确关联到 conversation `e2652cba-77cd-4c57-8357-f08df7eedb05`
 - [x] Spec 文档结构完整，包含所有必要章节
 
@@ -131,7 +131,7 @@ MultiSoul 引入了产品规格文档管理机制，需要验证：
 
 ### 8.2 依赖
 
-- `msctl save-spec` 命令已实现并可用
+- `msctl spec save` 命令已实现并可用
 - MultiSoul CLI 正常运行
 - 数据库 schema 支持 spec 存储
 
