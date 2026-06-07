@@ -36,15 +36,15 @@
     },
     {
       "file": "2026-06-06-SPEC-agent-status-consistency.md",
-      "title": "Agent Status Consistency Fix SPEC"
+      "title": "Agent / Chat / Activity 状态一致性修复 SPEC"
     },
     {
       "file": "2026-06-06-SPEC-archived-idea-delete.md",
-      "title": "Archived Idea Permanent Delete SPEC"
+      "title": "归档 Idea 永久删除 SPEC"
     },
     {
       "file": "2026-06-06-SPEC-chat-auto-scroll.md",
-      "title": "Chat Auto-Scroll Enhancement SPEC"
+      "title": "Chat 自动滚动优化 SPEC"
     },
     {
       "file": "2026-06-06-SPEC-ideas-to-specs-refactor.md",
@@ -52,11 +52,11 @@
     },
     {
       "file": "2026-06-06-SPEC-mark-spec-done.md",
-      "title": "Mark Spec Done SPEC"
+      "title": "mark-spec-done — 标记规格实施完成 SPEC"
     },
     {
       "file": "2026-06-06-SPEC-spec-detail-rich-text.md",
-      "title": "Spec Detail Artifact Snapshot Rich Text Rendering SPEC"
+      "title": "Spec 详情 Artifact Snapshot 富文本渲染 SPEC"
     },
     {
       "file": "2026-06-06-SPEC-workflow-template-library.md",

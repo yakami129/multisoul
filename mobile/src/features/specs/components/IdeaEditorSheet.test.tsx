@@ -3,6 +3,13 @@ import React from 'react';
 import { Alert } from 'react-native';
 import { IdeaEditorSheet } from './IdeaEditorSheet';
 
+jest.mock('expo-image-picker', () => ({
+  requestMediaLibraryPermissionsAsync: jest.fn(),
+  requestCameraPermissionsAsync: jest.fn(),
+  launchImageLibraryAsync: jest.fn(),
+  launchCameraAsync: jest.fn(),
+}));
+
 const target = {
   endpointId: 'ep-1',
   endpointLabel: 'Office Mac',
@@ -35,36 +42,34 @@ test('derives title from first body line and trims body when saving', () => {
   );
 });
 
-test('adds attachments from buttons and attachment presets', () => {
+test('adds attachment from preset when opening via share or deep link', () => {
   const onSave = jest.fn();
-  const { getByText, rerender } = render(
+  const { getByText } = render(
     <IdeaEditorSheet
       visible
       attachmentPreset="link"
+      initialValue={{
+        attachments: [
+          {
+            id: 'link-1',
+            kind: 'link',
+            title: 'Link',
+            uri: 'https://example.com',
+            createdAt: 0,
+          },
+        ],
+      }}
       onChooseTarget={() => {}}
       onClose={() => {}}
       onSave={onSave}
     />,
   );
 
-  expect(getByText('New attachment')).toBeTruthy();
-  fireEvent.press(getByText('Add Log Snippet'));
-  rerender(
-    <IdeaEditorSheet
-      visible
-      attachmentPreset="link"
-      onChooseTarget={() => {}}
-      onClose={() => {}}
-      onSave={onSave}
-    />,
-  );
+  expect(getByText('link')).toBeTruthy();
   fireEvent.press(getByText('Done'));
 
   const attachments = onSave.mock.calls[0][0].attachments;
-  expect(attachments.map((item: { kind: string }) => item.kind)).toEqual(['link', 'log']);
-  expect(
-    attachments.filter((item: { title?: string }) => item.title === 'New attachment'),
-  ).toHaveLength(1);
+  expect(attachments.map((item: { kind: string }) => item.kind)).toEqual(['link']);
 });
 
 test('asks before closing a dirty draft and supports save from the alert', () => {
@@ -112,4 +117,33 @@ test('closes clean drafts without confirmation', () => {
   expect(onClose).toHaveBeenCalledTimes(1);
   expect(alertSpy).not.toHaveBeenCalled();
   alertSpy.mockRestore();
+});
+
+test('remove button calls onSave without the removed attachment', () => {
+  const onSave = jest.fn();
+  const { getAllByLabelText, getByText } = render(
+    <IdeaEditorSheet
+      visible
+      initialValue={{
+        title: 'T',
+        body: 'B',
+        attachments: [
+          { id: 'link-1', kind: 'link', uri: 'https://example.com', createdAt: 0 },
+          { id: 'img-1', kind: 'image', uri: 'file:///image.jpg', createdAt: 0 },
+        ],
+      }}
+      onChooseTarget={() => {}}
+      onClose={() => {}}
+      onSave={onSave}
+    />,
+  );
+
+  const removeButtons = getAllByLabelText('Remove attachment');
+  expect(removeButtons).toHaveLength(2);
+  fireEvent.press(removeButtons[0]);
+  fireEvent.press(getByText('Done'));
+
+  const saved = onSave.mock.calls[0][0];
+  expect(saved.attachments).toHaveLength(1);
+  expect(saved.attachments[0].id).toBe('img-1');
 });

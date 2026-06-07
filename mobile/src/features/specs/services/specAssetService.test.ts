@@ -62,7 +62,7 @@ test('fetches and normalizes spec ideas from CLI snake_case responses', async ()
     status: 'open',
     targetEndpointId: 'ep-1',
     notes: [{ id: 'note-1', body: 'Note', createdAt: 1, updatedAt: 2 }],
-    attachments: [{ id: 'att-1', kind: 'log', title: 'Log', createdAt: 3 }],
+    attachments: [{ id: 'att-1', kind: 'image', title: 'Log', createdAt: 3 }],
   });
 });
 

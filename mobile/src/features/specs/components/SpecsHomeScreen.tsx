@@ -1,6 +1,6 @@
 import { ChevronDown, ChevronUp, CircleAlert, Plus, Search } from 'lucide-react-native';
 import React from 'react';
-import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { brandColors } from '@/theme/brandRefresh';
 import { type Agent, type Endpoint } from '@/types';
@@ -79,7 +79,14 @@ export function SpecsHomeScreen({
   };
 
   const handleDeleteIdea = (ideaId: string) => {
-    onDeleteArchivedIdea?.(ideaId);
+    Alert.alert('Delete idea?', 'This idea will be permanently removed. This cannot be undone.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: () => onDeleteArchivedIdea?.(ideaId),
+      },
+    ]);
   };
 
   return (

@@ -73,9 +73,7 @@ export default function SpecsTab() {
       }}
       onDeleteArchivedIdea={(id) => {
         const idea = ideas.find((item) => item.id === id);
-        const endpoint = idea
-          ? endpoints.find((ep) => ep.id === idea.targetEndpointId)
-          : undefined;
+        const endpoint = idea ? endpoints.find((ep) => ep.id === idea.targetEndpointId) : undefined;
         void deleteArchivedIdea(id, endpoint);
       }}
     />
