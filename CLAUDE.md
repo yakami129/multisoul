@@ -79,6 +79,7 @@ Monorepo 两大件：
 | **`msctl serve` 跑挂了怎么查** | [`docs/runbooks/debugging.md`](docs/runbooks/debugging.md) — `msctl logs` 4 个故事 |
 | **PR 合并与 CI 强闸** | [`docs/runbooks/github-pr-merge-policy.md`](docs/runbooks/github-pr-merge-policy.md) |
 | **UI 设计系统**（颜色、字号、间距） | [`mobile/docs/design.md`](mobile/docs/design.md) |
+| **UI / 品牌风格参考**（视觉手册图片） | [`docs/prototypes/brand-design/`](docs/prototypes/brand-design/) |
 | **RN UI 常见坑** | [`mobile/docs/rules/ui-pitfalls.md`](mobile/docs/rules/ui-pitfalls.md) |
 | **Agent 短导航地图** | [`AGENTS.md`](AGENTS.md) |
 | **面向人类的快速上手** | [`README.md`](README.md) |

@@ -66,6 +66,7 @@ Monorepo 两大件：
 | **PR 合并与 CI 强闸** | [`docs/runbooks/github-pr-merge-policy.md`](docs/runbooks/github-pr-merge-policy.md) |
 | **Git：PR 工作流、禁止直接 push main** | [`docs/product-specs/SPEC-pr-workflow.md`](docs/product-specs/SPEC-pr-workflow.md) |
 | **UI 设计系统**（颜色、字号、间距） | [`mobile/docs/design.md`](mobile/docs/design.md) |
+| **UI / 品牌风格参考**（视觉手册图片） | [`docs/prototypes/brand-design/`](docs/prototypes/brand-design/) |
 | **RN UI 常见坑** | [`mobile/docs/rules/ui-pitfalls.md`](mobile/docs/rules/ui-pitfalls.md) |
 | **完整命令、env 表、UI checklist** | [`CLAUDE.md`](CLAUDE.md)（详细工程手册） |
 | **面向人类的快速上手** | [`README.md`](README.md) |
