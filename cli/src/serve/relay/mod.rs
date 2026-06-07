@@ -1,6 +1,10 @@
 use anyhow::{Context, Result};
 use std::path::PathBuf;
 use std::sync::OnceLock;
+use std::time::Duration;
+
+pub const QUICKSTART_TUNNEL_POLL_TIMEOUT: Duration = Duration::from_secs(20 * 60);
+pub const TUNNEL_POLL_INTERVAL: Duration = Duration::from_secs(10);
 
 /// cloudflared binary path: ~/.config/msctl/bin/cloudflared[.exe]
 pub fn cloudflared_bin_path() -> PathBuf {
@@ -157,7 +161,11 @@ pub fn parse_tunnel_url(line: &str) -> Option<String> {
 /// matching the deployed Worker and mobile's `GET /tunnel/<token>` / this module's
 /// `cleanup_tunnel` `DELETE /tunnel/<token>`. The earlier `POST /tunnel` + `{user_token, ...}`
 /// shape did not match the deployed Worker and returned 404 `{"status":"not_found"}`.
-async fn report_tunnel(relay_url: &str, user_token: &str, tunnel_url: &str) -> Result<()> {
+pub(crate) async fn report_tunnel(
+    relay_url: &str,
+    user_token: &str,
+    tunnel_url: &str,
+) -> Result<()> {
     let client = reqwest::Client::new();
     let resp = client
         .post(format!("{}/tunnel/{}", relay_url, user_token))
@@ -184,6 +192,125 @@ async fn cleanup_tunnel(relay_url: &str, user_token: &str) {
         .send()
         .await;
     tracing::info!("relay_cleanup_done");
+}
+
+/// Fetches tunnel URL from the relay Worker KV (mirrors mobile `fetchTunnelUrl`).
+pub async fn fetch_tunnel_url(relay_url: &str, user_token: &str) -> Result<Option<String>> {
+    let resp = reqwest::get(format!("{}/tunnel/{}", relay_url, user_token)).await?;
+    if !resp.status().is_success() {
+        return Ok(None);
+    }
+    let data: serde_json::Value = resp.json().await?;
+    if data["status"] == "active" {
+        return Ok(data["tunnel_url"].as_str().map(String::from));
+    }
+    Ok(None)
+}
+
+/// Returns the current byte length of the service log (0 if missing).
+pub fn service_log_byte_len(log_file: &str) -> u64 {
+    std::fs::metadata(log_file).map(|m| m.len()).unwrap_or(0)
+}
+
+/// Parses `Cloudflare Tunnel ready: {url}` from a service log line.
+pub fn parse_tunnel_ready_line(line: &str) -> Option<String> {
+    line.strip_prefix("Cloudflare Tunnel ready: ")
+        .map(str::trim)
+        .filter(|url| !url.is_empty())
+        .map(String::from)
+}
+
+/// Last tunnel URL written to the service log after `since_offset` bytes.
+pub fn tunnel_url_from_log_since(log_file: &str, since_offset: u64) -> Option<String> {
+    use std::io::{Read, Seek, SeekFrom};
+
+    let mut file = std::fs::File::open(log_file).ok()?;
+    let len = file.metadata().ok()?.len();
+    if since_offset >= len {
+        return None;
+    }
+    file.seek(SeekFrom::Start(since_offset)).ok()?;
+    let mut tail = String::new();
+    file.read_to_string(&mut tail).ok()?;
+    tail.lines().rev().find_map(parse_tunnel_ready_line)
+}
+
+/// Returns true when `{tunnel_base_url}/api/v1/healthz` responds with 2xx.
+pub async fn tunnel_healthz_ok(tunnel_base_url: &str) -> bool {
+    let base = tunnel_base_url.trim_end_matches('/');
+    let url = format!("{base}/api/v1/healthz");
+    let Ok(client) = reqwest::Client::builder()
+        .timeout(Duration::from_secs(10))
+        .build()
+    else {
+        return false;
+    };
+    match client.get(&url).send().await {
+        Ok(resp) => resp.status().is_success(),
+        Err(_) => false,
+    }
+}
+
+/// Poll sources until a tunnel URL responds to healthz (matches serve's live QR).
+pub async fn poll_reachable_tunnel_url(
+    relay_url: &str,
+    user_token: &str,
+    service_log_file: &str,
+    log_offset_since: u64,
+    timeout: Duration,
+) -> Result<String> {
+    let deadline = tokio::time::Instant::now() + timeout;
+    let mut attempt = 0u32;
+    loop {
+        attempt += 1;
+        if attempt > 1 && attempt.is_multiple_of(3) {
+            eprintln!("  Still waiting for a reachable tunnel (attempt {attempt})…");
+        }
+
+        if let Some(url) = fetch_tunnel_url(relay_url, user_token).await? {
+            if tunnel_healthz_ok(&url).await {
+                return Ok(url);
+            }
+        }
+
+        if let Some(url) = tunnel_url_from_log_since(service_log_file, log_offset_since) {
+            if tunnel_healthz_ok(&url).await {
+                return Ok(url);
+            }
+        }
+
+        if tokio::time::Instant::now() >= deadline {
+            anyhow::bail!("timed out waiting for a reachable relay tunnel");
+        }
+        let remaining = deadline.saturating_duration_since(tokio::time::Instant::now());
+        tokio::time::sleep(TUNNEL_POLL_INTERVAL.min(remaining)).await;
+    }
+}
+
+/// Polls KV until tunnel URL is registered or timeout elapses.
+///
+/// Prefer [`poll_reachable_tunnel_url`] for daemon quickstart pairing QR.
+pub async fn poll_tunnel_url(
+    relay_url: &str,
+    user_token: &str,
+    timeout: Duration,
+) -> Result<String> {
+    let deadline = tokio::time::Instant::now() + timeout;
+    let mut attempt = 0u32;
+    loop {
+        attempt += 1;
+        if attempt > 1 && attempt.is_multiple_of(3) {
+            eprintln!("  Still waiting for tunnel registration in KV (attempt {attempt})…");
+        }
+        if let Some(url) = fetch_tunnel_url(relay_url, user_token).await? {
+            return Ok(url);
+        }
+        if tokio::time::Instant::now() >= deadline {
+            anyhow::bail!("timed out waiting for relay tunnel registration");
+        }
+        let remaining = deadline.saturating_duration_since(tokio::time::Instant::now());
+        tokio::time::sleep(TUNNEL_POLL_INTERVAL.min(remaining)).await;
+    }
 }
 
 /// Waits until `msctl serve` is accepting TCP connections on the relay port.
@@ -306,124 +433,4 @@ pub async fn run_relay(
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_cloudflared_bin_path_is_under_msctl_dir() {
-        let path = cloudflared_bin_path();
-        let path_str = path.to_string_lossy();
-        assert!(
-            path_str.contains("msctl"),
-            "cloudflared should be stored under msctl config dir, got: {}",
-            path_str
-        );
-    }
-
-    #[test]
-    fn test_cloudflared_download_url_by_platform() {
-        let url = cloudflared_download_url();
-        assert!(
-            url.contains("cloudflared"),
-            "download URL should reference cloudflared binary, got: {}",
-            url
-        );
-        assert!(!url.is_empty(), "download URL must not be empty");
-        #[cfg(any(target_os = "macos", target_os = "linux"))]
-        assert!(
-            url.ends_with(".tgz"),
-            "macOS/Linux should download .tgz archive, got: {}",
-            url
-        );
-    }
-
-    #[test]
-    fn test_parse_tunnel_url_from_cloudflared_output() {
-        let line = "2024-01-01T00:00:00Z INF +--------------------------------------------------------------------------------------------+";
-        assert_eq!(
-            parse_tunnel_url(line),
-            None,
-            "non-URL line should return None"
-        );
-
-        let line_with_url = "2024-01-01T00:00:00Z INF  | https://example-tunnel.trycloudflare.com                                    |";
-        let result = parse_tunnel_url(line_with_url);
-        assert_eq!(
-            result,
-            Some("https://example-tunnel.trycloudflare.com".to_string()),
-            "should extract trycloudflare.com URL from cloudflared output"
-        );
-    }
-
-    #[test]
-    fn test_parse_tunnel_url_regex_compiled_once() {
-        // Calling multiple times should not panic (OnceLock is safe)
-        let _ = parse_tunnel_url("line 1");
-        let _ = parse_tunnel_url("line 2 https://foo-bar.trycloudflare.com end");
-        let result = parse_tunnel_url("https://my-tunnel.trycloudflare.com");
-        assert_eq!(
-            result,
-            Some("https://my-tunnel.trycloudflare.com".to_string()),
-            "regex should work correctly on repeated calls"
-        );
-    }
-
-    /// Regression: `report_tunnel` must POST to `/tunnel/<token>` (token in path)
-    /// with a `{ "status": "active", "tunnel_url": ... }` body.
-    ///
-    /// Before the fix it posted to `/tunnel` (no token segment) with a
-    /// `{ "user_token", "tunnel_url" }` body, which the deployed Worker did not
-    /// route, yielding `404 {"status":"not_found"}` and breaking Auto Tunnel.
-    /// The mock only matches the correct path + JSON body, so the old shape
-    /// would leave the mock unhit and fail `assert_async`.
-    #[tokio::test]
-    async fn report_tunnel_posts_to_token_path_with_active_status() {
-        let mut server = mockito::Server::new_async().await;
-        let token = "probe_token_123";
-        let mock = server
-            .mock("POST", "/tunnel/probe_token_123")
-            .match_body(mockito::Matcher::Json(serde_json::json!({
-                "status": "active",
-                "tunnel_url": "https://probe.trycloudflare.com",
-            })))
-            .with_status(200)
-            .with_body(r#"{"status":"ok"}"#)
-            .create_async()
-            .await;
-
-        report_tunnel(&server.url(), token, "https://probe.trycloudflare.com")
-            .await
-            .expect("report_tunnel should succeed against the token-path endpoint");
-
-        mock.assert_async().await;
-    }
-
-    /// Regression: `report_tunnel` surfaces a non-2xx response (e.g. the 404 the
-    /// deployed Worker returned) as an error so the caller can warn the user
-    /// instead of silently treating registration as successful.
-    #[tokio::test]
-    async fn report_tunnel_errors_on_not_found() {
-        let mut server = mockito::Server::new_async().await;
-        let mock = server
-            .mock("POST", "/tunnel/probe_token_404")
-            .with_status(404)
-            .with_body(r#"{"status":"not_found"}"#)
-            .create_async()
-            .await;
-
-        let err = report_tunnel(
-            &server.url(),
-            "probe_token_404",
-            "https://probe.trycloudflare.com",
-        )
-        .await
-        .expect_err("non-2xx KV response must be reported as an error");
-
-        assert!(
-            err.to_string().contains("KV report failed"),
-            "error should explain the KV report failure, got: {}",
-            err
-        );
-        mock.assert_async().await;
-    }
-}
+mod tests;

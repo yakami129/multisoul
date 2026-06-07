@@ -33,11 +33,17 @@ cd cli
 常见安装场景：
 
 ```bash
-# 自定义 token / 端口 / tailnet
-msctl daemon quickstart --token test --port 8765 --tailnet true
+# 默认 relay 模式（零参数）
+msctl daemon quickstart
 
-# 手动安装（已配置 token 时）
-msctl daemon install --port 8765 --tailnet
+# Tailnet 内网
+msctl daemon quickstart --tailnet
+
+# 自定义端口（写回 config.toml）
+msctl daemon quickstart --port 9000
+
+# 手动安装（config 已配置时）
+msctl daemon install --force
 ```
 
 ## 使用命令示例

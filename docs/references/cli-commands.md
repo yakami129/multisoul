@@ -255,8 +255,8 @@ Source: `cli/src/commands/daemon.rs`
 
 | 子命令 | 参数 | 说明 |
 |--------|------|------|
-| `daemon quickstart` | `--token` `--port` `--tailnet` | 一键配置：保存 token + 安装并启动守护进程 |
-| `daemon install` | `--port` `--tailnet` `--force` | 安装并启动后台服务 |
+| `daemon quickstart` | `--relay` `--tailnet` `--funnel` `--port` `--relay-url` `--token` | 一键配置：默认 relay，保存 config + 安装并启动守护进程 |
+| `daemon install` | 同上 + `--force` | 安装并启动后台服务 |
 | `daemon uninstall` | — | 移除后台服务 |
 | `daemon start` | — | 启动服务 |
 | `daemon stop` | — | 停止服务 |
@@ -267,9 +267,17 @@ Source: `cli/src/commands/daemon.rs`
 
 | 参数 | 默认值 | 说明 |
 |------|--------|------|
-| `--token` | `test` | 安装前保存的 Bearer token |
-| `--port` | `8765` | 监听端口 |
-| `--tailnet` | `true` | 是否绑定 `0.0.0.0` |
+| （无 mode flag） | `relay` | `config.toml` 的 `serve_mode`，缺省为 relay |
+| `--relay` | — | Cloudflare Tunnel relay（与 `--tailnet` / `--funnel` 互斥） |
+| `--tailnet` | — | 绑定 `0.0.0.0`，Tailscale 内网 |
+| `--funnel` | — | Tailscale Funnel HTTPS |
+| `--port` | `8765` | 监听端口（写回 config） |
+| `--relay-url` | Workers 默认 URL | relay 模式 KV 地址（写回 config） |
+| `--token` | 自动生成 | Bearer token；省略则生成 `ms_v2_` + 32 位 hex |
+
+`~/.config/msctl/config.toml` 可选字段：`serve_mode`（`relay` \| `tailnet` \| `funnel`）、`relay_url`、`serve_port`、`serve_token`。
+
+relay 模式下 quickstart 安装后会等待 tunnel 注册（最多 20 分钟）再打印 QR。
 
 ---
 

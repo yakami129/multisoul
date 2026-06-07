@@ -11,6 +11,10 @@
       "title": "Idea 快速采集与附件支持 Implementation Plan"
     },
     {
+      "file": "2026-06-07-daemon-quickstart-relay-default.md",
+      "title": "daemon quickstart 默认 Relay Implementation Plan"
+    },
+    {
       "file": "2026-06-07-cli-command-grouping.md",
       "title": "CLI 命令分组（msctl spec）Implementation Plan",
       "lastCompletedCommit": "6f0151eb43a871941a610819e94ea9851d14a527"

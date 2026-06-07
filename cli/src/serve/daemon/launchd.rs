@@ -1,4 +1,5 @@
 use super::{Config, Manager, Status, SERVICE_LABEL};
+use crate::config::ServeMode;
 use anyhow::Result;
 
 pub struct LaunchdManager;
@@ -15,12 +16,21 @@ fn plist_path() -> std::path::PathBuf {
         .join(format!("{}.plist", SERVICE_LABEL))
 }
 
+fn mode_args(cfg: &Config) -> String {
+    match cfg.serve_mode {
+        ServeMode::Relay => format!(
+            "        <string>--relay</string>\n\
+                    <string>--relay-url</string>\n\
+                    <string>{}</string>\n",
+            cfg.relay_url
+        ),
+        ServeMode::Tailnet => "        <string>--tailnet</string>\n".into(),
+        ServeMode::Funnel => "        <string>--funnel</string>\n".into(),
+    }
+}
+
 fn build_plist(cfg: &Config) -> String {
-    let tailnet_arg = if cfg.tailnet {
-        "        <string>--tailnet</string>\n"
-    } else {
-        ""
-    };
+    let mode_arg = mode_args(cfg);
     format!(
         r#"<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -36,7 +46,7 @@ fn build_plist(cfg: &Config) -> String {
         <string>{token}</string>
         <string>--port</string>
         <string>{port}</string>
-{tailnet_arg}    </array>
+{mode_arg}    </array>
     <key>RunAtLoad</key>
     <true/>
     <key>KeepAlive</key>
@@ -60,7 +70,7 @@ fn build_plist(cfg: &Config) -> String {
         binary = cfg.binary_path,
         token = cfg.token,
         port = cfg.port,
-        tailnet_arg = tailnet_arg,
+        mode_arg = mode_arg,
         path = cfg.env_path,
         log = cfg.log_file,
     )
@@ -140,6 +150,33 @@ fn target() -> String {
     format!("{}/{}", domain(), SERVICE_LABEL)
 }
 
+fn bootout_best_effort(plist: &std::path::Path) {
+    let domain = domain();
+    let target = target();
+    let plist_str = plist.to_string_lossy().into_owned();
+    let _ = launchctl(&["bootout", &target]);
+    let _ = launchctl(&["bootout", &domain, &plist_str]);
+}
+
+fn bootstrap_plist(plist: &std::path::Path) -> Result<()> {
+    let domain = domain();
+    let plist_str = plist.to_string_lossy().into_owned();
+    match launchctl(&["bootstrap", &domain, &plist_str]) {
+        Ok(_) => Ok(()),
+        Err(e) => {
+            let msg = e.to_string();
+            // Exit 5: job already loaded in domain (bootout race or stale registration).
+            if !msg.contains("exit 5") {
+                return Err(e);
+            }
+            bootout_best_effort(plist);
+            std::thread::sleep(std::time::Duration::from_millis(300));
+            launchctl(&["bootstrap", &domain, &plist_str])?;
+            Ok(())
+        }
+    }
+}
+
 impl Manager for LaunchdManager {
     fn platform(&self) -> &'static str {
         "launchd"
@@ -151,10 +188,9 @@ impl Manager for LaunchdManager {
         if let Some(log_dir) = std::path::Path::new(&cfg.log_file).parent() {
             std::fs::create_dir_all(log_dir)?;
         }
-        let _ = launchctl(&["bootout", &target()]);
+        bootout_best_effort(&plist);
         std::fs::write(&plist, build_plist(cfg))?;
-        let plist_str = plist.to_string_lossy().into_owned();
-        launchctl(&["bootstrap", &domain(), &plist_str])
+        bootstrap_plist(&plist)
             .map_err(|e| anyhow::anyhow!("launchctl bootstrap failed: {}", e))?;
         launchctl(&["kickstart", "-kp", &target()])
             .map_err(|e| anyhow::anyhow!("launchctl kickstart failed: {}", e))?;
@@ -243,31 +279,23 @@ impl Manager for LaunchdManager {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::config::ServeMode;
 
-    /// build_plist embeds binary, token, port, and log path correctly.
-    ///
-    /// Data:
-    ///   binary = "/usr/local/bin/msctl"
-    ///   token  = "ms_v2_test"
-    ///   port   = 9000
-    ///   log    = "/tmp/msctl.log"
-    ///
-    /// Expected:
-    ///   - plist contains the binary path
-    ///   - plist contains the token
-    ///   - plist contains port "9000"
-    ///   - plist contains the log path
-    ///   - plist does NOT contain "8765" (wrong default leaked in)
-    #[test]
-    fn test_build_plist_contains_correct_values() {
-        let cfg = Config {
+    fn sample_cfg(serve_mode: ServeMode) -> Config {
+        Config {
             binary_path: "/usr/local/bin/msctl".into(),
             token: "ms_v2_test".into(),
             port: 9000,
-            tailnet: true,
+            serve_mode,
+            relay_url: "https://relay.example.dev".into(),
             log_file: "/tmp/msctl.log".into(),
             env_path: "/usr/bin:/bin".into(),
-        };
+        }
+    }
+
+    #[test]
+    fn test_build_plist_contains_correct_values() {
+        let cfg = sample_cfg(ServeMode::Tailnet);
         let plist = build_plist(&cfg);
         assert!(
             plist.contains("/usr/local/bin/msctl"),
@@ -289,18 +317,58 @@ mod tests {
         );
     }
 
-    /// build_plist uses KeepAlive.SuccessfulExit = true so that
-    /// `msctl daemon stop` does not cause launchd to auto-restart the service.
-    ///
-    /// Expected:
-    ///   - plist contains "SuccessfulExit"
+    #[test]
+    fn test_build_plist_relay_contains_relay_and_url() {
+        let cfg = sample_cfg(ServeMode::Relay);
+        let plist = build_plist(&cfg);
+        assert!(
+            plist.contains("--relay"),
+            "relay plist must include --relay"
+        );
+        assert!(
+            plist.contains("--relay-url"),
+            "relay plist must include --relay-url"
+        );
+        assert!(
+            plist.contains("https://relay.example.dev"),
+            "relay plist must include relay URL"
+        );
+        assert!(
+            !plist.contains("--tailnet"),
+            "relay plist must not include --tailnet"
+        );
+    }
+
+    #[test]
+    fn test_build_plist_funnel_contains_funnel() {
+        let cfg = sample_cfg(ServeMode::Funnel);
+        let plist = build_plist(&cfg);
+        assert!(
+            plist.contains("--funnel"),
+            "funnel plist must include --funnel"
+        );
+        assert!(
+            !plist.contains("--relay"),
+            "funnel plist must not include --relay"
+        );
+    }
+
+    #[test]
+    fn test_build_plist_tailnet_omits_relay() {
+        let cfg = sample_cfg(ServeMode::Tailnet);
+        let plist = build_plist(&cfg);
+        assert!(plist.contains("--tailnet"));
+        assert!(!plist.contains("--relay"));
+    }
+
     #[test]
     fn test_build_plist_keepalive_successful_exit() {
         let cfg = Config {
             binary_path: "/bin/msctl".into(),
             token: "tok".into(),
             port: 8765,
-            tailnet: false,
+            serve_mode: ServeMode::Relay,
+            relay_url: "https://relay.example.dev".into(),
             log_file: "/tmp/msctl.log".into(),
             env_path: "/usr/bin".into(),
         };
@@ -311,20 +379,13 @@ mod tests {
         );
         assert!(
             !plist.contains("--tailnet"),
-            "plist must omit --tailnet when disabled"
+            "relay plist must omit --tailnet"
         );
     }
 
     #[test]
     fn parse_plist_binary_path_reads_first_program_argument() {
-        let plist = build_plist(&Config {
-            binary_path: "/usr/local/bin/msctl".into(),
-            token: "tok".into(),
-            port: 8765,
-            tailnet: true,
-            log_file: "/tmp/msctl.log".into(),
-            env_path: "/usr/bin".into(),
-        });
+        let plist = build_plist(&sample_cfg(ServeMode::Tailnet));
         assert_eq!(
             parse_plist_binary_path(&plist).as_deref(),
             Some("/usr/local/bin/msctl")
