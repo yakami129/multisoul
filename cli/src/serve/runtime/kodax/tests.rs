@@ -75,9 +75,8 @@ fn split_provider_model_requires_non_empty_provider_and_model() {
 fn process_turn_maps_jsonl_events_into_messages_and_completion() {
     let state = make_kodax_state();
     let dir = tempdir().unwrap();
-    let fake_kodax = dir.path().join("kodax");
-    std::fs::write(
-        &fake_kodax,
+    let fake_kodax = write_fake_kodax(
+        dir.path(),
         r#"#!/bin/sh
 printf '%s
 ' '{"type":"session.start","provider":"openai","sessionId":"conv-1"}'
@@ -92,9 +91,15 @@ printf '%s
 printf '%s
 ' '{"type":"run.result","success":true,"sessionId":"conv-1"}'
 "#,
-    )
-    .unwrap();
-    make_executable(&fake_kodax);
+        r#"@echo off
+echo {"type":"session.start","provider":"openai","sessionId":"conv-1"}
+echo {"type":"text.delta","text":"hello"}
+echo {"type":"thinking.delta","text":"thinking"}
+echo {"type":"tool.start","id":"tool-1","name":"bash","input":{"command":"pwd"}}
+echo {"type":"tool.result","id":"tool-1","name":"bash","content":"/repo"}
+echo {"type":"run.result","success":true,"sessionId":"conv-1"}
+"#,
+    );
     let _env_guard = KodaxBinGuard::set(&fake_kodax);
     let (tx, _rx) = std::sync::mpsc::channel();
     let handle = SessionHandle::new(tx);
@@ -151,13 +156,11 @@ printf '%s
 fn process_turn_falls_back_to_plain_text_stdout() {
     let state = make_kodax_state();
     let dir = tempdir().unwrap();
-    let fake_kodax = dir.path().join("kodax");
-    std::fs::write(
-        &fake_kodax,
+    let fake_kodax = write_fake_kodax(
+        dir.path(),
         "#!/bin/sh\nprintf '%s\\n' 'plain line one'\nprintf '%s\\n' 'plain line two'\n",
-    )
-    .unwrap();
-    make_executable(&fake_kodax);
+        "@echo off\necho plain line one\necho plain line two\n",
+    );
     let _env_guard = KodaxBinGuard::set(&fake_kodax);
     let (tx, _rx) = std::sync::mpsc::channel();
     let handle = SessionHandle::new(tx);
@@ -189,9 +192,8 @@ fn process_turn_falls_back_to_plain_text_stdout() {
 fn process_turn_drains_large_stderr_without_deadlock() {
     let state = make_kodax_state();
     let dir = tempdir().unwrap();
-    let fake_kodax = dir.path().join("kodax");
-    std::fs::write(
-        &fake_kodax,
+    let fake_kodax = write_fake_kodax(
+        dir.path(),
         r#"#!/bin/sh
 for i in $(seq 1 2000); do
   printf 'stderr-line-%04d abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz\n' "$i" >&2
@@ -199,9 +201,12 @@ done
 printf '%s\n' '{"type":"text.delta","text":"done"}'
 printf '%s\n' '{"type":"run.result","success":true,"sessionId":"conv-1"}'
 "#,
-    )
-    .unwrap();
-    make_executable(&fake_kodax);
+        r#"@echo off
+for /l %%i in (1,1,2000) do echo stderr-line-%%i abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz 1>&2
+echo {"type":"text.delta","text":"done"}
+echo {"type":"run.result","success":true,"sessionId":"conv-1"}
+"#,
+    );
     let _env_guard = KodaxBinGuard::set(&fake_kodax);
     let (tx, _rx) = std::sync::mpsc::channel();
     let handle = SessionHandle::new(tx);
@@ -425,6 +430,22 @@ fn make_executable(path: &std::path::Path) {
     {
         let _ = path;
     }
+}
+
+fn write_fake_kodax(
+    dir: &std::path::Path,
+    unix_script: &str,
+    windows_script: &str,
+) -> std::path::PathBuf {
+    let (path, script) = if cfg!(windows) {
+        (dir.join("kodax.cmd"), windows_script)
+    } else {
+        (dir.join("kodax"), unix_script)
+    };
+
+    std::fs::write(&path, script).unwrap();
+    make_executable(&path);
+    path
 }
 
 struct KodaxBinGuard {

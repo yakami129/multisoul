@@ -7,7 +7,11 @@ use std::process::{Child, ChildStdin};
 use tracing::{debug, warn};
 use uuid::Uuid;
 
-use crate::serve::{push, state::AppState};
+use crate::serve::{
+    push,
+    routes::activity_events::{emit_activity_changed, REASON_ABORTED, REASON_TASK_TERMINAL},
+    state::AppState,
+};
 
 use super::events::parse_tool_item;
 use super::{broadcast, extract_text_from_array, insert_message, save_thread_id};
@@ -314,5 +318,14 @@ pub(super) fn complete_turn(state: &AppState, conv_id: &str, status: &str, turn_
         push::send_task_status_push(&db, conv_id, status, "");
         drop(db);
         broadcast(state, conv_id, seq, "task_status", payload);
+        emit_activity_changed(
+            state,
+            conv_id,
+            if status == "aborted" {
+                REASON_ABORTED
+            } else {
+                REASON_TASK_TERMINAL
+            },
+        );
     }
 }

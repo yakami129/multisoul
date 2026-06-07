@@ -3,6 +3,10 @@
   "version": 1,
   "documents": [
     {
+      "file": "2026-06-06-ideas-to-specs-refactor-design.md",
+      "title": "Ideas to Specs 重构功能交互与 UI 设计"
+    },
+    {
       "file": "2026-05-29-cloudflare-tunnel-relay-design.md",
       "title": "Cloudflare Tunnel Relay 设计（Auto Tunnel 模式）"
     },
@@ -32,12 +36,12 @@
         },
         {
           "path": "cli/src/serve/state.rs",
-          "sha256": "8abdede34af04ec8cf1c7a868af7d5edb7bf9d73b17db5a7a1916b1a16e50d74",
+          "sha256": "9ed436957e57c8f02869a267dc3ea5b5449f40241ab10bf6d80f1b5cc78dd5f0",
           "reason": "AppState、SessionMessage 与 runtime worker 通信结构由文档核心数据结构章节引用。"
         },
         {
           "path": "cli/src/serve/routes/messages.rs",
-          "sha256": "324dc8a76b3c9e0f3f2aaed62536e04619dd00fa84ba8c193f44ac1a044077e4",
+          "sha256": "5eb5eb9317835c09d958d25d0becca682681b03514de224c81efae26992b60d7",
           "reason": "HTTP message route 调用 runtime 分发；文档架构图与入口流程依赖该行为。"
         },
         {
@@ -57,7 +61,7 @@
         },
         {
           "path": "cli/src/db.rs",
-          "sha256": "06fb2e1d85a969c801d0cf3fb27b2ab92df6bc5b1e70cbfd76a7372d5c48d7fe",
+          "sha256": "bec9c04b28a796f4e5b60248237f9a69a9a42d17397be4ba8f79e8d5927413ae",
           "reason": "文档说明 runtime 持久化字段和 migration 纪律；DB schema 演进会影响该章节。"
         },
         {
@@ -94,7 +98,7 @@
         },
         {
           "path": "cli/src/serve/runtime/claude/stream.rs",
-          "sha256": "d9603f9007465036ec3a712d450fd4eb27845697a652c1f21ea76b5bd4b25772",
+          "sha256": "271c9a2e924dc2a9614f8994665344b8ec91281181e3cf0adba4ee3baa70234c",
           "reason": "Claude AskUserQuestion 触发问答推送的时机由本文档定义。"
         },
         {

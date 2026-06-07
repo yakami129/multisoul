@@ -1,398 +1,485 @@
-import { ChevronLeft, FileText } from 'lucide-react-native';
-import React from 'react';
-import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { brandColors, brandRgba } from '@/theme/brandRefresh';
 import {
-  getFirstOpenQuestionId,
-  isSpecInterviewReady,
-  SPEC_INTERVIEW_QUESTIONS,
-} from '../services/specInterview';
-import { type SpecAnswer, type SpecDraft, type SpecQuestion } from '../types';
+  ChevronLeft,
+  ExternalLink,
+  FileText,
+  GitBranch,
+  Hash,
+  MessageSquare,
+  Play,
+} from 'lucide-react-native';
+import React from 'react';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { brandColors, brandRgba, brandTypography } from '@/theme/brandRefresh';
+import { type SpecArtifact, type SpecArtifactDetail, type SpecDraft } from '../types';
+import { SpecMarkdownReader } from './SpecMarkdownReader';
+import { relativeAge, shortHash, specActionLabel, specStatusLabel } from './specUiModels';
 
 interface Props {
-  spec: SpecDraft | undefined;
+  detail: SpecArtifactDetail | undefined;
+  fallbackSpec?: SpecArtifact;
+  legacySpec?: SpecDraft;
+  sourceIdeaTitle?: string;
+  isLoading?: boolean;
+  isStartingImplementation?: boolean;
+  showFullMarkdown?: boolean;
+  errorMessage?: string;
   onBack: () => void;
-  onAnswer: (answer: SpecAnswer) => void;
-  onGenerate: () => void;
-  onApprove: () => void;
-  onAskMore: () => void;
-  onDispatch: () => void;
-}
-
-function statusLabel(status: SpecDraft['status']): string {
-  switch (status) {
-    case 'draft':
-      return 'Draft';
-    case 'review':
-      return 'Review';
-    case 'approved':
-      return 'Approved';
-    case 'dispatching':
-      return 'Dispatching';
-    case 'dispatched':
-      return 'Dispatched';
-    case 'running':
-      return 'Running';
-    case 'blocked':
-      return 'Blocked';
-    case 'done':
-      return 'Done';
-    case 'failed':
-      return 'Failed';
-  }
+  onStartImplementation?: () => void;
+  onOpenInterviewChat?: () => void;
+  onOpenImplementationChat?: () => void;
+  onOpenSourceIdea?: () => void;
+  onReadFull?: () => void;
 }
 
 export function SpecDetailScreen({
-  spec,
+  detail,
+  fallbackSpec,
+  legacySpec,
+  sourceIdeaTitle,
+  isLoading = false,
+  isStartingImplementation = false,
+  showFullMarkdown = false,
+  errorMessage,
   onBack,
-  onAnswer,
-  onGenerate,
-  onApprove,
-  onAskMore,
-  onDispatch,
+  onStartImplementation,
+  onOpenInterviewChat,
+  onOpenImplementationChat,
+  onOpenSourceIdea,
+  onReadFull,
 }: Props) {
   const insets = useSafeAreaInsets();
-  const [otherText, setOtherText] = React.useState('');
-  const openQuestionId = spec ? getFirstOpenQuestionId(spec.answers) : null;
+  const spec = detail?.spec ?? fallbackSpec;
+  const latest = detail?.latestVersion;
 
-  React.useEffect(() => {
-    setOtherText('');
-  }, [openQuestionId]);
-
-  if (!spec) {
+  if (!spec && !legacySpec) {
     return (
       <View style={[s.root, { paddingTop: insets.top }]}>
-        <Header title="Spec" onBack={onBack} />
+        <Header onBack={onBack} />
         <View style={s.centered}>
-          <Text style={s.emptyTitle}>Spec not found</Text>
+          <Text style={s.emptyTitle}>{isLoading ? 'Loading spec...' : 'Spec not found'}</Text>
         </View>
       </View>
     );
   }
 
-  const activeQuestion = SPEC_INTERVIEW_QUESTIONS.find(
-    (question) => question.id === openQuestionId,
-  );
-  const ready = isSpecInterviewReady(spec.answers);
-  const answeredCount = spec.answers.length;
-  const totalCount = SPEC_INTERVIEW_QUESTIONS.length;
+  if (!spec && legacySpec) {
+    return (
+      <View style={[s.root, { paddingTop: insets.top }]}>
+        <Header onBack={onBack} />
+        <ScrollView contentContainerStyle={s.content}>
+          <View style={s.hero}>
+            <View style={s.heroIcon}>
+              <FileText size={18} color={brandColors.coral} />
+            </View>
+            <View style={s.heroBody}>
+              <Text style={s.title}>{legacySpec.title}</Text>
+              <Text style={s.subtitle}>{legacySpec.repoSpecPath || legacySpec.targetRepoPath}</Text>
+            </View>
+          </View>
+          <Section title="Legacy Draft">
+            <Text style={s.bodyText}>
+              This local draft predates artifact snapshots. Interview it as an Idea or save a repo
+              spec to create the current detail view.
+            </Text>
+            <SpecMarkdownReader markdown={legacySpec.markdownPreview} collapsed />
+          </Section>
+        </ScrollView>
+      </View>
+    );
+  }
+
+  const currentSpec = spec as SpecArtifact;
+  const revision = latest?.revision ?? 1;
+  const hash = latest?.markdownSha256;
+  const implementationChatId = currentSpec.latestImplementationConversationId;
+  const primaryLabel = implementationChatId
+    ? 'Open Implementation'
+    : isStartingImplementation
+      ? 'Starting...'
+      : specActionLabel(currentSpec.status);
+  const primaryDisabled =
+    isStartingImplementation ||
+    (!implementationChatId && ['blocked', 'done', 'failed'].includes(currentSpec.status));
 
   return (
     <View style={[s.root, { paddingTop: insets.top }]}>
-      <Header title="Specs" onBack={onBack} />
-      <ScrollView contentContainerStyle={s.content}>
+      <Header onBack={onBack} />
+      <ScrollView contentContainerStyle={[s.content, { paddingBottom: insets.bottom + 96 }]}>
         <View style={s.hero}>
           <View style={s.heroIcon}>
             <FileText size={18} color={brandColors.coral} />
           </View>
           <View style={s.heroBody}>
             <Text style={s.title} numberOfLines={2}>
-              {spec.title}
+              {currentSpec.title}
             </Text>
             <Text style={s.subtitle} numberOfLines={1}>
-              {spec.targetRepoPath}
+              {currentSpec.repoSpecPath || currentSpec.targetRepoPath}
             </Text>
           </View>
-          <Text style={s.status} numberOfLines={1}>
-            {statusLabel(spec.status)}
-          </Text>
+          <View style={s.statusPill}>
+            <Text style={s.statusText}>{specStatusLabel(currentSpec.status)}</Text>
+          </View>
         </View>
 
-        {spec.status === 'draft' ? (
-          <View style={s.card}>
-            <View style={s.cardHeader}>
-              <Text style={s.cardLabel}>SPEC BUILDER</Text>
-              <Text style={s.progress}>
-                {answeredCount} / {totalCount}
-              </Text>
-            </View>
-            {activeQuestion ? (
-              <>
-                <Text style={s.question}>{activeQuestion.text}</Text>
-                <View style={s.options}>
-                  {activeQuestion.options.map((option) => (
-                    <TouchableOpacity
-                      key={option.id}
-                      accessibilityRole="button"
-                      onPress={() =>
-                        onAnswer({
-                          questionId: activeQuestion.id,
-                          value: optionAnswerValue(spec, activeQuestion, option.label),
-                          answeredAt: Date.now(),
-                        })
-                      }
-                      style={[
-                        s.option,
-                        optionIsSelected(spec, activeQuestion, option.label) && s.optionSelected,
-                      ]}
-                    >
-                      <Text style={s.optionText} numberOfLines={2}>
-                        {option.label}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-                {activeQuestion.allowsOther ? (
-                  <View style={s.otherRow}>
-                    <TextInput
-                      accessibilityLabel="Other answer"
-                      value={otherText}
-                      onChangeText={setOtherText}
-                      placeholder="Other"
-                      placeholderTextColor={brandColors.textDisabled}
-                      style={s.otherInput}
-                    />
-                    <TouchableOpacity
-                      accessibilityRole="button"
-                      accessibilityLabel="Add Other Answer"
-                      accessibilityState={{ disabled: otherText.trim().length === 0 }}
-                      disabled={otherText.trim().length === 0}
-                      onPress={() => {
-                        const value = otherAnswerValue(spec, activeQuestion, otherText);
-                        if (!value) return;
-                        onAnswer({
-                          questionId: activeQuestion.id,
-                          value,
-                          answeredAt: Date.now(),
-                        });
-                        setOtherText('');
-                      }}
-                      style={[
-                        s.otherButton,
-                        otherText.trim().length === 0 && s.primaryButtonDisabled,
-                      ]}
-                    >
-                      <Text style={s.primaryText}>Add</Text>
-                    </TouchableOpacity>
-                  </View>
-                ) : null}
-              </>
-            ) : (
-              <Text style={s.question}>All required answers are ready.</Text>
-            )}
-            <TouchableOpacity
-              accessibilityRole="button"
-              accessibilityLabel="Generate Spec"
-              accessibilityState={{ disabled: !ready }}
-              disabled={!ready}
-              onPress={onGenerate}
-              style={[s.primaryButton, !ready && s.primaryButtonDisabled]}
-            >
-              <Text style={s.primaryText}>Generate Spec</Text>
-            </TouchableOpacity>
-          </View>
-        ) : null}
+        <View style={s.metricGrid}>
+          <Metric
+            icon={<GitBranch size={15} color={brandColors.ink} />}
+            label="Revision"
+            value={`v${revision}`}
+          />
+          <Metric
+            icon={<Hash size={15} color={brandColors.ink} />}
+            label="Hash"
+            value={shortHash(hash)}
+          />
+        </View>
 
-        {spec.status === 'review' ? (
-          <View style={s.card}>
-            <Text style={s.cardLabel}>SPEC.MD PREVIEW</Text>
-            <Text style={s.markdown}>{spec.markdownPreview}</Text>
-            <View style={s.actions}>
-              <TouchableOpacity style={s.secondaryButton} onPress={onAskMore}>
-                <Text style={s.secondaryText}>Ask More</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={s.primaryButtonInline} onPress={onApprove}>
-                <Text style={s.primaryText}>Approve</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        ) : null}
+        <Section title="Repository">
+          <InfoRow label="Repo" value={currentSpec.targetRepoPath || 'Unknown repo'} />
+          <InfoRow
+            label="Spec file"
+            value={currentSpec.repoSpecPath || latest?.repoSpecPath || 'Not saved'}
+          />
+          <InfoRow label="Updated" value={relativeAge(currentSpec.updatedAt)} />
+        </Section>
 
-        {spec.status !== 'draft' && spec.status !== 'review' ? (
-          <View style={s.card}>
-            <Text style={s.cardLabel}>DISPATCH</Text>
-            <Text style={s.question}>
-              {spec.repoSpecPath
-                ? `Repo file: ${spec.repoSpecPath}`
-                : 'Ready to write this spec into the target repo.'}
+        <Section title="Artifact Snapshot">
+          <SpecMarkdownReader markdown={latest?.markdown} collapsed={!showFullMarkdown} />
+          <TouchableOpacity accessibilityRole="button" onPress={onReadFull} style={s.inlineButton}>
+            <ExternalLink size={15} color={brandColors.ink} />
+            <Text style={s.inlineButtonText}>
+              {showFullMarkdown ? 'Collapse snapshot' : 'Read full snapshot'}
             </Text>
-            {spec.errorMessage ? <Text style={s.errorText}>{spec.errorMessage}</Text> : null}
-            {spec.status === 'approved' || spec.status === 'failed' ? (
-              <TouchableOpacity style={s.primaryButton} onPress={onDispatch}>
-                <Text style={s.primaryText}>Dispatch</Text>
-              </TouchableOpacity>
-            ) : null}
-          </View>
-        ) : null}
+          </TouchableOpacity>
+        </Section>
+
+        <Section title="Source">
+          <ActionRow
+            icon={<FileText size={16} color={brandColors.ink} />}
+            label="Idea"
+            value={sourceIdeaTitle || currentSpec.sourceIdeaId || 'Not linked'}
+            disabled={!currentSpec.sourceIdeaId}
+            onPress={onOpenSourceIdea}
+          />
+          <ActionRow
+            icon={<MessageSquare size={16} color={brandColors.ink} />}
+            label="Interview chat"
+            value={currentSpec.interviewConversationId || 'Not linked'}
+            disabled={!currentSpec.interviewConversationId}
+            onPress={onOpenInterviewChat}
+          />
+          <ActionRow
+            icon={<MessageSquare size={16} color={brandColors.ink} />}
+            label="Latest implementation"
+            value={implementationChatId || 'Not started'}
+            disabled={!implementationChatId}
+            onPress={onOpenImplementationChat}
+          />
+        </Section>
+
+        {errorMessage ? <Text style={s.errorText}>{errorMessage}</Text> : null}
       </ScrollView>
+
+      <View style={[s.bottomBar, { paddingBottom: insets.bottom + 10 }]}>
+        <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityState={{ disabled: primaryDisabled }}
+          disabled={primaryDisabled}
+          onPress={implementationChatId ? onOpenImplementationChat : onStartImplementation}
+          style={[s.primaryButton, primaryDisabled && s.disabled]}
+        >
+          <Play size={17} color={brandColors.white} />
+          <Text style={s.primaryText}>{primaryLabel}</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
 
-function answerValues(spec: SpecDraft, questionId: string): string[] {
-  const answer = spec.answers.find((item) => item.questionId === questionId);
-  if (!answer) return [];
-  if (Array.isArray(answer.value)) return answer.value;
-  return answer.value.trim().length > 0 ? [answer.value] : [];
-}
-
-function optionAnswerValue(
-  spec: SpecDraft,
-  question: SpecQuestion,
-  optionLabel: string,
-): string | string[] {
-  if (!question.multiSelect) return optionLabel;
-  const current = answerValues(spec, question.id);
-  if (current.includes(optionLabel)) {
-    return current.filter((value) => value !== optionLabel);
-  }
-  return [...current, optionLabel];
-}
-
-function otherAnswerValue(
-  spec: SpecDraft,
-  question: SpecQuestion,
-  otherText: string,
-): string | string[] | null {
-  const trimmed = otherText.trim();
-  if (!trimmed) return null;
-  if (!question.multiSelect) return trimmed;
-  const current = answerValues(spec, question.id);
-  return current.includes(trimmed) ? current : [...current, trimmed];
-}
-
-function optionIsSelected(spec: SpecDraft, question: SpecQuestion, optionLabel: string): boolean {
-  return answerValues(spec, question.id).includes(optionLabel);
-}
-
-function Header({ title, onBack }: { title: string; onBack: () => void }) {
+function Header({ onBack }: { onBack: () => void }) {
   return (
-    <View style={s.nav}>
-      <TouchableOpacity
-        accessibilityRole="button"
-        accessibilityLabel="Back to Specs"
-        onPress={onBack}
-        style={s.backLink}
-      >
+    <View style={s.header}>
+      <TouchableOpacity accessibilityRole="button" onPress={onBack} style={s.backButton}>
         <ChevronLeft size={20} color={brandColors.ink} />
-        <Text style={s.backText}>{title}</Text>
+        <Text style={s.backText}>Specs</Text>
       </TouchableOpacity>
+      <Text style={s.headerTitle}>Spec</Text>
+      <View style={s.headerSpacer} />
     </View>
+  );
+}
+
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <View style={s.section}>
+      <Text style={s.sectionTitle}>{title}</Text>
+      {children}
+    </View>
+  );
+}
+
+function Metric({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
+  return (
+    <View style={s.metric}>
+      {icon}
+      <View>
+        <Text style={s.metricLabel}>{label}</Text>
+        <Text style={s.metricValue} numberOfLines={1}>
+          {value}
+        </Text>
+      </View>
+    </View>
+  );
+}
+
+function InfoRow({ label, value }: { label: string; value: string }) {
+  return (
+    <View style={s.infoRow}>
+      <Text style={s.infoLabel}>{label}</Text>
+      <Text style={s.infoValue} numberOfLines={2}>
+        {value}
+      </Text>
+    </View>
+  );
+}
+
+function ActionRow({
+  icon,
+  label,
+  value,
+  disabled,
+  onPress,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  disabled: boolean;
+  onPress?: () => void;
+}) {
+  return (
+    <TouchableOpacity
+      accessibilityRole="button"
+      accessibilityState={{ disabled }}
+      disabled={disabled}
+      onPress={onPress}
+      style={[s.actionRow, disabled && s.disabled]}
+    >
+      <View style={s.actionIcon}>{icon}</View>
+      <View style={s.actionBody}>
+        <Text style={s.actionLabel}>{label}</Text>
+        <Text style={s.actionValue} numberOfLines={1}>
+          {value}
+        </Text>
+      </View>
+    </TouchableOpacity>
   );
 }
 
 const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: brandColors.cream },
-  nav: {
-    height: 44,
-    backgroundColor: brandColors.cream,
+  header: {
+    minHeight: 50,
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 16,
   },
-  backLink: { flexDirection: 'row', alignItems: 'center', gap: 2 },
-  backText: { fontFamily: 'Inter', fontSize: 13, fontWeight: '700', color: brandColors.ink },
+  backButton: { minWidth: 72, minHeight: 44, flexDirection: 'row', alignItems: 'center' },
+  backText: {
+    fontFamily: brandTypography.body,
+    fontSize: 13,
+    fontWeight: '700',
+    color: brandColors.ink,
+  },
+  headerTitle: {
+    fontFamily: brandTypography.display,
+    fontSize: 18,
+    fontWeight: '700',
+    color: brandColors.ink,
+  },
+  headerSpacer: { width: 72 },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  emptyTitle: { fontFamily: 'Inter', fontSize: 20, fontWeight: '800', color: brandColors.ink },
-  content: { padding: 16, paddingBottom: 40, gap: 10 },
+  emptyTitle: {
+    fontFamily: brandTypography.display,
+    fontSize: 20,
+    fontWeight: '700',
+    color: brandColors.ink,
+  },
+  content: { padding: 16, gap: 12 },
   hero: {
-    minHeight: 66,
+    minHeight: 72,
     borderRadius: 16,
     backgroundColor: brandRgba.white88,
     borderWidth: 1,
     borderColor: brandColors.silver,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 9,
-    padding: 12,
+    gap: 10,
+    padding: 14,
   },
   heroIcon: {
-    width: 34,
-    height: 34,
-    borderRadius: 9,
+    width: 36,
+    height: 36,
+    borderRadius: 10,
     backgroundColor: brandRgba.cyanSoft,
     alignItems: 'center',
     justifyContent: 'center',
   },
   heroBody: { flex: 1, minWidth: 0 },
   title: {
-    fontFamily: 'Inter',
-    fontSize: 14,
-    lineHeight: 18,
+    fontFamily: brandTypography.display,
+    fontSize: 19,
+    lineHeight: 23,
+    fontWeight: '700',
+    color: brandColors.ink,
+  },
+  subtitle: {
+    marginTop: 3,
+    fontFamily: brandTypography.body,
+    fontSize: 11,
+    color: brandColors.textSoft,
+  },
+  statusPill: {
+    minHeight: 26,
+    borderRadius: 13,
+    paddingHorizontal: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: brandRgba.limeSoft,
+  },
+  statusText: {
+    fontFamily: brandTypography.body,
+    fontSize: 10,
     fontWeight: '800',
     color: brandColors.ink,
   },
-  subtitle: { marginTop: 2, fontFamily: 'Inter', fontSize: 11, color: brandColors.textSoft },
-  status: { fontFamily: 'Inter', fontSize: 10, fontWeight: '700', color: brandColors.coral },
-  card: {
-    borderRadius: 16,
-    backgroundColor: brandRgba.white88,
+  metricGrid: { flexDirection: 'row', gap: 10 },
+  metric: {
+    flex: 1,
+    minHeight: 54,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: brandColors.silver,
-    padding: 14,
-    gap: 12,
-  },
-  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  cardLabel: { fontFamily: 'Inter', fontSize: 10, fontWeight: '700', color: brandColors.coral },
-  progress: { fontFamily: 'Inter', fontSize: 11, color: brandColors.textSoft },
-  question: {
-    fontFamily: 'Inter',
-    fontSize: 13,
-    fontWeight: '600',
-    color: brandColors.ink,
-    lineHeight: 18,
-  },
-  options: { gap: 7 },
-  option: {
-    minHeight: 40,
-    borderRadius: 10,
-    backgroundColor: brandRgba.ink08,
-    justifyContent: 'center',
+    backgroundColor: brandRgba.white88,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 9,
     paddingHorizontal: 12,
   },
-  optionSelected: {
-    backgroundColor: brandRgba.limeSoft,
+  metricLabel: { fontFamily: brandTypography.body, fontSize: 10, color: brandColors.textSoft },
+  metricValue: {
+    marginTop: 2,
+    fontFamily: brandTypography.body,
+    fontSize: 13,
+    fontWeight: '800',
+    color: brandColors.ink,
+  },
+  section: {
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: brandColors.lime,
+    borderColor: brandColors.silver,
+    backgroundColor: brandRgba.white88,
+    padding: 14,
+    gap: 10,
   },
-  optionText: { fontFamily: 'Inter', fontSize: 13, lineHeight: 17, color: brandColors.ink },
-  otherRow: { flexDirection: 'row', gap: 8 },
-  otherInput: {
+  sectionTitle: {
+    fontFamily: brandTypography.body,
+    fontSize: 11,
+    fontWeight: '800',
+    color: brandColors.coral,
+  },
+  bodyText: {
+    fontFamily: brandTypography.body,
+    fontSize: 13,
+    lineHeight: 19,
+    color: brandColors.ink,
+  },
+  infoRow: {
+    minHeight: 34,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+    alignItems: 'center',
+  },
+  infoLabel: { fontFamily: brandTypography.body, fontSize: 12, color: brandColors.textSoft },
+  infoValue: {
     flex: 1,
+    textAlign: 'right',
+    fontFamily: brandTypography.body,
+    fontSize: 12,
+    fontWeight: '700',
+    color: brandColors.ink,
+  },
+  inlineButton: {
     minHeight: 40,
     borderRadius: 10,
     backgroundColor: brandRgba.ink08,
-    color: brandColors.ink,
-    fontFamily: 'Inter',
-    fontSize: 13,
-    paddingHorizontal: 12,
-  },
-  otherButton: {
-    width: 62,
-    minHeight: 40,
-    borderRadius: 10,
-    backgroundColor: brandColors.ink,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 7,
+  },
+  inlineButtonText: {
+    fontFamily: brandTypography.body,
+    fontSize: 13,
+    fontWeight: '800',
+    color: brandColors.ink,
+  },
+  actionRow: { minHeight: 54, flexDirection: 'row', alignItems: 'center', gap: 10 },
+  actionIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    backgroundColor: brandRgba.ink08,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  actionBody: { flex: 1, minWidth: 0 },
+  actionLabel: {
+    fontFamily: brandTypography.body,
+    fontSize: 13,
+    fontWeight: '800',
+    color: brandColors.ink,
+  },
+  actionValue: {
+    marginTop: 2,
+    fontFamily: brandTypography.body,
+    fontSize: 11,
+    color: brandColors.textSoft,
+  },
+  errorText: {
+    fontFamily: brandTypography.body,
+    fontSize: 12,
+    lineHeight: 17,
+    color: brandColors.error,
+  },
+  bottomBar: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    backgroundColor: brandRgba.white88,
+    borderTopWidth: 1,
+    borderTopColor: brandColors.silver,
   },
   primaryButton: {
-    height: 42,
-    borderRadius: 10,
+    minHeight: 46,
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 7,
     backgroundColor: brandColors.ink,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
-  primaryButtonDisabled: { opacity: 0.45 },
-  primaryText: { fontFamily: 'Inter', fontSize: 13, fontWeight: '700', color: brandColors.white },
-  markdown: { fontFamily: 'Inter', fontSize: 12, lineHeight: 18, color: brandColors.ink },
-  actions: { flexDirection: 'row', gap: 8 },
-  secondaryButton: {
-    flex: 1,
-    height: 40,
-    borderRadius: 10,
-    backgroundColor: brandRgba.ink08,
-    alignItems: 'center',
-    justifyContent: 'center',
+  primaryText: {
+    fontFamily: brandTypography.body,
+    fontSize: 13,
+    fontWeight: '800',
+    color: brandColors.white,
   },
-  secondaryText: { fontFamily: 'Inter', fontSize: 13, fontWeight: '700', color: brandColors.ink },
-  primaryButtonInline: {
-    flex: 1,
-    height: 40,
-    borderRadius: 10,
-    backgroundColor: brandColors.ink,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  errorText: { fontFamily: 'Inter', fontSize: 12, color: brandColors.error },
+  disabled: { opacity: 0.45 },
 });

@@ -5,13 +5,19 @@ import { Modal, View } from 'react-native';
 import { fetchAllAgents } from '@/features/agents/services/agentService';
 import { WorkflowFormScreen } from '@/features/workflows/components/WorkflowFormScreen';
 import { WorkflowListScreen } from '@/features/workflows/components/WorkflowListScreen';
+import { WorkflowTemplatePickerScreen } from '@/features/workflows/components/WorkflowTemplatePickerScreen';
 import {
   createWorkflow,
   deleteWorkflow,
   disableWorkflow,
   enableWorkflow,
   fetchWorkflows,
+  updateWorkflow,
 } from '@/features/workflows/services/workflowService';
+import {
+  type WorkflowTemplate,
+  type WorkflowTemplateInitialValues,
+} from '@/features/workflows/templates';
 import { type WorkflowInput, type Workflow } from '@/features/workflows/types';
 import { useEndpointStore } from '@/store/endpointStore';
 import { brandColors } from '@/theme/brandRefresh';
@@ -20,7 +26,11 @@ export default function WorkflowsTab() {
   const router = useRouter();
   const endpoints = useEndpointStore((s) => s.endpoints);
   const queryClient = useQueryClient();
+  const [showTemplatePicker, setShowTemplatePicker] = useState(false);
   const [showForm, setShowForm] = useState(false);
+  const [templateInitialValues, setTemplateInitialValues] =
+    useState<WorkflowTemplateInitialValues | null>(null);
+  const [editingWorkflow, setEditingWorkflow] = useState<Workflow | null>(null);
 
   const { data: workflows = [], isFetching } = useQuery({
     queryKey: ['workflows', endpoints.map((e) => e.id)],
@@ -74,7 +84,19 @@ export default function WorkflowsTab() {
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['workflows'] });
-      setShowForm(false);
+      closeWorkflowSheet();
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async ({ workflow, input }: { workflow: Workflow; input: WorkflowInput }) => {
+      const ep = endpoints.find((e) => e.id === workflow.endpoint_id);
+      if (!ep) throw new Error('Endpoint not found');
+      await updateWorkflow(ep, workflow.id, input);
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['workflows'] });
+      closeWorkflowSheet();
     },
   });
 
@@ -89,28 +111,87 @@ export default function WorkflowsTab() {
     },
   });
 
+  const visibleFormAgents = editingWorkflow
+    ? agents.filter((agent) => agent.endpoint_id === editingWorkflow.endpoint_id)
+    : agents;
+
+  function openBlankWorkflow() {
+    setEditingWorkflow(null);
+    setTemplateInitialValues(null);
+    setShowTemplatePicker(false);
+    setShowForm(true);
+  }
+
+  function openTemplateWorkflow(template: WorkflowTemplate) {
+    setEditingWorkflow(null);
+    setTemplateInitialValues(template.initial_values);
+    setShowTemplatePicker(false);
+    setShowForm(true);
+  }
+
+  function openEditWorkflow(workflow: Workflow) {
+    setShowTemplatePicker(false);
+    setShowForm(false);
+    setTemplateInitialValues(null);
+    setEditingWorkflow(workflow);
+  }
+
+  function closeWorkflowSheet() {
+    setShowTemplatePicker(false);
+    setShowForm(false);
+    setTemplateInitialValues(null);
+    setEditingWorkflow(null);
+  }
+
   return (
     <>
       <WorkflowListScreen
         workflows={workflows}
         hasEndpoints={endpoints.length > 0}
         isRefreshing={isFetching}
-        onCreateWorkflow={() => setShowForm(true)}
+        onCreateWorkflow={() => setShowTemplatePicker(true)}
         onToggleEnabled={(workflowId, enabled, endpointId) =>
           toggleMutation.mutate({ workflowId, enabled, endpointId })
         }
         onOpenWorkflow={(wf) =>
           router.push(`/workflow/${encodeURIComponent(wf.id)}` as `/${string}`)
         }
+        onEditWorkflow={openEditWorkflow}
         onDeleteWorkflow={(wf) => deleteMutation.mutate(wf)}
       />
-      <Modal visible={showForm} animationType="slide" presentationStyle="pageSheet">
+      <Modal
+        visible={showTemplatePicker || showForm || editingWorkflow !== null}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={closeWorkflowSheet}
+      >
         <View style={{ flex: 1, backgroundColor: brandColors.cream }}>
-          <WorkflowFormScreen
-            agents={agents}
-            onSave={(input) => createMutation.mutate(input)}
-            onCancel={() => setShowForm(false)}
-          />
+          {showTemplatePicker ? (
+            <WorkflowTemplatePickerScreen
+              onSelectBlank={openBlankWorkflow}
+              onSelectTemplate={openTemplateWorkflow}
+              onCancel={closeWorkflowSheet}
+            />
+          ) : showForm || editingWorkflow ? (
+            <WorkflowFormScreen
+              key={
+                editingWorkflow
+                  ? `edit-${editingWorkflow.endpoint_id}-${editingWorkflow.id}`
+                  : templateInitialValues
+                    ? `template-${templateInitialValues.name}`
+                    : 'blank'
+              }
+              agents={visibleFormAgents}
+              initialValues={editingWorkflow ?? templateInitialValues ?? undefined}
+              title={editingWorkflow ? 'Edit Workflow' : 'New Workflow'}
+              onSave={(input) =>
+                editingWorkflow
+                  ? updateMutation.mutate({ workflow: editingWorkflow, input })
+                  : createMutation.mutate(input)
+              }
+              onCancel={closeWorkflowSheet}
+            />
+          ) : null}
         </View>
       </Modal>
     </>

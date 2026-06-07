@@ -43,6 +43,7 @@ function displayStatus(status: SpecStatus): string {
     case 'failed':
       return 'Failed';
   }
+  return 'Spec';
 }
 
 function segmentForStatus(status: SpecStatus): Segment {

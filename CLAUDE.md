@@ -47,6 +47,7 @@ Monorepo 两大件：
 - **CI 失败自动修复** —— 读取 `gh run view --log-failed` 日志，修复 lint/type/fmt 错误后 re-push；**修复 = 解决根本原因**（重构代码、删未用项、修类型），绝不用 `#[allow]` / `// eslint-disable` / `@ts-ignore` 压制；逻辑错误上报用户
 - **CI 未通过禁止合并（强约束）** —— PR 须等 GitHub Actions 全部通过后再合并；不得在红 CI 下合并，不得以管理员选项绕过硬闸；配置核对见 [`docs/runbooks/github-pr-merge-policy.md`](docs/runbooks/github-pr-merge-policy.md)
 - **同一用户流程只能有一个权威实现** —— 不要为同一 screen / route / protocol 复制并行实现；新增入口必须复用既有权威组件或抽共享模块。发现旧版分叉时，迁移入口并删除旧实现，测试覆盖入口收敛。
+- **iOS 界面开发参考 Apple + Google** —— 开发移动端 iOS UI 前必须参考 Apple Human Interface Guidelines 与 Google Material Design 的 iOS/跨平台交互哲学；优先原生 iOS 心智模型、直接操控、即时反馈、可逆操作、清晰导航与无障碍，不把 Web/Android 交互硬套到 iOS。
 - **Agent 本地 iOS 发布从仓库根启动** —— 不要把工具 `workdir` 直接设为 `mobile/` 后运行 `./scripts/publish-ios-local.sh`；当前运行环境可能按仓库根目录注入 `APP_STORE_CONNECT_*`，直接以 `mobile/` 启动会导致脚本误报缺少 ASC API Key。应在仓库根目录执行同一条 `cd mobile && ./scripts/publish-ios-local.sh`。
 
 ---
@@ -339,6 +340,7 @@ The mobile app uses a **dark modern aesthetic** — near-black backgrounds, whit
 - Colors restricted to the palette in `mobile/docs/design.md` §2; enforced by `scripts/check-mobile-colors.sh`
 - Icons: Lucide only, 16×16px for Tab Bar / actions
 - Spacing on 4px grid; see `mobile/docs/design.md §4` for exact values
+- For iOS UI work, cross-check interaction decisions against Apple HIG and Google Material Design iOS/cross-platform guidance before implementing screens, gestures, navigation, feedback, and accessibility behavior.
 - Before any UI change, run through the checklist in `mobile/docs/design.md §9`
 - Before any UI change, also check `mobile/docs/rules/ui-pitfalls.md` — common React Native UI bugs to avoid (e.g. RefreshControl coupled to isFetching, focus refetch triggering spinner)
 

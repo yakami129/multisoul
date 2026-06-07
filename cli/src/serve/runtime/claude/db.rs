@@ -1,6 +1,7 @@
 //! DB helpers and WebSocket broadcast for the Claude runtime.
 
 use crate::db::now_ms;
+use crate::serve::routes::activity_events::{emit_activity_changed, REASON_TASK_TERMINAL};
 use crate::serve::{push, state::AppState};
 use serde_json::Value;
 use tracing::debug;
@@ -56,6 +57,7 @@ pub(super) fn mark_failed(state: &AppState, conv_id: &str) {
         push::send_task_status_push(&db2, conv_id, "failed", "");
         drop(db2);
         broadcast(state, conv_id, seq, "task_status", payload);
+        emit_activity_changed(state, conv_id, REASON_TASK_TERMINAL);
     }
 }
 

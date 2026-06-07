@@ -17,6 +17,7 @@ export default function AgentDetailScreen() {
   const { id, endpoint_id } = useLocalSearchParams<{ id: string; endpoint_id: string }>();
   const router = useRouter();
   const endpoints = useEndpointStore((s) => s.endpoints);
+  const mergeConversations = useChatStore((s) => s.mergeConversations);
   const addConversation = useChatStore((s) => s.addConversation);
   const removeConversation = useChatStore((s) => s.removeConversation);
 
@@ -77,7 +78,7 @@ export default function AgentDetailScreen() {
           setAgent(a);
           if (conversations !== undefined) {
             setRecentConversations(conversations);
-            conversations.forEach(addConversation);
+            mergeConversations(conversations);
           }
           setIsLoading(false);
         })
@@ -91,7 +92,7 @@ export default function AgentDetailScreen() {
       return () => {
         cancelled = true;
       };
-    }, [id, endpoint_id, endpoints, addConversation]),
+    }, [id, endpoint_id, endpoints, mergeConversations]),
   );
 
   const openConversation = (conversation: Conversation) => {

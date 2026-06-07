@@ -1,3 +1,4 @@
+import { ChevronDown, ChevronUp } from 'lucide-react-native';
 import React from 'react';
 import {
   ActivityIndicator,
@@ -6,15 +7,16 @@ import {
   Text,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
+  type ViewToken,
   View,
 } from 'react-native';
-import { ChevronDown, ChevronUp } from 'lucide-react-native';
 import { WAITING_MESSAGE } from '@/features/chat/chatDetailConstants';
 import { MessageBubble } from '@/features/chat/components/MessageBubble';
 import { ToolCallRow } from '@/features/chat/components/ToolCallRow';
 import { getAskId } from '@/features/chat/utils/chatMessageWindows';
 import {
   buildCompletedTranscriptDisplayItems,
+  getChatTranscriptDisplayItemKey,
   type ChatTranscriptDisplayItem,
 } from '@/features/chat/utils/chatRenderState';
 import { brandColors } from '@/theme/brandRefresh';
@@ -27,7 +29,7 @@ import {
 import { s } from './styles';
 
 interface Props {
-  listRef: React.RefObject<FlatList<WsMessage> | null>;
+  listRef: React.RefObject<FlatList<ChatTranscriptDisplayItem> | null>;
   messages: WsMessage[];
   displayItems?: ChatTranscriptDisplayItem[];
   conversationStatus: Conversation['status'];
@@ -39,6 +41,7 @@ interface Props {
   serverUrl: string;
   token: string;
   toolResultMessages?: WsMessage[];
+  onLoadServerWorkedMessages?: (turnId: string) => void;
   onAnswer: (ask_id: string, choice_id?: string, freeform?: string) => void;
   onAnswerMulti: (ask_id: string, choice_ids: Record<string, string>) => void;
   imageUriForMessage: (msg: WsMessage) => string | undefined;
@@ -46,6 +49,10 @@ interface Props {
   onScrollBeginDrag: (event: NativeSyntheticEvent<NativeScrollEvent>) => void;
   onContentSizeChange: () => void;
   onScrollToIndexFailed: (info: { index: number; averageItemLength: number }) => void;
+  onViewableItemsChanged?: (info: {
+    viewableItems: ViewToken<ChatTranscriptDisplayItem>[];
+    changed: ViewToken<ChatTranscriptDisplayItem>[];
+  }) => void;
 }
 
 export default function ChatTranscriptList({
@@ -61,6 +68,7 @@ export default function ChatTranscriptList({
   serverUrl,
   token,
   toolResultMessages,
+  onLoadServerWorkedMessages,
   onAnswer,
   onAnswerMulti,
   imageUriForMessage,
@@ -68,6 +76,7 @@ export default function ChatTranscriptList({
   onScrollBeginDrag,
   onContentSizeChange,
   onScrollToIndexFailed,
+  onViewableItemsChanged,
 }: Props) {
   const [expandedWorkedIds, setExpandedWorkedIds] = React.useState<Set<string>>(() => new Set());
   const toolResultsByCallId = React.useMemo(() => {
@@ -86,14 +95,23 @@ export default function ChatTranscriptList({
   );
   const displayItems = providedDisplayItems ?? computedDisplayItems;
 
-  const toggleWorkedItem = React.useCallback((id: string) => {
-    setExpandedWorkedIds((current) => {
-      const next = new Set(current);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }, []);
+  const toggleWorkedItem = React.useCallback(
+    (item: Exclude<ChatTranscriptDisplayItem, { kind: 'message' }>) => {
+      setExpandedWorkedIds((current) => {
+        const next = new Set(current);
+        if (next.has(item.id)) {
+          next.delete(item.id);
+        } else {
+          next.add(item.id);
+          if (item.kind === 'server_worked') {
+            onLoadServerWorkedMessages?.(item.turnId);
+          }
+        }
+        return next;
+      });
+    },
+    [onLoadServerWorkedMessages],
+  );
 
   const renderMessage = (msg: WsMessage) => {
     const askId = getAskId(msg);
@@ -134,7 +152,7 @@ export default function ChatTranscriptList({
           accessibilityLabel={item.label}
           accessibilityState={{ expanded }}
           style={s.workedRow}
-          onPress={() => toggleWorkedItem(item.id)}
+          onPress={() => toggleWorkedItem(item)}
         >
           <Text style={s.workedText}>{item.label}</Text>
           {expanded ? (
@@ -145,6 +163,9 @@ export default function ChatTranscriptList({
         </Pressable>
         {expanded ? (
           <View style={s.workedExpandedItems}>
+            {item.kind === 'server_worked' && item.isLoading ? (
+              <ActivityIndicator testID="worked-row-loading-indicator" color={brandColors.cyan} />
+            ) : null}
             {item.messages.map((message) => (
               <View key={message.seq}>{renderMessage(message)}</View>
             ))}
@@ -163,11 +184,11 @@ export default function ChatTranscriptList({
 
   return (
     <FlatList
-      ref={listRef as React.RefObject<FlatList<ChatTranscriptDisplayItem> | null>}
+      ref={listRef}
       style={s.scroll}
       contentContainerStyle={s.scrollContent}
       data={displayItems}
-      keyExtractor={(item) => (item.kind === 'message' ? `${item.message.seq}` : item.id)}
+      keyExtractor={getChatTranscriptDisplayItemKey}
       renderItem={renderDisplayItem}
       ListHeaderComponent={isLoadingOlder ? renderOlderLoading : null}
       ListFooterComponent={
@@ -180,6 +201,7 @@ export default function ChatTranscriptList({
       scrollEventThrottle={16}
       onContentSizeChange={onContentSizeChange}
       onScrollToIndexFailed={onScrollToIndexFailed}
+      onViewableItemsChanged={onViewableItemsChanged}
       maintainVisibleContentPosition={{ minIndexForVisible: 0 }}
     />
   );

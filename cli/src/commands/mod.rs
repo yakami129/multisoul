@@ -8,4 +8,6 @@ pub mod inject;
 pub mod logs;
 pub mod logs_app;
 pub mod logs_service;
+pub mod mark_spec_done;
+pub mod save_spec;
 pub mod serve;

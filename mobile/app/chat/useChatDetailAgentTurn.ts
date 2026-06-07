@@ -2,6 +2,7 @@ import { useEffect, useState, type RefObject } from 'react';
 import { type FlatList } from 'react-native';
 import { abortConversation, postMessage } from '@/features/chat/services/chatService';
 import {
+  type ChatTranscriptDisplayItem,
   getLatestAgentActivitySeq,
   getLatestAgentTextSeq,
 } from '@/features/chat/utils/chatRenderState';
@@ -22,7 +23,7 @@ type AgentTurnParams = {
   lastAnimatedAgentTextSeqRef: React.MutableRefObject<number>;
   pendingImages: PendingImage[];
   clearPendingImages: () => void;
-  listRef: RefObject<FlatList<WsMessage> | null>;
+  listRef: RefObject<FlatList<ChatTranscriptDisplayItem> | null>;
 };
 
 export function useChatDetailAgentTurn({
@@ -37,7 +38,7 @@ export function useChatDetailAgentTurn({
   lastAnimatedAgentTextSeqRef,
   pendingImages,
   clearPendingImages,
-  listRef,
+  listRef: _listRef,
 }: AgentTurnParams) {
   const [isAwaitingResponse, setIsAwaitingResponse] = useState(false);
   const [typewriterSeq, setTypewriterSeq] = useState<number | null>(null);
@@ -118,7 +119,6 @@ export function useChatDetailAgentTurn({
       } else {
         await postMessage(endpoint.base_url, endpoint.token, conv_id, text);
       }
-      setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
     } catch (error: unknown) {
       recordDiagnosticsEvent('error', 'chat.send', 'failed to send message', {
         conv_id,

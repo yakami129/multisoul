@@ -8,49 +8,63 @@ function expectEqualWithReason<T>(actual: T, expected: T, reason: string) {
 }
 
 describe('RunningAgentBreath', () => {
-  /// Liquid Status mode: animated running cards use one soft internal flow as the main motion.
+  /// Soft Wash mode: animated running cards use one full-card wash as the main motion.
   ///
   /// Data construction:
   ///   enabled       = true
   ///   reducedMotion = false
   ///   accentColor   = #FF6B35 from the design whitelist
-  ///   visual choice = C. Liquid Status from the motion prototype
+  ///   visual choice = user-selected full-card soft wash
   ///
   /// Execution process:
   ///   1. Render RunningAgentBreath in animated mode.
-  ///   2. Query the liquid band, low-emphasis pools, and frame.
-  ///   3. Assert old debug-like particles/avatar aura are absent.
+  ///   2. Query the liquid wash and frame.
+  ///   3. Assert side pool layers and old debug-like particles/avatar aura are absent.
   ///
   /// Expected result:
-  ///   - Positive: liquid band is the primary animated layer behind card content.
-  ///   - Positive: auxiliary layers stay few and low-emphasis.
+  ///   - Positive: one wash layer fills the full card behind row content.
+  ///   - Negative: no separate left or right breathing circles are rendered.
   ///   - Negative: old particle/aura stack is absent, avoiding a noisy overlay look.
   ///   - Negative: reduced-motion static frame is absent in animated mode.
-  it('renders liquid status layers when enabled and Reduce Motion is off', () => {
+  it('renders one full-card soft wash when enabled and Reduce Motion is off', () => {
     const { getByTestId, queryAllByTestId, queryByTestId } = render(
       <RunningAgentBreath enabled accentColor="#FF6B35" reducedMotion={false} />,
     );
 
     const rootStyle = StyleSheet.flatten(getByTestId('running-agent-breath').props.style);
+    const washStyle = StyleSheet.flatten(getByTestId('running-agent-liquid-wash').props.style);
 
     expectEqualWithReason(
       rootStyle.position,
       'absolute',
       'breathing chrome should sit behind card content without changing row layout',
     );
-    expect(getByTestId('running-agent-liquid-band')).toBeTruthy();
-    expect(getByTestId('running-agent-liquid-warm-pool')).toBeTruthy();
-    expect(getByTestId('running-agent-liquid-status-pool')).toBeTruthy();
+    expectEqualWithReason(
+      [washStyle.top, washStyle.right, washStyle.bottom, washStyle.left],
+      [-4, -4, -4, -4],
+      'soft wash should overfill all card edges so the largest layer covers the full row',
+    );
+    expect(getByTestId('running-agent-liquid-wash')).toBeTruthy();
     expect(getByTestId('running-agent-liquid-frame')).toBeTruthy();
+    expectEqualWithReason(
+      queryByTestId('running-agent-liquid-warm-pool') === null,
+      true,
+      'Soft Wash should not render a separate left-side breathing circle',
+    );
+    expectEqualWithReason(
+      queryByTestId('running-agent-liquid-status-pool') === null,
+      true,
+      'Soft Wash should not render a separate right-side breathing circle',
+    );
     expectEqualWithReason(
       queryAllByTestId('running-agent-breath-particle').length,
       0,
-      'Liquid Status should not render the previous noisy particle layer',
+      'Soft Wash should not render the previous noisy particle layer',
     );
     expectEqualWithReason(
       queryByTestId('running-agent-breath-avatar-aura') === null,
       true,
-      'Liquid Status should not use an avatar-only aura as the main effect',
+      'Soft Wash should not use an avatar-only aura as the main effect',
     );
     expectEqualWithReason(
       queryByTestId('running-agent-breath-static') === null,
@@ -79,9 +93,9 @@ describe('RunningAgentBreath', () => {
 
     expect(getByTestId('running-agent-breath-static')).toBeTruthy();
     expectEqualWithReason(
-      queryByTestId('running-agent-liquid-band') === null,
+      queryByTestId('running-agent-liquid-wash') === null,
       true,
-      'Reduce Motion mode should not render the animated liquid band',
+      'Reduce Motion mode should not render the animated liquid wash',
     );
     expectEqualWithReason(
       queryByTestId('running-agent-liquid-warm-pool') === null,

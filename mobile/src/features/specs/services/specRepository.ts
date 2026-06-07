@@ -1,6 +1,11 @@
 import { getDb } from '@/db';
 import { type Agent } from '@/types';
-import { type SpecAnswer, type SpecDraft, type SpecQuestionRound, type SpecStatus } from '../types';
+import {
+  type LegacySpecStatus,
+  type SpecAnswer,
+  type SpecDraft,
+  type SpecQuestionRound,
+} from '../types';
 
 interface SpecRow {
   id: string;
@@ -36,7 +41,7 @@ function rowToSpec(row: SpecRow): SpecDraft {
     id: row.id,
     title: row.title,
     slug: row.slug,
-    status: row.status as SpecStatus,
+    status: row.status as LegacySpecStatus,
     targetAgentId: row.target_agent_id,
     targetEndpointId: row.target_endpoint_id,
     targetRepoPath: row.target_repo_path,

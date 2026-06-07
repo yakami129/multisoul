@@ -10,11 +10,11 @@ import {
 } from '@/features/chat/utils/chatMessageWindows';
 import {
   collapseTodoToolCallSnapshots,
+  type ChatTranscriptDisplayItem,
   getLatestAgentActivitySeq,
   getLatestAgentTextSeq,
   isRenderableInChatTranscript,
 } from '@/features/chat/utils/chatRenderState';
-import { placeMsctlQuestionCardsAtBottom } from '@/features/chat/utils/msctlQuestionPlacement';
 import { loadAnsweredAsks } from '@/features/inbox/services/inboxService';
 import { mirrorAskQuestionsToInbox } from '@/features/inbox/utils/mirrorAskQuestionsToInbox';
 import { recordDiagnosticsEvent } from '@/services/diagnosticsLog';
@@ -37,7 +37,7 @@ type HistoryParams = {
   focus_ask_id: string | undefined;
   messages: WsMessage[];
   inboxMirrorStableKey: string;
-  listRef: React.RefObject<FlatList<WsMessage> | null>;
+  listRef: React.RefObject<FlatList<ChatTranscriptDisplayItem> | null>;
   lastSeenAgentActivitySeqRef: React.MutableRefObject<number>;
   lastAnimatedAgentTextSeqRef: React.MutableRefObject<number>;
 };
@@ -114,10 +114,7 @@ export function useChatDetailHistory({
   }, [messages, visibleMinSeq]);
 
   const transcriptMessages = React.useMemo(
-    () =>
-      placeMsctlQuestionCardsAtBottom(
-        collapseTodoToolCallSnapshots(visibleMessages.filter(isRenderableInChatTranscript)),
-      ),
+    () => collapseTodoToolCallSnapshots(visibleMessages.filter(isRenderableInChatTranscript)),
     [visibleMessages],
   );
 

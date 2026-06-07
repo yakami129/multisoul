@@ -1,3 +1,4 @@
+use super::activity_events::{emit_activity_changed, REASON_READ_STATE_CHANGED};
 use crate::serve::state::AppState;
 use axum::{
     extract::{Path, Query, State},
@@ -72,6 +73,8 @@ pub async fn mark_done_read(
         rusqlite::params![conversation_id, crate::db::now_ms()],
     )
     .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    drop(db);
+    emit_activity_changed(&state, &conversation_id, REASON_READ_STATE_CHANGED);
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -81,6 +84,31 @@ pub async fn mark_all_done_read(State(state): State<AppState>) -> Result<StatusC
         .lock()
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     let now = crate::db::now_ms();
+    let conversation_ids: Vec<String> = {
+        let mut stmt = db
+            .prepare(
+                "SELECT c.id
+                 FROM conversations c
+                 WHERE c.status IN ('completed', 'failed')
+                    OR (
+                        c.status = 'idle'
+                        AND EXISTS (
+                            SELECT 1
+                            FROM messages mt
+                            WHERE mt.conversation_id = c.id
+                              AND mt.role = 'task_status'
+                              AND json_extract(mt.payload, '$.status') IN ('completed', 'failed')
+                        )
+                    )",
+            )
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        let ids = stmt
+            .query_map([], |row| row.get::<_, String>(0))
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+            .collect::<rusqlite::Result<Vec<_>>>()
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        ids
+    };
     db.execute(
         "INSERT OR REPLACE INTO activity_reads (conversation_id, read_at)
          SELECT c.id, ?1
@@ -99,6 +127,10 @@ pub async fn mark_all_done_read(State(state): State<AppState>) -> Result<StatusC
         rusqlite::params![now],
     )
     .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    drop(db);
+    for conversation_id in conversation_ids {
+        emit_activity_changed(&state, &conversation_id, REASON_READ_STATE_CHANGED);
+    }
     Ok(StatusCode::NO_CONTENT)
 }
 

@@ -12,7 +12,12 @@ import {
   switchConversationModel,
   uploadImage,
 } from '@/features/chat/services/chatService';
-import { type ChatTranscriptDisplayItem } from '@/features/chat/utils/chatRenderState';
+import {
+  fetchTranscriptTurns,
+  fetchTurnHiddenMessages,
+} from '@/features/chat/services/transcriptService';
+import type { TranscriptPage } from '@/features/chat/types';
+import type { ChatTranscriptDisplayItem } from '@/features/chat/utils/chatRenderState';
 import { useWebSocket } from '@/hooks/useWebSocket';
 import { useChatStore } from '@/store/chatStore';
 import { useEndpointStore } from '@/store/endpointStore';
@@ -63,6 +68,11 @@ jest.mock('@/features/chat/services/chatService', () => ({
     const encodedToken = encodeURIComponent(token);
     return localUris.get(fileId) ?? `${base}/api/v1/uploads/${encodedFileId}?token=${encodedToken}`;
   },
+}));
+
+jest.mock('@/features/chat/services/transcriptService', () => ({
+  fetchTranscriptTurns: jest.fn(),
+  fetchTurnHiddenMessages: jest.fn(),
 }));
 
 jest.mock('expo-image-picker', () => ({
@@ -125,8 +135,57 @@ function makeNumberedMessages(start: number, end: number): WsMessage[] {
   });
 }
 
-function displayMessageSeq(item: ChatTranscriptDisplayItem): number | undefined {
-  return item.kind === 'message' ? item.message.seq : undefined;
+function inferTranscriptStatus(convId: string, messages: WsMessage[]): TranscriptPage['status'] {
+  const taskStatus = [...messages].reverse().find((msg) => msg.role === 'task_status');
+  const status = (taskStatus?.payload as { status?: TranscriptPage['status'] } | undefined)?.status;
+  if (status) return status;
+  return useChatStore.getState().conversations.find((conv) => conv.id === convId)?.status ?? 'idle';
+}
+
+function makeRawTranscriptPage(convId: string, messages: WsMessage[]): TranscriptPage {
+  const firstSeq = messages[0]?.seq ?? null;
+  const firstUserSeq = messages.find((msg) => msg.role === 'user_text')?.seq ?? firstSeq;
+  return {
+    conversation_id: convId,
+    status: inferTranscriptStatus(convId, messages),
+    items:
+      firstUserSeq == null
+        ? []
+        : [
+            {
+              kind: 'current_turn_raw',
+              turn_id: `turn-${firstUserSeq}`,
+              start_seq: firstUserSeq,
+              messages,
+            },
+          ],
+    page_info: {
+      oldest_turn_id: firstUserSeq == null ? null : `turn-${firstUserSeq}`,
+      has_older: firstSeq != null && firstSeq > 1,
+    },
+  };
+}
+
+async function fetchMessagesBackedTranscript(
+  baseUrl: string,
+  token: string,
+  convId: string,
+  options?: { beforeTurn?: string; aroundAskId?: string },
+): Promise<TranscriptPage> {
+  const beforeSeq = options?.beforeTurn?.startsWith('turn-')
+    ? Number(options.beforeTurn.slice('turn-'.length))
+    : null;
+  const messageOptions = options?.aroundAskId
+    ? { around_ask_id: options.aroundAskId, limit: 100 }
+    : beforeSeq
+      ? { before_seq: beforeSeq, limit: 30 }
+      : { limit: 25 };
+  const messages = await (fetchMessages as jest.Mock)(baseUrl, token, convId, messageOptions);
+  return makeRawTranscriptPage(convId, messages);
+}
+
+function displayItemSeq(item: ChatTranscriptDisplayItem | undefined): number | undefined {
+  return item?.kind === 'message' ? item.message.seq : undefined;
 }
 
 beforeEach(() => {
@@ -161,6 +220,12 @@ beforeEach(() => {
   });
   useInboxStore.setState({ items: [] });
   (fetchMessages as jest.Mock).mockResolvedValue(historyMessages);
+  (fetchTranscriptTurns as jest.Mock).mockImplementation(fetchMessagesBackedTranscript);
+  (fetchTurnHiddenMessages as jest.Mock).mockResolvedValue({
+    conversation_id: 'conv-1',
+    turn_id: 'turn-1',
+    messages: [],
+  });
   (fetchAgent as jest.Mock).mockResolvedValue({
     id: 'agent-1',
     name: 'Agent',
@@ -217,91 +282,152 @@ test('renders fetched historical agent text without typewriter replay', async ()
   expect(queryByText('historical response [typewriter]')).toBeNull();
 }, 15000);
 
-/// Initial history request: opening ChatDetail should fetch only the latest
-/// page using the configured initial message limit.
+test('lazy-loads worked row hidden messages only after expansion', async () => {
+  const user: WsMessage = {
+    type: 'message',
+    seq: 10,
+    role: 'user_text',
+    payload: { text: 'ship it' },
+    created_at: 10,
+  };
+  const finalAgent: WsMessage = {
+    type: 'message',
+    seq: 14,
+    role: 'agent_text',
+    payload: { text: 'done' },
+    created_at: 14,
+  };
+  const hiddenAgent: WsMessage = {
+    type: 'message',
+    seq: 11,
+    role: 'agent_text',
+    payload: { text: 'thinking privately' },
+    created_at: 11,
+  };
+  (fetchTranscriptTurns as jest.Mock).mockResolvedValue({
+    conversation_id: 'conv-1',
+    status: 'completed',
+    items: [
+      {
+        kind: 'turn_summary',
+        turn_id: 'turn-10',
+        start_seq: 10,
+        end_seq: 14,
+        user,
+        worked: {
+          id: 'worked-turn-10',
+          label: 'Worked for 4s',
+          duration_ms: 4_000,
+          hidden_count: 1,
+          first_hidden_seq: 11,
+          last_hidden_seq: 11,
+        },
+        asks: [],
+        final_agent: finalAgent,
+      },
+    ],
+    page_info: { oldest_turn_id: 'turn-10', has_older: false },
+  });
+  (fetchTurnHiddenMessages as jest.Mock).mockResolvedValue({
+    conversation_id: 'conv-1',
+    turn_id: 'turn-10',
+    messages: [hiddenAgent],
+  });
+
+  const { getByTestId, getByText, queryByText } = render(<ChatDetailScreen />);
+
+  await waitFor(() => expect(getByText('Worked for 4s')).toBeTruthy());
+  expect(queryByText('thinking privately')).toBeNull();
+  expect(fetchTurnHiddenMessages).not.toHaveBeenCalled();
+
+  fireEvent.press(getByTestId('worked-row'));
+
+  await waitFor(() => expect(getByText('thinking privately')).toBeTruthy());
+  expect(fetchTurnHiddenMessages).toHaveBeenCalledWith(
+    'http://localhost:8080',
+    'token',
+    'conv-1',
+    'turn-10',
+  );
+});
+
+/// Initial history request: opening ChatDetail should fetch the latest server
+/// transcript page using the configured initial turn limit.
 ///
 /// Data construction:
 ///   route conv_id = "conv-1"
 ///   endpoint      = http://localhost:8080 with token "token"
-///   initial limit = 25 messages
+///   initial limit = 20 turns
 ///
 /// Execution process:
 ///   1. Render ChatDetailScreen for conv-1.
 ///   2. Wait for the mocked historical response to render.
-///   3. Inspect fetchMessages calls.
+///   3. Inspect fetchTranscriptTurns calls.
 ///
 /// Expected result:
-///   - Positive: fetchMessages requests conv-1 with limit 25.
-///   - Negative: fetchMessages is not called without an explicit latest limit.
-test('loads the initial chat history with the latest 25 message limit', async () => {
+///   - Positive: fetchTranscriptTurns requests conv-1 with limit 20.
+///   - Negative: no beforeTurn cursor is sent on initial latest-page load.
+test('loads the initial chat history with the latest 20-turn limit', async () => {
   const { getByText } = render(<ChatDetailScreen />);
 
   await waitFor(() => expect(getByText('historical response')).toBeTruthy());
 
   expect({
-    actual: (fetchMessages as jest.Mock).mock.calls.some(
+    actual: (fetchTranscriptTurns as jest.Mock).mock.calls.some(
       ([baseUrl, token, convId, options]) =>
         baseUrl === 'http://localhost:8080' &&
         token === 'token' &&
         convId === 'conv-1' &&
-        options?.limit === 25,
+        options?.limit === 20,
     ),
-    reason: 'initial history request should use the new 25-message latest page limit',
+    reason: 'initial history request should use the 20-turn transcript page limit',
   }).toEqual({ actual: true, reason: expect.any(String) });
   expect({
-    actual: (fetchMessages as jest.Mock).mock.calls.some(
-      ([baseUrl, token, convId, options]) =>
-        baseUrl === 'http://localhost:8080' &&
-        token === 'token' &&
-        convId === 'conv-1' &&
-        options === undefined,
+    actual: (fetchTranscriptTurns as jest.Mock).mock.calls.some(
+      ([, , convId, options]) => convId === 'conv-1' && options?.beforeTurn != null,
     ),
-    reason: 'initial history request must not omit the explicit latest page limit',
+    reason: 'initial latest page must not include an older-turn cursor',
   }).toEqual({ actual: false, reason: expect.any(String) });
 });
 
-/// Cached transcript windowing: reopening a conversation with a large store cache
-/// must render only the newest visible window before the REST latest page returns.
+/// Server transcript authority: reopening a conversation with a large raw-message
+/// cache must wait for the transcript-turns response instead of deriving history
+/// rows from the local raw cache.
 ///
 /// Data construction:
 ///   cached store rows = seq 1..200, total 200 messages
-///   initial window    = latest 25 rows = 200 - 25 + 1 = seq 176..200
-///   REST request      = unresolved, so the assertion inspects the pre-REST first render
+///   transcript request = unresolved, so the assertion inspects the pre-response render
 ///
 /// Execution process:
 ///   1. Seed chatStore with 200 cached rows for conv-1.
-///   2. Render ChatDetailScreen while the initial latest-page request stays pending.
-///   3. Inspect the FlatList data used for the first visible transcript render.
+///   2. Render ChatDetailScreen while the initial transcript request stays pending.
+///   3. Inspect the FlatList data used for the first render.
 ///
 /// Expected result:
-///   - Positive: FlatList data length is exactly 25.
-///   - Positive: first visible seq is 176 and newest seq 200 is present.
-///   - Negative: seq 1 is not present, so old cache is not rendered on open.
-test('renders only the latest visible window from cached store history on open', () => {
+///   - Positive: FlatList data length is 0 until transcript-turns resolves.
+///   - Positive: transcript-turns is requested for the latest turn page.
+///   - Negative: cached seq 176..200 are not treated as authoritative display rows.
+test('does not derive the initial transcript from cached raw store history', () => {
   useChatStore.setState((state) => ({
     ...state,
     messages: { 'conv-1': makeNumberedMessages(1, 200) },
   }));
-  (fetchMessages as jest.Mock).mockImplementation(() => new Promise(() => {}));
+  (fetchTranscriptTurns as jest.Mock).mockImplementation(() => new Promise(() => {}));
 
   const { UNSAFE_getByType } = render(<ChatDetailScreen />);
   const data = UNSAFE_getByType(FlatList).props.data as ChatTranscriptDisplayItem[];
 
   expect({
     actual: data.length,
-    reason: 'cached long histories should expose only the latest 25 rows on initial open',
-  }).toEqual({ actual: 25, reason: expect.any(String) });
+    reason: 'raw cache must not render before the server transcript page arrives',
+  }).toEqual({ actual: 0, reason: expect.any(String) });
   expect({
-    actual: displayMessageSeq(data[0]),
-    reason: 'latest 25 from seq 1..200 should start at seq 176',
-  }).toEqual({ actual: 176, reason: expect.any(String) });
+    actual: (fetchTranscriptTurns as jest.Mock).mock.calls[0]?.[3],
+    reason: 'initial history should request the latest transcript turn page',
+  }).toEqual({ actual: { limit: 20, aroundAskId: undefined }, reason: expect.any(String) });
   expect({
-    actual: data.some((item) => displayMessageSeq(item) === 200),
-    reason: 'initial window must still include the newest cached message',
-  }).toEqual({ actual: true, reason: expect.any(String) });
-  expect({
-    actual: data.some((item) => displayMessageSeq(item) === 1),
-    reason: 'initial window must not render the oldest cached message before user scrolls up',
+    actual: data.some((item) => displayItemSeq(item) === 176 || displayItemSeq(item) === 200),
+    reason: 'cached raw message rows must not become display rows before server metadata',
   }).toEqual({ actual: false, reason: expect.any(String) });
 });
 
@@ -310,11 +436,11 @@ test('renders only the latest visible window from cached store history on open',
 ///
 /// Data construction:
 ///   initial latest page = seq 11 only
-///   older page cursor   = before_seq 11
+///   older page cursor     = before_seq 11
 ///   top threshold       = y 0 < 80, but no user drag has begun
 ///
 /// Execution process:
-///   1. Render ChatDetailScreen and wait for seq 11 latest page.
+///   1. Render ChatDetailScreen and wait for seq 11.
 ///   2. Fire FlatList onScroll at y=0 without onScrollBeginDrag.
 ///   3. Inspect fetchMessages calls for older pagination.
 ///
@@ -350,6 +476,7 @@ test('does not load older history from initial top scroll before user drag', asy
 
   await waitFor(() => expect(getByText('latest prompt')).toBeTruthy());
   await act(async () => {
+    UNSAFE_getByType(FlatList).props.onScrollBeginDrag?.({ nativeEvent: {} });
     UNSAFE_getByType(FlatList).props.onScroll({
       nativeEvent: {
         contentOffset: { y: 0 },
@@ -366,6 +493,186 @@ test('does not load older history from initial top scroll before user drag', asy
     actual: beforeSeqCalls.length,
     reason: 'layout/programmatic top scroll must not request older history before user drag',
   }).toEqual({ actual: 0, reason: expect.any(String) });
+});
+
+/// Initial scroll position: opening a normal Chat Detail route should land at
+/// the last AI message even if FlatList emits a top-position layout scroll
+/// before the first content-size callback.
+///
+/// Data construction:
+///   route focus_ask_id = undefined
+///   initial page       = default historical prompt + response (agent_text at index 1)
+///   layout scroll      = y 0, content much taller than viewport
+///
+/// Execution process:
+///   1. Render ChatDetailScreen without a focus target.
+///   2. Wait for the initial transcript page to render.
+///   3. Clear any setup scroll calls and emit a top-position onScroll.
+///   4. Emit onContentSizeChange for the laid-out transcript.
+///
+/// Expected result:
+///   - Positive: scrollToIndex runs once targeting the last AI message (index 1, animated=false).
+///   - Negative: the synthetic top scroll must not make Chat Detail think the user is reading history.
+test('scrolls to last AI message after initial transcript layout despite an initial top scroll event', async () => {
+  const flatListPrototype = FlatList.prototype as unknown as {
+    scrollToIndex: (params: { index: number; animated?: boolean; viewPosition?: number }) => void;
+    scrollToEnd: (params?: { animated?: boolean }) => void;
+  };
+  const scrollToIndexSpy = jest.spyOn(flatListPrototype, 'scrollToIndex').mockImplementation();
+  const scrollToEndSpy = jest.spyOn(flatListPrototype, 'scrollToEnd').mockImplementation();
+  try {
+    const { UNSAFE_getByType, getByText } = render(<ChatDetailScreen />);
+
+    await waitFor(() => expect(getByText('historical response')).toBeTruthy());
+    scrollToIndexSpy.mockClear();
+    scrollToEndSpy.mockClear();
+
+    act(() => {
+      UNSAFE_getByType(FlatList).props.onScroll({
+        nativeEvent: {
+          contentOffset: { y: 0 },
+          layoutMeasurement: { height: 400 },
+          contentSize: { height: 1600 },
+        },
+      });
+      UNSAFE_getByType(FlatList).props.onContentSizeChange(320, 1600);
+    });
+
+    expect({
+      actual: scrollToIndexSpy.mock.calls,
+      reason: 'initial placement should scroll to the last AI message, not just the list end',
+    }).toEqual({
+      actual: [[{ index: 1, animated: false, viewPosition: 0 }]],
+      reason: expect.any(String),
+    });
+  } finally {
+    scrollToIndexSpy.mockRestore();
+    scrollToEndSpy.mockRestore();
+  }
+});
+
+/// Activity reopen: deferred transcript-turns resolution must still land at the
+/// last AI message even when FlatList never emits onContentSizeChange after data arrives.
+///
+/// Data construction:
+///   route focus_ask_id = undefined (running/done Activity rows)
+///   transcript request = unresolved until after first render
+///
+/// Execution process:
+///   1. Render ChatDetailScreen with a pending transcript fetch.
+///   2. Resolve the fetch with the default historical prompt + response.
+///   3. Advance timers for the initial bottom-placement retries.
+///
+/// Expected result:
+///   - Positive: scrollToIndex runs with animated=false targeting the last AI message after transcript data commits.
+///   - Negative: no manual onContentSizeChange callback is required.
+test('scrolls to last AI message when async transcript data arrives without content-size callback', async () => {
+  const flatListPrototype = FlatList.prototype as unknown as {
+    scrollToIndex: (params: { index: number; animated?: boolean; viewPosition?: number }) => void;
+    scrollToEnd: (params?: { animated?: boolean }) => void;
+  };
+  const scrollToIndexSpy = jest.spyOn(flatListPrototype, 'scrollToIndex').mockImplementation();
+  const scrollToEndSpy = jest.spyOn(flatListPrototype, 'scrollToEnd').mockImplementation();
+  let resolveTranscript: ((page: TranscriptPage) => void) | undefined;
+  (fetchTranscriptTurns as jest.Mock).mockImplementation(
+    () =>
+      new Promise<TranscriptPage>((resolve) => {
+        resolveTranscript = resolve;
+      }),
+  );
+
+  jest.useFakeTimers();
+  try {
+    const { getByText } = render(<ChatDetailScreen />);
+    expect(scrollToIndexSpy).not.toHaveBeenCalled();
+
+    await act(async () => {
+      resolveTranscript?.(makeRawTranscriptPage('conv-1', historyMessages));
+      await Promise.resolve();
+    });
+    await waitFor(() => expect(getByText('historical response')).toBeTruthy());
+
+    act(() => {
+      jest.runOnlyPendingTimers();
+    });
+
+    expect({
+      actual: scrollToIndexSpy.mock.calls.some(([args]) => args?.animated === false),
+      reason:
+        'async transcript commit should schedule scroll to last AI message without onContentSizeChange',
+    }).toEqual({ actual: true, reason: expect.any(String) });
+  } finally {
+    scrollToIndexSpy.mockRestore();
+    scrollToEndSpy.mockRestore();
+    jest.useRealTimers();
+  }
+});
+
+/// Content resize while reading: away-from-bottom anchor restore is only for
+/// older-message prepend, not for ordinary row height changes such as
+/// typewriter text growth, markdown image load, or waiting footer changes.
+///
+/// Data construction:
+///   initial page = default historical prompt + response
+///   first visible item = existing row at index 0
+///   no older rows are prepended, so that row's index remains 0
+///
+/// Execution process:
+///   1. Render ChatDetailScreen and let initial bottom placement finish.
+///   2. Mark a user drag and emit an away-from-bottom scroll.
+///   3. Record the first visible item through onViewableItemsChanged.
+///   4. Emit onContentSizeChange without changing FlatList data order.
+///
+/// Expected result:
+///   - Positive: no manual scrollToIndex runs for ordinary content resize.
+///   - Negative: content-size handling still must not jump to bottom while away from bottom.
+test('does not restore an anchor for ordinary content resize while away from bottom', async () => {
+  const flatListPrototype = FlatList.prototype as unknown as {
+    scrollToIndex: (params: { index: number; animated?: boolean; viewPosition?: number }) => void;
+    scrollToEnd: (params?: { animated?: boolean }) => void;
+  };
+  const scrollToIndexSpy = jest.spyOn(flatListPrototype, 'scrollToIndex').mockImplementation();
+  const scrollToEndSpy = jest.spyOn(flatListPrototype, 'scrollToEnd').mockImplementation();
+  try {
+    const { UNSAFE_getByType, getByText } = render(<ChatDetailScreen />);
+
+    await waitFor(() => expect(getByText('historical response')).toBeTruthy());
+
+    act(() => {
+      UNSAFE_getByType(FlatList).props.onContentSizeChange(320, 1600);
+    });
+    scrollToIndexSpy.mockClear();
+    scrollToEndSpy.mockClear();
+
+    act(() => {
+      const list = UNSAFE_getByType(FlatList);
+      list.props.onScrollBeginDrag?.({ nativeEvent: {} });
+      list.props.onScroll({
+        nativeEvent: {
+          contentOffset: { y: 200 },
+          layoutMeasurement: { height: 400 },
+          contentSize: { height: 1600 },
+        },
+      });
+      list.props.onViewableItemsChanged?.({
+        viewableItems: [{ item: list.props.data[0], index: 0, isViewable: true }],
+        changed: [],
+      });
+      list.props.onContentSizeChange(320, 1680);
+    });
+
+    expect({
+      actual: scrollToIndexSpy.mock.calls.length,
+      reason: 'ordinary content resize must not restore a stable-index visible row',
+    }).toEqual({ actual: 0, reason: expect.any(String) });
+    expect({
+      actual: scrollToEndSpy.mock.calls.length,
+      reason: 'away-from-bottom ordinary resize must not jump to the newest row',
+    }).toEqual({ actual: 0, reason: expect.any(String) });
+  } finally {
+    scrollToIndexSpy.mockRestore();
+    scrollToEndSpy.mockRestore();
+  }
 });
 
 /// Initial history race: a live WebSocket message appended while the limited
@@ -544,6 +851,244 @@ test('loads older messages before the first loaded seq when scrolled near the to
     ),
     reason: 'older history request must not use the previous 50-message limit',
   }).toEqual({ actual: false, reason: expect.any(String) });
+});
+
+/// Older prepend anchor restore: when the user is reading history away from the
+/// bottom, a content-size change from older pagination must keep the first
+/// visible display item anchored instead of jumping to the newest message.
+///
+/// Data construction:
+///   latest page = seq 11, 12, 13
+///   anchor visible item = seq 12, expected display key "message-12"
+///   older page before_seq 11 returns seq 10
+///   after prepend, visible display order = 10, 11, 12, 13, so anchor index = 2
+///
+/// Execution process:
+///   1. Render ChatDetailScreen and wait for latest seq 11..13.
+///   2. Mark a user drag and emit a scroll where distanceFromBottom is large.
+///   3. Record seq 12 through FlatList.onViewableItemsChanged.
+///   4. Let older seq 10 prepend, then trigger FlatList.onContentSizeChange.
+///
+/// Expected result:
+///   - Positive: scrollToIndex restores the anchored display row at index 2.
+///   - Negative: content-size handling does not call scrollToEnd while away from bottom.
+test('restores the first visible display item after older prepend while away from bottom', async () => {
+  const flatListPrototype = FlatList.prototype as unknown as {
+    scrollToIndex: (params: { index: number; animated?: boolean; viewPosition?: number }) => void;
+    scrollToEnd: (params?: { animated?: boolean }) => void;
+  };
+  const scrollToIndexSpy = jest.spyOn(flatListPrototype, 'scrollToIndex').mockImplementation();
+  const scrollToEndSpy = jest.spyOn(flatListPrototype, 'scrollToEnd').mockImplementation();
+  try {
+    (fetchMessages as jest.Mock).mockImplementation(
+      (_baseUrl: string, _token: string, _convId: string, options?: { before_seq?: number }) => {
+        if (options?.before_seq === 11) {
+          return Promise.resolve([
+            {
+              type: 'message',
+              seq: 10,
+              role: 'agent_text',
+              payload: { text: 'older anchor response' },
+              created_at: 10,
+            },
+          ]);
+        }
+        return Promise.resolve([
+          {
+            type: 'message',
+            seq: 11,
+            role: 'user_text',
+            payload: { text: 'latest anchor prompt' },
+            created_at: 11,
+          },
+          {
+            type: 'message',
+            seq: 12,
+            role: 'agent_text',
+            payload: { text: 'visible anchor row' },
+            created_at: 12,
+          },
+          {
+            type: 'message',
+            seq: 13,
+            role: 'agent_text',
+            payload: { text: 'below anchor row' },
+            created_at: 13,
+          },
+        ]);
+      },
+    );
+    const { UNSAFE_getByType, getByText } = render(<ChatDetailScreen />);
+
+    await waitFor(() => expect(getByText('visible anchor row')).toBeTruthy());
+    scrollToIndexSpy.mockClear();
+    scrollToEndSpy.mockClear();
+
+    await act(async () => {
+      const list = UNSAFE_getByType(FlatList);
+      list.props.onScrollBeginDrag?.({ nativeEvent: {} });
+      list.props.onScroll({
+        nativeEvent: {
+          contentOffset: { y: 200 },
+          layoutMeasurement: { height: 400 },
+          contentSize: { height: 1600 },
+        },
+      });
+      list.props.onViewableItemsChanged?.({
+        viewableItems: [{ item: list.props.data[1], index: 1, isViewable: true }],
+        changed: [],
+      });
+    });
+
+    await waitFor(() => expect(getByText('older anchor response')).toBeTruthy());
+    act(() => {
+      UNSAFE_getByType(FlatList).props.onContentSizeChange(320, 1800);
+    });
+
+    expect({
+      actual: scrollToIndexSpy.mock.calls.some(
+        ([args]) => args.index === 2 && args.animated === false && args.viewPosition === 0,
+      ),
+      reason: 'older prepend should restore the recorded first visible display item at index 2',
+    }).toEqual({ actual: true, reason: expect.any(String) });
+    expect({
+      actual: scrollToEndSpy.mock.calls.length,
+      reason: 'away-from-bottom older prepend must not jump to the newest transcript row',
+    }).toEqual({ actual: 0, reason: expect.any(String) });
+  } finally {
+    scrollToIndexSpy.mockRestore();
+    scrollToEndSpy.mockRestore();
+  }
+});
+
+/// Focus ask plus older prepend anchor restore: a deep-linked ask must not block
+/// away-from-bottom anchor restoration after older history is prepended.
+///
+/// Data construction:
+///   route focus_ask_id = "ask-anchor"
+///   latest page = seq 11 user, seq 12 ask-anchor, seq 13 agent
+///   anchor visible item = seq 13, expected display key "message-13"
+///   older page before_seq 11 returns seq 10
+///   after prepend, visible display order = 10, 11, 12, 13, so anchor index = 3
+///
+/// Execution process:
+///   1. Render ChatDetailScreen with focus_ask_id and wait for the ask row.
+///   2. Let the initial focus scroll complete, then clear scroll spies.
+///   3. Mark a user drag and emit a scroll where distanceFromBottom is large.
+///   4. Record seq 13 through FlatList.onViewableItemsChanged.
+///   5. Let older seq 10 prepend, then trigger FlatList.onContentSizeChange.
+///
+/// Expected result:
+///   - Positive: scrollToIndex restores the anchored display row at index 3.
+///   - Negative: focus_ask_id does not suppress away-from-bottom anchor restoration.
+///   - Negative: content-size handling does not call scrollToEnd while away from bottom.
+test('restores older prepend anchor while focus ask is already visible', async () => {
+  mockSearchParams = {
+    id: 'conv-1',
+    endpoint_id: 'endpoint-1',
+    focus_ask_id: 'ask-anchor',
+  };
+  const flatListPrototype = FlatList.prototype as unknown as {
+    scrollToIndex: (params: { index: number; animated?: boolean; viewPosition?: number }) => void;
+    scrollToEnd: (params?: { animated?: boolean }) => void;
+  };
+  const scrollToIndexSpy = jest.spyOn(flatListPrototype, 'scrollToIndex').mockImplementation();
+  const scrollToEndSpy = jest.spyOn(flatListPrototype, 'scrollToEnd').mockImplementation();
+  try {
+    const askMessage = (seq: number): WsMessage => ({
+      type: 'message',
+      seq,
+      role: 'ask_question',
+      payload: {
+        ask_id: 'ask-anchor',
+        allow_freeform: false,
+        questions: [{ id: '0', text: 'Deploy now?', options: [{ id: 'yes', label: 'Yes' }] }],
+      },
+      created_at: seq,
+    });
+    (fetchMessages as jest.Mock).mockImplementation(
+      (_baseUrl: string, _token: string, _convId: string, options?: { before_seq?: number }) => {
+        if (options?.before_seq === 11) {
+          return Promise.resolve([
+            {
+              type: 'message',
+              seq: 10,
+              role: 'agent_text',
+              payload: { text: 'older focused anchor response' },
+              created_at: 10,
+            },
+          ]);
+        }
+        return Promise.resolve([
+          {
+            type: 'message',
+            seq: 11,
+            role: 'user_text',
+            payload: { text: 'focused anchor prompt' },
+            created_at: 11,
+          },
+          askMessage(12),
+          {
+            type: 'message',
+            seq: 13,
+            role: 'agent_text',
+            payload: { text: 'focused visible anchor row' },
+            created_at: 13,
+          },
+        ]);
+      },
+    );
+
+    const { UNSAFE_getByType, getByTestId, getByText, rerender } = render(<ChatDetailScreen />);
+
+    await waitFor(() => expect(getByTestId('chat-ask-ask-anchor')).toBeTruthy());
+    await waitFor(() =>
+      expect({
+        actual: scrollToIndexSpy.mock.calls.some(
+          ([args]) => args.index === 2 && args.animated === true,
+        ),
+        reason: 'initial focus_ask_id should scroll to the visible ask row at index 2',
+      }).toEqual({ actual: true, reason: expect.any(String) }),
+    );
+    scrollToIndexSpy.mockClear();
+    scrollToEndSpy.mockClear();
+
+    await act(async () => {
+      const list = UNSAFE_getByType(FlatList);
+      list.props.onScrollBeginDrag?.({ nativeEvent: {} });
+      list.props.onScroll({
+        nativeEvent: {
+          contentOffset: { y: 200 },
+          layoutMeasurement: { height: 400 },
+          contentSize: { height: 1600 },
+        },
+      });
+      list.props.onViewableItemsChanged?.({
+        viewableItems: [{ item: list.props.data[2], index: 2, isViewable: true }],
+        changed: [],
+      });
+    });
+
+    await waitFor(() => expect(getByText('older focused anchor response')).toBeTruthy());
+    act(() => {
+      UNSAFE_getByType(FlatList).props.onContentSizeChange(320, 1800);
+    });
+
+    expect({
+      actual: scrollToIndexSpy.mock.calls.some(
+        ([args]) => args.index === 3 && args.animated === false && args.viewPosition === 0,
+      ),
+      reason:
+        'focus_ask_id must not block restoring the recorded visible display item after older prepend',
+    }).toEqual({ actual: true, reason: expect.any(String) });
+    expect({
+      actual: scrollToEndSpy.mock.calls.length,
+      reason: 'away-from-bottom focused older prepend must not jump to the newest row',
+    }).toEqual({ actual: 0, reason: expect.any(String) });
+  } finally {
+    scrollToIndexSpy.mockRestore();
+    scrollToEndSpy.mockRestore();
+  }
 });
 
 /// Top-load threshold: user upward scroll should start older pagination before
@@ -745,6 +1290,9 @@ test('retries the same older page after a transient fetch failure', async () => 
       },
     });
   });
+  await waitFor(() => expect(olderAttempts).toBe(1));
+
+  mockSearchParams = { id: 'conv-1', endpoint_id: 'endpoint-1', agent_name: 'Renamed Agent' };
   await act(async () => {
     UNSAFE_getByType(FlatList).props.onScroll({
       nativeEvent: {
@@ -756,10 +1304,9 @@ test('retries the same older page after a transient fetch failure', async () => 
   });
 
   await waitFor(() => expect(getByText('retried older response')).toBeTruthy());
-  const retryCalls = (fetchMessages as jest.Mock).mock.calls.filter(
-    ([, , , options]) => options?.before_seq === 11,
-  );
-  expect(retryCalls).toHaveLength(2);
+  expect(
+    (fetchMessages as jest.Mock).mock.calls.filter(([, , , options]) => options?.before_seq === 11),
+  ).toHaveLength(2);
 });
 
 /// Older loading UI: a network older-page request should show the top loading
@@ -933,89 +1480,76 @@ test('clears the older loading indicator after pagination failure and still retr
   }).toEqual({ actual: 2, reason: expect.any(String) });
 });
 
-/// Cached older loading: expanding a cached older window should still expose a
-/// short loading indicator for consistent user feedback.
+/// Cached raw history no longer drives older pagination. Older loading should
+/// start only after the server transcript page has established an oldest turn.
 ///
 /// Data construction:
 ///   cached store rows = seq 1..60
-///   visible initial window after constants = seq 36..60
-///   cached older window with limit 30 expands visibleMinSeq to seq 6
+///   transcript request = unresolved, so no oldest_turn_id is available
 ///
 /// Execution process:
-///   1. Seed chatStore with 60 cached rows and keep REST latest-page pending.
+///   1. Seed chatStore with 60 cached rows and keep transcript-turns pending.
 ///   2. Trigger user top-scroll.
-///   3. Verify loading indicator appears, then cached seq 6 becomes visible.
+///   3. Verify cached rows are not expanded and no older request starts.
 ///
 /// Expected result:
-///   - Positive: cached path renders the loading indicator at least once.
-///   - Positive: cached older seq 6 becomes visible without a network before_seq call.
-///   - Negative: cached path does not call fetchMessages with before_seq.
-///   - Negative: cached loading indicator disappears after the scheduled RAF.
-test('shows older loading feedback while expanding a cached older window', async () => {
+///   - Positive: no older loading indicator is rendered.
+///   - Negative: cached seq 6 is not visible.
+///   - Negative: no beforeTurn request is made without server metadata.
+test('does not expand cached raw rows as older transcript history', async () => {
   useChatStore.setState((state) => ({
     ...state,
     messages: { 'conv-1': makeNumberedMessages(1, 60) },
   }));
-  (fetchMessages as jest.Mock).mockImplementation(() => new Promise(() => {}));
-  const { UNSAFE_getByType, getByTestId, getByText, queryByTestId } = render(<ChatDetailScreen />);
+  (fetchTranscriptTurns as jest.Mock).mockImplementation(() => new Promise(() => {}));
+  const { UNSAFE_getByType, queryByTestId, queryByText } = render(<ChatDetailScreen />);
 
-  jest.useFakeTimers();
-  try {
-    await act(async () => {
-      UNSAFE_getByType(FlatList).props.onScrollBeginDrag?.({ nativeEvent: {} });
-      UNSAFE_getByType(FlatList).props.onScroll({
-        nativeEvent: {
-          contentOffset: { y: 0 },
-          layoutMeasurement: { height: 400 },
-          contentSize: { height: 1400 },
-        },
-      });
+  await act(async () => {
+    UNSAFE_getByType(FlatList).props.onScrollBeginDrag?.({ nativeEvent: {} });
+    UNSAFE_getByType(FlatList).props.onScroll({
+      nativeEvent: {
+        contentOffset: { y: 0 },
+        layoutMeasurement: { height: 400 },
+        contentSize: { height: 1400 },
+      },
     });
+  });
 
-    expect({
-      actual: getByTestId('older-messages-loading') != null,
-      reason: 'cached older expansion should briefly show the same loading feedback',
-    }).toEqual({ actual: true, reason: expect.any(String) });
-    expect(getByText('cached message 6')).toBeTruthy();
-    await act(async () => {
-      jest.runOnlyPendingTimers();
-    });
-    expect({
-      actual: queryByTestId('older-messages-loading'),
-      reason: 'cached older loading should clear after its scheduled animation frame',
-    }).toEqual({ actual: null, reason: expect.any(String) });
-  } finally {
-    jest.useRealTimers();
-  }
   expect({
-    actual: (fetchMessages as jest.Mock).mock.calls.some(
-      ([, , , options]) => options?.before_seq != null,
+    actual: queryByTestId('older-messages-loading'),
+    reason: 'cached raw rows must not start the older transcript loader',
+  }).toEqual({ actual: null, reason: expect.any(String) });
+  expect({
+    actual: queryByText('cached message 6'),
+    reason: 'cached raw rows must not become transcript rows before server metadata',
+  }).toEqual({ actual: null, reason: expect.any(String) });
+  expect({
+    actual: (fetchTranscriptTurns as jest.Mock).mock.calls.some(
+      ([, , , options]) => options?.beforeTurn != null,
     ),
-    reason: 'cached older expansion should not add a network request',
+    reason: 'older transcript requests require an oldest_turn_id from the server',
   }).toEqual({ actual: false, reason: expect.any(String) });
 });
 
-/// Cached older loading lifecycle: a cached-path RAF from a previous route must
-/// not clear a newer network loader after the route resets.
+/// Older loading lifecycle: a stale transcript request from a previous route
+/// must not block a newer route from starting its own older turn request.
 ///
 /// Data construction:
-///   conv-1 cached store rows = seq 1..60
-///   conv-1 cached expansion schedules an older-loading RAF finish
+///   conv-1 cached store rows = seq 1..60, transcript request remains pending
 ///   route then changes to conv-2 before that RAF fires
 ///   conv-2 latest page first seq = 11
-///   conv-2 older request before_seq = 11 remains pending
+///   conv-2 older request before_turn = turn-11 remains pending
 ///
 /// Execution process:
-///   1. Trigger conv-1 cached older loading and leave its RAF pending.
+///   1. Trigger conv-1 top scroll while its transcript request is pending.
 ///   2. Rerender the route as conv-2 and wait for its latest page.
 ///   3. Start a conv-2 network older request.
-///   4. Run pending timers from the old cached RAF.
 ///
 /// Expected result:
 ///   - Positive: conv-2 network older request shows the loading indicator.
-///   - Positive: conv-2 before_seq 11 request is pending.
-///   - Negative: old conv-1 cached RAF must not hide conv-2's current loader.
-test('keeps a newer network older loader visible when an old cached RAF fires', async () => {
+///   - Positive: conv-2 before_turn turn-11 request is pending.
+///   - Negative: conv-1 cached raw history never starts an older request.
+test('starts a newer route older loader after a stale transcript route reset', async () => {
   useChatStore.setState((state) => ({
     ...state,
     conversations: [
@@ -1059,8 +1593,6 @@ test('keeps a newer network older loader visible when an old cached RAF fires', 
     <ChatDetailScreen />,
   );
 
-  jest.useFakeTimers();
-  const cancelAnimationFrameSpy = jest.spyOn(global, 'cancelAnimationFrame');
   try {
     await act(async () => {
       UNSAFE_getByType(FlatList).props.onScrollBeginDrag?.({ nativeEvent: {} });
@@ -1073,16 +1605,18 @@ test('keeps a newer network older loader visible when an old cached RAF fires', 
       });
     });
     expect({
-      actual: getByTestId('older-messages-loading') != null,
-      reason: 'conv-1 cached expansion should start older loading before route reset',
-    }).toEqual({ actual: true, reason: expect.any(String) });
+      actual: queryByTestId('older-messages-loading'),
+      reason: 'conv-1 cached raw history must not start older loading before transcript metadata',
+    }).toEqual({ actual: null, reason: expect.any(String) });
+    expect({
+      actual: (fetchTranscriptTurns as jest.Mock).mock.calls.some(
+        ([, , convId, options]) => convId === 'conv-1' && options?.beforeTurn != null,
+      ),
+      reason: 'conv-1 should not request older turns without an oldest_turn_id',
+    }).toEqual({ actual: false, reason: expect.any(String) });
 
     mockSearchParams = { id: 'conv-2', endpoint_id: 'endpoint-1' };
     rerender(<ChatDetailScreen />);
-    expect({
-      actual: cancelAnimationFrameSpy.mock.calls.length,
-      reason: 'route reset must cancel the pending cached older RAF before a new load starts',
-    }).toEqual({ actual: 1, reason: expect.any(String) });
     await waitFor(() => expect(getByText('conv two latest prompt')).toBeTruthy());
     await act(async () => {
       UNSAFE_getByType(FlatList).props.onScrollBeginDrag?.({ nativeEvent: {} });
@@ -1103,21 +1637,17 @@ test('keeps a newer network older loader visible when an old cached RAF fires', 
       actual: getByTestId('older-messages-loading') != null,
       reason: 'conv-2 network request should show the current older loading indicator',
     }).toEqual({ actual: true, reason: expect.any(String) });
-    await act(async () => {
-      jest.runOnlyPendingTimers();
-    });
     expect({
       actual: queryByTestId('older-messages-loading') != null,
-      reason: 'old conv-1 cached RAF must not clear the newer conv-2 network loader',
+      reason: 'stale conv-1 route must not clear the newer conv-2 network loader',
     }).toEqual({ actual: true, reason: expect.any(String) });
   } finally {
-    cancelAnimationFrameSpy.mockRestore();
     jest.useRealTimers();
   }
 });
 
-/// Older pagination stale completion: ignored older results must still release
-/// the loader so the current route generation can fetch older pages again.
+/// Older loading lifecycle: a stale transcript request from a previous route
+/// must not block a newer route from starting its own older turn request.
 ///
 /// Data construction:
 ///   Latest page first seq = 11.
@@ -1127,14 +1657,14 @@ test('keeps a newer network older loader visible when an old cached RAF fires', 
 ///   Later older request before_seq = 11 returns seq 10 for the current generation.
 ///
 /// Execution process:
-///   1. Render latest page, then trigger a top scroll to start older request #1.
-///   2. Change route agent_name and rerender to invalidate the older request generation.
-///   3. Resolve stale older request #1, then trigger top scroll again.
+///   1. Trigger conv-1 top scroll while its transcript request is pending.
+///   2. Rerender the route as conv-2 and wait for its latest page.
+///   3. Start a conv-2 network older request.
 ///
 /// Expected result:
-///   - Positive assertion: "fresh older after stale" renders after the second top scroll.
-///   - Positive assertion: before_seq 11 is requested twice.
-///   - Negative assertion: "stale older ignored" does not render.
+///   - Positive: "fresh older after stale" renders after the second top scroll.
+///   - Positive: before_seq 11 is requested twice.
+///   - Negative: "stale older ignored" does not render.
 test('allows older pagination after a stale older request completes', async () => {
   let olderAttempts = 0;
   let resolveStaleOlder: ((messages: WsMessage[]) => void) | undefined;
@@ -1475,13 +2005,13 @@ test('fetches an around_ask_id window when focus_ask_id is outside the latest pa
     },
   );
 
-  const { getByTestId, getByText } = render(<ChatDetailScreen />);
+  const { getByTestId, queryByText } = render(<ChatDetailScreen />);
 
-  await waitFor(() => expect(getByText('latest page only')).toBeTruthy());
   await waitFor(() => expect(getByTestId('chat-ask-ask-focus')).toBeTruthy());
-  expect(fetchMessages).toHaveBeenCalledWith('http://localhost:8080', 'token', 'conv-1', {
-    around_ask_id: 'ask-focus',
-    limit: 100,
+  expect(queryByText('latest page only')).toBeNull();
+  expect(fetchTranscriptTurns).toHaveBeenCalledWith('http://localhost:8080', 'token', 'conv-1', {
+    limit: 20,
+    aroundAskId: 'ask-focus',
   });
 });
 
@@ -1501,7 +2031,7 @@ test('fetches an around_ask_id window when focus_ask_id is outside the latest pa
 /// Expected result:
 ///   - Positive: focused ask wrapper exists, so the route id matched a Chat card.
 ///   - Positive: FlatList.scrollToIndex is called with index=0, proving focus scroll remains wired.
-///   - Negative: no around_ask_id fetch is needed because the target is already in the latest page.
+///   - Positive: the initial transcript request uses aroundAskId as the server focus cursor.
 test('scrolls to focus_ask_id after focused ask row lays out', async () => {
   mockSearchParams = {
     id: 'conv-1',
@@ -1550,11 +2080,11 @@ test('scrolls to focus_ask_id after focused ask row lays out', async () => {
       reason: 'focus_ask_id should scroll to the matching FlatList item index',
     }).toEqual({ actual: true, reason: expect.any(String) });
     expect({
-      actual: (fetchMessages as jest.Mock).mock.calls.some(
-        ([, , , options]) => options?.around_ask_id === 'ask-focus',
+      actual: (fetchTranscriptTurns as jest.Mock).mock.calls.some(
+        ([, , , options]) => options?.aroundAskId === 'ask-focus',
       ),
-      reason: 'focus_ask_id already in the latest page should not request a focus window',
-    }).toEqual({ actual: false, reason: expect.any(String) });
+      reason: 'focus_ask_id should be sent to the server transcript focus cursor',
+    }).toEqual({ actual: true, reason: expect.any(String) });
 
     act(() => {
       UNSAFE_getByType(FlatList).props.onContentSizeChange(320, 640);
@@ -1588,6 +2118,130 @@ test('scrolls to focus_ask_id after focused ask row lays out', async () => {
     scrollToEndSpy.mockRestore();
     scrollToOffsetSpy.mockRestore();
     jest.useRealTimers();
+  }
+});
+
+/// Route reuse scroll state: changing conversations without changing
+/// focus_ask_id must reset the scroll hook's focus and anchor refs.
+///
+/// Data construction:
+///   conv-1 focus_ask_id = "ask-shared", ask row index = 1
+///   conv-1 user scroll y = 200, content height = 1600, viewport = 400
+///     distanceFromBottom = 1600 - (200 + 400) = 1000 > sticky threshold, so not near bottom
+///   conv-1 first visible display item = seq 1, key "message-1"
+///   conv-2 focus_ask_id = "ask-shared", ask row index = 0
+///
+/// Execution process:
+///   1. Render conv-1 and wait for ask-shared to scroll at index 1.
+///   2. Record a non-bottom scroll plus a visible anchor in conv-1.
+///   3. Rerender the same route component as conv-2 with the same focus_ask_id.
+///   4. Wait for conv-2 ask-shared and inspect FlatList scroll calls.
+///
+/// Expected result:
+///   - Positive: conv-2 performs a fresh focus scroll to index 0.
+///   - Negative: conv-2 focus is not suppressed by conv-1's lastScrolledFocusAskIdRef.
+test('resets focus and anchor scroll state when route changes with the same focus ask id', async () => {
+  useChatStore.setState((state) => ({
+    ...state,
+    conversations: [
+      ...state.conversations,
+      {
+        id: 'conv-2',
+        agent_id: 'agent-1',
+        title: 'Second Chat',
+        created_at: 0,
+        last_message_at: 0,
+        status: 'idle',
+        endpoint_id: 'endpoint-1',
+        agent_name: 'Agent',
+      },
+    ],
+  }));
+  mockSearchParams = {
+    id: 'conv-1',
+    endpoint_id: 'endpoint-1',
+    focus_ask_id: 'ask-shared',
+  };
+  const flatListPrototype = FlatList.prototype as unknown as {
+    scrollToIndex: (params: { index: number; animated?: boolean; viewPosition?: number }) => void;
+  };
+  const scrollToIndexSpy = jest.spyOn(flatListPrototype, 'scrollToIndex').mockImplementation();
+  try {
+    const askMessage = (seq: number): WsMessage => ({
+      type: 'message',
+      seq,
+      role: 'ask_question',
+      payload: {
+        ask_id: 'ask-shared',
+        allow_freeform: false,
+        questions: [{ id: '0', text: 'Deploy now?', options: [{ id: 'yes', label: 'Yes' }] }],
+      },
+      created_at: seq,
+    });
+    (fetchMessages as jest.Mock).mockImplementation(
+      (_baseUrl: string, _token: string, convId: string) => {
+        if (convId === 'conv-2') return Promise.resolve([askMessage(20)]);
+        return Promise.resolve([
+          {
+            type: 'message',
+            seq: 1,
+            role: 'user_text',
+            payload: { text: 'conv one' },
+            created_at: 1,
+          },
+          askMessage(2),
+        ]);
+      },
+    );
+
+    const { UNSAFE_getByType, getByTestId, rerender } = render(<ChatDetailScreen />);
+
+    await waitFor(() => expect(getByTestId('chat-ask-ask-shared')).toBeTruthy());
+    await waitFor(() =>
+      expect({
+        actual: scrollToIndexSpy.mock.calls.some(
+          ([args]) => args.index === 1 && args.animated === true,
+        ),
+        reason: 'conv-1 should perform the initial focus scroll before route reuse',
+      }).toEqual({ actual: true, reason: expect.any(String) }),
+    );
+
+    await act(async () => {
+      const list = UNSAFE_getByType(FlatList);
+      list.props.onScrollBeginDrag?.({ nativeEvent: {} });
+      list.props.onScroll({
+        nativeEvent: {
+          contentOffset: { y: 200 },
+          layoutMeasurement: { height: 400 },
+          contentSize: { height: 1600 },
+        },
+      });
+      list.props.onViewableItemsChanged?.({
+        viewableItems: [{ item: list.props.data[0], index: 0, isViewable: true }],
+        changed: [],
+      });
+    });
+    scrollToIndexSpy.mockClear();
+
+    mockSearchParams = {
+      id: 'conv-2',
+      endpoint_id: 'endpoint-1',
+      focus_ask_id: 'ask-shared',
+    };
+    rerender(<ChatDetailScreen />);
+
+    await waitFor(() => expect(getByTestId('chat-ask-ask-shared')).toBeTruthy());
+    await waitFor(() =>
+      expect({
+        actual: scrollToIndexSpy.mock.calls.some(
+          ([args]) => args.index === 0 && args.animated === true,
+        ),
+        reason:
+          'conv-2 with the same focus_ask_id must scroll again after route-change state reset',
+      }).toEqual({ actual: true, reason: expect.any(String) }),
+    );
+  } finally {
+    scrollToIndexSpy.mockRestore();
   }
 });
 

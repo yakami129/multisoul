@@ -136,6 +136,39 @@ fn init_schema(conn: &Connection) -> Result<()> {
             updated_at    INTEGER NOT NULL
         );",
     );
+    apply_migration(
+        conn,
+        "20260606_spec_assets",
+        include_str!("../migrations/20260606_spec_assets.sql"),
+    )?;
+    Ok(())
+}
+
+fn apply_migration(conn: &Connection, key: &str, sql: &str) -> Result<()> {
+    conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS schema_migrations (
+            key        TEXT PRIMARY KEY,
+            applied_at INTEGER NOT NULL
+        );",
+    )?;
+    let already_applied = conn
+        .query_row(
+            "SELECT COUNT(*) FROM schema_migrations WHERE key = ?1",
+            [key],
+            |row| row.get::<_, i64>(0),
+        )
+        .unwrap_or(0)
+        > 0;
+    if already_applied {
+        return Ok(());
+    }
+
+    conn.execute_batch(sql)
+        .with_context(|| format!("Cannot apply DB migration {key}"))?;
+    conn.execute(
+        "INSERT INTO schema_migrations (key, applied_at) VALUES (?1, ?2)",
+        (key, now_ms()),
+    )?;
     Ok(())
 }
 

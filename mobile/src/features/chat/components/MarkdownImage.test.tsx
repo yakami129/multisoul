@@ -221,25 +221,66 @@ test('test_markdown_image_fullscreen_image_fills_modal', async () => {
   expect(style.height).not.toBe('80%', 'fullscreen preview should not be capped to 80% height');
 });
 
-/// test_markdown_image_fullscreen_uses_own_load_state_after_thumbnail_load: 全屏预览必须等待自己的加载完成
+/// test_markdown_image_fullscreen_waits_when_image_not_yet_available: 未确认图片可用时，全屏预览显示 loading
+///
+/// Data construction:
+///   src = 'https://example.com/not-yet-loaded.png'
+///   Image.prefetch = unavailable（模拟没有独立缓存信号）
+///   fullscreen load state = starts loading on open, then completes via fullscreen onLoadEnd
+///
+/// Execution:
+///   1. mock Image.prefetch → unavailable
+///   2. render MarkdownImage without firing thumbnail load events
+///   3. press thumbnail → Modal opens before any available-image signal
+///   4. fire fullscreen onLoadEnd → fullscreen loading hides
+///
+/// Expected:
+///   - positive: markdown-image-fullscreen-loading exists before fullscreen onLoadEnd，避免黑屏空白
+///   - negative: markdown-image-fullscreen-loading disappears after fullscreen onLoadEnd
+///   - negative: markdown-image-fullscreen-error is absent, because no fullscreen load failure occurred
+test('test_markdown_image_fullscreen_waits_when_image_not_yet_available', async () => {
+  Image.prefetch = undefined as unknown as typeof Image.prefetch;
+  const { getByTestId, queryByTestId } = render(
+    <MarkdownImage
+      src="https://example.com/not-yet-loaded.png"
+      alt="not yet loaded"
+      serverUrl={SERVER_URL}
+      token={TOKEN}
+    />,
+  );
+
+  await act(async () => {
+    fireEvent.press(getByTestId('markdown-image-thumb-press'));
+  });
+
+  expect(getByTestId('markdown-image-fullscreen')).toBeTruthy();
+  expect(getByTestId('markdown-image-fullscreen-loading')).toBeTruthy();
+  await act(async () => {
+    fireEvent(getByTestId('markdown-image-fullscreen'), 'onLoadEnd');
+  });
+  expect(queryByTestId('markdown-image-fullscreen-loading')).toBeNull();
+  expect(queryByTestId('markdown-image-fullscreen-error')).toBeNull();
+});
+
+/// test_markdown_image_fullscreen_uses_cached_load_state_after_thumbnail_load: 缩略图已加载时，全屏预览不应永久 loading
 ///
 /// Data construction:
 ///   src = 'https://example.com/photo.png' (same URI for thumbnail and fullscreen Image)
 ///   thumbnail load state = loaded via Image.onLoadEnd
-///   fullscreen load state = starts loading on open, then completes via fullscreen onLoadEnd
+///   fullscreen Image load events = may be skipped by iOS cache path
 ///
 /// Execution:
 ///   1. render MarkdownImage → thumbnail starts with loading overlay
-///   2. fire thumbnail onLoadEnd → thumbPrefetchLoadedRef=true and thumbLoading=false
+///   2. fire thumbnail onLoadEnd → imageAvailableRef=true and thumbLoading=false
 ///   3. press thumbnail → Modal opens with the same image URI
-///   4. fire fullscreen onLoadEnd → fullscreen loading hides
+///   4. fire a late fullscreen onLoadStart without onLoadEnd，模拟 iOS/cache 回调缺失
 ///
 /// Expected:
 ///   - positive: markdown-image-fullscreen exists, so the full-screen Image is mounted
-///   - positive: markdown-image-fullscreen-loading exists before fullscreen onLoadEnd，避免黑屏空白
-///   - negative: markdown-image-fullscreen-loading disappears after fullscreen onLoadEnd
+///   - negative: markdown-image-fullscreen-loading is absent after open，避免盖住已显示的缓存图片
+///   - negative: late fullscreen onLoadStart does not restore a stuck loading overlay
 ///   - negative: markdown-image-fullscreen-error is absent, because no fullscreen load failure occurred
-test('test_markdown_image_fullscreen_uses_own_load_state_after_thumbnail_load', async () => {
+test('test_markdown_image_fullscreen_uses_cached_load_state_after_thumbnail_load', async () => {
   const { getByTestId, queryByTestId } = render(
     <MarkdownImage
       src="https://example.com/photo.png"
@@ -257,32 +298,30 @@ test('test_markdown_image_fullscreen_uses_own_load_state_after_thumbnail_load', 
   });
 
   expect(getByTestId('markdown-image-fullscreen')).toBeTruthy();
-  expect(getByTestId('markdown-image-fullscreen-loading')).toBeTruthy();
+  expect(queryByTestId('markdown-image-fullscreen-loading')).toBeNull();
   await act(async () => {
-    fireEvent(getByTestId('markdown-image-fullscreen'), 'onLoadEnd');
+    fireEvent(getByTestId('markdown-image-fullscreen'), 'onLoadStart');
   });
   expect(queryByTestId('markdown-image-fullscreen-loading')).toBeNull();
   expect(queryByTestId('markdown-image-fullscreen-error')).toBeNull();
 });
 
-/// test_markdown_image_fullscreen_waits_for_its_own_load_after_prefetch: 全屏预览不能复用缩略图预取状态提前隐藏 loading
+/// test_markdown_image_fullscreen_hides_loading_after_prefetch_success: 全屏预览复用预取成功状态
 ///
 /// Data construction:
 ///   src = 'https://example.com/fullscreen-race.png'
 ///   Image.prefetch result = true（缩略图兜底加载已成功）
-///   fullscreen Image load state = not loaded at open time
+///   fullscreen Image onLoadEnd = not fired（模拟 iOS/cache 路径未回调）
 ///
 /// Execution:
 ///   1. mock Image.prefetch → Promise<true>
 ///   2. render MarkdownImage and wait for prefetch → inline loading hidden
 ///   3. press thumbnail → fullscreen Modal opens
-///   4. only after fullscreen Image onLoadEnd should fullscreen loading disappear
 ///
 /// Expected:
-///   - positive: markdown-image-fullscreen-loading exists immediately after opening，说明没有黑屏空白
 ///   - positive: markdown-image-fullscreen exists，说明全屏 Image 节点已挂载
-///   - negative: fullscreen loading disappears after fullscreen onLoadEnd，说明加载完成后不会一直遮挡图片
-test('test_markdown_image_fullscreen_waits_for_its_own_load_after_prefetch', async () => {
+///   - negative: markdown-image-fullscreen-loading 不存在，说明不会因 fullscreen onLoadEnd 缺失永久遮挡图片
+test('test_markdown_image_fullscreen_hides_loading_after_prefetch_success', async () => {
   Image.prefetch = jest.fn().mockResolvedValue(true);
   const { getByTestId, queryByTestId } = render(
     <MarkdownImage
@@ -303,12 +342,6 @@ test('test_markdown_image_fullscreen_waits_for_its_own_load_after_prefetch', asy
   });
 
   expect(getByTestId('markdown-image-fullscreen')).toBeTruthy();
-  expect(getByTestId('markdown-image-fullscreen-loading')).toBeTruthy();
-
-  await act(async () => {
-    fireEvent(getByTestId('markdown-image-fullscreen'), 'onLoadEnd');
-  });
-
   expect(queryByTestId('markdown-image-fullscreen-loading')).toBeNull();
 });
 

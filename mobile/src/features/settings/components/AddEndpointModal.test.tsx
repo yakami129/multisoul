@@ -110,6 +110,36 @@ it('adds the scanned endpoint with the URL hostname as its label', async () => {
   );
 });
 
+/// Local test endpoint shortcut: QA can register the simulator localhost service without a QR scan.
+///
+/// Data construction:
+///   shortcut URL   = "http://127.0.0.1:8765".
+///   shortcut token = "test", matching msctl quickstart examples.
+///   Expected label = hostname("http://127.0.0.1:8765") = "127.0.0.1".
+///
+/// Execution:
+///   1. Render AddEndpointModal in QR mode.
+///   2. Press the local test endpoint shortcut.
+///   3. Wait for the health check path to call onAdd and close the flow.
+///
+/// Expected:
+///   - Positive: onAdd receives the localhost label, URL, and token.
+///   - Positive: the modal closes after successful shortcut registration.
+///   - Negative: the shortcut does not require camera scanning before it can add the endpoint.
+it('adds the local test endpoint shortcut for simulator testing', async () => {
+  const onAdd = jest.fn();
+  const onClose = jest.fn();
+  render(<AddEndpointModal visible onClose={onClose} onAdd={onAdd} initialTab="qr" />);
+
+  fireEvent.press(screen.getByLabelText('Add local test endpoint'));
+
+  await waitFor(() => {
+    expect(onAdd).toHaveBeenCalledWith('127.0.0.1', 'http://127.0.0.1:8765', 'test');
+  });
+  expect(onClose).toHaveBeenCalledTimes(1);
+  expect(mockCameraProps?.onBarcodeScanned).toBeUndefined();
+});
+
 /// QR scan duplicate guard: repeated camera callbacks for the same QR must add only one endpoint.
 ///
 /// Data construction:

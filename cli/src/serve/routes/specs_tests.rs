@@ -332,6 +332,115 @@ async fn dispatch_spec_core_rejects_existing_file_without_db_or_runtime_side_eff
     );
 }
 
+fn seed_spec_artifact(state: &AppState, spec_id: &str, status: &str) {
+    let db = state.db.lock().expect("db mutex");
+    let conv_id = format!("conv-seed-{spec_id}");
+    let repo_path = format!("docs/product-specs/{spec_id}.md");
+    db.execute(
+        "INSERT OR IGNORE INTO conversations (id, agent_id, title, created_at, last_message_at, status)
+         VALUES (?1, 'agent-1', 'Interview', 0, 0, 'idle')",
+        rusqlite::params![conv_id],
+    )
+    .expect("seed conversation should succeed");
+    db.execute(
+        "INSERT INTO spec_artifacts (
+            id, title, slug, status, target_agent_id, target_endpoint_id,
+            target_repo_path, repo_spec_path, interview_conversation_id, created_at, updated_at
+         ) VALUES (?1, 'Test Spec', 'test-spec', ?2, 'agent-1', '', '', ?3, ?4, 0, 0)",
+        rusqlite::params![spec_id, status, repo_path, conv_id],
+    )
+    .expect("seed spec_artifact should succeed");
+}
+
+/// mark_spec_done: 已存在 spec 转为 done 时返回 200，并把 DB status 写为 done。
+#[tokio::test]
+async fn mark_spec_done_sets_done_status() {
+    let fixture = spec_dispatch_test_state();
+    let spec_id = "spec-done-test-001";
+    seed_spec_artifact(&fixture.state, spec_id, "ready");
+    let mut events = fixture.state.activity_bus.subscribe();
+
+    let result = mark_spec_done(
+        axum::extract::State(fixture.state.clone()),
+        Path(spec_id.to_string()),
+    )
+    .await
+    .expect("mark_spec_done for an existing spec should return 200");
+
+    assert_eq!(
+        result.0["spec_id"], spec_id,
+        "response should echo the spec_id"
+    );
+    assert_eq!(
+        result.0["status"], "done",
+        "response should report status=done"
+    );
+
+    let db_status: String = fixture
+        .state
+        .db
+        .lock()
+        .expect("db mutex")
+        .query_row(
+            "SELECT status FROM spec_artifacts WHERE id = ?1",
+            [spec_id],
+            |row| row.get(0),
+        )
+        .expect("spec row should exist");
+    assert_eq!(
+        db_status, "done",
+        "spec_artifacts.status should be 'done' after mark_spec_done"
+    );
+
+    let event: serde_json::Value = serde_json::from_str(
+        &events
+            .try_recv()
+            .expect("mark_spec_done should broadcast spec_changed"),
+    )
+    .expect("spec_changed event should be valid JSON");
+    assert_eq!(event["type"], "spec_changed");
+    assert_eq!(event["spec_id"], spec_id);
+}
+
+/// mark_spec_done: 已经是 done 的 spec 重复调用仍返回 200（幂等）。
+#[tokio::test]
+async fn mark_spec_done_idempotent_when_already_done() {
+    let fixture = spec_dispatch_test_state();
+    let spec_id = "spec-done-test-002";
+    seed_spec_artifact(&fixture.state, spec_id, "done");
+
+    let result = mark_spec_done(
+        axum::extract::State(fixture.state.clone()),
+        Path(spec_id.to_string()),
+    )
+    .await
+    .expect("mark_spec_done on already-done spec should be idempotent and return 200");
+
+    assert_eq!(
+        result.0["status"], "done",
+        "idempotent call should still report status=done"
+    );
+}
+
+/// mark_spec_done: 不存在的 spec_id 返回 404。
+#[tokio::test]
+async fn mark_spec_done_returns_404_for_missing_spec() {
+    let fixture = spec_dispatch_test_state();
+
+    let (status, _) = mark_spec_done(
+        axum::extract::State(fixture.state.clone()),
+        Path("nonexistent-spec-id".to_string()),
+    )
+    .await
+    .expect_err("mark_spec_done for missing spec should return an error");
+
+    assert_eq!(
+        status,
+        StatusCode::NOT_FOUND,
+        "missing spec_id should return 404 NOT_FOUND"
+    );
+}
+
 /// dispatch_spec: axum handler 应把 Path(agent_id) 和 Json body 转交给派发核心。
 ///
 /// 数据构造（含关键数值的推导过程）：

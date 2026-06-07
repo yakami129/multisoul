@@ -295,12 +295,12 @@ Floating Tab Bar
 | Quick Workflow 标题 | 13 / 16 | Inter 800 | 单行截断 |
 | Quick Workflow 说明 | 11 / 14 | Inter 400 | 单行截断 |
 
-### 7.3.1 Active Now Running Breath
+### 7.3.1 Agent Fleet Running Breath
 
 - 仅 `Agents > Agent Fleet` 中状态为 `running` 的 Agent 行显示呼吸生命感。
 - `awaiting_question` 不使用呼吸特效，使用 pending badge 和 `Running · Awaiting answer` 文案表达需要用户关注。
-- 动画母题：`Signal Ribbon`。一条低透明横向光带从 Avatar 右侧向状态区域缓慢漂移。
-- `running` 用 `signal.live` 或兼容 `signal.successCompat`；`awaiting_question` 用 `signal.decide`；`completed` 用 `signal.done`。
+- 动画母题：`Soft Wash`。运行态只保留一层低透明色洗，铺满整张 Agent 行背景，不渲染左右独立呼吸圆点。
+- `running` 色洗使用对应 runtime accent，状态 pill 仍用 `signal.live`；`awaiting_question` 用 `signal.decide`；`completed` 用 `signal.done`。
 - 节奏约 2.6 秒一次完整呼吸。Reduce Motion 开启时关闭循环动画，仅保留静态边框与状态点。
 
 ### 7.4 Status Badge

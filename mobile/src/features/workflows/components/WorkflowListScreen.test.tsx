@@ -164,3 +164,48 @@ test('pressing delete action calls onDeleteWorkflow without toggling', () => {
     reason: 'delete action should not toggle workflow enabled state',
   }).toEqual({ actual: 0, reason: expect.any(String) });
 });
+
+/// 场景：左滑露出的编辑按钮调用 onEditWorkflow 回调。
+///
+/// 数据构造：
+///   workflow = wf-1 enabled daily 09:15 from Office Mac。
+///   mocked Swipeable = 直接渲染 renderRightActions()，等价于用户左滑后露出编辑按钮。
+///
+/// 执行过程：
+///   1. 渲染 WorkflowListScreen 含一个 workflow。
+///   2. 点击 mocked Swipeable 渲染出的编辑按钮。
+///   3. 检查 onEditWorkflow 收到的 workflow。
+///
+/// 预期结果：
+///   - 正断言：onEditWorkflow 被调用一次且参数为 wf-1。
+///   - 负断言：onDeleteWorkflow 不应被调用，编辑动作不能误删 workflow。
+test('pressing edit action calls onEditWorkflow without deleting', () => {
+  const onEdit = jest.fn();
+  const onDelete = jest.fn();
+  const { getByText } = render(
+    <WorkflowListScreen
+      workflows={[baseWorkflow]}
+      hasEndpoints
+      onCreateWorkflow={() => {}}
+      onToggleEnabled={() => {}}
+      onOpenWorkflow={() => {}}
+      onEditWorkflow={onEdit}
+      onDeleteWorkflow={onDelete}
+    />,
+  );
+
+  fireEvent.press(getByText('EDIT'));
+
+  expect({
+    actual: onEdit.mock.calls.length,
+    reason: 'edit action should invoke onEditWorkflow exactly once',
+  }).toEqual({ actual: 1, reason: expect.any(String) });
+  expect({
+    actual: onEdit.mock.calls[0][0].id,
+    reason: 'edit action should pass the workflow row being swiped',
+  }).toEqual({ actual: 'wf-1', reason: expect.any(String) });
+  expect({
+    actual: onDelete.mock.calls.length,
+    reason: 'edit action should not delete workflow data',
+  }).toEqual({ actual: 0, reason: expect.any(String) });
+});

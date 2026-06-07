@@ -19,12 +19,48 @@
       "title": "KodaX Runtime Integration SPEC"
     },
     {
+      "file": "2026-06-04-SPEC-activity-realtime-events.md",
+      "title": "Activity Realtime Events SPEC"
+    },
+    {
       "file": "2026-06-04-SPEC-chat-completed-transcript-folding.md",
       "title": "Chat Completed Transcript Folding SPEC"
     },
     {
       "file": "2026-06-04-SPEC-ios-voice-input.md",
       "title": "iOS Voice Input SPEC"
+    },
+    {
+      "file": "2026-06-05-SPEC-chat-server-turn-transcript.md",
+      "title": "Chat Server Turn Transcript SPEC"
+    },
+    {
+      "file": "2026-06-06-SPEC-agent-status-consistency.md",
+      "title": "Agent / Chat / Activity 状态一致性修复 SPEC"
+    },
+    {
+      "file": "2026-06-06-SPEC-archived-idea-delete.md",
+      "title": "归档 Idea 永久删除 SPEC"
+    },
+    {
+      "file": "2026-06-06-SPEC-chat-auto-scroll.md",
+      "title": "Chat 自动滚动优化 SPEC"
+    },
+    {
+      "file": "2026-06-06-SPEC-ideas-to-specs-refactor.md",
+      "title": "Ideas to Specs 重构 SPEC"
+    },
+    {
+      "file": "2026-06-06-SPEC-mark-spec-done.md",
+      "title": "mark-spec-done — 标记规格实施完成 SPEC"
+    },
+    {
+      "file": "2026-06-06-SPEC-spec-detail-rich-text.md",
+      "title": "Spec 详情 Artifact Snapshot 富文本渲染 SPEC"
+    },
+    {
+      "file": "2026-06-06-SPEC-workflow-template-library.md",
+      "title": "Workflow 模板库 SPEC"
     },
     {
       "file": "SPEC-activity-pagination.md",
