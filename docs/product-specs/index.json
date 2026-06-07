@@ -71,6 +71,10 @@
       "title": "Idea Share Attachments SPEC"
     },
     {
+      "file": "2026-06-07-SPEC-test-spec-workflow.md",
+      "title": "Test Spec Workflow SPEC"
+    },
+    {
       "file": "SPEC-activity-pagination.md",
       "title": "Activity 模块分页滚动加载优化 SPEC"
     },

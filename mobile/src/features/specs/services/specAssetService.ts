@@ -77,7 +77,7 @@ export function normalizeSpecIdeaAttachment(value: unknown): SpecIdeaAttachment 
   const kind = asString(field(raw, 'kind'));
   return {
     id: asString(field(raw, 'id')),
-    kind: kind === 'link' || kind === 'log' || kind === 'image' ? kind : 'log',
+    kind: kind === 'link' || kind === 'image' ? kind : 'image',
     title: asOptionalString(field(raw, 'title')),
     uri: asOptionalString(field(raw, 'uri')),
     text: asOptionalString(field(raw, 'text')),

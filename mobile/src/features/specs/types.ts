@@ -24,7 +24,9 @@ export type LegacySpecStatus =
 
 export type SpecStatus = SpecAssetStatus | LegacySpecStatus;
 
-export type SpecIdeaAttachmentKind = 'link' | 'log' | 'image';
+export type SpecIdeaAttachmentKind = 'link' | 'image';
+
+export type SpecIdeaAttachmentStatus = 'pending' | 'uploading' | 'done' | 'error';
 
 export type SpecIdeaPendingMutation = 'create' | 'update' | 'archive' | 'delete';
 
@@ -42,6 +44,8 @@ export interface SpecIdeaAttachment {
   uri?: string;
   text?: string;
   fileId?: string;
+  status?: SpecIdeaAttachmentStatus;
+  errorMessage?: string;
   createdAt: number;
 }
 
