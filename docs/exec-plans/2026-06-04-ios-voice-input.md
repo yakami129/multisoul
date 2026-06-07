@@ -431,7 +431,11 @@ Result on 2026-06-05:
 - Build output reported `Build Succeeded`, `0 error(s)`, and 2 warnings before installing/opening `MultiSoul.app` on the iPhone 17 Pro simulator.
 - Generated `ios/MultiSoul/Info.plist` contains both `NSMicrophoneUsageDescription` and `NSSpeechRecognitionUsageDescription`.
 - The app launched in the simulator and the home screen rendered.
-- Deep-linking to `multisoul://chat/voice-smoke?...` reached the iOS system confirmation prompt, but the host Mac cannot click the prompt from automation because `cliclick` reported missing Accessibility privileges. Interaction-level checks for first mic tap, stop/cancel, and transcript insertion remain unverified manually in this environment; they are covered by the focused hook/component tests listed above.
+- Deep-linking into a chat screen with an isolated temporary `msctl serve` backend reached an online conversation state (`IDLE`) with the composer and `mic-btn` enabled.
+- First mic tap showed the native speech recognition permission prompt with `NSSpeechRecognitionUsageDescription`; allowing it then showed the native microphone permission prompt with `NSMicrophoneUsageDescription`.
+- With the simulator initially set to `zh-Hans-CN`, the app showed the expected `Language unavailable` alert from the native `language-not-supported` error path.
+- After switching the simulator language to `en-US`, tapping mic briefly surfaced the recording controls, including `Cancel voice input`, before the simulator returned `Speech recognition failed`. `simctl io` has no audio-input configuration, and `cliclick` still lacks Accessibility privileges, so this environment cannot reliably complete a fast stop/cancel/transcript manual pass.
+- Interaction-level checks for stop insertion, cancel no-op, and successful transcript insertion remain covered by the focused hook/component tests listed above; a physical iPhone or a simulator with working host microphone access is still needed to fully close this manual smoke step.
 
 - [x] **Step 5: Review and commit protocol**
 
