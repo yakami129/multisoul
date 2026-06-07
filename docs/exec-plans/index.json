@@ -4,7 +4,8 @@
   "documents": [
     {
       "file": "2026-06-07-workflow-watch-mode.md",
-      "title": "Workflow Watch 模式 Implementation Plan"
+      "title": "Workflow Watch 模式 Implementation Plan",
+      "lastCompletedCommit": "f3c689742a26e2fe7263245da623aa46eeea95c7"
     },
     {
       "file": "2026-06-07-test-spec-workflow.md",
