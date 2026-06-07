@@ -102,6 +102,17 @@
 | 检测 | `cli/src/**/*_tests.rs` 不得存在；`cli/tests/*.rs` 顶层仅允许集成测试（当前白名单：`logs_smoke.rs`）；单元测试镜像路径如 `cli/src/serve/foo.rs` → `cli/tests/serve/foo_tests.rs`，`cli/src/db_workflows_tests.rs` → `cli/tests/src/db_workflows_tests.rs` |
 | 修复方式 | 将独立测试文件移到 `cli/tests/` 对应目录，在源模块用 `#[path = "..."]` 或 `include!()` 引入；新增集成测试可保留在 `cli/tests/*.rs` 并更新脚本白名单 |
 
+### R14 · CLI command layout（顶层 `Commands` 分组）
+
+| | |
+|---|---|
+| 脚本 | [`scripts/check-cli-command-layout.sh`](../../scripts/check-cli-command-layout.sh) |
+| 起因 | 顶层平铺子命令（如 `SaveSpec`、`MarkSpecDone`）导致 `msctl --help` 扁平难读，且与按域分组（`auth`、`agent`、`spec`）的 CLI 心智不一致 |
+| 检测 | 解析 `cli/src/main.rs` 中 `enum Commands { ... }` 每个 variant：必须含 `subcommand:` 分组模式，或 variant 名称在基础设施白名单内 |
+| 白名单 | `Serve`、`AskQuestion`、`Logs`（脚本内常量，非域业务命令） |
+| 修复方式 | 将域命令收进已有或新建分组 variant（如 `Spec { subcommand: ... }`）；仅基础设施类顶层命令可申请加入白名单并同步更新脚本常量与设计文档 |
+| 设计 | [`docs/design-docs/2026-06-07-cli-command-grouping-design.md`](../design-docs/2026-06-07-cli-command-grouping-design.md) |
+
 ### R9 · 权威文档目录清单与磁盘一致
 
 | | |
@@ -143,27 +154,15 @@
 | `expo-calendar` | `NSCalendarsUsageDescription` |
 | `expo-audio` | `NSMicrophoneUsageDescription` |
 
-### R12 · iOS Info.plist 权限声明对齐
+### R15 · Project skill 入口同步
 
 | | |
 |---|---|
-| 脚本 | [`scripts/check-ios-permissions.sh`](../../scripts/check-ios-permissions.sh) |
-| 起因 | `feat(chat): multi-image upload` 引入 `expo-image-picker` 后未添加 `NSPhotoLibraryUsageDescription`，iOS 直接崩溃 |
-| 检测 | 扫描 `mobile/package.json` 中的 Expo 权限模块，对比 `mobile/ios/MultiSoul/Info.plist` 中的 key |
-| 触发 | pre-commit（staged 含 `mobile/package.json` 或 `mobile/ios/**`）；CI `repo-checks` 全量 |
-| 修复方式 | 在 `Info.plist` 添加缺失的 `NSXxxUsageDescription`；同步更新脚本映射表与本文档 |
-
-**模块→key 映射表：**
-
-| Expo 模块 | 必须存在的 plist key |
-|---|---|
-| `expo-image-picker` | `NSPhotoLibraryUsageDescription` |
-| `expo-camera` | `NSCameraUsageDescription` |
-| `expo-location` | `NSLocationWhenInUseUsageDescription` |
-| `expo-media-library` | `NSPhotoLibraryUsageDescription`, `NSPhotoLibraryAddUsageDescription` |
-| `expo-contacts` | `NSContactsUsageDescription` |
-| `expo-calendar` | `NSCalendarsUsageDescription` |
-| `expo-audio` | `NSMicrophoneUsageDescription` |
+| 脚本 | [`scripts/check-agent-skill-adapters.py`](../../scripts/check-agent-skill-adapters.py) |
+| 起因 | `custom-lint` skill 需要 Cursor、Claude Code、Codex 都能发现；若 `.agents/skills` 真源、Claude symlink、Cursor wrapper 或 AGENTS/CLAUDE 指针漂移，不同 Agent 会按不同流程执行 |
+| 检测 | `.agents/skills/custom-lint/SKILL.md` 必须存在；`.claude/skills/custom-lint/SKILL.md` 必须是指向真源的 symlink；`.cursor/rules/custom-lint.mdc` 必须引用真源且为 opt-in；`AGENTS.md` 与 `CLAUDE.md` 必须引用真源 |
+| 触发 | pre-commit（staged 含 skill、adapter、AGENTS/CLAUDE 或脚本自身）；CI `repo-checks` 全量 |
+| 修复方式 | 恢复 `.agents/skills/custom-lint/SKILL.md` 真源；修正 Claude symlink；更新 Cursor wrapper；在 AGENTS/CLAUDE 仅保留短指针，不复制 skill 正文 |
 
 ### R7 · CI 远端兜底
 
@@ -171,7 +170,7 @@
 |---|---|
 | 实现 | [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml) |
 | 触发 | `pull_request` 与 `push: main` |
-| Job 1 (`repo-checks`) | 跑 R1-R3、R6、R8、R9、R11-R13 共九个脚本 |
+| Job 1 (`repo-checks`) | 跑 R1-R3、R6、R8、R9、R11-R15 共十一个脚本 |
 | Job 2 (`mobile-check`) | `pnpm typecheck` + `pnpm lint`（含 R4、R10）+ `pnpm test` |
 | Job 3 (`cli-check`) | `cargo build --all-targets` + `cargo test` |
 | 角色 | 兜底 —— 若开发者本地用 `--no-verify` 跳过 husky，CI 仍应在合并前拦住坏变更 |

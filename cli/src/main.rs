@@ -36,10 +36,11 @@ enum Commands {
     Serve(commands::serve::ServeArgs),
     /// Push a question card to the local serve server
     AskQuestion(commands::ask_question::AskQuestionArgs),
-    /// Save a repo spec file as a MultiSoul artifact snapshot
-    SaveSpec(commands::save_spec::SaveSpecArgs),
-    /// Mark a spec artifact as implementation complete
-    MarkSpecDone(commands::mark_spec_done::MarkSpecDoneArgs),
+    /// Spec artifact commands
+    Spec {
+        #[command(subcommand)]
+        subcommand: commands::spec::SpecCommands,
+    },
     /// Manage msctl as a background service
     Daemon {
         #[command(subcommand)]
@@ -64,8 +65,7 @@ fn main() -> anyhow::Result<()> {
             tokio::runtime::Runtime::new()?.block_on(commands::serve::handle(args))
         }
         Commands::AskQuestion(args) => commands::ask_question::handle(args),
-        Commands::SaveSpec(args) => commands::save_spec::handle(args),
-        Commands::MarkSpecDone(args) => commands::mark_spec_done::handle(args),
+        Commands::Spec { subcommand } => commands::spec::handle(subcommand),
         Commands::Daemon { subcommand } => commands::daemon::handle(subcommand),
         Commands::Logs(args) => commands::logs::handle(args),
     }

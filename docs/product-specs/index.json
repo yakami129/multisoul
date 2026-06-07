@@ -67,12 +67,20 @@
       "title": "Chat 自动滚动修复 SPEC"
     },
     {
+      "file": "2026-06-07-SPEC-daemon-quickstart-relay-default.md",
+      "title": "daemon quickstart 默认 Relay 模式 SPEC"
+    },
+    {
       "file": "2026-06-07-SPEC-idea-share-attachments.md",
       "title": "Idea Share Attachments SPEC"
     },
     {
       "file": "2026-06-07-SPEC-test-spec-workflow.md",
       "title": "Test Spec Workflow SPEC"
+    },
+    {
+      "file": "2026-06-07-SPEC-workflow-watch-mode.md",
+      "title": "Workflow Watch 模式 SPEC"
     },
     {
       "file": "SPEC-activity-pagination.md",

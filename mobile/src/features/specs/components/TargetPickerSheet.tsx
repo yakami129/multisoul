@@ -111,7 +111,7 @@ export function TargetPickerSheet({
                   setEndpointId(endpoint.id);
                   setAgentId('');
                 }}
-                style={[s.row, offline && s.disabledRow]}
+                style={[s.row, selected && s.rowSelected, offline && s.disabledRow]}
               >
                 <Server size={17} color={offline ? brandColors.textMuted : brandColors.ink} />
                 <View style={s.rowBody}>
@@ -122,7 +122,9 @@ export function TargetPickerSheet({
                       : endpoint.base_url}
                   </Text>
                 </View>
-                {selected ? <Check size={17} color={brandColors.lime} /> : null}
+                <View style={[s.checkSlot, selected && s.checkSlotSelected]}>
+                  {selected ? <Check size={15} color={brandColors.ink} /> : null}
+                </View>
               </TouchableOpacity>
             );
           })}
@@ -142,7 +144,7 @@ export function TargetPickerSheet({
                     setEndpointId(agent.endpoint_id);
                     setAgentId(agent.id);
                   }}
-                  style={s.row}
+                  style={[s.row, selected && s.rowSelected]}
                 >
                   <Bot size={17} color={brandColors.ink} />
                   <View style={s.rowBody}>
@@ -151,7 +153,9 @@ export function TargetPickerSheet({
                       {agent.project_path}
                     </Text>
                   </View>
-                  {selected ? <Check size={17} color={brandColors.lime} /> : null}
+                  <View style={[s.checkSlot, selected && s.checkSlotSelected]}>
+                    {selected ? <Check size={15} color={brandColors.ink} /> : null}
+                  </View>
                 </TouchableOpacity>
               );
             })
@@ -256,7 +260,16 @@ const s = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: brandColors.silver,
   },
+  rowSelected: { backgroundColor: brandRgba.limeSoft },
   disabledRow: { opacity: 0.45 },
+  checkSlot: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkSlotSelected: { backgroundColor: brandColors.lime },
   rowBody: { flex: 1, minWidth: 0 },
   rowTitle: { fontFamily: 'Inter', fontSize: 14, fontWeight: '800', color: brandColors.ink },
   rowSubtitle: { marginTop: 2, fontFamily: 'Inter', fontSize: 12, color: brandColors.textSoft },

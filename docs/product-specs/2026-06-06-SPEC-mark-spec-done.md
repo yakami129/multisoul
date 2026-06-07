@@ -43,7 +43,7 @@
 Agent 完成实施
     │
     ▼
-msctl mark-spec-done --spec-id <spec-uuid>
+msctl spec mark-done --spec-id <spec-uuid>
     │  (HTTP POST /api/v1/specs/<id>/done, Bearer auth)
     ▼
 Server: 校验 spec 存在 → UPDATE status='done' → emit_spec_changed
@@ -60,7 +60,7 @@ Mobile: spec_changed 事件 → refreshAssets → SpecDetailScreen 更新
 ### 命令签名
 
 ```bash
-msctl mark-spec-done \
+msctl spec mark-done \
   --spec-id <uuid>   \
   [--token <token>]  \
   [--port <port>]    \
@@ -153,7 +153,7 @@ const primaryDisabled =
 
 ## 8. 验收标准
 
-- [ ] `msctl mark-spec-done --spec-id <uuid>` 成功调用后，`spec_artifacts` 表中对应行 `status = 'done'`
+- [ ] `msctl spec mark-done --spec-id <uuid>` 成功调用后，`spec_artifacts` 表中对应行 `status = 'done'`
 - [ ] 重复调用同一 spec_id 返回 200，状态保持 done（幂等）
 - [ ] 不存在的 spec_id 返回 404
 - [ ] 调用后手机端 SpecDetailScreen 在下次刷新时显示 done 状态，主按钮 disabled

@@ -37,6 +37,12 @@ jobs:
       - name: CLI unit test layout (cli/tests mirrors cli/src)
         run: bash scripts/check-cli-test-layout.sh
 
+      - name: CLI command layout (R14 grouped top-level commands)
+        run: bash scripts/check-cli-command-layout.sh
+
+      - name: Agent skill adapters
+        run: python3 scripts/check-agent-skill-adapters.py
+
       - name: docs knowledge indices match files
         run: python3 scripts/check-docs-indices.py
 

@@ -34,6 +34,7 @@ Monorepo 两大件：
 - **改包必跑 typecheck/cargo check**
 - **Rust 禁止 `#[allow(...)]`** —— `cli/src` 中不得用 `#[allow]` 压制任何编译器/clippy 诊断；脚本 [`scripts/check-no-allow.sh`](scripts/check-no-allow.sh) 拦截
 - **Design doc 代码 hash 保鲜** —— tracked code 变更须先审阅 diff、更新设计文档（或于文档内说明为何正文不变），再对该篇执行 `python3 scripts/check-doc-code-hashes.py --update-doc <basename>.md`；禁止未审阅即批量刷新 hash
+- **Project skill 入口同步** —— `.agents/skills/custom-lint` 必须被 Claude/Cursor/Codex 入口正确引用；[`scripts/check-agent-skill-adapters.py`](scripts/check-agent-skill-adapters.py) 拦截
 
 人类可读软约束：
 
@@ -82,6 +83,7 @@ Monorepo 两大件：
 | **Agent 短导航地图** | [`AGENTS.md`](AGENTS.md) |
 | **面向人类的快速上手** | [`README.md`](README.md) |
 | **msctl 命令速记（`msctl inject`）** | [`docs/references/msctl-inject.md`](docs/references/msctl-inject.md)；完整参考 [`docs/references/cli-commands.md`](docs/references/cli-commands.md) |
+| **生成自定义 lint skill** | [`.agents/skills/custom-lint/SKILL.md`](.agents/skills/custom-lint/SKILL.md) |
 | **`docs/specs/`、`docs/superpowers/`** | **勿再新增权威文档** · [`docs/superpowers/README.md`](docs/superpowers/README.md) |
 
 ---

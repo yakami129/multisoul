@@ -3,6 +3,21 @@
   "version": 1,
   "documents": [
     {
+      "file": "2026-06-07-custom-lint-skill-design.md",
+      "title": "Custom Lint Skill 设计"
+    },
+    {
+      "file": "2026-06-07-cli-command-grouping-design.md",
+      "title": "CLI 命令分组（msctl spec）设计",
+      "trackedFiles": [
+        {
+          "path": "cli/src/main.rs",
+          "sha256": "a4b823bd2eb95a3a9490de9dc40c2255004fd27881a69268abebfc332910b19b",
+          "reason": "Commands enum 是 CLI 分组约定的权威注册点；lint 白名单与本设计 §3–§5 直接引用。"
+        }
+      ]
+    },
+    {
       "file": "2026-06-06-ideas-to-specs-refactor-design.md",
       "title": "Ideas to Specs 重构功能交互与 UI 设计"
     },

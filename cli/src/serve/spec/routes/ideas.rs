@@ -235,7 +235,7 @@ fn build_interview_instruction(context: &InterviewIdeaContext, conversation_id: 
          2. For structured decisions, use AskUserQuestion; if unavailable, run `msctl ask-question`.\n\
          3. When information is sufficient, ask the user to confirm before generating the spec.\n\
          4. After confirmation, write `docs/product-specs/YYYY-MM-DD-SPEC-<slug>.md` in the target repo, then run:\n\
-            `msctl save-spec --path <repo-relative-path> --conversation-id {conversation_id}`\n\
+            `msctl spec save --path <repo-relative-path> --conversation-id {conversation_id}`\n\
          5. Do not save the spec without user confirmation.\n\n\
          Respond in the user's language unless they prefer English.",
         title = context.title,

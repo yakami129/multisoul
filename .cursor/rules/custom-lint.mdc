@@ -1,0 +1,16 @@
+---
+description: Project custom lint skill for adding mechanized repository checks
+alwaysApply: false
+---
+
+# Custom Lint Skill
+
+When asked to create, update, or mechanize a custom lint rule in this repository, read the canonical project skill at `.agents/skills/custom-lint/SKILL.md` and follow it.
+
+Use this rule for requests involving:
+
+- new `scripts/check-*` repository checks
+- pre-commit or CI gate changes
+- semantic PR-diff lint
+- regex, manifest, path/diff, or ESLint custom rules
+- turning `AGENTS.md` / `CLAUDE.md` conventions into executable checks

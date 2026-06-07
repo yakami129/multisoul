@@ -137,7 +137,7 @@ agent 必须先向用户确认是否生成 spec。用户确认后：
 2. agent 调用：
 
 ```bash
-msctl save-spec \
+msctl spec save \
   --path docs/product-specs/YYYY-MM-DD-SPEC-<slug>.md \
   --conversation-id "$CONV_ID"
 ```
@@ -295,7 +295,7 @@ Spec version 是不可变快照。后续修订会创建新的 `SpecArtifactVersi
 ### 6.3 CLI Command
 
 ```bash
-msctl save-spec \
+msctl spec save \
   --path <repo-relative-spec-path> \
   --conversation-id <conversation-id> \
   --output json
