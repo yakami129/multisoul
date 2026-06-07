@@ -27,6 +27,7 @@ cli/npm/vendor/
 .playwright-mcp
 
 # Local Claude Code / tooling (large; machine-specific)
+.agent/
 .claude/*
 !.claude/skills/
 .claude/skills/*
