@@ -11,3 +11,4 @@ pub mod logs_service;
 pub mod mark_spec_done;
 pub mod save_spec;
 pub mod serve;
+pub mod spec;

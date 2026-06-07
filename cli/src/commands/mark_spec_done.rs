@@ -11,7 +11,7 @@ spec_changed event so connected mobile clients refresh immediately.
 
 Example:
 
-  msctl mark-spec-done \\
+  msctl spec mark-done \\
     --spec-id 05521d4e-021e-43eb-9f7e-fa97d8b91fda")]
 pub struct MarkSpecDoneArgs {
     /// UUID of the SpecArtifact to mark as done.
