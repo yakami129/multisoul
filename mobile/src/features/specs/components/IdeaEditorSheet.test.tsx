@@ -48,24 +48,14 @@ test('adds attachment from preset when opening via share or deep link', () => {
     <IdeaEditorSheet
       visible
       attachmentPreset="link"
-      initialValue={{
-        attachments: [
-          {
-            id: 'link-1',
-            kind: 'link',
-            title: 'Link',
-            uri: 'https://example.com',
-            createdAt: 0,
-          },
-        ],
-      }}
       onChooseTarget={() => {}}
       onClose={() => {}}
       onSave={onSave}
     />,
   );
 
-  expect(getByText('link')).toBeTruthy();
+  // preset link attachment adds a new attachment with title "New attachment"
+  expect(getByText('New attachment')).toBeTruthy();
   fireEvent.press(getByText('Done'));
 
   const attachments = onSave.mock.calls[0][0].attachments;

@@ -1,5 +1,6 @@
 import { fireEvent, render } from '@testing-library/react-native';
 import React from 'react';
+import { Alert } from 'react-native';
 import { type Agent, type Endpoint } from '@/types';
 import { SpecsHomeScreen } from './SpecsHomeScreen';
 import { type SpecArtifact, type SpecIdea } from './specUiModels';
@@ -168,6 +169,7 @@ test('archived idea shows both Unarchive and Delete actions', () => {
 
 test('clicking DELETE directly calls onDeleteArchivedIdea', () => {
   const onDeleteArchivedIdea = jest.fn();
+  const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
   const { getByText } = render(
     <SpecsHomeScreen
       ideas={[archivedIdea]}
@@ -183,7 +185,22 @@ test('clicking DELETE directly calls onDeleteArchivedIdea', () => {
 
   fireEvent.press(getByText('Archived'));
   fireEvent.press(getByText('DELETE'));
+
+  expect(alertSpy).toHaveBeenCalledWith(
+    'Delete idea?',
+    'This idea will be permanently removed. This cannot be undone.',
+    expect.arrayContaining([
+      expect.objectContaining({ text: 'Cancel' }),
+      expect.objectContaining({ text: 'Delete', style: 'destructive' }),
+    ]),
+  );
+
+  // Simulate user confirming deletion
+  const deleteAction = alertSpy.mock.calls[0][2]?.find((action) => action.text === 'Delete');
+  deleteAction?.onPress?.();
+
   expect(onDeleteArchivedIdea).toHaveBeenCalledWith('idea-1');
+  alertSpy.mockRestore();
 });
 
 test('saves a new idea with a selected target from the picker', () => {
