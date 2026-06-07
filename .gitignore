@@ -27,7 +27,11 @@ cli/npm/vendor/
 .playwright-mcp
 
 # Local Claude Code / tooling (large; machine-specific)
-.claude/
+.claude/*
+!.claude/skills/
+.claude/skills/*
+!.claude/skills/custom-lint/
+!.claude/skills/custom-lint/SKILL.md
 .codex-output/
 tmp
 

@@ -75,6 +75,10 @@
       "title": "Test Spec Workflow SPEC"
     },
     {
+      "file": "2026-06-07-SPEC-workflow-watch-mode.md",
+      "title": "Workflow Watch 模式 SPEC"
+    },
+    {
       "file": "SPEC-activity-pagination.md",
       "title": "Activity 模块分页滚动加载优化 SPEC"
     },

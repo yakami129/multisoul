@@ -29,6 +29,16 @@ bash scripts/check-cli-test-layout.sh --staged
 # 3c1b. CLI top-level command grouping (always scans cli/src/main.rs)
 bash scripts/check-cli-command-layout.sh --staged
 
+# 3c1c. Project skill adapters stay wired for Claude/Cursor/Codex
+staged_agent_skills=$(
+  git diff --cached --name-only --diff-filter=ACMR |
+    grep -E '^(\.agents/skills/custom-lint/|\.claude/skills/custom-lint/|\.cursor/rules/custom-lint\.mdc|AGENTS\.md|CLAUDE\.md|scripts/check-agent-skill-adapters\.py)' ||
+    true
+)
+if [ -n "$staged_agent_skills" ]; then
+  python3 scripts/check-agent-skill-adapters.py
+fi
+
 # 3e. iOS Info.plist permission alignment (staged paths only)
 bash scripts/check-ios-permissions.sh --staged
 

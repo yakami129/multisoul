@@ -3,6 +3,10 @@
   "version": 1,
   "documents": [
     {
+      "file": "2026-06-07-custom-lint-skill-design.md",
+      "title": "Custom Lint Skill 设计"
+    },
+    {
       "file": "2026-06-07-cli-command-grouping-design.md",
       "title": "CLI 命令分组（msctl spec）设计",
       "trackedFiles": [

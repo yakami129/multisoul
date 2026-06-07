@@ -154,27 +154,15 @@
 | `expo-calendar` | `NSCalendarsUsageDescription` |
 | `expo-audio` | `NSMicrophoneUsageDescription` |
 
-### R12 · iOS Info.plist 权限声明对齐
+### R15 · Project skill 入口同步
 
 | | |
 |---|---|
-| 脚本 | [`scripts/check-ios-permissions.sh`](../../scripts/check-ios-permissions.sh) |
-| 起因 | `feat(chat): multi-image upload` 引入 `expo-image-picker` 后未添加 `NSPhotoLibraryUsageDescription`，iOS 直接崩溃 |
-| 检测 | 扫描 `mobile/package.json` 中的 Expo 权限模块，对比 `mobile/ios/MultiSoul/Info.plist` 中的 key |
-| 触发 | pre-commit（staged 含 `mobile/package.json` 或 `mobile/ios/**`）；CI `repo-checks` 全量 |
-| 修复方式 | 在 `Info.plist` 添加缺失的 `NSXxxUsageDescription`；同步更新脚本映射表与本文档 |
-
-**模块→key 映射表：**
-
-| Expo 模块 | 必须存在的 plist key |
-|---|---|
-| `expo-image-picker` | `NSPhotoLibraryUsageDescription` |
-| `expo-camera` | `NSCameraUsageDescription` |
-| `expo-location` | `NSLocationWhenInUseUsageDescription` |
-| `expo-media-library` | `NSPhotoLibraryUsageDescription`, `NSPhotoLibraryAddUsageDescription` |
-| `expo-contacts` | `NSContactsUsageDescription` |
-| `expo-calendar` | `NSCalendarsUsageDescription` |
-| `expo-audio` | `NSMicrophoneUsageDescription` |
+| 脚本 | [`scripts/check-agent-skill-adapters.py`](../../scripts/check-agent-skill-adapters.py) |
+| 起因 | `custom-lint` skill 需要 Cursor、Claude Code、Codex 都能发现；若 `.agents/skills` 真源、Claude symlink、Cursor wrapper 或 AGENTS/CLAUDE 指针漂移，不同 Agent 会按不同流程执行 |
+| 检测 | `.agents/skills/custom-lint/SKILL.md` 必须存在；`.claude/skills/custom-lint/SKILL.md` 必须是指向真源的 symlink；`.cursor/rules/custom-lint.mdc` 必须引用真源且为 opt-in；`AGENTS.md` 与 `CLAUDE.md` 必须引用真源 |
+| 触发 | pre-commit（staged 含 skill、adapter、AGENTS/CLAUDE 或脚本自身）；CI `repo-checks` 全量 |
+| 修复方式 | 恢复 `.agents/skills/custom-lint/SKILL.md` 真源；修正 Claude symlink；更新 Cursor wrapper；在 AGENTS/CLAUDE 仅保留短指针，不复制 skill 正文 |
 
 ### R7 · CI 远端兜底
 
@@ -182,7 +170,7 @@
 |---|---|
 | 实现 | [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml) |
 | 触发 | `pull_request` 与 `push: main` |
-| Job 1 (`repo-checks`) | 跑 R1-R3、R6、R8、R9、R11-R14 共十个脚本 |
+| Job 1 (`repo-checks`) | 跑 R1-R3、R6、R8、R9、R11-R15 共十一个脚本 |
 | Job 2 (`mobile-check`) | `pnpm typecheck` + `pnpm lint`（含 R4、R10）+ `pnpm test` |
 | Job 3 (`cli-check`) | `cargo build --all-targets` + `cargo test` |
 | 角色 | 兜底 —— 若开发者本地用 `--no-verify` 跳过 husky，CI 仍应在合并前拦住坏变更 |
