@@ -3,6 +3,11 @@ import React from 'react';
 import { Alert } from 'react-native';
 import { IdeaEditorSheet } from './IdeaEditorSheet';
 
+// expo-image-picker and expo-clipboard are not available in the test environment.
+jest.mock('expo-image-picker', () => ({ requestMediaLibraryPermissionsAsync: jest.fn() }));
+jest.mock('expo-clipboard', () => ({ getStringAsync: jest.fn() }));
+jest.mock('expo-image-manipulator', () => ({}));
+
 const target = {
   endpointId: 'ep-1',
   endpointLabel: 'Office Mac',
@@ -37,7 +42,7 @@ test('derives title from first body line and trims body when saving', () => {
 
 test('adds attachments from buttons and attachment presets', () => {
   const onSave = jest.fn();
-  const { getByText, rerender } = render(
+  const { getByLabelText, getByText, rerender } = render(
     <IdeaEditorSheet
       visible
       attachmentPreset="link"
@@ -47,7 +52,8 @@ test('adds attachments from buttons and attachment presets', () => {
     />,
   );
 
-  expect(getByText('New attachment')).toBeTruthy();
+  // preset link attachment renders a URL input
+  expect(getByLabelText('Link URL')).toBeTruthy();
   fireEvent.press(getByText('Add Log Snippet'));
   rerender(
     <IdeaEditorSheet
@@ -112,4 +118,53 @@ test('closes clean drafts without confirmation', () => {
   expect(onClose).toHaveBeenCalledTimes(1);
   expect(alertSpy).not.toHaveBeenCalled();
   alertSpy.mockRestore();
+});
+
+test('renders URL input for a link attachment', () => {
+  const { getByLabelText } = render(
+    <IdeaEditorSheet
+      visible
+      initialValue={{
+        title: '',
+        body: '',
+        attachments: [{ id: 'link-1', kind: 'link', uri: 'https://example.com', createdAt: 0 }],
+      }}
+      onChooseTarget={() => {}}
+      onClose={() => {}}
+      onSave={() => {}}
+    />,
+  );
+
+  const urlInput = getByLabelText('Link URL');
+  expect(urlInput.props.value).toBe('https://example.com');
+});
+
+test('remove button calls onSave without the removed attachment', () => {
+  const onSave = jest.fn();
+  const { getAllByLabelText, getByText } = render(
+    <IdeaEditorSheet
+      visible
+      initialValue={{
+        title: 'T',
+        body: 'B',
+        attachments: [
+          { id: 'link-1', kind: 'link', uri: 'https://example.com', createdAt: 0 },
+          { id: 'log-1', kind: 'log', text: 'some log', createdAt: 0 },
+        ],
+      }}
+      onChooseTarget={() => {}}
+      onClose={() => {}}
+      onSave={onSave}
+    />,
+  );
+
+  // press the first remove button (link-1)
+  const removeButtons = getAllByLabelText('Remove attachment');
+  expect(removeButtons).toHaveLength(2);
+  fireEvent.press(removeButtons[0]);
+  fireEvent.press(getByText('Done'));
+
+  const saved = onSave.mock.calls[0][0];
+  expect(saved.attachments).toHaveLength(1);
+  expect(saved.attachments[0].id).toBe('log-1');
 });

@@ -1,5 +1,6 @@
 import { Image, Link, MessageSquare, X } from 'lucide-react-native';
 import React from 'react';
+import { AttachmentEditorRow } from './AttachmentEditorRow';
 import {
   Alert,
   KeyboardAvoidingView,
@@ -51,7 +52,7 @@ export function IdeaEditorSheet({
   const dirty =
     title !== (initialValue?.title ?? '') ||
     body !== (initialValue?.body ?? '') ||
-    attachments.length !== (initialValue?.attachments ?? []).length;
+    JSON.stringify(attachments) !== JSON.stringify(initialValue?.attachments ?? []);
 
   React.useEffect(() => {
     if (!visible || !attachmentPreset) return;
@@ -101,6 +102,14 @@ export function IdeaEditorSheet({
         createdAt: Date.now(),
       },
     ]);
+  };
+
+  const updateAttachment = (id: string, patch: Partial<SpecIdeaAttachment>) => {
+    setAttachments((current) => current.map((a) => (a.id === id ? { ...a, ...patch } : a)));
+  };
+
+  const removeAttachment = (id: string) => {
+    setAttachments((current) => current.filter((a) => a.id !== id));
   };
 
   return (
@@ -172,10 +181,12 @@ export function IdeaEditorSheet({
                 onPress={() => addAttachment('image')}
               />
               {attachments.map((attachment) => (
-                <View key={attachment.id} style={s.attachmentRow}>
-                  <Text style={s.attachmentTitle}>{attachment.title ?? attachment.kind}</Text>
-                  <Text style={s.attachmentKind}>{attachment.kind}</Text>
-                </View>
+                <AttachmentEditorRow
+                  key={attachment.id}
+                  attachment={attachment}
+                  onUpdate={updateAttachment}
+                  onRemove={removeAttachment}
+                />
               ))}
             </View>
 
@@ -286,14 +297,6 @@ const s = StyleSheet.create({
     fontWeight: '700',
     color: brandColors.ink,
   },
-  attachmentRow: {
-    minHeight: 44,
-    borderTopWidth: 1,
-    borderTopColor: brandColors.silver,
-    justifyContent: 'center',
-  },
-  attachmentTitle: { fontFamily: 'Inter', fontSize: 13, fontWeight: '700', color: brandColors.ink },
-  attachmentKind: { marginTop: 2, fontFamily: 'Inter', fontSize: 11, color: brandColors.textMuted },
   targetRow: { minHeight: 54, flexDirection: 'row', alignItems: 'center', gap: 12 },
   targetBody: { flex: 1, minWidth: 0 },
   targetTitle: { fontFamily: 'Inter', fontSize: 13, fontWeight: '800', color: brandColors.ink },
