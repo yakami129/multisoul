@@ -290,7 +290,8 @@ pub async fn poll_reachable_tunnel_url(
 /// Polls KV until tunnel URL is registered or timeout elapses.
 ///
 /// Prefer [`poll_reachable_tunnel_url`] for daemon quickstart pairing QR.
-pub async fn poll_tunnel_url(
+#[cfg(test)]
+pub(crate) async fn poll_tunnel_url(
     relay_url: &str,
     user_token: &str,
     timeout: Duration,
