@@ -1,11 +1,9 @@
 import * as ImagePicker from 'expo-image-picker';
-import { AlertTriangle, Image as ImageIcon, X } from 'lucide-react-native';
+import { Image as ImageIcon, X } from 'lucide-react-native';
 import React from 'react';
 import {
   ActionSheetIOS,
-  ActivityIndicator,
   Alert,
-  Image,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -17,6 +15,7 @@ import {
   View,
 } from 'react-native';
 import { brandColors, brandRgba, brandTypography } from '@/theme/brandRefresh';
+import { AttachmentButton, AttachmentRow } from './IdeaAttachmentRow';
 import { deriveIdeaTitle, type SpecIdeaAttachment, type SpecTarget } from './specUiModels';
 
 export interface IdeaEditorValue {
@@ -90,6 +89,30 @@ export function IdeaEditorSheet({
   };
 
   const handleSave = () => {
+    const hasUploadingOrFailed = attachments.some(
+      (att) => att.status === 'uploading' || att.status === 'error' || att.status === 'pending',
+    );
+
+    if (hasUploadingOrFailed) {
+      Alert.alert(
+        'Uploads Incomplete',
+        'Some image uploads are still in progress or failed. Continue anyway?',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Continue',
+            style: 'default',
+            onPress: () => {
+              const nextBody = body.trim();
+              const nextTitle = deriveIdeaTitle(title, nextBody);
+              onSave({ title: nextTitle, body: nextBody, attachments, target });
+            },
+          },
+        ],
+      );
+      return;
+    }
+
     const nextBody = body.trim();
     const nextTitle = deriveIdeaTitle(title, nextBody);
     onSave({ title: nextTitle, body: nextBody, attachments, target });
@@ -151,8 +174,9 @@ export function IdeaEditorSheet({
   };
 
   const addImageAttachment = (uri: string) => {
+    const attachmentId = `image-${Date.now()}`;
     const newAttachment: SpecIdeaAttachment = {
-      id: `image-${Date.now()}`,
+      id: attachmentId,
       kind: 'image',
       title: 'Image',
       uri,
@@ -160,6 +184,44 @@ export function IdeaEditorSheet({
       createdAt: Date.now(),
     };
     setAttachments((current) => [...current, newAttachment]);
+    void uploadImage(attachmentId, uri);
+  };
+
+  const uploadImage = async (attachmentId: string, uri: string) => {
+    setAttachments((current) =>
+      current.map((att) =>
+        att.id === attachmentId ? { ...att, status: 'uploading' as const } : att,
+      ),
+    );
+
+    try {
+      const { uploadIdeaImage } = await import('../services/ideaUploadService');
+      const { fileId } = await uploadIdeaImage(uri);
+
+      setAttachments((current) =>
+        current.map((att) =>
+          att.id === attachmentId
+            ? { ...att, status: 'done' as const, fileId, errorMessage: undefined }
+            : att,
+        ),
+      );
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Upload failed. Please try again.';
+      setAttachments((current) =>
+        current.map((att) =>
+          att.id === attachmentId
+            ? { ...att, status: 'error' as const, errorMessage: message }
+            : att,
+        ),
+      );
+    }
+  };
+
+  const retryUpload = (attachmentId: string) => {
+    const attachment = attachments.find((att) => att.id === attachmentId);
+    if (attachment?.uri) {
+      void uploadImage(attachmentId, attachment.uri);
+    }
   };
 
   const removeAttachment = (id: string) => {
@@ -231,6 +293,7 @@ export function IdeaEditorSheet({
                   key={attachment.id}
                   attachment={attachment}
                   onRemove={() => removeAttachment(attachment.id)}
+                  onRetry={() => retryUpload(attachment.id)}
                 />
               ))}
             </View>
@@ -257,81 +320,6 @@ export function IdeaEditorSheet({
       </View>
     </Modal>
   );
-}
-
-function AttachmentButton({
-  icon,
-  label,
-  onPress,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  onPress: () => void;
-}) {
-  return (
-    <TouchableOpacity accessibilityRole="button" onPress={onPress} style={s.attachmentButton}>
-      {icon}
-      <Text style={s.attachmentButtonText}>{label}</Text>
-    </TouchableOpacity>
-  );
-}
-
-function AttachmentRow({
-  attachment,
-  onRemove,
-}: {
-  attachment: SpecIdeaAttachment;
-  onRemove: () => void;
-}) {
-  const isImage = attachment.kind === 'image';
-  const statusIcon = getStatusIcon(attachment.status);
-
-  return (
-    <TouchableOpacity
-      accessibilityRole="button"
-      onPress={onRemove}
-      style={s.attachmentRow}
-      activeOpacity={0.7}
-    >
-      <View style={s.attachmentContent}>
-        {isImage && attachment.uri ? (
-          <Image source={{ uri: attachment.uri }} style={s.attachmentThumbnail} />
-        ) : (
-          <View style={s.attachmentIconPlaceholder}>
-            <ImageIcon size={20} color={brandColors.textMuted} />
-          </View>
-        )}
-        <View style={s.attachmentInfo}>
-          <Text style={s.attachmentTitle} numberOfLines={1}>
-            {attachment.title ?? attachment.kind}
-          </Text>
-          <Text style={s.attachmentKind}>{attachment.kind}</Text>
-        </View>
-        {statusIcon}
-      </View>
-      <TouchableOpacity
-        accessibilityRole="button"
-        accessibilityLabel="Remove attachment"
-        onPress={onRemove}
-        style={s.removeButton}
-      >
-        <X size={16} color={brandColors.textMuted} />
-      </TouchableOpacity>
-    </TouchableOpacity>
-  );
-}
-
-function getStatusIcon(status?: SpecIdeaAttachment['status']) {
-  switch (status) {
-    case 'uploading':
-      return <ActivityIndicator size="small" color={brandColors.ink} />;
-    case 'error':
-      return <AlertTriangle size={16} color={brandColors.error} />;
-    case 'done':
-      return null;
-    default:
-      return null;
-  }
 }
 
 const s = StyleSheet.create({
@@ -385,72 +373,6 @@ const s = StyleSheet.create({
     color: brandColors.ink,
   },
   bodyInput: { minHeight: 130, lineHeight: 20 },
-  attachmentButton: {
-    minHeight: 44,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 9,
-    borderRadius: 12,
-    backgroundColor: brandRgba.ink08,
-    paddingHorizontal: 12,
-  },
-  attachmentButtonText: {
-    fontFamily: 'Inter',
-    fontSize: 13,
-    fontWeight: '700',
-    color: brandColors.ink,
-  },
-  attachmentRow: {
-    minHeight: 64,
-    borderTopWidth: 1,
-    borderTopColor: brandColors.silver,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 8,
-  },
-  attachmentContent: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  attachmentThumbnail: {
-    width: 48,
-    height: 48,
-    borderRadius: 8,
-    backgroundColor: brandColors.silver,
-  },
-  attachmentIconPlaceholder: {
-    width: 48,
-    height: 48,
-    borderRadius: 8,
-    backgroundColor: brandRgba.ink08,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  attachmentInfo: {
-    flex: 1,
-    minWidth: 0,
-  },
-  attachmentTitle: {
-    fontFamily: 'Inter',
-    fontSize: 13,
-    fontWeight: '700',
-    color: brandColors.ink,
-  },
-  attachmentKind: {
-    marginTop: 2,
-    fontFamily: 'Inter',
-    fontSize: 11,
-    color: brandColors.textMuted,
-  },
-  removeButton: {
-    minWidth: 32,
-    minHeight: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   targetRow: { minHeight: 54, flexDirection: 'row', alignItems: 'center', gap: 12 },
   targetBody: { flex: 1, minWidth: 0 },
   targetTitle: { fontFamily: 'Inter', fontSize: 13, fontWeight: '800', color: brandColors.ink },
