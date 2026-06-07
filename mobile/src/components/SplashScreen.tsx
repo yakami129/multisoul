@@ -3,10 +3,9 @@ import { VideoView, useVideoPlayer } from 'expo-video';
 import { useCallback, useEffect, useRef } from 'react';
 import { View } from 'react-native';
 import { splashScreenStyles as s } from './splashScreenStyles';
-import cartoonVideo from '../../assets/splash/cartoon-3d.mp4';
 import splashVideo from '../../assets/splash/starfield-blue.mp4';
 
-const splashVideos = [splashVideo, cartoonVideo];
+const splashVideos = [splashVideo];
 const playbackFallbackMs = 7000;
 
 interface Props {
