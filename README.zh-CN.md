@@ -112,17 +112,24 @@ cargo run -- --help
 安装 CLI 后最快方式：
 
 ```bash
-msctl daemon quickstart --token test --port 8765 --tailnet true
+msctl daemon quickstart
 ```
 
 从源码运行：
 
 ```bash
 cd cli
-cargo run -- daemon quickstart --token test --port 8765 --tailnet true
+cargo run -- daemon quickstart
 ```
 
-这个命令会保存 token，安装并启动后台服务，监听 Tailnet 可访问地址，并在终端生成二维码和 connection string。
+该命令自动生成 token、以 **relay** 模式（Cloudflare Tunnel + 手机 Auto Tunnel）安装并启动后台服务，等待公网 tunnel URL 后打印二维码与 connection string。首次运行可能因下载 cloudflared 耗时较久（最多约 20 分钟）。
+
+切换模式（CLI flag 或 `~/.config/msctl/config.toml` 的 `serve_mode`）：
+
+```bash
+msctl daemon quickstart --tailnet
+msctl daemon quickstart --port 9000
+```
 
 在 iOS 或 Android 手机 App 中添加这台机器：
 

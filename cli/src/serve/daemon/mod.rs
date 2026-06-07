@@ -1,3 +1,4 @@
+use crate::config::ServeMode;
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
@@ -11,7 +12,8 @@ pub struct Config {
     pub binary_path: String,
     pub token: String,
     pub port: u16,
-    pub tailnet: bool,
+    pub serve_mode: ServeMode,
+    pub relay_url: String,
     pub log_file: String,
     pub env_path: String,
 }
@@ -40,8 +42,40 @@ pub struct Meta {
     pub binary_path: String,
     pub port: u16,
     #[serde(default)]
+    pub serve_mode: ServeMode,
+    #[serde(default = "crate::config::default_relay_url")]
+    pub relay_url: String,
+    /// Legacy field from installs before serve_mode existed.
+    #[serde(default)]
     pub tailnet: bool,
     pub installed_at: String,
+}
+
+/// Whether daemon.json predates the `serve_mode` field.
+pub fn meta_json_has_serve_mode(raw: &str) -> bool {
+    serde_json::from_str::<serde_json::Value>(raw)
+        .ok()
+        .and_then(|v| v.as_object().map(|o| o.contains_key("serve_mode")))
+        .unwrap_or(false)
+}
+
+pub fn load_meta_with_legacy() -> Result<(Meta, bool)> {
+    let path = meta_path();
+    let data = std::fs::read_to_string(&path)?;
+    let legacy = !meta_json_has_serve_mode(&data);
+    Ok((serde_json::from_str(&data)?, legacy))
+}
+
+pub fn resolve_serve_mode(meta: &Meta, meta_legacy: bool) -> ServeMode {
+    if meta_legacy {
+        if meta.tailnet {
+            ServeMode::Tailnet
+        } else {
+            ServeMode::Relay
+        }
+    } else {
+        meta.serve_mode
+    }
 }
 
 pub fn meta_path() -> PathBuf {

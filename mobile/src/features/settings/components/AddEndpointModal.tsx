@@ -1,19 +1,25 @@
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as Clipboard from 'expo-clipboard';
-import { ChevronLeft, Copy, Info, Terminal, X } from 'lucide-react-native';
+import { ChevronLeft, Info, Terminal, X } from 'lucide-react-native';
 import React, { useEffect, useRef, useState } from 'react';
-import { Modal, View, Text, TouchableOpacity, ScrollView } from 'react-native';
+import {
+  ActivityIndicator,
+  Modal,
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  ScrollView,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { getEndpointClient } from '@/api/endpointClient';
 import { brandColors } from '@/theme/brandRefresh';
+import { AddEndpointHelpSheet } from './AddEndpointHelpSheet';
 import { addEndpointModalStyles as s } from './addEndpointModalStyles';
+import type { ManualStatus, ScanStatus, Tab } from './addEndpointModalTypes';
+import { getEndpointLabel, parsePairConnection } from './addEndpointModalUtils';
 
-type SetupCommand = {
-  id: string;
-  title: string;
-  command: string;
-};
-type ScanStatus = 'idle' | 'checking' | 'invalid_qr' | 'connection_err';
+export { parsePairConnection } from './addEndpointModalUtils';
 
 interface Props {
   visible: boolean;
@@ -22,37 +28,12 @@ interface Props {
   initialTab?: 'manual' | 'qr';
 }
 
-const SETUP_COMMANDS: SetupCommand[] = [
-  { id: 'install', title: '1. Install msctl', command: 'npm install -g @yakami129/msctl' },
-  {
-    id: 'service',
-    title: '2. Start service',
-    command: 'msctl daemon quickstart --token test --port 8765 --tailnet true',
-  },
-  {
-    id: 'codex',
-    title: 'Codex',
-    command: 'cd /path/to/project\nmsctl agent codex',
-  },
-  {
-    id: 'claude',
-    title: 'Claude Code',
-    command: 'cd /path/to/project\nmsctl agent claude-code',
-  },
-  {
-    id: 'cursor',
-    title: 'Cursor Agent CLI',
-    command: 'cd /path/to/project\nmsctl agent cursor-cli',
-  },
-];
-const LOCAL_TEST_ENDPOINT = {
-  label: '127.0.0.1',
-  url: 'http://127.0.0.1:8765',
-  token: 'test',
-};
-
-export function AddEndpointModal({ visible, onClose, onAdd }: Props) {
+export function AddEndpointModal({ visible, onClose, onAdd, initialTab = 'qr' }: Props) {
+  const [tab, setTab] = useState<Tab>(initialTab);
   const [status, setStatus] = useState<ScanStatus>('idle');
+  const [manualStatus, setManualStatus] = useState<ManualStatus>('idle');
+  const [manualUrl, setManualUrl] = useState('');
+  const [manualToken, setManualToken] = useState('');
   const [scanned, setScanned] = useState(false);
   const [helpVisible, setHelpVisible] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -61,8 +42,13 @@ export function AddEndpointModal({ visible, onClose, onAdd }: Props) {
 
   useEffect(() => {
     if (!visible) return;
+    setTab(initialTab);
+  }, [initialTab, visible]);
+
+  useEffect(() => {
+    if (!visible || tab !== 'qr') return;
     if (!permission?.granted) void requestPermission();
-  }, [permission?.granted, requestPermission, visible]);
+  }, [permission?.granted, requestPermission, tab, visible]);
 
   useEffect(() => {
     if (!copiedId) return undefined;
@@ -72,23 +58,35 @@ export function AddEndpointModal({ visible, onClose, onAdd }: Props) {
 
   const reset = () => {
     scanInFlightRef.current = false;
+    setTab(initialTab);
     setStatus('idle');
+    setManualStatus('idle');
+    setManualUrl('');
+    setManualToken('');
     setScanned(false);
     setHelpVisible(false);
     setCopiedId(null);
   };
 
-  const handleCopyCommand = async (command: SetupCommand) => {
+  const handleCopyCommand = async (command: { id: string; command: string }) => {
     await Clipboard.setStringAsync(command.command);
     setCopiedId(command.id);
   };
 
-  const handleAdd = async (overrideUrl: string, overrideToken: string) => {
+  const handleAdd = async (
+    overrideUrl: string,
+    overrideToken: string,
+    source: 'qr' | 'manual' = 'qr',
+  ) => {
     const finalUrl = overrideUrl.trim();
     const finalToken = overrideToken.trim();
     if (!finalUrl || !finalToken) return;
     const endpointLabel = getEndpointLabel(finalUrl);
-    setStatus('checking');
+    if (source === 'manual') {
+      setManualStatus('checking');
+    } else {
+      setStatus('checking');
+    }
     try {
       const client = getEndpointClient(finalUrl, finalToken);
       await client.get('/api/v1/healthz');
@@ -106,7 +104,6 @@ export function AddEndpointModal({ visible, onClose, onAdd }: Props) {
           url: finalUrl,
         }),
       );
-      // Debug: test DNS + connectivity step by step
       try {
         console.warn('[AddEndpoint] Testing fetch to:', `${finalUrl}/api/v1/healthz`);
         const controller = new AbortController();
@@ -128,7 +125,6 @@ export function AddEndpointModal({ visible, onClose, onAdd }: Props) {
         const err2 = e2 as { message?: string; name?: string };
         console.error('[AddEndpoint] fetch also failed:', err2?.message, err2?.name);
       }
-      // Debug: try a known public HTTPS endpoint to rule out general networking issue
       try {
         const pub = await fetch('https://httpbin.org/get');
         console.warn('[AddEndpoint] public HTTPS works:', pub.status);
@@ -138,50 +134,86 @@ export function AddEndpointModal({ visible, onClose, onAdd }: Props) {
       }
       scanInFlightRef.current = false;
       setScanned(false);
-      setStatus('connection_err');
+      if (source === 'manual') {
+        setManualStatus('connection_err');
+      } else {
+        setStatus('connection_err');
+      }
     }
   };
 
-  // Parse multisoul://pair?url=...&token=...
+  const handleManualConnect = () => {
+    void handleAdd(manualUrl, manualToken, 'manual');
+  };
+
+  const handlePasteConnectionString = async () => {
+    const text = await Clipboard.getStringAsync();
+    const parsed = parsePairConnection(text);
+    if (!parsed) {
+      setManualStatus('invalid_paste');
+      return;
+    }
+    setManualUrl(parsed.url);
+    setManualToken(parsed.token);
+    setManualStatus('idle');
+  };
+
   const handleBarCodeScanned = ({ data }: { data: string }) => {
     if (scanInFlightRef.current || scanned) return;
     scanInFlightRef.current = true;
     setScanned(true);
-    try {
-      const parsed = new URL(data);
-      if (parsed.protocol !== 'multisoul:') {
-        scanInFlightRef.current = false;
-        setStatus('invalid_qr');
-        return;
-      }
-      const scannedUrl = parsed.searchParams.get('url') ?? '';
-      const scannedToken = parsed.searchParams.get('token') ?? '';
-      if (!scannedUrl || !scannedToken) {
-        scanInFlightRef.current = false;
-        setStatus('invalid_qr');
-        return;
-      }
-      void handleAdd(scannedUrl, scannedToken);
-    } catch {
+    const pair = parsePairConnection(data);
+    if (!pair) {
       scanInFlightRef.current = false;
       setStatus('invalid_qr');
+      return;
     }
+    void handleAdd(pair.url, pair.token, 'qr');
   };
 
-  const renderScanHeader = () => (
+  const renderModeTabs = () => (
     <View style={s.scanHeader}>
-      <View style={s.scanBadge}>
-        <Text style={s.scanBadgeText} numberOfLines={1}>
-          SCAN QR
-        </Text>
+      <View style={s.modeTabs}>
         <TouchableOpacity
-          accessibilityLabel="Show setup commands"
-          accessibilityRole="button"
-          hitSlop={8}
-          onPress={() => setHelpVisible(true)}
-          style={s.fullHelpButton}
+          accessibilityRole="tab"
+          accessibilityState={{ selected: tab === 'qr' }}
+          accessibilityLabel="Scan QR"
+          style={[s.modeTab, tab === 'qr' && s.modeTabActive]}
+          onPress={() => {
+            setTab('qr');
+            setManualStatus('idle');
+          }}
         >
-          <Info size={13} color={brandColors.white} />
+          <Text style={[s.modeTabText, tab === 'qr' && s.modeTabTextActive]} numberOfLines={1}>
+            SCAN QR
+          </Text>
+          {tab === 'qr' ? (
+            <TouchableOpacity
+              accessibilityLabel="Show setup commands"
+              accessibilityRole="button"
+              hitSlop={8}
+              onPress={() => setHelpVisible(true)}
+              style={s.fullHelpButton}
+            >
+              <Info size={13} color={brandColors.white} />
+            </TouchableOpacity>
+          ) : null}
+        </TouchableOpacity>
+        <TouchableOpacity
+          accessibilityRole="tab"
+          accessibilityState={{ selected: tab === 'manual' }}
+          accessibilityLabel="Enter manually"
+          style={[s.modeTab, tab === 'manual' && s.modeTabActive]}
+          onPress={() => {
+            setTab('manual');
+            setStatus('idle');
+            setScanned(false);
+            scanInFlightRef.current = false;
+          }}
+        >
+          <Text style={[s.modeTabText, tab === 'manual' && s.modeTabTextActive]} numberOfLines={1}>
+            MANUAL
+          </Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -210,6 +242,76 @@ export function AddEndpointModal({ visible, onClose, onAdd }: Props) {
     </>
   );
 
+  const manualConnectDisabled =
+    manualStatus === 'checking' || !manualUrl.trim() || !manualToken.trim();
+
+  const renderManualEntry = () => (
+    <View style={s.manualCard}>
+      <Text style={s.manualCardSubtitle}>
+        Paste the connection string from msctl, or type the service address and token.
+      </Text>
+      <TouchableOpacity
+        accessibilityRole="button"
+        accessibilityLabel="Paste connection string"
+        style={s.pasteLink}
+        onPress={() => {
+          void handlePasteConnectionString();
+        }}
+      >
+        <Text style={s.pasteLinkText}>Paste connection string</Text>
+      </TouchableOpacity>
+      <Text style={s.fieldLabel}>Service address</Text>
+      <TextInput
+        style={s.textInput}
+        value={manualUrl}
+        onChangeText={(value) => {
+          setManualUrl(value);
+          if (manualStatus !== 'idle') setManualStatus('idle');
+        }}
+        placeholder="https://your-machine.example.com:8765"
+        placeholderTextColor={brandColors.textMuted}
+        autoCapitalize="none"
+        autoCorrect={false}
+        keyboardType="url"
+        accessibilityLabel="Service address"
+      />
+      <Text style={s.fieldLabel}>Token</Text>
+      <TextInput
+        style={s.textInput}
+        value={manualToken}
+        onChangeText={(value) => {
+          setManualToken(value);
+          if (manualStatus !== 'idle') setManualStatus('idle');
+        }}
+        placeholder="ms_v2_..."
+        placeholderTextColor={brandColors.textMuted}
+        autoCapitalize="none"
+        autoCorrect={false}
+        secureTextEntry
+        accessibilityLabel="Token"
+      />
+      {manualStatus === 'invalid_paste' && (
+        <Text style={s.manualErrText}>INVALID CONNECTION STRING</Text>
+      )}
+      {manualStatus === 'connection_err' && (
+        <Text style={s.manualErrText}>CANNOT REACH ENDPOINT</Text>
+      )}
+      <TouchableOpacity
+        accessibilityRole="button"
+        accessibilityLabel="Connect endpoint"
+        style={[s.connectButton, manualConnectDisabled && s.connectButtonDisabled]}
+        disabled={manualConnectDisabled}
+        onPress={handleManualConnect}
+      >
+        {manualStatus === 'checking' ? (
+          <ActivityIndicator size="small" color={brandColors.white} />
+        ) : (
+          <Text style={s.connectButtonText}>Connect</Text>
+        )}
+      </TouchableOpacity>
+    </View>
+  );
+
   const renderFullScreenQrContent = () => (
     <>
       <View style={s.qrCard}>
@@ -232,86 +334,8 @@ export function AddEndpointModal({ visible, onClose, onAdd }: Props) {
           Need commands? Tap the help icon next to SCAN QR.
         </Text>
       </TouchableOpacity>
-      <TouchableOpacity
-        accessibilityRole="button"
-        accessibilityLabel="Add local test endpoint"
-        disabled={status === 'checking'}
-        style={[s.localTestButton, status === 'checking' && s.localTestButtonDisabled]}
-        onPress={() => {
-          void handleAdd(LOCAL_TEST_ENDPOINT.url, LOCAL_TEST_ENDPOINT.token);
-        }}
-      >
-        <Terminal size={16} color={brandColors.ink} />
-        <View style={s.localTestCopy}>
-          <Text style={s.localTestTitle} numberOfLines={1}>
-            Add local test endpoint
-          </Text>
-          <Text style={s.localTestUrl} numberOfLines={1}>
-            {LOCAL_TEST_ENDPOINT.url}
-          </Text>
-        </View>
-      </TouchableOpacity>
     </>
   );
-
-  const renderHelpSheet = () =>
-    helpVisible ? (
-      <View style={s.helpOverlay}>
-        <TouchableOpacity
-          accessibilityLabel="Close setup commands"
-          style={s.helpScrim}
-          activeOpacity={1}
-          onPress={() => setHelpVisible(false)}
-        />
-        <View style={s.helpSheet}>
-          <View style={s.sheetHandle} />
-          <View style={s.sheetHeader}>
-            <View style={s.sheetTitleBlock}>
-              <Text style={s.sheetTitle} numberOfLines={1}>
-                Set up local agent
-              </Text>
-              <Text style={s.sheetSubtitle}>
-                Run these commands on the machine you want to connect.
-              </Text>
-            </View>
-            <TouchableOpacity
-              accessibilityLabel="Close setup commands"
-              accessibilityRole="button"
-              style={s.sheetCloseButton}
-              onPress={() => setHelpVisible(false)}
-            >
-              <X size={16} color={brandColors.ink} />
-            </TouchableOpacity>
-          </View>
-          <ScrollView
-            style={s.commandsScroll}
-            contentContainerStyle={s.commandsContent}
-            showsVerticalScrollIndicator={false}
-          >
-            <CommandBlock
-              command={SETUP_COMMANDS[0]}
-              copiedId={copiedId}
-              onCopy={handleCopyCommand}
-            />
-            <CommandBlock
-              command={SETUP_COMMANDS[1]}
-              copiedId={copiedId}
-              onCopy={handleCopyCommand}
-            />
-            <Text style={s.registerTitle}>3. Register an Agent</Text>
-            {SETUP_COMMANDS.slice(2).map((command) => (
-              <CommandBlock
-                key={command.id}
-                command={command}
-                copiedId={copiedId}
-                onCopy={handleCopyCommand}
-                compact
-              />
-            ))}
-          </ScrollView>
-        </View>
-      </View>
-    ) : null;
 
   return (
     <Modal visible={visible} transparent={false} animationType="slide" onRequestClose={onClose}>
@@ -357,65 +381,21 @@ export function AddEndpointModal({ visible, onClose, onAdd }: Props) {
               <X size={18} color={brandColors.ink} />
             </TouchableOpacity>
           </View>
-          <Text style={s.fullSubtitle} numberOfLines={2}>
-            Scan the QR code from msctl quickstart.
+          <Text style={s.fullSubtitle} numberOfLines={3}>
+            {tab === 'qr'
+              ? 'Scan the QR code from msctl daemon quickstart.'
+              : 'Enter the service address and token from msctl daemon quickstart.'}
           </Text>
-          {renderScanHeader()}
-          {renderFullScreenQrContent()}
+          {renderModeTabs()}
+          {tab === 'qr' ? renderFullScreenQrContent() : renderManualEntry()}
         </ScrollView>
-        {renderHelpSheet()}
+        <AddEndpointHelpSheet
+          visible={helpVisible}
+          copiedId={copiedId}
+          onClose={() => setHelpVisible(false)}
+          onCopy={handleCopyCommand}
+        />
       </SafeAreaView>
     </Modal>
-  );
-}
-
-function getEndpointLabel(baseUrl: string) {
-  try {
-    const hostname = new URL(baseUrl).hostname;
-    if (hostname) return hostname;
-  } catch {
-    const withoutScheme = baseUrl.replace(/^[a-z]+:\/\//i, '');
-    const host = withoutScheme.split(/[/:?#]/)[0];
-    if (host) return host;
-  }
-  return baseUrl;
-}
-
-function CommandBlock({
-  command,
-  copiedId,
-  onCopy,
-  compact = false,
-}: {
-  command: SetupCommand;
-  copiedId: string | null;
-  onCopy: (command: SetupCommand) => Promise<void>;
-  compact?: boolean;
-}) {
-  const copied = copiedId === command.id;
-
-  return (
-    <View style={[s.commandBlock, compact && s.commandBlockCompact]}>
-      <View style={s.commandHeader}>
-        <Text style={[s.commandTitle, compact && s.commandTitleAccent]} numberOfLines={1}>
-          {command.title}
-        </Text>
-        <TouchableOpacity
-          accessibilityLabel={`Copy ${command.title} command`}
-          accessibilityRole="button"
-          onPress={() => {
-            void onCopy(command);
-          }}
-          style={s.copyButton}
-        >
-          {copied ? (
-            <Text style={s.copiedText}>COPIED</Text>
-          ) : (
-            <Copy size={13} color={brandColors.textMuted} />
-          )}
-        </TouchableOpacity>
-      </View>
-      <Text style={s.commandText}>{command.command}</Text>
-    </View>
   );
 }

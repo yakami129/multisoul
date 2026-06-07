@@ -67,6 +67,10 @@
       "title": "Chat 自动滚动修复 SPEC"
     },
     {
+      "file": "2026-06-07-SPEC-daemon-quickstart-relay-default.md",
+      "title": "daemon quickstart 默认 Relay 模式 SPEC"
+    },
+    {
       "file": "2026-06-07-SPEC-idea-share-attachments.md",
       "title": "Idea Share Attachments SPEC"
     },

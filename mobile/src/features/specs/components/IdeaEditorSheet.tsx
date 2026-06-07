@@ -308,7 +308,7 @@ export function IdeaEditorSheet({
                 <View style={s.targetBody}>
                   <Text style={s.targetTitle}>Project & Agent</Text>
                   <Text style={s.targetSubtitle} numberOfLines={1}>
-                    {target ? `${target.repoPath} · ${target.agentName}` : 'Choose'}
+                    {target ? target.agentName : 'Choose'}
                   </Text>
                 </View>
                 <Text style={s.chooseText}>{target ? 'Change' : 'Choose'}</Text>

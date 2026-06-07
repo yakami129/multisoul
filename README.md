@@ -112,17 +112,24 @@ cargo run -- --help
 Fastest installed CLI flow:
 
 ```bash
-msctl daemon quickstart --token test --port 8765 --tailnet true
+msctl daemon quickstart
 ```
 
 From source:
 
 ```bash
 cd cli
-cargo run -- daemon quickstart --token test --port 8765 --tailnet true
+cargo run -- daemon quickstart
 ```
 
-This command saves the token, installs and starts the background service, binds it for Tailnet access, and prints a QR code plus a connection string.
+This command auto-generates a token, installs and starts the background service in **relay** mode (Cloudflare Tunnel + Auto Tunnel), waits for the public tunnel URL, and prints a QR code plus connection string. First run may take several minutes while cloudflared downloads.
+
+Switch modes via flags or `~/.config/msctl/config.toml` (`serve_mode = "tailnet"` | `"funnel"`):
+
+```bash
+msctl daemon quickstart --tailnet
+msctl daemon quickstart --port 9000
+```
 
 On iOS or Android, open the mobile app and add the machine:
 

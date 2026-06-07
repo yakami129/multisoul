@@ -50,7 +50,9 @@ beforeEach(() => {
 ///   - Positive: "Connect a machine" exists, matching the pencli Add Endpoint screen.
 ///   - Positive: "Scan setup QR" exists above the scanner area.
 ///   - Positive: "Show setup commands" help control exists next to SCAN QR.
-///   - Negative: "MANUAL" is absent because Add Endpoint is QR-only.
+///   - Positive: SCAN QR and MANUAL tabs exist; QR content shows by default.
+///   - Positive: "Show setup commands" help control exists on the active SCAN QR tab.
+///   - Negative: manual fields stay hidden until MANUAL tab is selected.
 ///   - Negative: legacy "ADD ENDPOINT" centered-card heading is not shown for Agents QR entry.
 it('opens the Agents QR entry as the full-screen scan flow with setup help', () => {
   render(<AddEndpointModal visible onClose={() => {}} onAdd={() => {}} initialTab="qr" />);
@@ -58,10 +60,25 @@ it('opens the Agents QR entry as the full-screen scan flow with setup help', () 
   expect(screen.getByText('Connect a machine')).toBeTruthy();
   expect(screen.getByText('Scan setup QR')).toBeTruthy();
   expect(screen.getByText('TAP TO ALLOW CAMERA')).toBeTruthy();
+  expect(screen.getByLabelText('Scan QR')).toBeTruthy();
+  expect(screen.getByLabelText('Enter manually')).toBeTruthy();
   expect(screen.getByLabelText('Show setup commands')).toBeTruthy();
-  expect(screen.queryByText('MANUAL')).toBeNull();
-  expect(screen.queryByText('Paste connection string')).toBeNull();
+  expect(screen.queryByLabelText('Service address')).toBeNull();
+  expect(screen.queryByLabelText('Token')).toBeNull();
   expect(screen.queryByText('ADD ENDPOINT')).toBeNull();
+});
+
+/// Tab switch: MANUAL tab reveals the service address and token form.
+it('shows the manual form only after selecting the MANUAL tab', () => {
+  render(<AddEndpointModal visible onClose={() => {}} onAdd={() => {}} initialTab="qr" />);
+
+  expect(screen.queryByLabelText('Service address')).toBeNull();
+  fireEvent.press(screen.getByLabelText('Enter manually'));
+
+  expect(screen.getByLabelText('Service address')).toBeTruthy();
+  expect(screen.getByLabelText('Token')).toBeTruthy();
+  expect(screen.getByLabelText('Paste connection string')).toBeTruthy();
+  expect(screen.queryByText('Scan setup QR')).toBeNull();
 });
 
 /// QR scan connect: scanning a pairing QR creates the endpoint without a manual label step.
@@ -108,36 +125,6 @@ it('adds the scanned endpoint with the URL hostname as its label', async () => {
     'https://mac-home.tailnet.ts.net:8765',
     'test-token',
   );
-});
-
-/// Local test endpoint shortcut: QA can register the simulator localhost service without a QR scan.
-///
-/// Data construction:
-///   shortcut URL   = "http://127.0.0.1:8765".
-///   shortcut token = "test", matching msctl quickstart examples.
-///   Expected label = hostname("http://127.0.0.1:8765") = "127.0.0.1".
-///
-/// Execution:
-///   1. Render AddEndpointModal in QR mode.
-///   2. Press the local test endpoint shortcut.
-///   3. Wait for the health check path to call onAdd and close the flow.
-///
-/// Expected:
-///   - Positive: onAdd receives the localhost label, URL, and token.
-///   - Positive: the modal closes after successful shortcut registration.
-///   - Negative: the shortcut does not require camera scanning before it can add the endpoint.
-it('adds the local test endpoint shortcut for simulator testing', async () => {
-  const onAdd = jest.fn();
-  const onClose = jest.fn();
-  render(<AddEndpointModal visible onClose={onClose} onAdd={onAdd} initialTab="qr" />);
-
-  fireEvent.press(screen.getByLabelText('Add local test endpoint'));
-
-  await waitFor(() => {
-    expect(onAdd).toHaveBeenCalledWith('127.0.0.1', 'http://127.0.0.1:8765', 'test');
-  });
-  expect(onClose).toHaveBeenCalledTimes(1);
-  expect(mockCameraProps?.onBarcodeScanned).toBeUndefined();
 });
 
 /// QR scan duplicate guard: repeated camera callbacks for the same QR must add only one endpoint.
@@ -331,6 +318,8 @@ it('shows setup commands for install, service start, and all agent runtime varia
   expect(screen.getByText('Run these commands on the machine you want to connect.')).toBeTruthy();
   expect(screen.getByText('1. Install msctl')).toBeTruthy();
   expect(screen.getByText('2. Start service')).toBeTruthy();
+  expect(screen.getByText('msctl daemon quickstart')).toBeTruthy();
+  expect(screen.queryByText('--tailnet true')).toBeNull();
   expect(screen.getByText('3. Register an Agent')).toBeTruthy();
   expect(screen.getByText('Codex')).toBeTruthy();
   expect(screen.getByText('Claude Code')).toBeTruthy();
@@ -376,4 +365,120 @@ it('copies the Codex quick-register command without mixing in other runtime comm
     expect.stringContaining('msctl agent register'),
   );
   expect(Clipboard.setStringAsync).not.toHaveBeenCalledWith(expect.stringContaining('cursor-cli'));
+});
+
+/// Manual connect: entering service address and token registers the endpoint after healthz.
+///
+/// Data construction:
+///   service address = "https://mac-home.tailnet.ts.net:8765".
+///   token           = "test-token".
+///   Expected label  = hostname from the service address.
+///
+/// Execution:
+///   1. Render AddEndpointModal.
+///   2. Fill service address and token fields.
+///   3. Press Connect.
+///   4. Wait for health check and onAdd.
+///
+/// Expected:
+///   - Positive: onAdd receives hostname label, URL, and token.
+///   - Positive: modal closes after successful manual registration.
+it('adds a manually entered endpoint after health check succeeds', async () => {
+  const onAdd = jest.fn();
+  const onClose = jest.fn();
+  render(<AddEndpointModal visible onClose={onClose} onAdd={onAdd} initialTab="qr" />);
+
+  fireEvent.press(screen.getByLabelText('Enter manually'));
+  fireEvent.changeText(
+    screen.getByLabelText('Service address'),
+    'https://mac-home.tailnet.ts.net:8765',
+  );
+  fireEvent.changeText(screen.getByLabelText('Token'), 'test-token');
+  fireEvent.press(screen.getByLabelText('Connect endpoint'));
+
+  await waitFor(() => {
+    expect(onAdd).toHaveBeenCalledWith(
+      'mac-home.tailnet.ts.net',
+      'https://mac-home.tailnet.ts.net:8765',
+      'test-token',
+    );
+  });
+  expect(onClose).toHaveBeenCalledTimes(1);
+});
+
+/// Paste connection string: clipboard multisoul URL fills fields for manual connect.
+///
+/// Data construction:
+///   clipboard payload = multisoul pairing URL with encoded service address and token.
+///
+/// Execution:
+///   1. Mock Clipboard.getStringAsync with a valid pairing URL.
+///   2. Press Paste connection string.
+///   3. Read service address and token field values.
+///
+/// Expected:
+///   - Positive: service address and token fields are populated from the pairing URL.
+///   - Negative: invalid paste error is not shown for a valid connection string.
+it('fills manual fields when a valid connection string is pasted from clipboard', async () => {
+  (Clipboard.getStringAsync as jest.Mock).mockResolvedValue(
+    'multisoul://pair?url=https%3A%2F%2Fmac-home.tailnet.ts.net%3A8765&token=test-token',
+  );
+  render(<AddEndpointModal visible onClose={() => {}} onAdd={() => {}} initialTab="qr" />);
+
+  fireEvent.press(screen.getByLabelText('Enter manually'));
+  fireEvent.press(screen.getByLabelText('Paste connection string'));
+
+  await waitFor(() => {
+    expect(screen.getByDisplayValue('https://mac-home.tailnet.ts.net:8765')).toBeTruthy();
+  });
+  expect(screen.getByDisplayValue('test-token')).toBeTruthy();
+  expect(screen.queryByText('INVALID CONNECTION STRING')).toBeNull();
+});
+
+/// Manual connect failure: unreachable endpoint shows error in manual section only.
+///
+/// Data construction:
+///   service address and token are syntactically valid.
+///   healthz and fallback fetch both fail.
+///
+/// Execution:
+///   1. Mock health check failure.
+///   2. Fill manual fields and press Connect.
+///   3. Wait for the manual error message.
+///
+/// Expected:
+///   - Positive: manual section shows CANNOT REACH ENDPOINT.
+///   - Negative: onAdd is not called and modal stays open.
+it('shows manual connection failure without closing the modal', async () => {
+  const onAdd = jest.fn();
+  const onClose = jest.fn();
+  (getEndpointClient as jest.Mock).mockReturnValue({
+    get: jest.fn().mockRejectedValue(new Error('offline')),
+  });
+  const originalFetch = global.fetch;
+  global.fetch = jest.fn().mockRejectedValue(new Error('offline')) as unknown as typeof fetch;
+  const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
+  const consoleWarn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+  try {
+    render(<AddEndpointModal visible onClose={onClose} onAdd={onAdd} initialTab="qr" />);
+
+    fireEvent.press(screen.getByLabelText('Enter manually'));
+    fireEvent.changeText(
+      screen.getByLabelText('Service address'),
+      'https://mac-home.tailnet.ts.net:8765',
+    );
+    fireEvent.changeText(screen.getByLabelText('Token'), 'test-token');
+    fireEvent.press(screen.getByLabelText('Connect endpoint'));
+
+    await waitFor(() => {
+      expect(screen.getByText('CANNOT REACH ENDPOINT')).toBeTruthy();
+    });
+    expect(onAdd).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
+  } finally {
+    global.fetch = originalFetch;
+    consoleError.mockRestore();
+    consoleWarn.mockRestore();
+  }
 });
