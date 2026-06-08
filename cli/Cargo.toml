@@ -43,3 +43,8 @@ windows-sys = { version = "0.59", features = [
 [dev-dependencies]
 mockito  = "1"
 tempfile = "3"
+tokio-tungstenite = { version = "0.21", features = ["native-tls"] }
+
+[[test]]
+name = "e2e_tests"
+path = "tests/serve/e2e_tests.rs"

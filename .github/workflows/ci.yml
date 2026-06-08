@@ -87,7 +87,24 @@ jobs:
         run: pnpm format:check
 
       - name: Test
-        run: pnpm exec jest --watchAll=false --forceExit
+        run: pnpm exec jest --watchAll=false --forceExit --coverage --coverageReporters=text-summary
+
+  cli-e2e:
+    name: cli (serve e2e)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: cli
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: cli
+      - name: Build
+        run: cargo build --locked
+      - name: Serve E2E
+        run: cargo test --test e2e_tests --locked
 
   cli-check:
     name: cli (build + test)

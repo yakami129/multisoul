@@ -3,6 +3,11 @@
   "version": 1,
   "documents": [
     {
+      "file": "2026-06-08-testing-infra.md",
+      "title": "自动化测试体系建设 Implementation Plan",
+      "lastCompletedCommit": "a7d97066e6bd1b6890da89de2b0b8d840ddb33d2"
+    },
+    {
       "file": "2026-06-07-workflow-watch-mode.md",
       "title": "Workflow Watch 模式 Implementation Plan",
       "lastCompletedCommit": "f3c689742a26e2fe7263245da623aa46eeea95c7"

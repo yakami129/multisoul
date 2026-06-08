@@ -80,6 +80,7 @@
     "jest-expo": "~55.0.18",
     "lint-staged": "^15.0.0",
     "lucide-react-native": "^1.8.0",
+    "msw": "^2.14.6",
     "prettier": "^3.0.0",
     "react-test-renderer": "19.2.0",
     "typescript": "~5.9.2",
@@ -123,6 +124,11 @@
       "^@/(.*)$": "<rootDir>/src/$1",
       "^react-native-css-interop/jsx-runtime$": "react/jsx-runtime",
       "^react-native-css-interop/jsx-dev-runtime$": "react/jsx-dev-runtime"
+    },
+    "coverageThreshold": {
+      "global": {
+        "lines": 60
+      }
     }
   }
 }
