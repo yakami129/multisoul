@@ -1,4 +1,15 @@
-import { ChevronRight, CircleCheck, MessageCircle, SlidersHorizontal } from 'lucide-react-native';
+import {
+  AlarmClock,
+  Bot,
+  Check,
+  ChevronRight,
+  CircleCheck,
+  Clock,
+  MessageCircle,
+  SlidersHorizontal,
+  Sparkles,
+  X,
+} from 'lucide-react-native';
 import React, { useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -10,7 +21,7 @@ import {
   View,
 } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
-import { brandColors } from '@/theme/brandRefresh';
+import { brandColors, brandRgba } from '@/theme/brandRefresh';
 import { activityScreenStyles as s } from './activityScreenStyles';
 
 export interface ActivityItem {
@@ -58,11 +69,11 @@ interface Props {
 type ActivityFilter = 'all' | 'pending' | 'running' | 'done';
 type DoneFilter = 'unread' | 'read';
 
-const FILTERS: Array<{ key: ActivityFilter; label: string }> = [
+const FILTERS: Array<{ key: ActivityFilter; label: string; dot?: string }> = [
   { key: 'all', label: 'All' },
-  { key: 'pending', label: 'Pending' },
-  { key: 'running', label: 'Running' },
-  { key: 'done', label: 'Done' },
+  { key: 'pending', label: 'Pending', dot: brandColors.coral },
+  { key: 'running', label: 'Running', dot: brandColors.cyan },
+  { key: 'done', label: 'Done', dot: brandColors.lime },
 ];
 
 function formatRelativeTime(ts: number): string {
@@ -83,52 +94,111 @@ function byNewest(a: ActivityItem, b: ActivityItem): number {
   return b.timestamp - a.timestamp;
 }
 
-function rowDotStyle(item: ActivityItem) {
-  if (item.section === 'running') return s.dotRunning;
-  if (item.tone === 'failed') return s.dotFailed;
-  if (item.section === 'done' && item.readAt != null) return s.dotRead;
-  return s.dotAttention;
+function toneIconProps(item: ActivityItem): { fill: string; border: string; content: React.ReactNode } {
+  if (item.section === 'running') {
+    return {
+      fill: brandColors.cyan,
+      border: brandColors.cyan,
+      content: <Clock size={9} color={brandColors.white} />,
+    };
+  }
+  if (item.tone === 'failed') {
+    return {
+      fill: brandColors.error,
+      border: brandColors.error,
+      content: <X size={9} color={brandColors.white} />,
+    };
+  }
+  if (item.section === 'done') {
+    return {
+      fill: brandColors.lime,
+      border: brandColors.lime,
+      content: <Check size={9} color={brandColors.white} />,
+    };
+  }
+  // attention / default — orange
+  return {
+    fill: brandColors.coral,
+    border: brandColors.coral,
+    content: <Text style={s.timelineIconText}>!</Text>,
+  };
 }
 
-function PartialFailureBanner({
-  failedEndpointLabels,
-  onRetry,
-}: {
-  failedEndpointLabels: string[];
-  onRetry?: () => void;
-}) {
-  if (failedEndpointLabels.length === 0) return null;
+function tagStyle(item: ActivityItem): { bg: string; color: string } {
+  if (item.section === 'running') return { bg: brandRgba.cyanSoft, color: brandColors.ink };
+  if (item.tone === 'failed') return { bg: 'rgba(255,68,68,0.12)', color: brandColors.error };
+  if (item.section === 'done') return { bg: brandRgba.limeSoft, color: brandColors.ink };
+  return { bg: 'rgba(255,90,60,0.12)', color: brandColors.coral };
+}
 
+function PartialFailureBanner({ failedEndpointLabels, onRetry }: { failedEndpointLabels: string[]; onRetry?: () => void }) {
+  if (failedEndpointLabels.length === 0) return null;
   return (
     <View style={s.partialFailure}>
-      <Text style={s.partialFailureText}>
-        Some endpoints failed: {failedEndpointLabels.join(', ')}
-      </Text>
-      <TouchableOpacity
-        onPress={onRetry}
-        accessibilityRole="button"
-        accessibilityLabel="Retry failed endpoints"
-      >
+      <Text style={s.partialFailureText}>Some endpoints failed: {failedEndpointLabels.join(', ')}</Text>
+      <TouchableOpacity onPress={onRetry} accessibilityRole="button" accessibilityLabel="Retry failed endpoints">
         <Text style={s.partialFailureRetry}>Retry</Text>
       </TouchableOpacity>
     </View>
   );
 }
 
+function DecisionBanner({ count, onPress }: { count: number; onPress: () => void }) {
+  const label = count === 1 ? 'task needs' : 'tasks need';
+  return (
+    <TouchableOpacity
+      style={s.decisionBanner}
+      onPress={onPress}
+      activeOpacity={0.85}
+      accessibilityRole="button"
+      accessibilityLabel={`${count} ${label} your decision. Tap to review.`}
+    >
+      <View style={s.alarmCircle}>
+        <AlarmClock size={18} color={brandColors.ink} />
+      </View>
+      <View style={s.bannerCopy}>
+        <Text style={s.bannerTitle}>{count} {label} your decision</Text>
+        <Text style={s.bannerSub}>Your input is needed to keep things moving.</Text>
+      </View>
+      <View style={s.reviewPill}>
+        <Text style={s.reviewPillText}>Review</Text>
+        <ChevronRight size={12} color={brandColors.white} />
+      </View>
+    </TouchableOpacity>
+  );
+}
+
 function ActivityRow({
   item,
+  isFirst,
+  isLast,
   onOpenItem,
   onDeleteItem,
   openSwipeableRef,
   swipeableRefs,
 }: {
   item: ActivityItem;
+  isFirst: boolean;
+  isLast: boolean;
   onOpenItem: (item: ActivityItem) => void;
   onDeleteItem?: (item: ActivityItem) => void;
   openSwipeableRef: React.MutableRefObject<Swipeable | null>;
   swipeableRefs: React.MutableRefObject<Map<string, Swipeable>>;
 }) {
+  const icon = toneIconProps(item);
+  const tag = tagStyle(item);
   const isUnreadDone = item.section === 'done' && item.readAt == null;
+  const displayName = item.workflowName
+    ? `${item.agentName || item.projectName} · ${item.workflowName}`
+    : item.agentName || item.projectName;
+
+  const subBg =
+    item.section === 'running'
+      ? 'rgba(240,253,255,0.90)'
+      : item.section === 'done'
+        ? 'rgba(250,255,239,0.88)'
+        : 'rgba(255,250,247,0.88)';
+
   const renderDeleteAction = () => (
     <TouchableOpacity
       style={s.deleteAction}
@@ -141,52 +211,78 @@ function ActivityRow({
   );
 
   return (
-    <Swipeable
-      ref={(ref) => {
-        if (ref) swipeableRefs.current.set(item.id, ref);
-        else swipeableRefs.current.delete(item.id);
-      }}
-      onSwipeableOpen={() => {
-        if (openSwipeableRef.current) openSwipeableRef.current.close();
-        openSwipeableRef.current = swipeableRefs.current.get(item.id) ?? null;
-      }}
-      renderRightActions={renderDeleteAction}
-      overshootRight={false}
-    >
-      <TouchableOpacity
-        style={s.row}
-        onPress={() => onOpenItem(item)}
-        accessibilityRole="button"
-        accessibilityLabel={`Open ${item.title}`}
-      >
-        <View style={[s.rowDot, rowDotStyle(item)]} />
-        <View style={s.rowBody}>
-          <View style={s.rowTop}>
-            <Text style={[s.itemTitle, isUnreadDone && s.itemTitleUnread]} numberOfLines={2}>
-              {item.title}
-            </Text>
-            <Text style={s.timeText}>{formatRelativeTime(item.timestamp)}</Text>
+    <View style={s.timelineRow}>
+      <View style={s.timelineCol}>
+        {!isFirst && <View style={s.timelineLineTop} />}
+        <View style={[s.timelineIconOuter, { borderColor: icon.border }]}>
+          <View style={[s.timelineIconFill, { backgroundColor: icon.fill }]}>
+            {icon.content}
           </View>
-          <Text style={s.subtitle} numberOfLines={2}>
-            {item.workflowName
-              ? `${item.projectName} · ${item.workflowName} · ${item.subtitle}`
-              : `${item.projectName} · ${item.subtitle}`}
-          </Text>
         </View>
-        <View style={s.rowRight}>
-          <Text
-            style={[
-              s.statusLabel,
-              item.section === 'running' && s.statusRunning,
-              item.tone === 'failed' && s.statusFailed,
-            ]}
+        {!isLast && <View style={s.timelineLineBottom} />}
+      </View>
+
+      <View style={s.cardWrapper}>
+        <Swipeable
+          ref={(ref) => {
+            if (ref) swipeableRefs.current.set(item.id, ref);
+            else swipeableRefs.current.delete(item.id);
+          }}
+          onSwipeableOpen={() => {
+            if (openSwipeableRef.current) openSwipeableRef.current.close();
+            openSwipeableRef.current = swipeableRefs.current.get(item.id) ?? null;
+          }}
+          renderRightActions={renderDeleteAction}
+          overshootRight={false}
+        >
+          <TouchableOpacity
+            onPress={() => onOpenItem(item)}
+            accessibilityRole="button"
+            accessibilityLabel={`Open ${item.title}`}
+            activeOpacity={0.85}
           >
-            {item.statusLabel}
-          </Text>
-          <ChevronRight size={16} color={brandColors.textMuted} />
-        </View>
-      </TouchableOpacity>
-    </Swipeable>
+            <View style={[s.card, { marginBottom: isLast ? 0 : 10 }]}>
+              <View style={[s.cardStrip, { backgroundColor: icon.border }]} />
+              <View style={s.cardInner}>
+                <Text style={[s.cardTitle, isUnreadDone && { fontWeight: '800' }]} numberOfLines={2}>
+                  {item.title}
+                </Text>
+                <View style={s.cardAgent}>
+                  <Bot size={10} color="#45464a" />
+                  <Text style={s.cardAgentName} numberOfLines={1}>{displayName}</Text>
+                </View>
+
+                <View style={s.cardTopRight}>
+                  <Text style={s.cardTime}>{formatRelativeTime(item.timestamp)}</Text>
+                  <View style={[s.tagBadge, { backgroundColor: tag.bg }]}>
+                    <Text style={[s.tagText, { color: tag.color }]}>{item.statusLabel}</Text>
+                  </View>
+                </View>
+
+                {!!item.subtitle && (
+                  <View style={[s.subPanel, { backgroundColor: subBg }]}>
+                    <View style={s.subPanelInner}>
+                      <Text style={s.subPanelText} numberOfLines={2}>{item.subtitle}</Text>
+                      {item.section === 'attention' && (
+                        <TouchableOpacity
+                          style={s.subReviewBtn}
+                          onPress={() => onOpenItem(item)}
+                          accessibilityRole="button"
+                          accessibilityLabel={`Review ${item.title}`}
+                        >
+                          <Text style={s.subReviewText}>Review</Text>
+                          <ChevronRight size={10} color={brandColors.ink} />
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  </View>
+                )}
+              </View>
+            </View>
+          </TouchableOpacity>
+        </Swipeable>
+      </View>
+    </View>
   );
 }
 
@@ -247,16 +343,27 @@ export default function ActivityScreen({
           ? 'No recent results.'
           : 'No activity.';
 
+  const handleFilterPress = (key: ActivityFilter) => {
+    if (activeFilter !== key) {
+      onFilterChange?.();
+      listRef.current?.scrollToOffset({ offset: 0, animated: false });
+    }
+    setActiveFilter(key);
+    if (key === 'done') setDoneFilter(unreadDone.length > 0 ? 'unread' : 'read');
+  };
+
   const renderListHeader = () => (
     <>
       <PartialFailureBanner failedEndpointLabels={failedEndpointLabels} onRetry={onRetry} />
-      {activeFilter === 'done' ? (
+      {activeFilter === 'all' && needsAttention.length > 0 && (
+        <DecisionBanner count={needsAttention.length} onPress={() => handleFilterPress('pending')} />
+      )}
+      {activeFilter === 'done' && (
         <View style={s.doneHeader}>
           <View style={s.doneSegment}>
             {(['unread', 'read'] as const).map((filter) => {
               const selected = doneFilter === filter;
               const count = filter === 'unread' ? unreadDone.length : readDone.length;
-              const label = filter === 'unread' ? 'Unread' : 'Read';
               return (
                 <TouchableOpacity
                   key={filter}
@@ -266,26 +373,23 @@ export default function ActivityScreen({
                   accessibilityState={{ selected }}
                 >
                   <Text style={[s.doneSegmentText, selected && s.doneSegmentTextActive]}>
-                    {label} {count}
+                    {filter === 'unread' ? 'Unread' : 'Read'} {count}
                   </Text>
                 </TouchableOpacity>
               );
             })}
           </View>
-          {doneFilter === 'unread' && unreadDone.length > 0 ? (
+          {doneFilter === 'unread' && unreadDone.length > 0 && (
             <TouchableOpacity
-              onPress={() => {
-                setDoneFilter('read');
-                onMarkAllDoneRead?.();
-              }}
+              onPress={() => { setDoneFilter('read'); onMarkAllDoneRead?.(); }}
               accessibilityRole="button"
               accessibilityLabel="Mark all Done items read"
             >
               <Text style={s.markReadText}>Mark All Read</Text>
             </TouchableOpacity>
-          ) : null}
+          )}
         </View>
-      ) : null}
+      )}
     </>
   );
 
@@ -300,12 +404,7 @@ export default function ActivityScreen({
     }
     if (loadMoreError) {
       return (
-        <TouchableOpacity
-          style={s.loadMoreFooter}
-          onPress={onRetryLoadMore}
-          accessibilityRole="button"
-          accessibilityLabel="Retry loading more activity"
-        >
+        <TouchableOpacity style={s.loadMoreFooter} onPress={onRetryLoadMore} accessibilityRole="button" accessibilityLabel="Retry loading more activity">
           <Text style={s.loadMoreRetryText}>Load failed. Tap to retry.</Text>
         </TouchableOpacity>
       );
@@ -313,103 +412,67 @@ export default function ActivityScreen({
     return null;
   };
 
-  const handleEndReached = () => {
-    if (!hasMore || isLoadingMore || loadMoreError) return;
-    onLoadMore?.();
-  };
-
   return (
     <View style={s.root}>
       <View style={s.header}>
         <View style={s.titleRow}>
-          <Text style={s.title}>Activity</Text>
-          <SlidersHorizontal size={24} color={brandColors.ink} />
+          <View style={s.titleGroup}>
+            <View style={s.titleWithSpark}>
+              <Text style={s.title}>Activity</Text>
+              <View style={s.sparkIcon} pointerEvents="none">
+                <Sparkles size={10} color={brandColors.ink} />
+              </View>
+            </View>
+            <Text style={s.titleSub}>Mission log</Text>
+          </View>
+          <View style={s.filterBtn}>
+            <SlidersHorizontal size={17} color={brandColors.ink} />
+          </View>
         </View>
+
         <View style={s.segment} testID="activity-filter-segment">
-          {FILTERS.map((filter) => {
+          {FILTERS.map((filter, idx) => {
             const selected = activeFilter === filter.key;
             const count = tabCount(filter.key);
-            const doneUnreadSuffix =
-              filter.key === 'done' && unreadDone.length > 0 ? `, ${unreadDone.length} unread` : '';
+            const doneUnread = filter.key === 'done' && unreadDone.length > 0;
             return (
-              <TouchableOpacity
-                key={filter.key}
-                style={[s.segmentItem, selected && s.segmentItemActive]}
-                onPress={() => {
-                  if (activeFilter !== filter.key) {
-                    onFilterChange?.();
-                    listRef.current?.scrollToOffset({ offset: 0, animated: false });
-                  }
-                  setActiveFilter(filter.key);
-                  if (filter.key === 'done') {
-                    setDoneFilter(unreadDone.length > 0 ? 'unread' : 'read');
-                  }
-                }}
-                accessibilityRole="button"
-                accessibilityState={{ selected }}
-                accessibilityLabel={`Show ${filter.label} activity, ${itemCountLabel(
-                  count,
-                )}${doneUnreadSuffix}`}
-              >
-                <Text style={[s.segmentText, selected && s.segmentTextActive]}>
-                  {filter.label} {count}
-                </Text>
-                {filter.key === 'done' && unreadDone.length > 0 ? (
-                  <View testID="activity-done-unread-dot" style={s.tabUnreadDot} />
-                ) : null}
-              </TouchableOpacity>
+              <React.Fragment key={filter.key}>
+                {idx > 0 && <View style={s.segDivider} />}
+                <TouchableOpacity
+                  style={[s.segItem, selected && s.segItemActive]}
+                  onPress={() => handleFilterPress(filter.key)}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected }}
+                  accessibilityLabel={`Show ${filter.label} activity, ${itemCountLabel(count)}${filter.key === 'done' && unreadDone.length > 0 ? `, ${unreadDone.length} unread` : ''}`}
+                >
+                  {filter.dot && <View style={[s.segDot, { backgroundColor: filter.dot }]} />}
+                  <Text style={[s.segItemText, selected && s.segItemTextActive]}>
+                    {filter.label} {count}
+                  </Text>
+                  {doneUnread && <View testID="activity-done-unread-dot" style={s.tabUnreadDot} />}
+                </TouchableOpacity>
+              </React.Fragment>
             );
           })}
         </View>
       </View>
 
       {allFailed ? (
-        <ScrollView
-          contentContainerStyle={s.emptyBody}
-          refreshControl={
-            <RefreshControl
-              refreshing={isRefreshing}
-              onRefresh={onRefresh}
-              tintColor={brandColors.cyan}
-            />
-          }
-          testID="activity-scroll"
-        >
-          <View style={s.emptyIconWrap}>
-            <MessageCircle size={36} color={brandColors.error} />
-          </View>
+        <ScrollView contentContainerStyle={s.emptyBody} refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor={brandColors.cyan} />} testID="activity-scroll">
+          <View style={s.emptyIconWrap}><MessageCircle size={30} color={brandColors.error} /></View>
           <Text style={s.emptyTitle}>Could not load activity</Text>
           <Text style={s.emptyDesc}>All configured endpoints failed to respond.</Text>
-          <TouchableOpacity
-            style={s.retryButton}
-            onPress={onRetry}
-            accessibilityRole="button"
-            accessibilityLabel="Retry activity"
-          >
+          <TouchableOpacity style={s.retryButton} onPress={onRetry} accessibilityRole="button" accessibilityLabel="Retry activity">
             <Text style={s.retryText}>Retry</Text>
           </TouchableOpacity>
         </ScrollView>
       ) : totalCount === 0 ? (
-        <ScrollView
-          contentContainerStyle={s.emptyBody}
-          refreshControl={
-            <RefreshControl
-              refreshing={isRefreshing}
-              onRefresh={onRefresh}
-              tintColor={brandColors.cyan}
-            />
-          }
-          testID="activity-scroll"
-        >
+        <ScrollView contentContainerStyle={s.emptyBody} refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor={brandColors.cyan} />} testID="activity-scroll">
           <PartialFailureBanner failedEndpointLabels={failedEndpointLabels} onRetry={onRetry} />
-          <View style={s.emptyIconWrap}>
-            <CircleCheck size={36} color={brandColors.lime} />
-          </View>
+          <View style={s.emptyIconWrap}><CircleCheck size={30} color={brandColors.lime} /></View>
           <Text style={s.emptyTitle}>{hasEndpoints ? 'All caught up' : 'Connect an endpoint'}</Text>
           <Text style={s.emptyDesc}>
-            {hasEndpoints
-              ? 'No decisions, running sessions, or recent results.'
-              : 'Add an endpoint in Settings to see Activity.'}
+            {hasEndpoints ? 'No decisions, running sessions, or recent results.' : 'Add an endpoint in Settings to see Activity.'}
           </Text>
         </ScrollView>
       ) : (
@@ -417,9 +480,11 @@ export default function ActivityScreen({
           ref={listRef}
           data={visibleItems}
           keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
+          renderItem={({ item, index }) => (
             <ActivityRow
               item={item}
+              isFirst={index === 0}
+              isLast={index === visibleItems.length - 1}
               onOpenItem={onOpenItem}
               onDeleteItem={onDeleteItem}
               openSwipeableRef={openSwipeableRef}
@@ -429,7 +494,7 @@ export default function ActivityScreen({
           ListHeaderComponent={renderListHeader}
           ListEmptyComponent={<Text style={s.emptySectionText}>{emptyText}</Text>}
           ListFooterComponent={renderListFooter}
-          onEndReached={handleEndReached}
+          onEndReached={() => { if (!hasMore || isLoadingMore || loadMoreError) return; onLoadMore?.(); }}
           onEndReachedThreshold={0.2}
           initialNumToRender={20}
           maxToRenderPerBatch={20}
@@ -437,13 +502,7 @@ export default function ActivityScreen({
           removeClippedSubviews
           style={s.list}
           contentContainerStyle={s.content}
-          refreshControl={
-            <RefreshControl
-              refreshing={isRefreshing}
-              onRefresh={onRefresh}
-              tintColor={brandColors.cyan}
-            />
-          }
+          refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor={brandColors.cyan} />}
           testID="activity-list"
         />
       )}

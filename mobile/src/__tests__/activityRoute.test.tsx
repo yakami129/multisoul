@@ -286,7 +286,7 @@ describe('ActivityTab DB-backed aggregation', () => {
   ///   3. Read the active All tab button style and inactive Pending label style.
   ///
   /// Expected result:
-  ///   - Positive: outer segmented control uses a white raised surface.
+  ///   - Positive: outer segment container uses a white raised surface.
   ///   - Positive: selected tab uses the cyan wash active state.
   ///   - Positive: selected label is ink.
   ///   - Negative: inactive Pending label is not promoted to ink.
@@ -304,7 +304,7 @@ describe('ActivityTab DB-backed aggregation', () => {
     expect(segmentStyle.backgroundColor).toBe('rgba(255, 255, 255, 0.88)');
     expect(allTabStyle.backgroundColor).toBe('rgba(0, 229, 255, 0.24)');
     expect(allTextStyle.color).toBe('#0D0D0D');
-    expect(pendingTextStyle.color).toBe('#555555');
+    expect(pendingTextStyle.color).toBe('#888888');
   });
 
   /// Done filter: Done-only view splits unread and read completion results.
