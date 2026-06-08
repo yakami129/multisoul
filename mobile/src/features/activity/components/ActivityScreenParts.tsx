@@ -1,0 +1,208 @@
+import { AlarmClock, Bot, Check, ChevronRight, Clock, X } from 'lucide-react-native';
+import React from 'react';
+import { Text, TouchableOpacity, View } from 'react-native';
+import { Swipeable } from 'react-native-gesture-handler';
+import { brandColors } from '@/theme/brandRefresh';
+import { formatRelativeTime, tagStyle, type ActivityItem } from './activityItem';
+import { activityScreenStyles as s } from './activityScreenStyles';
+
+function toneIconProps(item: ActivityItem): {
+  fill: string;
+  border: string;
+  content: React.ReactNode;
+} {
+  if (item.section === 'running') {
+    return {
+      fill: brandColors.activityCyan,
+      border: brandColors.activityCyan,
+      content: <Clock size={9} color={brandColors.white} />,
+    };
+  }
+  if (item.tone === 'failed') {
+    return {
+      fill: brandColors.error,
+      border: brandColors.error,
+      content: <X size={9} color={brandColors.white} />,
+    };
+  }
+  if (item.section === 'done') {
+    return {
+      fill: brandColors.activityDoneIcon,
+      border: brandColors.activityLime,
+      content: <Check size={9} color={brandColors.white} />,
+    };
+  }
+  return {
+    fill: brandColors.activityOrange,
+    border: brandColors.activityOrange,
+    content: <Text style={s.timelineIconText}>!</Text>,
+  };
+}
+
+export function PartialFailureBanner({
+  failedEndpointLabels,
+  onRetry,
+}: {
+  failedEndpointLabels: string[];
+  onRetry?: () => void;
+}) {
+  if (failedEndpointLabels.length === 0) return null;
+  return (
+    <View style={s.partialFailure}>
+      <Text style={s.partialFailureText}>
+        Some endpoints failed: {failedEndpointLabels.join(', ')}
+      </Text>
+      <TouchableOpacity
+        onPress={onRetry}
+        accessibilityRole="button"
+        accessibilityLabel="Retry failed endpoints"
+      >
+        <Text style={s.partialFailureRetry}>Retry</Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
+
+export function DecisionBanner({ count, onPress }: { count: number; onPress: () => void }) {
+  const label = count === 1 ? 'task needs' : 'tasks need';
+  return (
+    <TouchableOpacity
+      style={s.decisionBanner}
+      onPress={onPress}
+      activeOpacity={0.85}
+      accessibilityRole="button"
+      accessibilityLabel={`${count} ${label} your decision. Tap to review.`}
+    >
+      <View style={s.alarmCircle}>
+        <AlarmClock size={18} color={brandColors.ink} />
+      </View>
+      <View style={s.bannerCopy}>
+        <Text style={s.bannerTitle}>
+          {count} {label} your decision
+        </Text>
+        <Text style={s.bannerSub}>Your input is needed to keep things moving.</Text>
+      </View>
+      <View style={s.reviewPill}>
+        <Text style={s.reviewPillText}>Review</Text>
+        <ChevronRight size={12} color={brandColors.white} />
+      </View>
+    </TouchableOpacity>
+  );
+}
+
+export function ActivityRow({
+  item,
+  isFirst,
+  isLast,
+  onOpenItem,
+  onDeleteItem,
+  openSwipeableRef,
+  swipeableRefs,
+}: {
+  item: ActivityItem;
+  isFirst: boolean;
+  isLast: boolean;
+  onOpenItem: (item: ActivityItem) => void;
+  onDeleteItem?: (item: ActivityItem) => void;
+  openSwipeableRef: React.MutableRefObject<Swipeable | null>;
+  swipeableRefs: React.MutableRefObject<Map<string, Swipeable>>;
+}) {
+  const icon = toneIconProps(item);
+  const tag = tagStyle(item);
+  const isUnreadDone = item.section === 'done' && item.readAt == null;
+  const displayName = item.workflowName
+    ? `${item.agentName || item.projectName} · ${item.workflowName}`
+    : item.agentName || item.projectName;
+  const subBg = item.section === 'done' ? 'rgba(250,255,239,0.88)' : 'rgba(255,252,247,0.78)';
+
+  const renderDeleteAction = () => (
+    <TouchableOpacity
+      style={s.deleteAction}
+      onPress={() => onDeleteItem?.(item)}
+      accessibilityRole="button"
+      accessibilityLabel={`Delete ${item.title}`}
+    >
+      <Text style={s.deleteText}>DELETE</Text>
+    </TouchableOpacity>
+  );
+
+  return (
+    <View style={s.timelineRow}>
+      <View style={s.timelineCol}>
+        {!isFirst && <View style={s.timelineLineTop} />}
+        <View style={[s.timelineIconOuter, { borderColor: icon.border }]}>
+          <View style={[s.timelineIconFill, { backgroundColor: icon.fill }]}>{icon.content}</View>
+        </View>
+        {!isLast && <View style={s.timelineLineBottom} />}
+      </View>
+
+      <View style={s.cardWrapper}>
+        <Swipeable
+          ref={(ref) => {
+            if (ref) swipeableRefs.current.set(item.id, ref);
+            else swipeableRefs.current.delete(item.id);
+          }}
+          onSwipeableOpen={() => {
+            if (openSwipeableRef.current) openSwipeableRef.current.close();
+            openSwipeableRef.current = swipeableRefs.current.get(item.id) ?? null;
+          }}
+          renderRightActions={renderDeleteAction}
+          overshootRight={false}
+        >
+          <TouchableOpacity
+            onPress={() => onOpenItem(item)}
+            accessibilityRole="button"
+            accessibilityLabel={`Open ${item.title}`}
+            activeOpacity={0.85}
+          >
+            <View style={[s.card, { marginBottom: isLast ? 0 : 10 }]}>
+              <View style={[s.cardStrip, { backgroundColor: icon.border }]} />
+              <View style={s.cardInner}>
+                <Text
+                  style={[s.cardTitle, isUnreadDone && { fontWeight: '800' }]}
+                  numberOfLines={2}
+                >
+                  {item.title}
+                </Text>
+                <View style={s.cardAgent}>
+                  <Bot size={10} color="#45464a" />
+                  <Text style={s.cardAgentName} numberOfLines={1}>
+                    {displayName}
+                  </Text>
+                </View>
+
+                <View style={s.cardTopRight}>
+                  <Text style={s.cardTime}>{formatRelativeTime(item.timestamp)}</Text>
+                  <View style={[s.tagBadge, { backgroundColor: tag.bg }]}>
+                    <Text style={[s.tagText, { color: tag.color }]}>{item.statusLabel}</Text>
+                  </View>
+                </View>
+
+                {!!item.subtitle && (
+                  <View style={[s.subPanel, { backgroundColor: subBg }]}>
+                    <View style={s.subPanelInner}>
+                      <Text style={s.subPanelText} numberOfLines={2}>
+                        {item.subtitle}
+                      </Text>
+                      {item.section === 'attention' && (
+                        <TouchableOpacity
+                          style={s.subReviewBtn}
+                          onPress={() => onOpenItem(item)}
+                          accessibilityRole="button"
+                          accessibilityLabel={`Review ${item.title}`}
+                        >
+                          <Text style={s.subReviewText}>Review</Text>
+                          <ChevronRight size={10} color={brandColors.ink} />
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  </View>
+                )}
+              </View>
+            </View>
+          </TouchableOpacity>
+        </Swipeable>
+      </View>
+    </View>
+  );
+}
