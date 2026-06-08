@@ -274,7 +274,10 @@ fn delete_spec_artifact_removes_versions_and_unlinks_source_idea() {
             |row| row.get(0),
         )
         .expect("source idea should exist");
-    assert_eq!(converted_status, "converted", "save should convert source idea");
+    assert_eq!(
+        converted_status, "converted",
+        "save should convert source idea"
+    );
 
     delete_spec_artifact(&fixture.state, &saved.spec_id).expect("delete should succeed");
 
@@ -292,7 +295,9 @@ fn delete_spec_artifact_removes_versions_and_unlinks_source_idea() {
         .db
         .lock()
         .expect("db mutex should be available")
-        .query_row("SELECT COUNT(*) FROM spec_artifact_versions", [], |row| row.get(0))
+        .query_row("SELECT COUNT(*) FROM spec_artifact_versions", [], |row| {
+            row.get(0)
+        })
         .expect("version count should query");
     assert_eq!(version_count, 0, "version rows should be deleted");
 
@@ -308,7 +313,10 @@ fn delete_spec_artifact_removes_versions_and_unlinks_source_idea() {
         )
         .expect("source idea should remain");
     assert_eq!(status, "open", "converted idea should revert to open");
-    assert_eq!(converted_spec_id, None, "converted_spec_id should be cleared");
+    assert_eq!(
+        converted_spec_id, None,
+        "converted_spec_id should be cleared"
+    );
 }
 
 #[test]

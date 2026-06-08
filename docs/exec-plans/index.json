@@ -70,6 +70,10 @@
       "lastCompletedCommit": "72f51021ff22496de7334ed9bdfc69a6c8e55489"
     },
     {
+      "file": "2026-06-04-ios-voice-input.md",
+      "title": "iOS Voice Input Implementation Plan"
+    },
+    {
       "file": "2026-06-04-chat-turn-folding-pagination-fix.md",
       "title": "Chat Turn Folding And Pagination Fix Implementation Plan",
       "lastCompletedCommit": "806522776a648c9df871f24472abdee08cda64d7"

@@ -76,7 +76,7 @@
         },
         {
           "path": "cli/src/db.rs",
-          "sha256": "bec9c04b28a796f4e5b60248237f9a69a9a42d17397be4ba8f79e8d5927413ae",
+          "sha256": "57ff1a128779b2ce8e2443e422a4819c8f5f6e19197cb50b0f4a250926d105e3",
           "reason": "文档说明 runtime 持久化字段和 migration 纪律；DB schema 演进会影响该章节。"
         },
         {
@@ -108,12 +108,12 @@
       "trackedFiles": [
         {
           "path": "cli/src/serve/push.rs",
-          "sha256": "64203ca9c696935af7cfc8c59bc751e570ddff7bd502f80c914dae432612c383",
+          "sha256": "035e5777621bf1ad9f1abfda154ab5498ba3688527721993fb072f4d036602bb",
           "reason": "通知发送权、payload 结构、问答/完成互斥逻辑由本文档定义。"
         },
         {
           "path": "cli/src/serve/runtime/claude/stream.rs",
-          "sha256": "271c9a2e924dc2a9614f8994665344b8ec91281181e3cf0adba4ee3baa70234c",
+          "sha256": "42b071394fe6b89152d67f8d568a0beb766a46c1c9464238840e27d16a486eeb",
           "reason": "Claude AskUserQuestion 触发问答推送的时机由本文档定义。"
         },
         {

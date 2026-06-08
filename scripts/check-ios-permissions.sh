@@ -54,6 +54,7 @@ MAPPINGS=(
   "expo-contacts:NSContactsUsageDescription"
   "expo-calendar:NSCalendarsUsageDescription"
   "expo-audio:NSMicrophoneUsageDescription"
+  "expo-speech-recognition:NSMicrophoneUsageDescription,NSSpeechRecognitionUsageDescription"
 )
 
 fail=0

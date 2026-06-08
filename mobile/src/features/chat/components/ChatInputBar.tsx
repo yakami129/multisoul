@@ -1,7 +1,6 @@
-import { ArrowUp, ChevronDown, Mic, Plus, Square, X } from 'lucide-react-native';
+import { ArrowUp, ChevronDown, Plus, Square, X } from 'lucide-react-native';
 import React from 'react';
 import {
-  Alert,
   Image,
   Pressable,
   ScrollView,
@@ -12,6 +11,8 @@ import {
   View,
 } from 'react-native';
 import { brandColors, brandRgba } from '@/theme/brandRefresh';
+import VoiceInputButton from './VoiceInputButton';
+import { appendVoiceTranscript } from '../utils/voiceInputText';
 
 interface PendingImage {
   localUri: string;
@@ -53,10 +54,16 @@ export default function ChatInputBar({
   const hasText = value.trim().length > 0;
   const hasUploadedImage = pendingImages.some((img) => img.status === 'uploaded' && img.fileId);
   const canSend = hasText || hasUploadedImage;
-  const handleVoicePress = () => Alert.alert('语音功能即将上线，敬请期待');
+  const handleVoiceTranscript = React.useCallback(
+    (transcript: string) => {
+      onChangeText(appendVoiceTranscript(value, transcript));
+    },
+    [onChangeText, value],
+  );
   const charCount = `${value.length} / 4096`;
   const shouldShowCounter = value.length > 0;
   const actionDisabled = disabled && !isAgentRunning;
+  const voiceDisabled = disabled || isAgentRunning;
 
   return (
     <View testID="composer-card" style={s.card}>
@@ -150,17 +157,7 @@ export default function ChatInputBar({
 
         <View testID="composer-toolbar-right" style={s.toolbarRight}>
           {shouldShowCounter ? <Text style={s.charCount}>{charCount}</Text> : null}
-          <TouchableOpacity
-            testID="mic-btn"
-            accessibilityLabel="Voice input (coming soon)"
-            accessibilityRole="button"
-            onPress={handleVoicePress}
-            style={s.hitControl}
-          >
-            <View testID="mic-shell" style={s.roundControl}>
-              <Mic size={15} color={brandColors.ink} />
-            </View>
-          </TouchableOpacity>
+          <VoiceInputButton disabled={voiceDisabled} onTranscript={handleVoiceTranscript} />
           {isAgentRunning ? (
             <TouchableOpacity
               testID="stop-btn"

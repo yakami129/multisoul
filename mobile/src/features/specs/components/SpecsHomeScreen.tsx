@@ -213,10 +213,30 @@ export function SpecsHomeScreen({
           </>
         ) : (
           <>
-            <SpecSection title="Needs You" specs={needsYou} onOpenSpec={onOpenSpec} onDeleteSpec={onDeleteSpec ? handleDeleteSpec : undefined} />
-            <SpecSection title="Ready" specs={ready} onOpenSpec={onOpenSpec} onDeleteSpec={onDeleteSpec ? handleDeleteSpec : undefined} />
-            <SpecSection title="In Progress" specs={inProgress} onOpenSpec={onOpenSpec} onDeleteSpec={onDeleteSpec ? handleDeleteSpec : undefined} />
-            <SpecSection title="Done" specs={done} onOpenSpec={onOpenSpec} onDeleteSpec={onDeleteSpec ? handleDeleteSpec : undefined} />
+            <SpecSection
+              title="Needs You"
+              specs={needsYou}
+              onOpenSpec={onOpenSpec}
+              onDeleteSpec={onDeleteSpec ? handleDeleteSpec : undefined}
+            />
+            <SpecSection
+              title="Ready"
+              specs={ready}
+              onOpenSpec={onOpenSpec}
+              onDeleteSpec={onDeleteSpec ? handleDeleteSpec : undefined}
+            />
+            <SpecSection
+              title="In Progress"
+              specs={inProgress}
+              onOpenSpec={onOpenSpec}
+              onDeleteSpec={onDeleteSpec ? handleDeleteSpec : undefined}
+            />
+            <SpecSection
+              title="Done"
+              specs={done}
+              onOpenSpec={onOpenSpec}
+              onDeleteSpec={onDeleteSpec ? handleDeleteSpec : undefined}
+            />
             {specs.length === 0 ? (
               <EmptyState
                 title="No saved specs"
