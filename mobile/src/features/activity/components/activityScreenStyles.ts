@@ -25,7 +25,12 @@ export const activityScreenStyles = StyleSheet.create({
     justifyContent: 'center',
     marginTop: 3,
   },
-  titleSub: { fontFamily: 'Inter', fontSize: 11, color: brandColors.activitySubtitleText, fontWeight: '400' },
+  titleSub: {
+    fontFamily: 'Inter',
+    fontSize: 11,
+    color: brandColors.activitySubtitleText,
+    fontWeight: '400',
+  },
   filterBtn: {
     width: 40,
     height: 40,
@@ -64,10 +69,20 @@ export const activityScreenStyles = StyleSheet.create({
   },
   // Segment active: soft blue (#d8f6ff) matching prototype gradient
   segItemActive: { backgroundColor: brandColors.activitySegActive },
-  segItemText: { fontFamily: 'Inter', fontSize: 12, fontWeight: '600', color: brandColors.textMuted },
+  segItemText: {
+    fontFamily: 'Inter',
+    fontSize: 12,
+    fontWeight: '600',
+    color: brandColors.textMuted,
+  },
   segItemTextActive: { fontWeight: '700', color: brandColors.ink },
   segDot: { width: 7, height: 7, borderRadius: 4 },
-  tabUnreadDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: brandColors.activityOrange },
+  tabUnreadDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: brandColors.activityOrange,
+  },
 
   // ── Decision banner ─────────────────────────────────────────────────────────
   // Prototype: linear-gradient(#eaff36→#e8ff3c→#d9f635), border #a0c420
@@ -101,8 +116,19 @@ export const activityScreenStyles = StyleSheet.create({
     flexShrink: 0,
   },
   bannerCopy: { flex: 1, gap: 3 },
-  bannerTitle: { fontFamily: 'Inter', fontSize: 14, fontWeight: '800', color: brandColors.ink, lineHeight: 18 },
-  bannerSub: { fontFamily: 'Inter', fontSize: 11, color: brandColors.activitySubText, lineHeight: 15 },
+  bannerTitle: {
+    fontFamily: 'Inter',
+    fontSize: 14,
+    fontWeight: '800',
+    color: brandColors.ink,
+    lineHeight: 18,
+  },
+  bannerSub: {
+    fontFamily: 'Inter',
+    fontSize: 11,
+    color: brandColors.activitySubText,
+    lineHeight: 15,
+  },
   reviewPill: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -114,7 +140,12 @@ export const activityScreenStyles = StyleSheet.create({
     backgroundColor: brandColors.ink,
     flexShrink: 0,
   },
-  reviewPillText: { fontFamily: 'Inter', fontSize: 12, fontWeight: '700', color: brandColors.white },
+  reviewPillText: {
+    fontFamily: 'Inter',
+    fontSize: 12,
+    fontWeight: '700',
+    color: brandColors.white,
+  },
 
   // ── Timeline ─────────────────────────────────────────────────────────────────
   timelineRow: { flexDirection: 'row', alignItems: 'stretch', gap: 8 },
@@ -140,7 +171,12 @@ export const activityScreenStyles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  timelineIconText: { fontFamily: 'Inter', fontSize: 9, fontWeight: '800', color: brandColors.white },
+  timelineIconText: {
+    fontFamily: 'Inter',
+    fontSize: 9,
+    fontWeight: '800',
+    color: brandColors.white,
+  },
 
   // ── Card ──────────────────────────────────────────────────────────────────────
   cardWrapper: { flex: 1 },
@@ -186,7 +222,13 @@ export const activityScreenStyles = StyleSheet.create({
   },
   subPanelInner: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 10 },
   // Prototype .message-panel span { color: #2f2f2f }
-  subPanelText: { flex: 1, fontFamily: 'Inter', fontSize: 11, color: brandColors.activitySubText, lineHeight: 16 },
+  subPanelText: {
+    flex: 1,
+    fontFamily: 'Inter',
+    fontSize: 11,
+    color: brandColors.activitySubText,
+    lineHeight: 16,
+  },
   subReviewBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -211,9 +253,20 @@ export const activityScreenStyles = StyleSheet.create({
     borderColor: brandColors.silver,
     padding: 3,
   },
-  doneSegmentItem: { flex: 1, minHeight: 30, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
+  doneSegmentItem: {
+    flex: 1,
+    minHeight: 30,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   doneSegmentItemActive: { backgroundColor: brandColors.ink },
-  doneSegmentText: { fontFamily: 'Inter', fontSize: 12, fontWeight: '600', color: brandColors.textSoft },
+  doneSegmentText: {
+    fontFamily: 'Inter',
+    fontSize: 12,
+    fontWeight: '600',
+    color: brandColors.textSoft,
+  },
   doneSegmentTextActive: { color: brandColors.white },
   markReadText: {
     alignSelf: 'flex-end',
@@ -230,7 +283,12 @@ export const activityScreenStyles = StyleSheet.create({
   // ── Load more ────────────────────────────────────────────────────────────────
   loadMoreFooter: { minHeight: 52, alignItems: 'center', justifyContent: 'center', gap: 6 },
   loadMoreText: { fontFamily: 'Inter', fontSize: 12, color: brandColors.textMuted },
-  loadMoreRetryText: { fontFamily: 'Inter', fontSize: 12, fontWeight: '700', color: brandColors.activityOrange },
+  loadMoreRetryText: {
+    fontFamily: 'Inter',
+    fontSize: 12,
+    fontWeight: '700',
+    color: brandColors.activityOrange,
+  },
 
   // ── Swipe delete ─────────────────────────────────────────────────────────────
   deleteAction: {
@@ -256,7 +314,12 @@ export const activityScreenStyles = StyleSheet.create({
     padding: 10,
   },
   partialFailureText: { flex: 1, fontFamily: 'Inter', fontSize: 11, color: brandColors.ink },
-  partialFailureRetry: { fontFamily: 'Inter', fontSize: 11, fontWeight: '700', color: brandColors.activityOrange },
+  partialFailureRetry: {
+    fontFamily: 'Inter',
+    fontSize: 11,
+    fontWeight: '700',
+    color: brandColors.activityOrange,
+  },
 
   // ── Empty states ─────────────────────────────────────────────────────────────
   emptyBody: {
@@ -275,7 +338,12 @@ export const activityScreenStyles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: 14,
   },
-  emptyTitle: { fontFamily: brandTypography.display, fontSize: 20, fontWeight: '700', color: brandColors.ink },
+  emptyTitle: {
+    fontFamily: brandTypography.display,
+    fontSize: 20,
+    fontWeight: '700',
+    color: brandColors.ink,
+  },
   emptyDesc: {
     marginTop: 6,
     fontFamily: 'Inter',
@@ -294,5 +362,10 @@ export const activityScreenStyles = StyleSheet.create({
     alignItems: 'center',
   },
   retryText: { fontFamily: 'Inter', fontSize: 12, fontWeight: '700', color: brandColors.white },
-  emptySectionText: { fontFamily: 'Inter', fontSize: 13, color: brandColors.textSoft, paddingVertical: 14 },
+  emptySectionText: {
+    fontFamily: 'Inter',
+    fontSize: 13,
+    color: brandColors.textSoft,
+    paddingVertical: 14,
+  },
 });

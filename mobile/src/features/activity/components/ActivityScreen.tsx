@@ -21,7 +21,7 @@ import {
   View,
 } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
-import { brandColors, brandRgba } from '@/theme/brandRefresh';
+import { brandColors } from '@/theme/brandRefresh';
 import { activityScreenStyles as s } from './activityScreenStyles';
 
 export interface ActivityItem {
@@ -95,7 +95,11 @@ function byNewest(a: ActivityItem, b: ActivityItem): number {
 }
 
 // Prototype ticon colors: attention=#ff5b32, running=#15bfe5, done border=#b7d52a fill=#9dc325, failed=error
-function toneIconProps(item: ActivityItem): { fill: string; border: string; content: React.ReactNode } {
+function toneIconProps(item: ActivityItem): {
+  fill: string;
+  border: string;
+  content: React.ReactNode;
+} {
   if (item.section === 'running') {
     return {
       fill: brandColors.activityCyan,
@@ -127,18 +131,33 @@ function toneIconProps(item: ActivityItem): { fill: string; border: string; cont
 
 // Prototype tag: .tag=orange, .tag.green=done, .tag.blue=running
 function tagStyle(item: ActivityItem): { bg: string; color: string } {
-  if (item.section === 'running') return { bg: brandColors.activityTagBlueBg, color: brandColors.activityTagBlueText };
-  if (item.tone === 'failed') return { bg: brandColors.activityTagOrangeBg, color: brandColors.activityTagOrangeText };
-  if (item.section === 'done') return { bg: brandColors.activityTagGreenBg, color: brandColors.activityTagGreenText };
+  if (item.section === 'running')
+    return { bg: brandColors.activityTagBlueBg, color: brandColors.activityTagBlueText };
+  if (item.tone === 'failed')
+    return { bg: brandColors.activityTagOrangeBg, color: brandColors.activityTagOrangeText };
+  if (item.section === 'done')
+    return { bg: brandColors.activityTagGreenBg, color: brandColors.activityTagGreenText };
   return { bg: brandColors.activityTagOrangeBg, color: brandColors.activityTagOrangeText };
 }
 
-function PartialFailureBanner({ failedEndpointLabels, onRetry }: { failedEndpointLabels: string[]; onRetry?: () => void }) {
+function PartialFailureBanner({
+  failedEndpointLabels,
+  onRetry,
+}: {
+  failedEndpointLabels: string[];
+  onRetry?: () => void;
+}) {
   if (failedEndpointLabels.length === 0) return null;
   return (
     <View style={s.partialFailure}>
-      <Text style={s.partialFailureText}>Some endpoints failed: {failedEndpointLabels.join(', ')}</Text>
-      <TouchableOpacity onPress={onRetry} accessibilityRole="button" accessibilityLabel="Retry failed endpoints">
+      <Text style={s.partialFailureText}>
+        Some endpoints failed: {failedEndpointLabels.join(', ')}
+      </Text>
+      <TouchableOpacity
+        onPress={onRetry}
+        accessibilityRole="button"
+        accessibilityLabel="Retry failed endpoints"
+      >
         <Text style={s.partialFailureRetry}>Retry</Text>
       </TouchableOpacity>
     </View>
@@ -159,7 +178,9 @@ function DecisionBanner({ count, onPress }: { count: number; onPress: () => void
         <AlarmClock size={18} color={brandColors.ink} />
       </View>
       <View style={s.bannerCopy}>
-        <Text style={s.bannerTitle}>{count} {label} your decision</Text>
+        <Text style={s.bannerTitle}>
+          {count} {label} your decision
+        </Text>
         <Text style={s.bannerSub}>Your input is needed to keep things moving.</Text>
       </View>
       <View style={s.reviewPill}>
@@ -195,10 +216,7 @@ function ActivityRow({
     : item.agentName || item.projectName;
 
   // Prototype .message-panel (done): rgba(250,255,239,0.88); .tool-panel: rgba(255,252,247,0.78)
-  const subBg =
-    item.section === 'done'
-      ? 'rgba(250,255,239,0.88)'
-      : 'rgba(255,252,247,0.78)';
+  const subBg = item.section === 'done' ? 'rgba(250,255,239,0.88)' : 'rgba(255,252,247,0.78)';
 
   const renderDeleteAction = () => (
     <TouchableOpacity
@@ -216,9 +234,7 @@ function ActivityRow({
       <View style={s.timelineCol}>
         {!isFirst && <View style={s.timelineLineTop} />}
         <View style={[s.timelineIconOuter, { borderColor: icon.border }]}>
-          <View style={[s.timelineIconFill, { backgroundColor: icon.fill }]}>
-            {icon.content}
-          </View>
+          <View style={[s.timelineIconFill, { backgroundColor: icon.fill }]}>{icon.content}</View>
         </View>
         {!isLast && <View style={s.timelineLineBottom} />}
       </View>
@@ -245,12 +261,17 @@ function ActivityRow({
             <View style={[s.card, { marginBottom: isLast ? 0 : 10 }]}>
               <View style={[s.cardStrip, { backgroundColor: icon.border }]} />
               <View style={s.cardInner}>
-                <Text style={[s.cardTitle, isUnreadDone && { fontWeight: '800' }]} numberOfLines={2}>
+                <Text
+                  style={[s.cardTitle, isUnreadDone && { fontWeight: '800' }]}
+                  numberOfLines={2}
+                >
                   {item.title}
                 </Text>
                 <View style={s.cardAgent}>
                   <Bot size={10} color="#45464a" />
-                  <Text style={s.cardAgentName} numberOfLines={1}>{displayName}</Text>
+                  <Text style={s.cardAgentName} numberOfLines={1}>
+                    {displayName}
+                  </Text>
                 </View>
 
                 <View style={s.cardTopRight}>
@@ -263,7 +284,9 @@ function ActivityRow({
                 {!!item.subtitle && (
                   <View style={[s.subPanel, { backgroundColor: subBg }]}>
                     <View style={s.subPanelInner}>
-                      <Text style={s.subPanelText} numberOfLines={2}>{item.subtitle}</Text>
+                      <Text style={s.subPanelText} numberOfLines={2}>
+                        {item.subtitle}
+                      </Text>
                       {item.section === 'attention' && (
                         <TouchableOpacity
                           style={s.subReviewBtn}
@@ -357,7 +380,10 @@ export default function ActivityScreen({
     <>
       <PartialFailureBanner failedEndpointLabels={failedEndpointLabels} onRetry={onRetry} />
       {activeFilter === 'all' && needsAttention.length > 0 && (
-        <DecisionBanner count={needsAttention.length} onPress={() => handleFilterPress('pending')} />
+        <DecisionBanner
+          count={needsAttention.length}
+          onPress={() => handleFilterPress('pending')}
+        />
       )}
       {activeFilter === 'done' && (
         <View style={s.doneHeader}>
@@ -382,7 +408,10 @@ export default function ActivityScreen({
           </View>
           {doneFilter === 'unread' && unreadDone.length > 0 && (
             <TouchableOpacity
-              onPress={() => { setDoneFilter('read'); onMarkAllDoneRead?.(); }}
+              onPress={() => {
+                setDoneFilter('read');
+                onMarkAllDoneRead?.();
+              }}
               accessibilityRole="button"
               accessibilityLabel="Mark all Done items read"
             >
@@ -405,7 +434,12 @@ export default function ActivityScreen({
     }
     if (loadMoreError) {
       return (
-        <TouchableOpacity style={s.loadMoreFooter} onPress={onRetryLoadMore} accessibilityRole="button" accessibilityLabel="Retry loading more activity">
+        <TouchableOpacity
+          style={s.loadMoreFooter}
+          onPress={onRetryLoadMore}
+          accessibilityRole="button"
+          accessibilityLabel="Retry loading more activity"
+        >
           <Text style={s.loadMoreRetryText}>Load failed. Tap to retry.</Text>
         </TouchableOpacity>
       );
@@ -459,21 +493,52 @@ export default function ActivityScreen({
       </View>
 
       {allFailed ? (
-        <ScrollView contentContainerStyle={s.emptyBody} refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor={brandColors.activityCyan} />} testID="activity-scroll">
-          <View style={s.emptyIconWrap}><MessageCircle size={30} color={brandColors.error} /></View>
+        <ScrollView
+          contentContainerStyle={s.emptyBody}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={onRefresh}
+              tintColor={brandColors.activityCyan}
+            />
+          }
+          testID="activity-scroll"
+        >
+          <View style={s.emptyIconWrap}>
+            <MessageCircle size={30} color={brandColors.error} />
+          </View>
           <Text style={s.emptyTitle}>Could not load activity</Text>
           <Text style={s.emptyDesc}>All configured endpoints failed to respond.</Text>
-          <TouchableOpacity style={s.retryButton} onPress={onRetry} accessibilityRole="button" accessibilityLabel="Retry activity">
+          <TouchableOpacity
+            style={s.retryButton}
+            onPress={onRetry}
+            accessibilityRole="button"
+            accessibilityLabel="Retry activity"
+          >
             <Text style={s.retryText}>Retry</Text>
           </TouchableOpacity>
         </ScrollView>
       ) : totalCount === 0 ? (
-        <ScrollView contentContainerStyle={s.emptyBody} refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor={brandColors.activityCyan} />} testID="activity-scroll">
+        <ScrollView
+          contentContainerStyle={s.emptyBody}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={onRefresh}
+              tintColor={brandColors.activityCyan}
+            />
+          }
+          testID="activity-scroll"
+        >
           <PartialFailureBanner failedEndpointLabels={failedEndpointLabels} onRetry={onRetry} />
-          <View style={s.emptyIconWrap}><CircleCheck size={30} color={brandColors.activityLime} /></View>
+          <View style={s.emptyIconWrap}>
+            <CircleCheck size={30} color={brandColors.activityLime} />
+          </View>
           <Text style={s.emptyTitle}>{hasEndpoints ? 'All caught up' : 'Connect an endpoint'}</Text>
           <Text style={s.emptyDesc}>
-            {hasEndpoints ? 'No decisions, running sessions, or recent results.' : 'Add an endpoint in Settings to see Activity.'}
+            {hasEndpoints
+              ? 'No decisions, running sessions, or recent results.'
+              : 'Add an endpoint in Settings to see Activity.'}
           </Text>
         </ScrollView>
       ) : (
@@ -495,7 +560,10 @@ export default function ActivityScreen({
           ListHeaderComponent={renderListHeader}
           ListEmptyComponent={<Text style={s.emptySectionText}>{emptyText}</Text>}
           ListFooterComponent={renderListFooter}
-          onEndReached={() => { if (!hasMore || isLoadingMore || loadMoreError) return; onLoadMore?.(); }}
+          onEndReached={() => {
+            if (!hasMore || isLoadingMore || loadMoreError) return;
+            onLoadMore?.();
+          }}
           onEndReachedThreshold={0.2}
           initialNumToRender={20}
           maxToRenderPerBatch={20}
@@ -503,7 +571,13 @@ export default function ActivityScreen({
           removeClippedSubviews
           style={s.list}
           contentContainerStyle={s.content}
-          refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor={brandColors.activityCyan} />}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={onRefresh}
+              tintColor={brandColors.activityCyan}
+            />
+          }
           testID="activity-list"
         />
       )}
