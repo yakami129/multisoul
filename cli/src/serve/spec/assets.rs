@@ -199,6 +199,37 @@ pub fn list_spec_artifacts(state: &AppState) -> Result<Vec<serde_json::Value>, S
     Ok(rows)
 }
 
+pub fn delete_spec_artifact(state: &AppState, spec_id: &str) -> Result<(), SaveSpecError> {
+    let db = state.db.lock().map_err(|_| SaveSpecError::Internal)?;
+    let exists: bool = db
+        .query_row(
+            "SELECT COUNT(*) FROM spec_artifacts WHERE id = ?1",
+            [spec_id],
+            |row| row.get::<_, i64>(0),
+        )
+        .map(|count| count > 0)
+        .map_err(|_| SaveSpecError::Internal)?;
+    if !exists {
+        return Err(SaveSpecError::NotFound);
+    }
+    let now = now_ms();
+    db.execute(
+        "UPDATE spec_ideas
+         SET status = 'open', converted_spec_id = NULL, archived_at = NULL, updated_at = ?1
+         WHERE converted_spec_id = ?2",
+        params![now, spec_id],
+    )
+    .map_err(|_| SaveSpecError::Internal)?;
+    db.execute(
+        "DELETE FROM spec_artifact_versions WHERE spec_id = ?1",
+        [spec_id],
+    )
+    .map_err(|_| SaveSpecError::Internal)?;
+    db.execute("DELETE FROM spec_artifacts WHERE id = ?1", [spec_id])
+        .map_err(|_| SaveSpecError::Internal)?;
+    Ok(())
+}
+
 pub fn get_spec_artifact_detail(
     state: &AppState,
     spec_id: &str,

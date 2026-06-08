@@ -215,6 +215,11 @@ export async function deleteSpecIdea(endpoint: Endpoint, id: string): Promise<vo
   await client.delete(`/api/v1/spec-ideas/${encodeURIComponent(id)}`);
 }
 
+export async function deleteSpecArtifact(endpoint: Endpoint, id: string): Promise<void> {
+  const client = getEndpointClient(endpoint.base_url, endpoint.token);
+  await client.delete(`/api/v1/specs/${encodeURIComponent(id)}`);
+}
+
 export async function startSpecIdeaInterview(
   endpoint: Endpoint,
   id: string,

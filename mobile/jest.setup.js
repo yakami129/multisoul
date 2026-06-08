@@ -91,3 +91,27 @@ jest.mock('expo-clipboard', () => ({
   setStringAsync: jest.fn().mockResolvedValue(undefined),
   getStringAsync: jest.fn().mockResolvedValue(''),
 }));
+
+// Mock expo-localization — native module is not available in Jest environment.
+jest.mock('expo-localization', () => ({
+  getLocales: jest.fn(() => [{ languageTag: 'en-US' }]),
+}));
+
+// Mock expo-speech-recognition — native module is not available in Jest environment.
+jest.mock('expo-speech-recognition', () => ({
+  ExpoSpeechRecognitionModule: {
+    addListener: jest.fn(() => ({ remove: jest.fn() })),
+    abort: jest.fn(),
+    isRecognitionAvailable: jest.fn(() => false),
+    requestPermissionsAsync: jest.fn().mockResolvedValue({
+      canAskAgain: false,
+      expires: 'never',
+      granted: false,
+      status: 'denied',
+    }),
+    start: jest.fn(),
+    stop: jest.fn(),
+  },
+  TaskHintIOS: { dictation: 'dictation' },
+  useSpeechRecognitionEvent: jest.fn(),
+}));

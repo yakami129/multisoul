@@ -28,6 +28,28 @@ export const brandColors = {
   error: '#FF4444',
   legacyAction: '#FF6B35',
   successCompat: '#4CAF50',
+
+  // Activity Screen palette — sourced from 03-activity-page.html prototype
+  // These are distinct from the global brand signals above.
+  activityOrange: '#FF5B32',      // --orange: attention ticon + card strip
+  activityCyan: '#15BFE5',        // --cyan: running ticon + card strip
+  activityLime: '#B7D52A',        // --lime: done ticon border + card strip
+  activityDoneIcon: '#9DC325',    // .ticon.done fill (slightly darker than lime)
+  activityBannerYellow: '#EAFF36',// decision banner primary bg
+  activityBannerBorder: '#A0C420',// decision banner ring
+  activityAlarmBorder: '#ADD01F', // alarm circle thick ring
+  activityAlarmBg: '#FFFDF3',     // alarm circle inner bg
+  activityTiconBg: '#FFFDF9',     // ticon outer cream shell
+  activityTagOrangeBg: '#FDE8DF', // attention tag background
+  activityTagOrangeText: '#DF441F',// attention tag label
+  activityTagGreenBg: '#ECF6D9',  // done tag background
+  activityTagGreenText: '#5D8D20',// done tag label
+  activityTagBlueBg: '#D9F5FF',   // running tag background
+  activityTagBlueText: '#1188BD', // running tag label
+  activitySegActive: '#D8F6FF',   // segment pill active bg (flat approx of #d8f6ff→#97dbff gradient)
+  activityAgentText: '#45464A',   // agent/bot name under card title
+  activitySubText: '#2F2F2F',     // sub-panel message body text
+  activitySubtitleText: '#8A8986',// header subtitle / item count
 } as const;
 
 export const brandRgba = {

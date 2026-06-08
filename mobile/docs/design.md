@@ -73,7 +73,33 @@ MultiSoul 是个人 AI Agent 随身控制台。它不是营销页，也不是普
 | `signal.legacyWarm` | `#FF8C42` | 旧渐变终点 | 已有 avatar 渐变兼容 |
 | `signal.successCompat` | `#4CAF50` | 旧成功色 | 已有 Running / Completed 状态兼容 |
 
-### 2.5 Runtime Avatar / Mascot
+### 2.5 Activity Screen Palette
+
+Activity 模块的配色直接来自 `docs/prototypes/multisoul-brand-refresh/03-activity-page.html` 原型，与全局 signal 色有所不同，**仅在 Activity 相关组件中使用**。
+
+| Token (`brandColors.*`) | 色值 | 用途 |
+|-------------------------|------|------|
+| `activityOrange` | `#FF5B32` | attention 状态 ticon + card strip |
+| `activityCyan` | `#15BFE5` | running 状态 ticon + card strip（原型 `--cyan`）|
+| `activityLime` | `#B7D52A` | done 状态 ticon 外圈（原型 `--lime`）|
+| `activityDoneIcon` | `#9DC325` | done ticon 内圈填充（`.ticon.done`）|
+| `activityBannerYellow` | `#EAFF36` | Decision banner 主底色 |
+| `activityBannerBorder` | `#A0C420` | Decision banner 边框 |
+| `activityAlarmBorder` | `#ADD01F` | AlarmClock 圆圈粗外圈 |
+| `activityAlarmBg` | `#FFFDF3` | AlarmClock 圆圈内底色 |
+| `activityTiconBg` | `#FFFDF9` | ticon 外壳 cream（外层不显色的圆环底）|
+| `activityTagOrangeBg` | `#FDE8DF` | Attention 状态 tag badge 背景 |
+| `activityTagOrangeText` | `#DF441F` | Attention 状态 tag badge 文字 |
+| `activityTagGreenBg` | `#ECF6D9` | Done 状态 tag badge 背景 |
+| `activityTagGreenText` | `#5D8D20` | Done 状态 tag badge 文字 |
+| `activityTagBlueBg` | `#D9F5FF` | Running 状态 tag badge 背景 |
+| `activityTagBlueText` | `#1188BD` | Running 状态 tag badge 文字 |
+| `activitySegActive` | `#D8F6FF` | Segment 活跃 pill 底（原型为 `#d8f6ff→#97dbff` 渐变，取浅端平色）|
+| `activityAgentText` | `#45464A` | 卡片内 agent/bot 名称（原型 `.agent`）|
+| `activitySubText` | `#2F2F2F` | 子面板消息正文（原型 `.message-panel span`）|
+| `activitySubtitleText` | `#8A8986` | Header 副标题 / 项目数量 |
+
+### 2.6 Runtime Avatar / Mascot
 
 Agent Fleet 中的 runtime tile 为 30×30px、9px 圆角，外层 frame 为 40×40px。优先按 runtime 显示第一组生成的 mascot PNG：
 

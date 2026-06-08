@@ -203,6 +203,42 @@ test('clicking DELETE directly calls onDeleteArchivedIdea', () => {
   alertSpy.mockRestore();
 });
 
+test('spec segment shows swipe delete and confirms before removing spec', () => {
+  const onDeleteSpec = jest.fn();
+  const onOpenSpec = jest.fn();
+  const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => {});
+  const { getAllByText, getByText } = render(
+    <SpecsHomeScreen
+      ideas={[idea]}
+      specs={[spec]}
+      endpoints={[endpoint]}
+      agents={[agent]}
+      onOpenIdea={() => {}}
+      onOpenSpec={onOpenSpec}
+      onDeleteSpec={onDeleteSpec}
+    />,
+  );
+
+  fireEvent.press(getAllByText('Specs')[1]);
+  fireEvent.press(getByText('DELETE'));
+
+  expect(alertSpy).toHaveBeenCalledWith(
+    'Delete spec?',
+    'This removes the saved spec from MultiSoul. The repo file is not deleted.',
+    expect.arrayContaining([
+      expect.objectContaining({ text: 'Cancel' }),
+      expect.objectContaining({ text: 'Delete', style: 'destructive' }),
+    ]),
+  );
+
+  const deleteAction = alertSpy.mock.calls[0][2]?.find((action) => action.text === 'Delete');
+  deleteAction?.onPress?.();
+
+  expect(onDeleteSpec).toHaveBeenCalledWith('spec-1');
+  expect(onOpenSpec).not.toHaveBeenCalled();
+  alertSpy.mockRestore();
+});
+
 test('saves a new idea with a selected target from the picker', () => {
   const onCreateIdea = jest.fn();
   const { getAllByText, getByLabelText, getByText } = render(

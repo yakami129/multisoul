@@ -54,7 +54,8 @@ function projectStatus(agent: Agent, conversations: Conversation[]): ProjectStat
   if (conversations.some((conv) => conv.status === 'running')) {
     return { label: `Running on ${machine} · ${displayRuntime(agent.runtime)}`, tone: 'active' };
   }
-  if (conversations.some((conv) => conv.status === 'failed')) {
+  const mostRecent = [...conversations].sort((a, b) => b.last_message_at - a.last_message_at)[0];
+  if (mostRecent?.status === 'failed') {
     return { label: `Failed on ${machine} · ${displayRuntime(agent.runtime)}`, tone: 'failed' };
   }
   return { label: `Idle on ${machine} · ${displayRuntime(agent.runtime)}`, tone: 'idle' };

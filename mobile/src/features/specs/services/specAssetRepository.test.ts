@@ -1,4 +1,5 @@
 import {
+  deleteSpecArtifact,
   loadIdeas,
   loadPendingIdeas,
   loadSpecDetail,
@@ -258,4 +259,14 @@ test('loads and replaces specs for one endpoint', async () => {
     'DELETE FROM spec_artifacts WHERE target_endpoint_id = ?',
     ['ep-1'],
   );
+});
+
+test('deleteSpecArtifact removes versions and artifact rows locally', async () => {
+  await deleteSpecArtifact('spec-1');
+
+  expect(mockRunAsync).toHaveBeenCalledWith(
+    'DELETE FROM spec_artifact_versions WHERE spec_id = ?',
+    ['spec-1'],
+  );
+  expect(mockRunAsync).toHaveBeenCalledWith('DELETE FROM spec_artifacts WHERE id = ?', ['spec-1']);
 });

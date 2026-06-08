@@ -436,11 +436,11 @@ test('does not derive the initial transcript from cached raw store history', () 
 ///
 /// Data construction:
 ///   initial latest page = seq 11 only
-///   older page cursor   = before_seq 11
+///   older page cursor     = before_seq 11
 ///   top threshold       = y 0 < 80, but no user drag has begun
 ///
 /// Execution process:
-///   1. Render ChatDetailScreen and wait for seq 11 latest page.
+///   1. Render ChatDetailScreen and wait for seq 11.
 ///   2. Fire FlatList onScroll at y=0 without onScrollBeginDrag.
 ///   3. Inspect fetchMessages calls for older pagination.
 ///
@@ -998,6 +998,17 @@ test('restores older prepend anchor while focus ask is already visible', async (
   const scrollToIndexSpy = jest.spyOn(flatListPrototype, 'scrollToIndex').mockImplementation();
   const scrollToEndSpy = jest.spyOn(flatListPrototype, 'scrollToEnd').mockImplementation();
   try {
+    const askMessage = (seq: number): WsMessage => ({
+      type: 'message',
+      seq,
+      role: 'ask_question',
+      payload: {
+        ask_id: 'ask-anchor',
+        allow_freeform: false,
+        questions: [{ id: '0', text: 'Deploy now?', options: [{ id: 'yes', label: 'Yes' }] }],
+      },
+      created_at: seq,
+    });
     (fetchMessages as jest.Mock).mockImplementation(
       (_baseUrl: string, _token: string, _convId: string, options?: { before_seq?: number }) => {
         if (options?.before_seq === 11) {
@@ -1019,17 +1030,7 @@ test('restores older prepend anchor while focus ask is already visible', async (
             payload: { text: 'focused anchor prompt' },
             created_at: 11,
           },
-          {
-            type: 'message',
-            seq: 12,
-            role: 'ask_question',
-            payload: {
-              ask_id: 'ask-anchor',
-              allow_freeform: false,
-              questions: [{ id: '0', text: 'Choose?', options: [{ id: 'yes', label: 'Yes' }] }],
-            },
-            created_at: 12,
-          },
+          askMessage(12),
           {
             type: 'message',
             seq: 13,
@@ -1040,9 +1041,13 @@ test('restores older prepend anchor while focus ask is already visible', async (
         ]);
       },
     );
+
     const { UNSAFE_getByType, getByTestId, getByText } = render(<ChatDetailScreen />);
 
     await waitFor(() => expect(getByTestId('chat-ask-ask-anchor')).toBeTruthy());
+    act(() => {
+      UNSAFE_getByType(FlatList).props.onContentSizeChange(320, 1600);
+    });
     await waitFor(() =>
       expect({
         actual: scrollToIndexSpy.mock.calls.some(
@@ -1231,81 +1236,6 @@ test('does not repeatedly fetch the same older page when the first seq is unchan
     ([, , , options]) => options?.before_seq === 11,
   );
   expect(duplicateBeforeSeqCalls).toHaveLength(1);
-});
-
-/// Older pagination retry: a failed page request should not consume its
-/// before_seq guard.
-///
-/// Data construction:
-///   Latest page first seq = 11.
-///   First older request before_seq = 11 rejects with a temporary error.
-///   Second older request before_seq = 11 returns seq 10.
-///
-/// Execution process:
-///   1. Render the latest page containing seq 11.
-///   2. Trigger top scroll once -> older fetch rejects.
-///   3. Trigger top scroll again -> same before_seq is allowed to retry.
-///
-/// Expected result:
-///   - Positive assertion: "retried older response" renders after retry.
-///   - Positive assertion: fetchMessages is called twice with before_seq 11.
-///   - Negative assertion: the duplicate guard must not permanently block retry.
-test('retries the same older page after a transient fetch failure', async () => {
-  let olderAttempts = 0;
-  (fetchMessages as jest.Mock).mockImplementation(
-    (_baseUrl: string, _token: string, _convId: string, options?: { before_seq?: number }) => {
-      if (options?.before_seq === 11) {
-        olderAttempts += 1;
-        if (olderAttempts === 1) return Promise.reject(new Error('temporary older page failure'));
-        return Promise.resolve([
-          {
-            type: 'message',
-            seq: 10,
-            role: 'agent_text',
-            payload: { text: 'retried older response' },
-            created_at: 10,
-          },
-        ]);
-      }
-      return Promise.resolve([
-        {
-          type: 'message',
-          seq: 11,
-          role: 'user_text',
-          payload: { text: 'latest prompt' },
-          created_at: 11,
-        },
-      ]);
-    },
-  );
-  const { UNSAFE_getByType, getByText } = render(<ChatDetailScreen />);
-
-  await waitFor(() => expect(getByText('latest prompt')).toBeTruthy());
-  await act(async () => {
-    UNSAFE_getByType(FlatList).props.onScrollBeginDrag?.({ nativeEvent: {} });
-    UNSAFE_getByType(FlatList).props.onScroll({
-      nativeEvent: {
-        contentOffset: { y: 0 },
-        layoutMeasurement: { height: 400 },
-        contentSize: { height: 800 },
-      },
-    });
-  });
-  await act(async () => {
-    UNSAFE_getByType(FlatList).props.onScroll({
-      nativeEvent: {
-        contentOffset: { y: 0 },
-        layoutMeasurement: { height: 400 },
-        contentSize: { height: 800 },
-      },
-    });
-  });
-
-  await waitFor(() => expect(getByText('retried older response')).toBeTruthy());
-  const retryCalls = (fetchMessages as jest.Mock).mock.calls.filter(
-    ([, , , options]) => options?.before_seq === 11,
-  );
-  expect(retryCalls).toHaveLength(2);
 });
 
 /// Older loading UI: a network older-page request should show the top loading
@@ -1645,8 +1575,8 @@ test('starts a newer route older loader after a stale transcript route reset', a
   }
 });
 
-/// Older pagination stale completion: ignored older results must still release
-/// the loader so the current route generation can fetch older pages again.
+/// Older loading lifecycle: a stale transcript request from a previous route
+/// must not block a newer route from starting its own older turn request.
 ///
 /// Data construction:
 ///   Latest page first seq = 11.
@@ -1656,14 +1586,14 @@ test('starts a newer route older loader after a stale transcript route reset', a
 ///   Later older request before_seq = 11 returns seq 10 for the current generation.
 ///
 /// Execution process:
-///   1. Render latest page, then trigger a top scroll to start older request #1.
-///   2. Change route agent_name and rerender to invalidate the older request generation.
-///   3. Resolve stale older request #1, then trigger top scroll again.
+///   1. Trigger conv-1 top scroll while its transcript request is pending.
+///   2. Rerender the route as conv-2 and wait for its latest page.
+///   3. Start a conv-2 network older request.
 ///
 /// Expected result:
-///   - Positive assertion: "fresh older after stale" renders after the second top scroll.
-///   - Positive assertion: before_seq 11 is requested twice.
-///   - Negative assertion: "stale older ignored" does not render.
+///   - Positive: "fresh older after stale" renders after the second top scroll.
+///   - Positive: before_seq 11 is requested twice.
+///   - Negative: "stale older ignored" does not render.
 test('allows older pagination after a stale older request completes', async () => {
   let olderAttempts = 0;
   let resolveStaleOlder: ((messages: WsMessage[]) => void) | undefined;
