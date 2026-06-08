@@ -20,7 +20,22 @@ fn find_free_port() -> u16 {
     port
 }
 
-const TEST_TOKEN: &str = "ms_v2_aabbccddaabbccddaabbccddaabbccdd";
+fn e2e_fixture_tokens() -> (String, String) {
+    let raw = include_str!("../fixtures/e2e_auth.toml");
+    let valid = raw
+        .lines()
+        .find(|line| line.starts_with("valid_token"))
+        .and_then(|line| line.split('=').nth(1))
+        .map(|value| value.trim().trim_matches('"').to_string())
+        .expect("valid_token in e2e_auth.toml");
+    let wrong = raw
+        .lines()
+        .find(|line| line.starts_with("wrong_token"))
+        .and_then(|line| line.split('=').nth(1))
+        .map(|value| value.trim().trim_matches('"').to_string())
+        .expect("wrong_token in e2e_auth.toml");
+    (valid, wrong)
+}
 
 /// A running `msctl serve` child process with its isolated HOME directory.
 struct TestServer {
@@ -33,7 +48,7 @@ struct TestServer {
 impl TestServer {
     fn start() -> Self {
         let port = find_free_port();
-        let token = TEST_TOKEN.to_string();
+        let (token, _) = e2e_fixture_tokens();
         let home = tempfile::tempdir().expect("tempdir");
         let bin = env!("CARGO_BIN_EXE_msctl");
         let child = Command::new(bin)
@@ -111,7 +126,10 @@ async fn auth_wrong_token_returns_401() {
     let client = reqwest::Client::new();
     let resp = client
         .get(format!("{}/api/v1/agents", srv.base_url()))
-        .header("Authorization", "Bearer ms_v2_wrongtoken000000000000000000000")
+        .header(
+            "Authorization",
+            format!("Bearer {}", e2e_fixture_tokens().1),
+        )
         .send()
         .await
         .expect("request");
@@ -253,7 +271,11 @@ async fn conversation_and_messages() {
         .send()
         .await
         .expect("create conversation");
-    assert_eq!(conv_resp.status(), 201, "create conversation must return 201");
+    assert_eq!(
+        conv_resp.status(),
+        201,
+        "create conversation must return 201"
+    );
     let conv: serde_json::Value = conv_resp.json().await.expect("parse conv");
     let conv_id = conv["id"].as_str().expect("conv id").to_string();
     assert_eq!(conv["agent_id"], agent_id.as_str());
@@ -360,10 +382,9 @@ async fn websocket_upgrade_succeeds() {
         "ws://127.0.0.1:{}/ws/conversations/{}?token={}",
         srv.port, conv_id, srv.token
     );
-    let (_, _resp) =
-        tokio_tungstenite::connect_async(&ws_url)
-            .await
-            .expect("WebSocket upgrade must succeed");
+    let (_, _resp) = tokio_tungstenite::connect_async(&ws_url)
+        .await
+        .expect("WebSocket upgrade must succeed");
     // Successful connect_async means upgrade worked
 }
 
@@ -395,11 +416,18 @@ async fn push_token_register_and_delete() {
     );
     let token_row: serde_json::Value = reg_resp.json().await.expect("parse token");
     let token_id = token_row["id"].as_str().expect("token id").to_string();
-    assert_eq!(token_row["expo_push_token"], "ExponentPushToken[e2etest001]");
+    assert_eq!(
+        token_row["expo_push_token"],
+        "ExponentPushToken[e2etest001]"
+    );
 
     // Delete
     let del_resp = client
-        .delete(format!("{}/api/v1/push-tokens/{}", srv.base_url(), token_id))
+        .delete(format!(
+            "{}/api/v1/push-tokens/{}",
+            srv.base_url(),
+            token_id
+        ))
         .header("Authorization", &srv.auth_header())
         .send()
         .await

@@ -96,6 +96,8 @@ pnpm test -- --watchAll=false        # 单跑测试
 # CLI
 cd cli && cargo build
 cargo test
+bash scripts/test-e2e.sh             # CLI Serve E2E（仓库根）
+bash scripts/test-all.sh             # 全套（仓库根）
 cargo run -- serve                   # 启动本地 HTTP/WS
 # Runtime 推送问答卡片（详见 §7；示例见 `msctl ask-question -h`）
 cargo run -- ask-question --conversation-id "$CONV_ID" --questions '[...]' --output json

@@ -14,8 +14,8 @@
 # Versioning (canonical, tracked in git): mobile/app.json
 #   - expo.version  -> CFBundleShortVersionString (marketing)
 #   - expo.ios.buildNumber -> CFBundleVersion + Xcode CURRENT_PROJECT_VERSION
-# Each run increments buildNumber in app.json then syncs into ios/MultiSoul/Info.plist
-# (ios/ is gitignored; do not treat Info.plist as the source of truth for build numbers.)
+# Each run increments buildNumber in app.json then syncs expo.ios.infoPlist + versions
+# into ios/MultiSoul/Info.plist (ios/ is gitignored; app.json is the source of truth).
 #
 # Signing: team for export plist is read from ios/MultiSoul.xcodeproj DEVELOPMENT_TEAM.
 # Archive passes DEVELOPMENT_TEAM on the CLI when pbxproj omits it; export plist uses TEAM_ID.
@@ -211,6 +211,54 @@ app_json_set_ios_build_number() {
   APP_JSON="$APP_JSON" NEXT_IOS_BUILD="$val" node -e "const fs=require('fs');const p=process.env.APP_JSON;const v=String(process.env.NEXT_IOS_BUILD);const j=JSON.parse(fs.readFileSync(p,'utf8'));if(!j.expo)j.expo={};if(!j.expo.ios)j.expo.ios={};j.expo.ios.buildNumber=v;fs.writeFileSync(p,JSON.stringify(j,null,2)+'\n');"
 }
 
+sync_native_ios_info_plist_from_app_json() {
+  [ -f "$INFO_PLIST" ] || return 0
+  APP_JSON="$APP_JSON" INFO_PLIST="$INFO_PLIST" node <<'NODE'
+const fs = require('fs');
+const { execFileSync } = require('child_process');
+
+const appJson = JSON.parse(fs.readFileSync(process.env.APP_JSON, 'utf8'));
+const infoPlist = appJson.expo?.ios?.infoPlist;
+if (!infoPlist || typeof infoPlist !== 'object') process.exit(0);
+
+const plist = process.env.INFO_PLIST;
+const buddy = '/usr/libexec/PlistBuddy';
+
+function keyExists(key) {
+  try {
+    execFileSync(buddy, ['-c', `Print :${key}`, plist], { stdio: ['ignore', 'pipe', 'ignore'] });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function setValue(key, value) {
+  if (typeof value === 'boolean') {
+    const boolVal = value ? 'true' : 'false';
+    if (keyExists(key)) {
+      execFileSync(buddy, ['-c', `Set :${key} ${boolVal}`, plist]);
+    } else {
+      execFileSync(buddy, ['-c', `Add :${key} bool ${boolVal}`, plist]);
+    }
+    return;
+  }
+  if (typeof value === 'string') {
+    const escaped = value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+    if (keyExists(key)) {
+      execFileSync(buddy, ['-c', `Set :${key} "${escaped}"`, plist]);
+    } else {
+      execFileSync(buddy, ['-c', `Add :${key} string "${escaped}"`, plist]);
+    }
+  }
+}
+
+for (const [key, value] of Object.entries(infoPlist)) {
+  setValue(key, value);
+}
+NODE
+}
+
 sync_native_ios_versions_from_app_json() {
   local m b
   m="$(read_marketing_version)"
@@ -218,6 +266,7 @@ sync_native_ios_versions_from_app_json() {
   [ -n "$m" ] || die "Missing expo.version in app.json"
   [ -n "$b" ] || die "Missing expo.ios.buildNumber in app.json"
   if [ -f "$INFO_PLIST" ]; then
+    sync_native_ios_info_plist_from_app_json
     /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $m" "$INFO_PLIST" \
       || die "PlistBuddy Set CFBundleShortVersionString failed"
     /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $b" "$INFO_PLIST" \

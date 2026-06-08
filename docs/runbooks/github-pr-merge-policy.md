@@ -4,7 +4,7 @@
 
 ## 策略（必须遵守）
 
-- **CI 全绿才允许合并** —— `ci.yml` 中三个 job 均成功，且分支满足「up to date」要求（若已在 protection 中勾选）。
+- **CI 全绿才允许合并** —— `ci.yml` 中四个 job 均成功，且分支满足「up to date」要求（若已在 protection 中勾选）。
 - **禁止绕过硬闸** —— 组织/仓库设置里对此规则应关闭「允许管理员绕过」等价选项（GitHub 文案为 *Do not allow bypassing the above settings*）。
 - **人类与 Agent** —— 即使握有 admin 权限，也不应在 CI 失败时用手动覆盖、强制合并或改 protection 来合入；应先修代码或修 CI，再 merge。
 
@@ -17,6 +17,7 @@
 | `repo checks (constraints)` |
 | `mobile (typecheck + lint + test)` |
 | `cli (build + test)` |
+| `cli (serve e2e)` |
 
 建议同时启用：
 

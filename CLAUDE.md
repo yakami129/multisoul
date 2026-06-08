@@ -43,7 +43,7 @@ Monorepo 两大件：
 - REST/WS 强制 Bearer auth —— 唯一例外 `GET /api/v1/healthz`
 - 结构化决策见 §7 **Ask User Question** —— 禁止自由文本列选项或让用户打字回答
 - **禁止直接 push main** —— 所有变更必须通过 PR；直接 push 会被 GitHub branch protection 拒绝
-- **PR 开启前必须验证** —— `cargo test` + `cargo build` + `pnpm typecheck` + `pnpm test --watchAll=false` 全部通过
+- **PR 开启前必须验证** —— `bash scripts/test-all.sh`（或等价：`cargo test` + `cargo test --test e2e_tests` + `pnpm typecheck` + `pnpm test --watchAll=false`）全部通过
 - **开 PR 需用户确认** —— Claude Code 自动 commit 到功能分支后，必须等用户确认才能执行 `gh pr create`
 - **CI 失败自动修复** —— 读取 `gh run view --log-failed` 日志，修复 lint/type/fmt 错误后 re-push；**修复 = 解决根本原因**（重构代码、删未用项、修类型），绝不用 `#[allow]` / `// eslint-disable` / `@ts-ignore` 压制；逻辑错误上报用户
 - **CI 未通过禁止合并（强约束）** —— PR 须等 GitHub Actions 全部通过后再合并；不得在红 CI 下合并，不得以管理员选项绕过硬闸；配置核对见 [`docs/runbooks/github-pr-merge-policy.md`](docs/runbooks/github-pr-merge-policy.md)
@@ -361,7 +361,7 @@ The mobile app uses a **dark modern aesthetic** — near-black backgrounds, whit
 - 分支命名：`feat/<desc>`, `fix/<desc>`, `chore/<desc>`
 
 ### 完成功能后
-1. 在分支上运行 `cargo test` + `cargo build` + `cd mobile && pnpm typecheck` + `pnpm test -- --watchAll=false`
+1. 在分支上运行 `bash scripts/test-all.sh`（或等价验证，含 `cargo test --test e2e_tests`）
 2. 用 `commit` skill 提交代码
 3. **等用户确认**后，执行 `gh pr create`，PR body 包含 Summary / Test plan / Risk 三段
 4. 等待 CI 结果（`gh pr checks`）；**仅当全部检查通过后再** `gh pr merge`（或网页合并）

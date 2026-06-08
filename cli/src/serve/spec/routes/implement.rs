@@ -213,24 +213,25 @@ fn build_implementation_instruction(
         .map(|value| value.to_string())
         .unwrap_or_else(|| "unknown".to_string());
     format!(
-        "Start implementation from the saved product spec below.\n\n\
-         ## Context\n\
-         - Spec: {title}\n\
-         - Spec ID: {spec_id}\n\
-         - Path: {repo_spec_path}\n\
-         - Revision: {revision}\n\
-         - SHA-256: {hash}\n\
-         - Interview conversation: {interview_conversation_id}\n\
-         - Source idea: {source_idea_id}\n\
-         - Implementation conversation: {conversation_id}\n\
-         - Status: {status}\n\n\
+        "## Spec: {title}\n\n\
+         Path: {repo_spec_path}\n\
+         Revision: {revision} | SHA-256: {hash}\n\n\
+         ---\n\n\
+         Spec ID: {spec_id}\n\
+         Source idea: {source_idea_id}\n\
+         Interview conversation: {interview_conversation_id}\n\
+         Implementation conversation: {conversation_id}\n\
+         Status: {status}\n\n\
+         Start implementation from the saved product spec above.\n\n\
          ## Workflow\n\
          1. Read AGENTS.md, CLAUDE.md, and the spec file.\n\
          2. Write an implementation plan first — do not change code yet.\n\
          3. After the plan, use AskUserQuestion (or `msctl ask-question`) to confirm execution approach.\n\
          4. Implement only after confirmation.\n\
          5. Use question cards for blockers or trade-offs.\n\
-         6. Report changed files and verification results when done.",
+         6. Report changed files and verification results when done.\n\
+         7. After implementation is complete and verified, mark the spec as done:\n\
+            `msctl spec mark-done --spec-id {spec_id}`",
         title = context.title,
         spec_id = context.spec_id,
         repo_spec_path = context.repo_spec_path,

@@ -260,6 +260,12 @@ cli-e2e:
   run: pnpm exec jest --watchAll=false --forceExit --coverage --coverageReporters=text-summary
 ```
 
+3. Sync required-check docs so branch protection lists **four** jobs (add `cli (serve e2e)`):
+   - [`docs/runbooks/github-pr-merge-policy.md`](../runbooks/github-pr-merge-policy.md)
+   - [`docs/quality/mechanized-constraints.md`](../quality/mechanized-constraints.md)
+   - [`docs/product-specs/SPEC-pr-workflow.md`](../product-specs/SPEC-pr-workflow.md)
+   - [`.github/pull_request_template.md`](../../.github/pull_request_template.md)
+
 ---
 
 ## Verification (all must pass before commit)

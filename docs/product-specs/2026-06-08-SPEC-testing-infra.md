@@ -2,7 +2,7 @@
 
 - **日期**：2026-06-08
 - **slug**：testing-infra
-- **状态**：待实施
+- **状态**：已实施（CLI Serve E2E + Mobile coverage 已接入 CI；branch protection 须含 `cli (serve e2e)`，见 [`docs/runbooks/github-pr-merge-policy.md`](../runbooks/github-pr-merge-policy.md)）
 
 ---
 
