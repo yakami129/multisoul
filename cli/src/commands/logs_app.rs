@@ -447,5 +447,5 @@ pub fn parse_duration(s: &str) -> std::result::Result<Duration, String> {
 }
 
 #[cfg(test)]
-#[path = "logs_tests.rs"]
+#[path = "../../tests/commands/logs_tests.rs"]
 mod logs_tests;

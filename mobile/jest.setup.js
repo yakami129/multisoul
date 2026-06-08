@@ -89,6 +89,7 @@ Object.defineProperty(global, '__ExpoImportMetaRegistry', {
 // Mock expo-clipboard — not available in Jest environment
 jest.mock('expo-clipboard', () => ({
   setStringAsync: jest.fn().mockResolvedValue(undefined),
+  getStringAsync: jest.fn().mockResolvedValue(''),
 }));
 
 // Mock expo-localization — native module is not available in Jest environment.

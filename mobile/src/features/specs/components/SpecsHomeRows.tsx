@@ -5,9 +5,7 @@ import {
   FileText,
   Image,
   Lightbulb,
-  Link,
   List,
-  MessageSquare,
   Trash2,
 } from 'lucide-react-native';
 import React from 'react';
@@ -26,7 +24,7 @@ import {
   specStatusLabel,
 } from './specUiModels';
 
-export type AttachmentPreset = 'link' | 'log' | 'image' | undefined;
+export type AttachmentPreset = 'image' | undefined;
 
 export function CaptureRow({
   disabled,
@@ -53,16 +51,6 @@ export function CaptureRow({
           icon={<List size={14} color={brandColors.ink} />}
           label="Text"
           onPress={onPress}
-        />
-        <MiniAction
-          icon={<Link size={14} color={brandColors.ink} />}
-          label="Link"
-          onPress={() => onPreset('link')}
-        />
-        <MiniAction
-          icon={<MessageSquare size={14} color={brandColors.ink} />}
-          label="Log"
-          onPress={() => onPreset('log')}
         />
         <MiniAction
           icon={<Image size={14} color={brandColors.ink} />}
@@ -210,22 +198,40 @@ export function SpecSection({
   title,
   specs,
   onOpenSpec,
+  onDeleteSpec,
 }: {
   title: string;
   specs: SpecArtifact[];
   onOpenSpec: (id: string) => void;
+  onDeleteSpec?: (id: string) => void;
 }) {
   if (specs.length === 0) return null;
   return (
     <View style={s.section}>
       <Text style={s.sectionTitle}>{title}</Text>
       <View style={s.group}>
-        {specs.map((spec, index) => (
-          <View key={spec.id}>
-            <SpecRow spec={spec} onOpen={() => onOpenSpec(spec.id)} />
-            {index < specs.length - 1 ? <View style={s.divider} /> : null}
-          </View>
-        ))}
+        {specs.map((spec, index) => {
+          const row = <SpecRow spec={spec} onOpen={() => onOpenSpec(spec.id)} />;
+          return (
+            <View key={spec.id}>
+              {onDeleteSpec ? (
+                <Swipeable
+                  renderRightActions={() => (
+                    <RowDeleteAction
+                      accessibilityLabel={`Delete ${spec.title}`}
+                      onPress={() => onDeleteSpec(spec.id)}
+                    />
+                  )}
+                >
+                  {row}
+                </Swipeable>
+              ) : (
+                row
+              )}
+              {index < specs.length - 1 ? <View style={s.divider} /> : null}
+            </View>
+          );
+        })}
       </View>
     </View>
   );

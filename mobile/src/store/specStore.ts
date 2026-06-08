@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { create } from 'zustand';
 import {
   deleteIdea,
+  deleteSpecArtifact as deleteStoredSpecArtifact,
   loadIdeas,
   loadSpecs as loadSpecArtifacts,
   replaceIdeasForEndpoint,
@@ -54,6 +55,7 @@ interface SpecState {
   archiveIdea: (ideaId: string) => Promise<void>;
   unarchiveIdea: (ideaId: string) => Promise<void>;
   deleteArchivedIdea: (ideaId: string, endpoint?: Endpoint) => Promise<void>;
+  deleteSpecArtifact: (specId: string, endpoint?: Endpoint) => Promise<void>;
   createSpec: (input: CreateSpecInput) => Promise<SpecDraft>;
   answerQuestion: (specId: string, answer: SpecAnswer) => Promise<void>;
   generatePreview: (specId: string) => Promise<void>;
@@ -215,6 +217,22 @@ export const useSpecStore = create<SpecState>((set, get) => ({
       const { deleteSpecIdea } = await import('@/features/specs/services/specAssetService');
       try {
         await deleteSpecIdea(endpoint, ideaId);
+      } catch {
+        // best-effort; local already deleted
+      }
+    }
+  },
+
+  deleteSpecArtifact: async (specId, endpoint?) => {
+    set((state) => ({
+      specArtifacts: state.specArtifacts.filter((item) => item.id !== specId),
+    }));
+    await deleteStoredSpecArtifact(specId);
+    if (endpoint) {
+      const { deleteSpecArtifact: deleteRemoteSpecArtifact } =
+        await import('@/features/specs/services/specAssetService');
+      try {
+        await deleteRemoteSpecArtifact(endpoint, specId);
       } catch {
         // best-effort; local already deleted
       }

@@ -14,6 +14,7 @@
 | [`references/`](./references/) | API/协议/环境变量等机器可读契约 | 想查 REST/WS 路径、消息类型、env vars |
 | [`quality/`](./quality/) | 规则、检查清单、code conventions（"法律"层） | 改动前要查的硬约束、UI/code 规范、release checklist |
 | [`runbooks/`](./runbooks/) | 操作型 SOP（发布、调试、应急） | 要发版本、排查线上问题、操作运行时 |
+| [`privacy-policy.md`](./privacy-policy.md) | App 隐私政策 | App Store Connect 隐私政策 URL / 对外隐私说明 |
 | [`specs/`](./specs/) · [`superpowers/`](./superpowers/) | **遗留目录，非权威树** | 见 [`superpowers/README.md`](./superpowers/README.md)；新规格/计划勿写入 |
 
 ## 不在这里的

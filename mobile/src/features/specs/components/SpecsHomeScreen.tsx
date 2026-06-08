@@ -14,7 +14,7 @@ import {
   type AttachmentPreset,
 } from './SpecsHomeRows';
 import { specsHomeStyles as s } from './SpecsHomeStyles';
-import { deriveIdeaTitle, type SpecArtifact, type SpecIdea, type SpecTarget } from './specUiModels';
+import { type SpecArtifact, type SpecIdea, type SpecTarget } from './specUiModels';
 import { TargetPickerSheet } from './TargetPickerSheet';
 
 type Segment = 'ideas' | 'specs';
@@ -31,6 +31,7 @@ interface Props {
   onArchiveIdea?: (id: string) => void;
   onUnarchiveIdea?: (id: string) => void;
   onDeleteArchivedIdea?: (id: string) => void;
+  onDeleteSpec?: (id: string) => void;
 }
 
 const SEGMENTS: Array<{ key: Segment; label: string }> = [
@@ -50,6 +51,7 @@ export function SpecsHomeScreen({
   onArchiveIdea,
   onUnarchiveIdea,
   onDeleteArchivedIdea,
+  onDeleteSpec,
 }: Props) {
   const insets = useSafeAreaInsets();
   const [segment, setSegment] = React.useState<Segment>('ideas');
@@ -58,7 +60,6 @@ export function SpecsHomeScreen({
   const [attachmentPreset, setAttachmentPreset] = React.useState<AttachmentPreset>();
   const [draftTarget, setDraftTarget] = React.useState<SpecTarget | undefined>();
   const [archivedExpanded, setArchivedExpanded] = React.useState(false);
-  const [undoIdea, setUndoIdea] = React.useState<SpecIdea | null>(null);
 
   const openEditor = (preset?: AttachmentPreset) => {
     setAttachmentPreset(preset);
@@ -77,7 +78,6 @@ export function SpecsHomeScreen({
 
   const handleArchive = (idea: SpecIdea) => {
     onArchiveIdea?.(idea.id);
-    setUndoIdea(idea);
   };
 
   const handleDeleteIdea = (ideaId: string) => {
@@ -89,6 +89,21 @@ export function SpecsHomeScreen({
         onPress: () => onDeleteArchivedIdea?.(ideaId),
       },
     ]);
+  };
+
+  const handleDeleteSpec = (specId: string) => {
+    Alert.alert(
+      'Delete spec?',
+      'This removes the saved spec from MultiSoul. The repo file is not deleted.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => onDeleteSpec?.(specId),
+        },
+      ],
+    );
   };
 
   return (
@@ -198,10 +213,30 @@ export function SpecsHomeScreen({
           </>
         ) : (
           <>
-            <SpecSection title="Needs You" specs={needsYou} onOpenSpec={onOpenSpec} />
-            <SpecSection title="Ready" specs={ready} onOpenSpec={onOpenSpec} />
-            <SpecSection title="In Progress" specs={inProgress} onOpenSpec={onOpenSpec} />
-            <SpecSection title="Done" specs={done} onOpenSpec={onOpenSpec} />
+            <SpecSection
+              title="Needs You"
+              specs={needsYou}
+              onOpenSpec={onOpenSpec}
+              onDeleteSpec={onDeleteSpec ? handleDeleteSpec : undefined}
+            />
+            <SpecSection
+              title="Ready"
+              specs={ready}
+              onOpenSpec={onOpenSpec}
+              onDeleteSpec={onDeleteSpec ? handleDeleteSpec : undefined}
+            />
+            <SpecSection
+              title="In Progress"
+              specs={inProgress}
+              onOpenSpec={onOpenSpec}
+              onDeleteSpec={onDeleteSpec ? handleDeleteSpec : undefined}
+            />
+            <SpecSection
+              title="Done"
+              specs={done}
+              onOpenSpec={onOpenSpec}
+              onDeleteSpec={onDeleteSpec ? handleDeleteSpec : undefined}
+            />
             {specs.length === 0 ? (
               <EmptyState
                 title="No saved specs"
@@ -213,22 +248,6 @@ export function SpecsHomeScreen({
           </>
         )}
       </ScrollView>
-
-      {undoIdea ? (
-        <View style={[s.undo, { bottom: insets.bottom + 96 }]}>
-          <Text style={s.undoText}>Archived {deriveIdeaTitle(undoIdea.title, undoIdea.body)}</Text>
-          <TouchableOpacity
-            accessibilityRole="button"
-            onPress={() => {
-              onUnarchiveIdea?.(undoIdea.id);
-              setUndoIdea(null);
-            }}
-            style={s.undoButton}
-          >
-            <Text style={s.undoButtonText}>Undo</Text>
-          </TouchableOpacity>
-        </View>
-      ) : null}
 
       <IdeaEditorSheet
         visible={editorVisible}

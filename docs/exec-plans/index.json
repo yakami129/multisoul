@@ -3,6 +3,33 @@
   "version": 1,
   "documents": [
     {
+      "file": "2026-06-07-workflow-watch-mode.md",
+      "title": "Workflow Watch 模式 Implementation Plan",
+      "lastCompletedCommit": "f3c689742a26e2fe7263245da623aa46eeea95c7"
+    },
+    {
+      "file": "2026-06-07-test-spec-workflow.md",
+      "title": "Test Spec Workflow Implementation Plan"
+    },
+    {
+      "file": "2026-06-07-idea-share-attachments.md",
+      "title": "Idea 快速采集与附件支持 Implementation Plan"
+    },
+    {
+      "file": "2026-06-07-daemon-quickstart-relay-default.md",
+      "title": "daemon quickstart 默认 Relay Implementation Plan"
+    },
+    {
+      "file": "2026-06-07-cli-command-grouping.md",
+      "title": "CLI 命令分组（msctl spec）Implementation Plan",
+      "lastCompletedCommit": "6f0151eb43a871941a610819e94ea9851d14a527"
+    },
+    {
+      "file": "2026-06-07-chat-auto-scroll.md",
+      "title": "Chat 自动滚动修复实施计划",
+      "lastCompletedCommit": "c17e3b72f937513d4d3a1316621545b3d80a9add"
+    },
+    {
       "file": "2026-06-06-workflow-template-library.md",
       "title": "Workflow Template Library Implementation Plan",
       "lastCompletedCommit": "7abafe6216196120706b430c213a557a6d26965b"
@@ -44,8 +71,7 @@
     },
     {
       "file": "2026-06-04-ios-voice-input.md",
-      "title": "iOS Voice Input Implementation Plan",
-      "lastCompletedCommit": "692416c0dcb274f168203bd7a4be4a92b5dbbceb"
+      "title": "iOS Voice Input Implementation Plan"
     },
     {
       "file": "2026-06-04-chat-turn-folding-pagination-fix.md",

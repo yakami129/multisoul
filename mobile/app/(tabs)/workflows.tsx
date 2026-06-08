@@ -3,7 +3,10 @@ import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { Modal, View } from 'react-native';
 import { fetchAllAgents } from '@/features/agents/services/agentService';
-import { WorkflowFormScreen } from '@/features/workflows/components/WorkflowFormScreen';
+import {
+  WorkflowFormScreen,
+  type WorkflowFormInitialValues,
+} from '@/features/workflows/components/WorkflowFormScreen';
 import { WorkflowListScreen } from '@/features/workflows/components/WorkflowListScreen';
 import { WorkflowTemplatePickerScreen } from '@/features/workflows/components/WorkflowTemplatePickerScreen';
 import {
@@ -14,13 +17,26 @@ import {
   fetchWorkflows,
   updateWorkflow,
 } from '@/features/workflows/services/workflowService';
-import {
-  type WorkflowTemplate,
-  type WorkflowTemplateInitialValues,
-} from '@/features/workflows/templates';
+import { type WorkflowTemplate } from '@/features/workflows/templates';
 import { type WorkflowInput, type Workflow } from '@/features/workflows/types';
 import { useEndpointStore } from '@/store/endpointStore';
 import { brandColors } from '@/theme/brandRefresh';
+
+function workflowToFormValues(wf: Workflow): WorkflowFormInitialValues {
+  return {
+    name: wf.name,
+    agent_id: wf.agent_id,
+    prompt: wf.prompt,
+    mode: wf.mode,
+    schedule_kind: wf.schedule_kind,
+    time_of_day: wf.time_of_day,
+    day_of_week: wf.day_of_week,
+    interval_minutes: wf.interval_minutes,
+    max_runs: wf.max_runs,
+    expires_at: wf.expires_at,
+    stop_condition: wf.stop_condition,
+  };
+}
 
 export default function WorkflowsTab() {
   const router = useRouter();
@@ -29,7 +45,7 @@ export default function WorkflowsTab() {
   const [showTemplatePicker, setShowTemplatePicker] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [templateInitialValues, setTemplateInitialValues] =
-    useState<WorkflowTemplateInitialValues | null>(null);
+    useState<WorkflowFormInitialValues | null>(null);
   const [editingWorkflow, setEditingWorkflow] = useState<Workflow | null>(null);
 
   const { data: workflows = [], isFetching } = useQuery({
@@ -124,7 +140,7 @@ export default function WorkflowsTab() {
 
   function openTemplateWorkflow(template: WorkflowTemplate) {
     setEditingWorkflow(null);
-    setTemplateInitialValues(template.initial_values);
+    setTemplateInitialValues(template.initial_values as WorkflowFormInitialValues);
     setShowTemplatePicker(false);
     setShowForm(true);
   }
@@ -182,7 +198,11 @@ export default function WorkflowsTab() {
                     : 'blank'
               }
               agents={visibleFormAgents}
-              initialValues={editingWorkflow ?? templateInitialValues ?? undefined}
+              initialValues={
+                editingWorkflow
+                  ? workflowToFormValues(editingWorkflow)
+                  : (templateInitialValues ?? undefined)
+              }
               title={editingWorkflow ? 'Edit Workflow' : 'New Workflow'}
               onSave={(input) =>
                 editingWorkflow

@@ -19,7 +19,7 @@ saves an immutable artifact snapshot, and returns the spec/version ids.
 
 Example:
 
-  msctl save-spec \\
+  msctl spec save \\
     --path docs/product-specs/2026-06-06-SPEC-example.md \\
     --conversation-id \"$CONV_ID\" \\
     --output json")]

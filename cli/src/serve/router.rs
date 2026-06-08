@@ -62,6 +62,14 @@ pub async fn build_router(state: AppState) -> Router {
             "/api/v1/workflows/:id/runs",
             axum::routing::get(workflows::list_workflow_runs),
         )
+        .route(
+            "/api/v1/workflows/:id/stop-watch",
+            axum::routing::post(workflows::stop_watch),
+        )
+        .route(
+            "/api/v1/workflows/:id/restart-watch",
+            axum::routing::post(workflows::restart_watch),
+        )
         .route("/ws/logs", axum::routing::get(logs::logs_ws_handler))
         .route("/api/v1/agents/:id", axum::routing::get(agents::get_agent))
         .route(
@@ -90,7 +98,10 @@ pub async fn build_router(state: AppState) -> Router {
             "/api/v1/specs/save-from-path",
             axum::routing::post(specs::save_from_path),
         )
-        .route("/api/v1/specs/:id", axum::routing::get(specs::get_spec))
+        .route(
+            "/api/v1/specs/:id",
+            axum::routing::get(specs::get_spec).delete(specs::delete_spec),
+        )
         .route(
             "/api/v1/specs/:id/done",
             axum::routing::post(specs::mark_spec_done),

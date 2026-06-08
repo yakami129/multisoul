@@ -212,5 +212,5 @@ pub fn build_updated_input(
 
 #[cfg(test)]
 mod tests {
-    include!("interactive_tests.rs");
+    include!("../../tests/serve/interactive_tests.rs");
 }

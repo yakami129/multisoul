@@ -319,6 +319,7 @@ fn handle_result_event(raw: &Value, state: &AppState, conv_id: &str, turn_seq: i
     let payload = serde_json::json!({
         "task_id": conv_id, "status": status, "importance": "normal", "summary": summary
     });
+    let ended_at = crate::db::now_ms();
     let db = state.db.lock().unwrap();
     if let Ok(seq) = insert_message(&db, conv_id, "task_status", &payload) {
         let _ = crate::serve::workflows::finalize_workflow_run_for_conversation(
@@ -331,8 +332,9 @@ fn handle_result_event(raw: &Value, state: &AppState, conv_id: &str, turn_seq: i
             } else {
                 None
             },
-            crate::db::now_ms(),
+            ended_at,
         );
+        let _ = crate::serve::workflows::post_run_watch_check(&db, conv_id, ended_at);
         push::send_task_status_push(&db, conv_id, status, &summary);
         drop(db);
         broadcast(state, conv_id, seq, "task_status", payload);

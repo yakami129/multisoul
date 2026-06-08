@@ -77,7 +77,7 @@ export function normalizeSpecIdeaAttachment(value: unknown): SpecIdeaAttachment 
   const kind = asString(field(raw, 'kind'));
   return {
     id: asString(field(raw, 'id')),
-    kind: kind === 'link' || kind === 'log' || kind === 'image' ? kind : 'log',
+    kind: kind === 'link' || kind === 'image' ? kind : 'image',
     title: asOptionalString(field(raw, 'title')),
     uri: asOptionalString(field(raw, 'uri')),
     text: asOptionalString(field(raw, 'text')),
@@ -213,6 +213,11 @@ export async function updateSpecIdea(
 export async function deleteSpecIdea(endpoint: Endpoint, id: string): Promise<void> {
   const client = getEndpointClient(endpoint.base_url, endpoint.token);
   await client.delete(`/api/v1/spec-ideas/${encodeURIComponent(id)}`);
+}
+
+export async function deleteSpecArtifact(endpoint: Endpoint, id: string): Promise<void> {
+  const client = getEndpointClient(endpoint.base_url, endpoint.token);
+  await client.delete(`/api/v1/specs/${encodeURIComponent(id)}`);
 }
 
 export async function startSpecIdeaInterview(

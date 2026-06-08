@@ -441,6 +441,10 @@ KodaX 使用 `kodax --mode json --session <conversation_id> --agent-mode ama <pr
 
 > **2026-06-06（Ideas to Specs asset tables）**：`cli/src/db.rs` 新增 migration runner，并通过 `cli/migrations/20260606_spec_assets.sql` 创建 `spec_ideas`、`spec_idea_notes`、`spec_idea_attachments`、`spec_artifacts` 和 `spec_artifact_versions`，用于 Specs 资产工作流的 CLI 权威持久化。这些表与 runtime adapter 的 session、model、abort、AskUserQuestion 路由语义解耦；本文 runtime 接入流程和 Step 5 的“runtime 额外状态走 migration”纪律不变。
 
+> **2026-06-07（Workflow watch mode）**：`cli/src/db.rs` 通过 `20260607_workflow_watch_mode` migration 扩展 workflow watch 字段；Claude terminal result 会在 finalize workflow run 后执行 watch post-run check，以决定停止、过期或安排下一次 run。该逻辑仍位于 workflow 调度层，不改变 runtime adapter 的 CLI 参数、message insert、AskUserQuestion answer routing 或 abort 契约。
+
+> **2026-06-07（CLI test layout）**：Rust 单元测试从 `cli/src/**/_tests.rs` 迁到 `cli/tests/` 镜像目录（`#[path = "..."]` 引入）；`serve/routes/messages.rs` 中 `broadcast_user_message` / `insert_user_message_and_mark_running` 可见性由 `pub(super)` 放宽为 `pub(crate)` 以便跨模块测试复用。HTTP 消息路由与 runtime 分发语义不变，本文 §2 架构图与 Step 1–4 正文无需改动。
+
 完成实现后，按 `CLAUDE.md §5` 跑：
 
 ```bash

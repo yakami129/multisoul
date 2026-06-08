@@ -55,6 +55,14 @@ pub fn generate_token() -> String {
     format!("ms_v2_{}", suffix)
 }
 
+/// Whether `token` satisfies the relay Worker contract (`^ms_v2_[a-f0-9]{32}$`).
+pub fn is_valid_relay_token(token: &str) -> bool {
+    use std::sync::OnceLock;
+    static RE: OnceLock<regex::Regex> = OnceLock::new();
+    RE.get_or_init(|| regex::Regex::new(r"^ms_v2_[a-f0-9]{32}$").expect("valid regex"))
+        .is_match(token)
+}
+
 pub async fn handle(args: ServeArgs) -> Result<()> {
     let token = args.token.unwrap_or_else(generate_token);
     let uploads_dir: PathBuf = dirs::config_dir()

@@ -265,5 +265,5 @@ fn resolve_token(token: Option<String>, config: Option<&Config>) -> Result<Strin
 }
 
 #[cfg(test)]
-#[path = "ask_question_tests.rs"]
+#[path = "../../tests/commands/ask_question_tests.rs"]
 mod tests;

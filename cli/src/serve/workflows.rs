@@ -9,106 +9,18 @@ use crate::{
         state::AppState,
     },
 };
-use chrono::{Datelike, Duration, Local, NaiveTime, TimeZone, Timelike};
 use uuid::Uuid;
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum WorkflowScheduleKind {
-    Daily,
-    Weekly,
-}
+mod schedule;
+mod watch;
 
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct WorkflowScheduleSpec {
-    pub kind: WorkflowScheduleKind,
-    pub time_of_day: String,
-    pub day_of_week: Option<u32>,
-}
+pub use schedule::{
+    next_run_after_ms, validate_workflow_input, WorkflowScheduleKind, WorkflowScheduleSpec,
+};
+pub use watch::post_run_watch_check;
 
-pub fn validate_workflow_input(
-    name: &str,
-    prompt: &str,
-    spec: &WorkflowScheduleSpec,
-) -> Result<(), String> {
-    if name.trim().is_empty() {
-        return Err("workflow name is required".to_string());
-    }
-    if prompt.trim().is_empty() {
-        return Err("workflow prompt is required".to_string());
-    }
-    parse_time_of_day(&spec.time_of_day)?;
-    match spec.kind {
-        WorkflowScheduleKind::Daily => {
-            if spec.day_of_week.is_some() {
-                return Err("daily schedule must not include day_of_week".to_string());
-            }
-        }
-        WorkflowScheduleKind::Weekly => match spec.day_of_week {
-            Some(1..=7) => {}
-            _ => return Err("weekly schedule requires day_of_week 1..=7".to_string()),
-        },
-    }
-    Ok(())
-}
-
-pub fn next_run_after_ms(spec: &WorkflowScheduleSpec, now_ms: i64) -> Result<i64, String> {
-    let time = parse_time_of_day(&spec.time_of_day)?;
-    let now = Local
-        .timestamp_millis_opt(now_ms)
-        .single()
-        .ok_or_else(|| "now_ms cannot be represented in local timezone".to_string())?;
-
-    match spec.kind {
-        WorkflowScheduleKind::Daily => {
-            let mut candidate = local_datetime_ms(
-                now.year(),
-                now.month(),
-                now.day(),
-                time.hour(),
-                time.minute(),
-            )?;
-            if candidate <= now_ms {
-                let tomorrow = now.date_naive() + Duration::days(1);
-                candidate = local_datetime_ms(
-                    tomorrow.year(),
-                    tomorrow.month(),
-                    tomorrow.day(),
-                    time.hour(),
-                    time.minute(),
-                )?;
-            }
-            Ok(candidate)
-        }
-        WorkflowScheduleKind::Weekly => {
-            let target = spec
-                .day_of_week
-                .filter(|day| (1..=7).contains(day))
-                .ok_or_else(|| "weekly schedule requires day_of_week 1..=7".to_string())?;
-            let today = now.weekday().number_from_monday();
-            let mut days_until = (target + 7 - today) % 7;
-            let mut target_date = now.date_naive() + Duration::days(days_until as i64);
-            let mut candidate = local_datetime_ms(
-                target_date.year(),
-                target_date.month(),
-                target_date.day(),
-                time.hour(),
-                time.minute(),
-            )?;
-            if candidate <= now_ms {
-                days_until += 7;
-                target_date = now.date_naive() + Duration::days(days_until as i64);
-                candidate = local_datetime_ms(
-                    target_date.year(),
-                    target_date.month(),
-                    target_date.day(),
-                    time.hour(),
-                    time.minute(),
-                )?;
-            }
-            Ok(candidate)
-        }
-    }
-}
+use schedule::schedule_kind_from_str;
+use watch::process_due_watch;
 
 pub fn run_due_workflows_once(state: &AppState) -> Result<usize, String> {
     run_due_workflows_once_inner(state, now_ms(), true)
@@ -150,7 +62,11 @@ fn run_due_workflows_once_inner(
     let due = load_due_workflows(state, now)?;
     let count = due.len();
     for workflow in due {
-        process_due_workflow(state, &workflow, now, dispatch_runtime)?;
+        if workflow.workflow_mode == "watch" {
+            process_due_watch(state, &workflow, now, dispatch_runtime)?;
+        } else {
+            process_due_recurring(state, &workflow, now, dispatch_runtime)?;
+        }
     }
     Ok(count)
 }
@@ -168,6 +84,13 @@ struct DueWorkflow {
     project_path: String,
     runtime: String,
     mode: String,
+    // Watch mode fields
+    workflow_mode: String,
+    interval_minutes: Option<i64>,
+    max_runs: Option<i64>,
+    expires_at: Option<i64>,
+    stop_condition: Option<String>,
+    run_count: i64,
 }
 
 fn load_due_workflows(state: &AppState, now: i64) -> Result<Vec<DueWorkflow>, String> {
@@ -178,7 +101,9 @@ fn load_due_workflows(state: &AppState, now: i64) -> Result<Vec<DueWorkflow>, St
     let mut stmt = db
         .prepare(
             "SELECT w.id, w.name, w.agent_id, w.prompt, w.schedule_kind, w.time_of_day,
-                    w.day_of_week, w.next_run_at, a.project_path, a.runtime, a.mode
+                    w.day_of_week, w.next_run_at, a.project_path, a.runtime, a.mode,
+                    w.mode as workflow_mode,
+                    w.interval_minutes, w.max_runs, w.expires_at, w.stop_condition, w.run_count
              FROM workflows w
              JOIN agents a ON a.id = w.agent_id
              WHERE w.enabled = 1 AND w.next_run_at IS NOT NULL AND w.next_run_at <= ?1
@@ -199,6 +124,12 @@ fn load_due_workflows(state: &AppState, now: i64) -> Result<Vec<DueWorkflow>, St
                 project_path: row.get(8)?,
                 runtime: row.get(9)?,
                 mode: row.get(10)?,
+                workflow_mode: row.get(11)?,
+                interval_minutes: row.get(12)?,
+                max_runs: row.get(13)?,
+                expires_at: row.get(14)?,
+                stop_condition: row.get(15)?,
+                run_count: row.get(16)?,
             })
         })
         .map_err(|err| err.to_string())?
@@ -207,7 +138,7 @@ fn load_due_workflows(state: &AppState, now: i64) -> Result<Vec<DueWorkflow>, St
     Ok(rows)
 }
 
-fn process_due_workflow(
+fn process_due_recurring(
     state: &AppState,
     workflow: &DueWorkflow,
     now: i64,
@@ -347,30 +278,4 @@ fn insert_workflow_prompt_message(
     )
     .map_err(|err| err.to_string())?;
     Ok((seq, id, now, payload))
-}
-
-fn schedule_kind_from_str(value: &str) -> Result<WorkflowScheduleKind, String> {
-    match value {
-        "daily" => Ok(WorkflowScheduleKind::Daily),
-        "weekly" => Ok(WorkflowScheduleKind::Weekly),
-        _ => Err("schedule_kind must be daily or weekly".to_string()),
-    }
-}
-
-fn parse_time_of_day(value: &str) -> Result<NaiveTime, String> {
-    NaiveTime::parse_from_str(value, "%H:%M").map_err(|_| "time_of_day must be HH:mm".to_string())
-}
-
-fn local_datetime_ms(
-    year: i32,
-    month: u32,
-    day: u32,
-    hour: u32,
-    minute: u32,
-) -> Result<i64, String> {
-    Local
-        .with_ymd_and_hms(year, month, day, hour, minute, 0)
-        .single()
-        .map(|dt| dt.timestamp_millis())
-        .ok_or_else(|| "local schedule time is ambiguous or invalid".to_string())
 }

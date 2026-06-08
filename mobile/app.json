@@ -8,15 +8,13 @@
     "icon": "./assets/ios-icon.png",
     "userInterfaceStyle": "light",
     "splash": {
-      "image": "./assets/splash-icon.png",
-      "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
     "ios": {
       "icon": "./assets/ios-icon.png",
       "supportsTablet": true,
       "bundleIdentifier": "com.yakami0129.multisoul",
-      "buildNumber": "113",
+      "buildNumber": "118",
       "splash": {
         "backgroundColor": "#ffffff"
       },

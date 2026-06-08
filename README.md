@@ -19,14 +19,18 @@
 </p>
 
 <p align="center">
-  <img src="docs/assets/multisoul-core-features.png" alt="MultiSoul core features: connect local agents, track live activity, and answer decisions from iOS or Android" width="860" />
+  <img src="docs/assets/multisoul-feature-intro-en-v2.png" alt="MultiSoul product overview: playful command, serious work, with local agent control, activity tracking, and decision approval screens" width="920" />
+</p>
+
+<p align="center">
+  <img src="docs/assets/multisoul-feature-intro-en-v3.png" alt="MultiSoul feature flow: connect the agent fleet, track the mission log, and review approval cards from a phone" width="920" />
 </p>
 
 ---
 
 MultiSoul lets you control AI agents running on your own computer from your phone. You can watch messages and tool calls in real time, answer approval questions, and receive task completion notifications.
 
-There is no central MultiSoul backend. `msctl` runs locally, stores data locally, and exposes an endpoint that your phone connects to through Tailscale.
+There is no central MultiSoul backend. `msctl` runs locally, stores data locally, and exposes an HTTPS endpoint your phone connects to. The default setup uses a public relay tunnel—no VPN required.
 
 ## What You Can Do
 
@@ -34,16 +38,18 @@ There is no central MultiSoul backend. `msctl` runs locally, stores data locally
 - Watch agent messages, tool calls, tool results, and task status
 - Answer `AskUserQuestion` prompts in the mobile app
 - Keep an Inbox for pending questions and completed/failed tasks
-- Connect one phone to multiple computers through Tailscale
+- Connect one phone to multiple computers
 - Run the service in the foreground or as a background daemon
 
 ## How It Works
 
 ```
 Mobile App (React Native + Expo)
-        │ Tailscale / HTTPS / WSS + Bearer token
+        │ HTTPS / WSS + Bearer token
         ▼
 msctl serve (Rust, local machine)
+        ├── Relay (default): Cloudflare Tunnel → public HTTPS URL
+        ├── Tailscale / Funnel (optional): private or public Tailnet URL
         ├── Runtime adapters: Claude Code / Codex / Cursor Agent CLI
         ├── REST + WebSocket
         └── SQLite: ~/.config/msctl/serve.db
@@ -52,45 +58,10 @@ msctl serve (Rust, local machine)
 ## Requirements
 
 - Node.js 18+
-- Tailscale on both your computer and phone
 - One agent runtime installed on your computer:
   - Claude Code: `claude`
   - Codex CLI: `codex`
   - Cursor Agent CLI: `agent`
-- Rust toolchain, only if you run `msctl` from source
-
-## Install Tailscale
-
-Install Tailscale on your computer and phone, then sign in to the same Tailnet.
-
-Official guide: [tailscale.com/docs/install](https://tailscale.com/docs/install)
-
-Common setup:
-
-```bash
-# macOS
-# Install from https://tailscale.com/download/mac
-
-# Linux
-curl -fsSL https://tailscale.com/install.sh | sh
-sudo tailscale up
-
-# Verify
-tailscale status
-tailscale ip
-```
-
-On iOS or Android, install Tailscale from the app store and sign in with the same account.
-
-Tailnet access is the default and recommended private setup. If you need a public HTTPS URL, enable Tailscale Funnel and start the service with `msctl serve --funnel`.
-
-For the first public HTTPS/Funnel setup, grant Tailscale permission to serve HTTPS on port 443 and point it at the default MultiSoul port:
-
-```bash
-tailscale funnel --https=443 8765
-```
-
-If Tailscale opens a browser approval flow, approve it once, then stop the command with `Ctrl-C` and start MultiSoul with `msctl serve --funnel`. See [Tailscale Funnel docs](https://tailscale.com/docs/features/tailscale-funnel).
 
 ## Quick Start
 
@@ -100,45 +71,19 @@ If Tailscale opens a browser approval flow, approve it once, then stop the comma
 npm install -g @yakami129/msctl
 ```
 
-Or run it from source:
+### 2. Start the service
 
 ```bash
-cd cli
-cargo run -- --help
+msctl daemon quickstart
 ```
 
-### 2. Start the Agent service
-
-Fastest installed CLI flow:
-
-```bash
-msctl daemon quickstart --token test --port 8765 --tailnet true
-```
-
-From source:
-
-```bash
-cd cli
-cargo run -- daemon quickstart --token test --port 8765 --tailnet true
-```
-
-This command saves the token, installs and starts the background service, binds it for Tailnet access, and prints a QR code plus a connection string.
-
-On iOS or Android, open the mobile app and add the machine:
-
-```text
-Agents -> Tap + -> Scan QR
-```
-
-Scan the QR code printed by `msctl daemon quickstart` to register this computer as a MultiSoul endpoint on your phone. If camera access is unavailable, tap **Paste connection string** and paste the connection string printed next to the QR code.
+Auto-generates a token, installs a background daemon, opens a public HTTPS relay tunnel, and prints a QR code. Scan it in the app (**Agents → + → Scan QR**), or tap **Paste connection string** and use the string printed beside the QR. First run may take several minutes while cloudflared downloads.
 
 <p align="center">
   <img src="docs/assets/multisoul-add-endpoint.png" alt="MultiSoul Add Endpoint flow: tap plus on Agents, then scan QR or paste connection string" width="520" />
 </p>
 
-For real personal use, replace `test` with your own long token.
-
-Useful daemon commands:
+If the QR does not appear in time, run `msctl logs --source service -f` — the pairing QR is printed there once the tunnel is live.
 
 ```bash
 msctl daemon status
@@ -147,15 +92,9 @@ msctl daemon restart
 msctl daemon stop
 ```
 
-Foreground mode:
-
-```bash
-msctl serve --tailnet --port 8765 --token test
-```
-
 ### 3. Register an Agent
 
-Fastest installed CLI flow from the project you want to control:
+From the project you want to control:
 
 ```bash
 cd /path/to/project
@@ -165,28 +104,12 @@ msctl agent cursor-cli
 msctl agent kodax
 ```
 
-From source, run the same quick registration path with Cargo:
+<details>
+<summary>Advanced: full <code>msctl agent register</code> options</summary>
 
-```bash
-cd cli
-cargo run -- agent codex
-cargo run -- agent claude-code
-cargo run -- agent cursor-cli
-cargo run -- agent kodax
-```
+Use explicit registration when you need custom names, modes, or project paths:
 
-When running from source for a different project directory, keep your shell in
-that project and point Cargo at this repo's CLI manifest:
-
-```bash
-cd /path/to/project
-cargo run --manifest-path /path/to/multisoul/cli/Cargo.toml -- agent codex
-cargo run --manifest-path /path/to/multisoul/cli/Cargo.toml -- agent claude-code
-cargo run --manifest-path /path/to/multisoul/cli/Cargo.toml -- agent cursor-cli
-cargo run --manifest-path /path/to/multisoul/cli/Cargo.toml -- agent kodax
-```
-
-Codex:
+**Codex**
 
 ```bash
 msctl agent register \
@@ -196,7 +119,7 @@ msctl agent register \
   --mode full-auto
 ```
 
-Claude Code:
+**Claude Code**
 
 ```bash
 msctl agent register \
@@ -205,7 +128,7 @@ msctl agent register \
   --runtime claude-code
 ```
 
-Cursor Agent CLI:
+**Cursor Agent CLI**
 
 ```bash
 msctl agent register \
@@ -215,7 +138,7 @@ msctl agent register \
   --mode ask
 ```
 
-KodaX:
+**KodaX**
 
 ```bash
 msctl agent register \
@@ -224,6 +147,8 @@ msctl agent register \
   --runtime kodax \
   --mode full-auto
 ```
+
+</details>
 
 Check registered agents:
 
@@ -246,6 +171,44 @@ pnpm ios
 pnpm android
 ```
 
+## Extended mode: Tailscale (optional)
+
+The default relay tunnel works without a VPN. Use Tailscale when you want a **private Tailnet** or **public HTTPS via Tailscale Funnel** instead.
+
+Install Tailscale on your computer and phone, then sign in to the same Tailnet. Official guide: [tailscale.com/docs/install](https://tailscale.com/docs/install)
+
+```bash
+# Linux example
+curl -fsSL https://tailscale.com/install.sh | sh
+sudo tailscale up
+tailscale status
+```
+
+Switch the daemon to Tailscale:
+
+```bash
+msctl daemon quickstart --tailnet    # private Tailnet IP
+msctl daemon quickstart --funnel     # public HTTPS via Funnel
+```
+
+Or set `serve_mode = "tailnet"` | `"funnel"` in `~/.config/msctl/config.toml`.
+
+For Funnel, grant HTTPS on port 443 once (approve in browser if prompted), then stop with `Ctrl-C`:
+
+```bash
+tailscale funnel --https=443 8765
+msctl daemon quickstart --funnel
+```
+
+See [Tailscale Funnel docs](https://tailscale.com/docs/features/tailscale-funnel).
+
+Foreground serve (without daemon):
+
+```bash
+msctl serve --tailnet --port 8765 --token YOUR_TOKEN
+msctl serve --funnel --port 8765 --token YOUR_TOKEN
+```
+
 ## Development
 
 CLI:
@@ -254,7 +217,6 @@ CLI:
 cd cli
 cargo build
 cargo test
-cargo run -- serve
 ```
 
 Mobile:
@@ -266,6 +228,34 @@ pnpm typecheck
 pnpm test -- --watchAll=false
 pnpm start
 ```
+
+## Run from source (local development)
+
+When working on this repo—or before the CLI is published—run commands through Cargo instead of the installed `msctl`. Requires a Rust toolchain.
+
+From the `cli/` directory:
+
+```bash
+cd cli
+cargo run -- daemon quickstart
+cargo run -- agent codex
+cargo run -- agent claude-code
+cargo run -- agent cursor-cli
+cargo run -- agent kodax
+cargo run -- serve
+```
+
+To register an agent while your shell is in another project directory:
+
+```bash
+cd /path/to/project
+cargo run --manifest-path /path/to/multisoul/cli/Cargo.toml -- agent codex
+cargo run --manifest-path /path/to/multisoul/cli/Cargo.toml -- agent claude-code
+cargo run --manifest-path /path/to/multisoul/cli/Cargo.toml -- agent cursor-cli
+cargo run --manifest-path /path/to/multisoul/cli/Cargo.toml -- agent kodax
+```
+
+Replace `msctl` with `cargo run --` (or `cargo run --manifest-path … --`) for any other subcommand, e.g. `cargo run -- logs --source service -f`.
 
 ## Local Data
 

@@ -2,6 +2,7 @@ import { getEndpointClient } from '@/api/endpointClient';
 import { type Endpoint } from '@/types';
 import {
   createSpecIdea,
+  deleteSpecArtifact,
   fetchSpecArtifactDetail,
   fetchSpecArtifacts,
   fetchSpecIdeas,
@@ -14,9 +15,15 @@ import {
 const mockGet = jest.fn();
 const mockPost = jest.fn();
 const mockPatch = jest.fn();
+const mockDelete = jest.fn();
 
 jest.mock('@/api/endpointClient', () => ({
-  getEndpointClient: jest.fn(() => ({ get: mockGet, post: mockPost, patch: mockPatch })),
+  getEndpointClient: jest.fn(() => ({
+    get: mockGet,
+    post: mockPost,
+    patch: mockPatch,
+    delete: mockDelete,
+  })),
 }));
 
 const endpoint: Endpoint = {
@@ -62,7 +69,7 @@ test('fetches and normalizes spec ideas from CLI snake_case responses', async ()
     status: 'open',
     targetEndpointId: 'ep-1',
     notes: [{ id: 'note-1', body: 'Note', createdAt: 1, updatedAt: 2 }],
-    attachments: [{ id: 'att-1', kind: 'log', title: 'Log', createdAt: 3 }],
+    attachments: [{ id: 'att-1', kind: 'image', title: 'Log', createdAt: 3 }],
   });
 });
 
@@ -257,4 +264,13 @@ test('fetches specs and detail with latest version fallback', async () => {
     revision: 2,
     markdownSha256: 'abcdef',
   });
+});
+
+test('deletes spec artifact via DELETE /api/v1/specs/:id', async () => {
+  mockDelete.mockResolvedValueOnce({ data: null });
+
+  await deleteSpecArtifact(endpoint, 'spec/slash');
+
+  expect(getEndpointClient).toHaveBeenCalledWith(endpoint.base_url, endpoint.token);
+  expect(mockDelete).toHaveBeenCalledWith('/api/v1/specs/spec%2Fslash');
 });

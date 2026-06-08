@@ -52,6 +52,8 @@ jest.mock('../../src/features/workflows/services/workflowService', () => ({
   enableWorkflow: (...args: unknown[]) => mockEnableWorkflow(...args),
   fetchWorkflows: (...args: unknown[]) => mockFetchWorkflows(...args),
   updateWorkflow: (...args: unknown[]) => mockUpdateWorkflow(...args),
+  stopWatch: jest.fn().mockResolvedValue({}),
+  restartWatch: jest.fn().mockResolvedValue({}),
 }));
 
 jest.mock('react-native-safe-area-context', () => ({
@@ -121,10 +123,10 @@ test('blank workflow creation goes through the existing create payload', async (
   fireEvent.press(getByLabelText('New Workflow'));
   fireEvent.press(getByTestId('workflow-template-blank'));
 
-  await waitFor(() => expect(getByPlaceholderText('e.g. Morning Report')).toBeTruthy());
+  await waitFor(() => expect(getByPlaceholderText('e.g. CI Watch')).toBeTruthy());
   await waitFor(() => expect(getByText('MultiSoul Agent')).toBeTruthy());
 
-  fireEvent.changeText(getByPlaceholderText('e.g. Morning Report'), 'Custom Morning Run');
+  fireEvent.changeText(getByPlaceholderText('e.g. CI Watch'), 'Custom Morning Run');
   fireEvent.changeText(getByPlaceholderText('What should the agent do?'), 'Summarize repo');
   fireEvent.press(getByText('Save'));
 
@@ -135,6 +137,7 @@ test('blank workflow creation goes through the existing create payload', async (
     name: 'Custom Morning Run',
     agent_id: 'agent-1',
     prompt: 'Summarize repo',
+    mode: 'recurring',
     schedule_kind: 'daily',
     time_of_day: '09:00',
     day_of_week: null,

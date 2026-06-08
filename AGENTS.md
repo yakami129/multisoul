@@ -28,6 +28,7 @@ Monorepo 两大件：
 - **改包必跑 typecheck/cargo check**
 - **Rust 禁止 `#[allow(...)]`** —— `cli/src` 中不得用 `#[allow]` 压制编译器/clippy 诊断；[`scripts/check-no-allow.sh`](scripts/check-no-allow.sh) 拦截
 - **Design doc 代码 hash 保鲜** —— tracked code 变更须先审阅 diff、更新设计文档（或于文档内说明为何正文不变），再对该篇执行 `python3 scripts/check-doc-code-hashes.py --update-doc <basename>.md`；禁止未审阅即批量刷新 hash
+- **Project skill 入口同步** —— `.agents/skills/custom-lint` 必须被 Claude/Cursor/Codex 入口正确引用；[`scripts/check-agent-skill-adapters.py`](scripts/check-agent-skill-adapters.py) 拦截
 
 人类可读软约束：
 
@@ -65,10 +66,12 @@ Monorepo 两大件：
 | **PR 合并与 CI 强闸** | [`docs/runbooks/github-pr-merge-policy.md`](docs/runbooks/github-pr-merge-policy.md) |
 | **Git：PR 工作流、禁止直接 push main** | [`docs/product-specs/SPEC-pr-workflow.md`](docs/product-specs/SPEC-pr-workflow.md) |
 | **UI 设计系统**（颜色、字号、间距） | [`mobile/docs/design.md`](mobile/docs/design.md) |
+| **UI / 品牌风格参考**（视觉手册图片） | [`docs/prototypes/brand-design/`](docs/prototypes/brand-design/) |
 | **RN UI 常见坑** | [`mobile/docs/rules/ui-pitfalls.md`](mobile/docs/rules/ui-pitfalls.md) |
 | **完整命令、env 表、UI checklist** | [`CLAUDE.md`](CLAUDE.md)（详细工程手册） |
 | **面向人类的快速上手** | [`README.md`](README.md) |
 | **msctl 命令速记（`msctl inject`）** | [`docs/references/msctl-inject.md`](docs/references/msctl-inject.md)；完整参考 [`docs/references/cli-commands.md`](docs/references/cli-commands.md) |
+| **生成自定义 lint skill** | [`.agents/skills/custom-lint/SKILL.md`](.agents/skills/custom-lint/SKILL.md) |
 | **`docs/specs/`、`docs/superpowers/`** | **勿再新增权威文档**；规格/计划规约见 [`docs/superpowers/README.md`](docs/superpowers/README.md) |
 
 ## 5. 改完代码必跑的验证

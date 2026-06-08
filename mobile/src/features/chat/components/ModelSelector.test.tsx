@@ -349,3 +349,43 @@ it('does not report switch failure when acknowledgement storage write fails afte
     'setItem failure after successful PATCH must not be shown as model switch failure',
   );
 });
+
+/// ModelSelector scrollable list: with many models, the list can be scrolled.
+///
+/// Data setup:
+///   20 models to exceed screen space
+///
+/// Execution:
+///   1. Render the visible selector with many models.
+///
+/// Expected result:
+///   - Positive: ScrollView is rendered with showsVerticalScrollIndicator.
+///   - Negative: list is not using a non-scrollable View.
+it('renders a scrollable list when models exceed screen space', () => {
+  const manyModels: RuntimeModel[] = Array.from({ length: 20 }, (_, i) => ({
+    id: `model-${i}`,
+    label: `Model ${i}`,
+    is_default: i === 0,
+    source: 'builtin',
+    available: true,
+  }));
+
+  const { getByTestId, getByText } = render(
+    <ModelSelector
+      visible
+      models={manyModels}
+      currentModelId={null}
+      disabled={false}
+      onClose={jest.fn()}
+      onSelect={jest.fn()}
+    />,
+  );
+
+  // Verify ScrollView is rendered with testID
+  const scrollView = getByTestId('model-list-scroll');
+  assertTrue(scrollView !== null, 'Model list must be scrollable');
+
+  // Verify first and last models are rendered
+  assertTrue(getByText('Model 0') !== null, 'First model must be rendered');
+  assertTrue(getByText('Model 19') !== null, 'Last model must be rendered');
+});

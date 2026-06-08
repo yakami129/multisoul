@@ -116,8 +116,8 @@ When active, the service plays the sound directly; the notification handler supp
 
 ## Files changed
 
-1. `cli/src/serve/push.rs` — task/ask push payload construction, token fan-out, mutual exclusion
-2. `cli/src/serve/runtime/claude/stream.rs` + `cli/src/serve/ask_question.rs` — register pending ask before ask-question push/broadcast（2026-05-31：`record_ask_question` 抽到 `ask_question.rs`，推送时机与 payload 不变；2026-06-04：terminal `task_status` 后追加 Activity refresh signal，推送 payload 不变）
+1. `cli/src/serve/push.rs` — task/ask push payload construction, token fan-out, mutual exclusion（2026-06-07：watch workflow 结束时新增 `watch_completed` 推送，复用 token fan-out）
+2. `cli/src/serve/runtime/claude/stream.rs` + `cli/src/serve/ask_question.rs` — register pending ask before ask-question push/broadcast（2026-05-31：`record_ask_question` 抽到 `ask_question.rs`，推送时机与 payload 不变；2026-06-04：terminal `task_status` 后追加 Activity refresh signal，推送 payload 不变；2026-06-07：terminal result 完成 workflow run 后会触发 watch stop/schedule 检查，task_status 推送语义不变）
 3. `src/hooks/useWebSocket.ts` — remove local completion notification scheduling and apply answered state only after `answer_status(ok=true)`
 4. `app/_layout.tsx` — token registration, handler, tap listener, cold-start navigation
 

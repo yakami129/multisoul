@@ -214,6 +214,12 @@ export async function deleteIdea(id: string): Promise<void> {
   await getDb().runAsync('DELETE FROM spec_ideas WHERE id = ?', [id]);
 }
 
+export async function deleteSpecArtifact(id: string): Promise<void> {
+  const db = getDb();
+  await db.runAsync('DELETE FROM spec_artifact_versions WHERE spec_id = ?', [id]);
+  await db.runAsync('DELETE FROM spec_artifacts WHERE id = ?', [id]);
+}
+
 export async function markIdeaSyncError(id: string, message: string): Promise<void> {
   await getDb().runAsync('UPDATE spec_ideas SET last_sync_error = ? WHERE id = ?', [message, id]);
 }
