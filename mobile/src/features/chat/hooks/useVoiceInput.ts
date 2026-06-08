@@ -39,7 +39,7 @@ function showPermissionAlert() {
     'Enable microphone and speech recognition permissions in Settings to use voice input.',
     [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Open Settings', onPress: () => Linking.openSettings() },
+      { text: 'Open Settings', onPress: () => void Linking.openSettings() },
     ],
   );
 }

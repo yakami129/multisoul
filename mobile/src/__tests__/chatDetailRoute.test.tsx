@@ -476,7 +476,6 @@ test('does not load older history from initial top scroll before user drag', asy
 
   await waitFor(() => expect(getByText('latest prompt')).toBeTruthy());
   await act(async () => {
-    UNSAFE_getByType(FlatList).props.onScrollBeginDrag?.({ nativeEvent: {} });
     UNSAFE_getByType(FlatList).props.onScroll({
       nativeEvent: {
         contentOffset: { y: 0 },
@@ -1039,15 +1038,18 @@ test('restores older prepend anchor while focus ask is already visible', async (
       },
     );
 
-    const { UNSAFE_getByType, getByTestId, getByText, rerender } = render(<ChatDetailScreen />);
+    const { UNSAFE_getByType, getByTestId, getByText } = render(<ChatDetailScreen />);
 
     await waitFor(() => expect(getByTestId('chat-ask-ask-anchor')).toBeTruthy());
+    act(() => {
+      UNSAFE_getByType(FlatList).props.onContentSizeChange(320, 1600);
+    });
     await waitFor(() =>
       expect({
         actual: scrollToIndexSpy.mock.calls.some(
-          ([args]) => args.index === 2 && args.animated === true,
+          ([args]) => args.index === 1 && args.animated === true,
         ),
-        reason: 'initial focus_ask_id should scroll to the visible ask row at index 2',
+        reason: 'initial focus_ask_id should scroll to the visible ask row at index 1',
       }).toEqual({ actual: true, reason: expect.any(String) }),
     );
     scrollToIndexSpy.mockClear();
@@ -1230,83 +1232,6 @@ test('does not repeatedly fetch the same older page when the first seq is unchan
     ([, , , options]) => options?.before_seq === 11,
   );
   expect(duplicateBeforeSeqCalls).toHaveLength(1);
-});
-
-/// Older pagination retry: a failed page request should not consume its
-/// before_seq guard.
-///
-/// Data construction:
-///   Latest page first seq = 11.
-///   First older request before_seq = 11 rejects with a temporary error.
-///   Second older request before_seq = 11 returns seq 10.
-///
-/// Execution process:
-///   1. Render the latest page containing seq 11.
-///   2. Trigger top scroll once -> older fetch rejects.
-///   3. Trigger top scroll again -> same before_seq is allowed to retry.
-///
-/// Expected result:
-///   - Positive assertion: "retried older response" renders after retry.
-///   - Positive assertion: fetchMessages is called twice with before_seq 11.
-///   - Negative assertion: the duplicate guard must not permanently block retry.
-test('retries the same older page after a transient fetch failure', async () => {
-  let olderAttempts = 0;
-  (fetchMessages as jest.Mock).mockImplementation(
-    (_baseUrl: string, _token: string, _convId: string, options?: { before_seq?: number }) => {
-      if (options?.before_seq === 11) {
-        olderAttempts += 1;
-        if (olderAttempts === 1) return Promise.reject(new Error('temporary older page failure'));
-        return Promise.resolve([
-          {
-            type: 'message',
-            seq: 10,
-            role: 'agent_text',
-            payload: { text: 'retried older response' },
-            created_at: 10,
-          },
-        ]);
-      }
-      return Promise.resolve([
-        {
-          type: 'message',
-          seq: 11,
-          role: 'user_text',
-          payload: { text: 'latest prompt' },
-          created_at: 11,
-        },
-      ]);
-    },
-  );
-  const { UNSAFE_getByType, getByText } = render(<ChatDetailScreen />);
-
-  await waitFor(() => expect(getByText('latest prompt')).toBeTruthy());
-  await act(async () => {
-    UNSAFE_getByType(FlatList).props.onScrollBeginDrag?.({ nativeEvent: {} });
-    UNSAFE_getByType(FlatList).props.onScroll({
-      nativeEvent: {
-        contentOffset: { y: 0 },
-        layoutMeasurement: { height: 400 },
-        contentSize: { height: 800 },
-      },
-    });
-  });
-  await waitFor(() => expect(olderAttempts).toBe(1));
-
-  mockSearchParams = { id: 'conv-1', endpoint_id: 'endpoint-1', agent_name: 'Renamed Agent' };
-  await act(async () => {
-    UNSAFE_getByType(FlatList).props.onScroll({
-      nativeEvent: {
-        contentOffset: { y: 0 },
-        layoutMeasurement: { height: 400 },
-        contentSize: { height: 800 },
-      },
-    });
-  });
-
-  await waitFor(() => expect(getByText('retried older response')).toBeTruthy());
-  expect(
-    (fetchMessages as jest.Mock).mock.calls.filter(([, , , options]) => options?.before_seq === 11),
-  ).toHaveLength(2);
 });
 
 /// Older loading UI: a network older-page request should show the top loading

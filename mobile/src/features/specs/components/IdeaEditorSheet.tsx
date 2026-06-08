@@ -1,6 +1,5 @@
 import { Image, Link, MessageSquare, X } from 'lucide-react-native';
 import React from 'react';
-import { AttachmentEditorRow } from './AttachmentEditorRow';
 import {
   Alert,
   KeyboardAvoidingView,
@@ -14,6 +13,7 @@ import {
   View,
 } from 'react-native';
 import { brandColors, brandRgba, brandTypography } from '@/theme/brandRefresh';
+import { AttachmentEditorRow } from './AttachmentEditorRow';
 import { deriveIdeaTitle, type SpecIdeaAttachment, type SpecTarget } from './specUiModels';
 
 export interface IdeaEditorValue {

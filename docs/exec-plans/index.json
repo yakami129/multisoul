@@ -3,16 +3,6 @@
   "version": 1,
   "documents": [
     {
-      "file": "2026-06-04-ios-voice-input.md",
-      "title": "iOS Voice Input Implementation Plan",
-      "lastCompletedCommit": "692416c0dcb274f168203bd7a4be4a92b5dbbceb"
-    },
-    {
-      "file": "2026-06-07-idea-share-attachments.md",
-      "title": "Idea Quick Capture & Attachment Support Implementation Plan",
-      "lastCompletedCommit": "365bc98c2a7979eff9ec837dd67d2fcacf4033e4"
-    },
-    {
       "file": "2026-06-06-workflow-template-library.md",
       "title": "Workflow Template Library Implementation Plan",
       "lastCompletedCommit": "7abafe6216196120706b430c213a557a6d26965b"
@@ -51,6 +41,11 @@
       "file": "2026-06-05-activity-weak-network.md",
       "title": "Activity Weak Network Degradation Implementation Plan",
       "lastCompletedCommit": "72f51021ff22496de7334ed9bdfc69a6c8e55489"
+    },
+    {
+      "file": "2026-06-04-ios-voice-input.md",
+      "title": "iOS Voice Input Implementation Plan",
+      "lastCompletedCommit": "692416c0dcb274f168203bd7a4be4a92b5dbbceb"
     },
     {
       "file": "2026-06-04-chat-turn-folding-pagination-fix.md",

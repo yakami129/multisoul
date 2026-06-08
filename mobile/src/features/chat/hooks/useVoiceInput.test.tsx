@@ -1,7 +1,6 @@
 import { act, renderHook, type RenderHookResult } from '@testing-library/react-native';
 import { getLocales } from 'expo-localization';
 import { ExpoSpeechRecognitionModule } from 'expo-speech-recognition';
-import React from 'react';
 import { Alert, Linking, Platform } from 'react-native';
 import { useVoiceInput, VOICE_INPUT_TIMEOUT_MS, type UseVoiceInputResult } from './useVoiceInput';
 

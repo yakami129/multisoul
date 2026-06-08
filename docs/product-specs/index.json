@@ -63,6 +63,10 @@
       "title": "Workflow 模板库 SPEC"
     },
     {
+      "file": "2026-06-07-SPEC-idea-share-attachments.md",
+      "title": "Idea Quick Capture & Attachment Support SPEC"
+    },
+    {
       "file": "SPEC-activity-pagination.md",
       "title": "Activity 模块分页滚动加载优化 SPEC"
     },
