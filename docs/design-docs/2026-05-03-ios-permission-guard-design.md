@@ -33,6 +33,7 @@
 | `expo-contacts` | `NSContactsUsageDescription` |
 | `expo-calendar` | `NSCalendarsUsageDescription` |
 | `expo-audio` | `NSMicrophoneUsageDescription` |
+| `expo-speech-recognition` | `NSMicrophoneUsageDescription`, `NSSpeechRecognitionUsageDescription` |
 
 `expo-notifications` 无需 `UsageDescription`（走 APNs 授权，不在此检查范围内）。
 
