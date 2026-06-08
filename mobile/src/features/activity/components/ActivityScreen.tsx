@@ -71,9 +71,9 @@ type DoneFilter = 'unread' | 'read';
 
 const FILTERS: Array<{ key: ActivityFilter; label: string; dot?: string }> = [
   { key: 'all', label: 'All' },
-  { key: 'pending', label: 'Pending', dot: brandColors.coral },
-  { key: 'running', label: 'Running', dot: brandColors.cyan },
-  { key: 'done', label: 'Done', dot: brandColors.lime },
+  { key: 'pending', label: 'Pending', dot: brandColors.activityOrange },
+  { key: 'running', label: 'Running', dot: brandColors.activityCyan },
+  { key: 'done', label: 'Done', dot: brandColors.activityLime },
 ];
 
 function formatRelativeTime(ts: number): string {
@@ -94,11 +94,12 @@ function byNewest(a: ActivityItem, b: ActivityItem): number {
   return b.timestamp - a.timestamp;
 }
 
+// Prototype ticon colors: attention=#ff5b32, running=#15bfe5, done border=#b7d52a fill=#9dc325, failed=error
 function toneIconProps(item: ActivityItem): { fill: string; border: string; content: React.ReactNode } {
   if (item.section === 'running') {
     return {
-      fill: brandColors.cyan,
-      border: brandColors.cyan,
+      fill: brandColors.activityCyan,
+      border: brandColors.activityCyan,
       content: <Clock size={9} color={brandColors.white} />,
     };
   }
@@ -111,24 +112,25 @@ function toneIconProps(item: ActivityItem): { fill: string; border: string; cont
   }
   if (item.section === 'done') {
     return {
-      fill: brandColors.lime,
-      border: brandColors.lime,
+      fill: brandColors.activityDoneIcon,
+      border: brandColors.activityLime,
       content: <Check size={9} color={brandColors.white} />,
     };
   }
-  // attention / default — orange
+  // attention — prototype .ticon default: color #ff5b32
   return {
-    fill: brandColors.coral,
-    border: brandColors.coral,
+    fill: brandColors.activityOrange,
+    border: brandColors.activityOrange,
     content: <Text style={s.timelineIconText}>!</Text>,
   };
 }
 
+// Prototype tag: .tag=orange, .tag.green=done, .tag.blue=running
 function tagStyle(item: ActivityItem): { bg: string; color: string } {
-  if (item.section === 'running') return { bg: brandRgba.cyanSoft, color: brandColors.ink };
-  if (item.tone === 'failed') return { bg: 'rgba(255,68,68,0.12)', color: brandColors.error };
-  if (item.section === 'done') return { bg: brandRgba.limeSoft, color: brandColors.ink };
-  return { bg: 'rgba(255,90,60,0.12)', color: brandColors.coral };
+  if (item.section === 'running') return { bg: brandColors.activityTagBlueBg, color: brandColors.activityTagBlueText };
+  if (item.tone === 'failed') return { bg: brandColors.activityTagOrangeBg, color: brandColors.activityTagOrangeText };
+  if (item.section === 'done') return { bg: brandColors.activityTagGreenBg, color: brandColors.activityTagGreenText };
+  return { bg: brandColors.activityTagOrangeBg, color: brandColors.activityTagOrangeText };
 }
 
 function PartialFailureBanner({ failedEndpointLabels, onRetry }: { failedEndpointLabels: string[]; onRetry?: () => void }) {
@@ -192,12 +194,11 @@ function ActivityRow({
     ? `${item.agentName || item.projectName} · ${item.workflowName}`
     : item.agentName || item.projectName;
 
+  // Prototype .message-panel (done): rgba(250,255,239,0.88); .tool-panel: rgba(255,252,247,0.78)
   const subBg =
-    item.section === 'running'
-      ? 'rgba(240,253,255,0.90)'
-      : item.section === 'done'
-        ? 'rgba(250,255,239,0.88)'
-        : 'rgba(255,250,247,0.88)';
+    item.section === 'done'
+      ? 'rgba(250,255,239,0.88)'
+      : 'rgba(255,252,247,0.78)';
 
   const renderDeleteAction = () => (
     <TouchableOpacity
@@ -397,7 +398,7 @@ export default function ActivityScreen({
     if (isLoadingMore) {
       return (
         <View style={s.loadMoreFooter} accessibilityLiveRegion="polite">
-          <ActivityIndicator color={brandColors.cyan} />
+          <ActivityIndicator color={brandColors.activityCyan} />
           <Text style={s.loadMoreText}>Loading more activity...</Text>
         </View>
       );
@@ -458,7 +459,7 @@ export default function ActivityScreen({
       </View>
 
       {allFailed ? (
-        <ScrollView contentContainerStyle={s.emptyBody} refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor={brandColors.cyan} />} testID="activity-scroll">
+        <ScrollView contentContainerStyle={s.emptyBody} refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor={brandColors.activityCyan} />} testID="activity-scroll">
           <View style={s.emptyIconWrap}><MessageCircle size={30} color={brandColors.error} /></View>
           <Text style={s.emptyTitle}>Could not load activity</Text>
           <Text style={s.emptyDesc}>All configured endpoints failed to respond.</Text>
@@ -467,9 +468,9 @@ export default function ActivityScreen({
           </TouchableOpacity>
         </ScrollView>
       ) : totalCount === 0 ? (
-        <ScrollView contentContainerStyle={s.emptyBody} refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor={brandColors.cyan} />} testID="activity-scroll">
+        <ScrollView contentContainerStyle={s.emptyBody} refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor={brandColors.activityCyan} />} testID="activity-scroll">
           <PartialFailureBanner failedEndpointLabels={failedEndpointLabels} onRetry={onRetry} />
-          <View style={s.emptyIconWrap}><CircleCheck size={30} color={brandColors.lime} /></View>
+          <View style={s.emptyIconWrap}><CircleCheck size={30} color={brandColors.activityLime} /></View>
           <Text style={s.emptyTitle}>{hasEndpoints ? 'All caught up' : 'Connect an endpoint'}</Text>
           <Text style={s.emptyDesc}>
             {hasEndpoints ? 'No decisions, running sessions, or recent results.' : 'Add an endpoint in Settings to see Activity.'}
@@ -502,7 +503,7 @@ export default function ActivityScreen({
           removeClippedSubviews
           style={s.list}
           contentContainerStyle={s.content}
-          refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor={brandColors.cyan} />}
+          refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor={brandColors.activityCyan} />}
           testID="activity-list"
         />
       )}

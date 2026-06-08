@@ -1,8 +1,12 @@
 import { act, renderHook, type RenderHookResult } from '@testing-library/react-native';
 import { getLocales } from 'expo-localization';
-import { ExpoSpeechRecognitionModule } from 'expo-speech-recognition';
+import { ExpoSpeechRecognitionModule, TaskHintIOS } from 'expo-speech-recognition';
 import { Alert, Linking, Platform } from 'react-native';
 import { useVoiceInput, VOICE_INPUT_TIMEOUT_MS, type UseVoiceInputResult } from './useVoiceInput';
+import {
+  addVoiceRecognitionListener,
+  loadVoiceRecognitionRuntime,
+} from './voiceRecognitionRuntime';
 
 type SpeechEventName = 'start' | 'result' | 'nomatch' | 'error' | 'end';
 type SpeechListeners = Partial<Record<SpeechEventName, (event?: unknown) => void>>;
@@ -15,6 +19,10 @@ jest.mock('expo-localization', () => ({
 
 jest.mock('expo-speech-recognition', () => ({
   ExpoSpeechRecognitionModule: {
+    addListener: jest.fn((name: SpeechEventName, listener: (event?: unknown) => void) => {
+      mockSpeechListeners[name] = listener;
+      return { remove: jest.fn() };
+    }),
     abort: jest.fn(),
     isRecognitionAvailable: jest.fn(),
     requestPermissionsAsync: jest.fn(),
@@ -29,9 +37,25 @@ jest.mock('expo-speech-recognition', () => ({
   ),
 }));
 
+jest.mock('./voiceRecognitionRuntime', () => ({
+  addVoiceRecognitionListener: jest.fn(
+    (_runtime: unknown, name: SpeechEventName, listener: (event?: unknown) => void) => {
+      mockSpeechListeners[name] = listener;
+      return { remove: jest.fn() };
+    },
+  ),
+  loadVoiceRecognitionRuntime: jest.fn(),
+}));
+
 const mockGetLocales = getLocales as jest.MockedFunction<typeof getLocales>;
 const mockSpeechModule = ExpoSpeechRecognitionModule as jest.Mocked<
   typeof ExpoSpeechRecognitionModule
+>;
+const mockLoadVoiceRecognitionRuntime = loadVoiceRecognitionRuntime as jest.MockedFunction<
+  typeof loadVoiceRecognitionRuntime
+>;
+const mockAddVoiceRecognitionListener = addVoiceRecognitionListener as jest.MockedFunction<
+  typeof addVoiceRecognitionListener
 >;
 const originalPlatformOS = Platform.OS;
 
@@ -74,6 +98,10 @@ describe('useVoiceInput', () => {
     mockSpeechListeners = {};
     jest.clearAllMocks();
     setPlatformOS('ios');
+    mockLoadVoiceRecognitionRuntime.mockResolvedValue({
+      ExpoSpeechRecognitionModule,
+      TaskHintIOS,
+    });
     mockGetLocales.mockReturnValue([{ languageTag: 'ja-JP' } as ReturnType<typeof getLocales>[0]]);
     mockSpeechModule.isRecognitionAvailable.mockReturnValue(true);
     mockSpeechModule.requestPermissionsAsync.mockResolvedValue(grantedPermission());
@@ -187,6 +215,19 @@ describe('useVoiceInput', () => {
 
     expect(result.current.status).toBe('unavailable');
     expect(Alert.alert).toHaveBeenCalledWith('Voice input unavailable', expect.any(String));
+    expect(mockSpeechModule.start).not.toHaveBeenCalled();
+  });
+
+  it('keeps chat usable when the speech recognition native module is absent', async () => {
+    mockLoadVoiceRecognitionRuntime.mockResolvedValue(null);
+    const { result } = renderVoiceHook();
+
+    await start(result);
+
+    expect(result.current.status).toBe('unavailable');
+    expect(Alert.alert).toHaveBeenCalledWith('Voice input unavailable', expect.any(String));
+    expect(mockAddVoiceRecognitionListener).not.toHaveBeenCalled();
+    expect(mockSpeechModule.isRecognitionAvailable).not.toHaveBeenCalled();
     expect(mockSpeechModule.start).not.toHaveBeenCalled();
   });
 

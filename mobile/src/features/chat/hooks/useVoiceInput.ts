@@ -1,13 +1,16 @@
-import {
-  ExpoSpeechRecognitionModule,
-  TaskHintIOS,
-  useSpeechRecognitionEvent,
-  type ExpoSpeechRecognitionErrorCode,
-  type ExpoSpeechRecognitionErrorEvent,
-  type ExpoSpeechRecognitionResultEvent,
+import type { EventSubscription } from 'expo-modules-core';
+import type {
+  ExpoSpeechRecognitionErrorCode,
+  ExpoSpeechRecognitionErrorEvent,
+  ExpoSpeechRecognitionResultEvent,
 } from 'expo-speech-recognition';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, Linking, Platform } from 'react-native';
+import {
+  addVoiceRecognitionListener,
+  loadVoiceRecognitionRuntime,
+  type VoiceRecognitionRuntime,
+} from './voiceRecognitionRuntime';
 import { getSystemSpeechLocale } from '../utils/voiceInputText';
 
 export const VOICE_INPUT_TIMEOUT_MS = 45_000;
@@ -102,8 +105,15 @@ export function useVoiceInput({
   const timeoutRequestedRef = useRef(false);
   const handledTerminalEventRef = useRef(false);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const runtimeRef = useRef<VoiceRecognitionRuntime | null>(null);
+  const subscriptionsRef = useRef<EventSubscription[]>([]);
+  const onTranscriptRef = useRef(onTranscript);
 
   const platformSupported = Platform.OS === 'ios';
+
+  useEffect(() => {
+    onTranscriptRef.current = onTranscript;
+  }, [onTranscript]);
 
   const clearVoiceTimeout = useCallback(() => {
     if (timeoutRef.current) {
@@ -132,13 +142,105 @@ export function useVoiceInput({
     setStatus('idle');
   }, [clearVoiceTimeout]);
 
+  const loadSpeechRuntime = useCallback(async () => {
+    if (!platformSupported) {
+      return null;
+    }
+
+    const runtime = await loadVoiceRecognitionRuntime();
+    runtimeRef.current = runtime;
+
+    if (!runtime) {
+      setNativeAvailable(false);
+      setStatus('unavailable');
+    }
+
+    return runtime;
+  }, [platformSupported]);
+
+  const registerSpeechEventListeners = useCallback(
+    (runtime: VoiceRecognitionRuntime) => {
+      if (subscriptionsRef.current.length > 0) {
+        return;
+      }
+
+      subscriptionsRef.current = [
+        addVoiceRecognitionListener(runtime, 'start', () => {
+          if (!cancelRequestedRef.current && !timeoutRequestedRef.current) {
+            setStatus('recording');
+          }
+        }),
+        addVoiceRecognitionListener(
+          runtime,
+          'result',
+          (event: ExpoSpeechRecognitionResultEvent) => {
+            if (cancelRequestedRef.current || timeoutRequestedRef.current || !event.isFinal) {
+              return;
+            }
+
+            const transcript = event.results[0]?.transcript ?? '';
+            latestTranscriptRef.current = transcript;
+            shouldCommitRef.current = transcript.trim().length > 0;
+          },
+        ),
+        addVoiceRecognitionListener(runtime, 'nomatch', () => {
+          shouldCommitRef.current = false;
+          latestTranscriptRef.current = '';
+          showNoSpeechAlert();
+        }),
+        addVoiceRecognitionListener(runtime, 'error', (event: ExpoSpeechRecognitionErrorEvent) => {
+          clearVoiceTimeout();
+
+          if (
+            event.error === 'aborted' &&
+            (cancelRequestedRef.current || timeoutRequestedRef.current)
+          ) {
+            setStatus('idle');
+            return;
+          }
+
+          const errorCopy = messageForError(event.error);
+          shouldCommitRef.current = false;
+          latestTranscriptRef.current = '';
+          handledTerminalEventRef.current = true;
+          setStatus('idle');
+
+          if (isPermissionError(event.error)) {
+            showPermissionAlert();
+          } else if (errorCopy) {
+            Alert.alert(errorCopy.title, errorCopy.message);
+          }
+        }),
+        addVoiceRecognitionListener(runtime, 'end', () => {
+          clearVoiceTimeout();
+
+          if (cancelRequestedRef.current || timeoutRequestedRef.current) {
+            setStatus('idle');
+            return;
+          }
+
+          if (shouldCommitRef.current) {
+            onTranscriptRef.current(latestTranscriptRef.current);
+          } else if (!handledTerminalEventRef.current) {
+            showNoSpeechAlert();
+          }
+
+          setStatus('idle');
+          shouldCommitRef.current = false;
+          latestTranscriptRef.current = '';
+        }),
+      ];
+    },
+    [clearVoiceTimeout, showNoSpeechAlert],
+  );
+
   const startVoiceTimeout = useCallback(() => {
     clearVoiceTimeout();
     timeoutRef.current = setTimeout(() => {
       timeoutRequestedRef.current = true;
       handledTerminalEventRef.current = true;
       finishWithoutCommit();
-      ExpoSpeechRecognitionModule.abort();
+      runtimeRef.current?.ExpoSpeechRecognitionModule.abort();
       Alert.alert('Voice input timed out', 'Try again after speaking clearly into the microphone.');
     }, VOICE_INPUT_TIMEOUT_MS);
   }, [clearVoiceTimeout, finishWithoutCommit]);
@@ -151,7 +253,14 @@ export function useVoiceInput({
     setStatus('requesting_permission');
     resetRecognitionRefs();
 
-    if (!ExpoSpeechRecognitionModule.isRecognitionAvailable()) {
+    const runtime = await loadSpeechRuntime();
+    if (!runtime) {
+      showRecognitionUnavailableAlert();
+      return;
+    }
+    registerSpeechEventListeners(runtime);
+
+    if (!runtime.ExpoSpeechRecognitionModule.isRecognitionAvailable()) {
       setNativeAvailable(false);
       setStatus('unavailable');
       showRecognitionUnavailableAlert();
@@ -159,7 +268,7 @@ export function useVoiceInput({
     }
 
     try {
-      const permission = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
+      const permission = await runtime.ExpoSpeechRecognitionModule.requestPermissionsAsync();
       if (!permission.granted) {
         setStatus('idle');
         showPermissionAlert();
@@ -167,11 +276,11 @@ export function useVoiceInput({
       }
 
       startVoiceTimeout();
-      ExpoSpeechRecognitionModule.start({
+      runtime.ExpoSpeechRecognitionModule.start({
         lang: getSystemSpeechLocale(),
         interimResults: true,
         continuous: false,
-        iosTaskHint: TaskHintIOS.dictation,
+        iosTaskHint: runtime.TaskHintIOS.dictation,
       });
       setStatus('recording');
     } catch (error) {
@@ -183,7 +292,9 @@ export function useVoiceInput({
   }, [
     disabled,
     finishWithoutCommit,
+    loadSpeechRuntime,
     platformSupported,
+    registerSpeechEventListeners,
     resetRecognitionRefs,
     startVoiceTimeout,
     status,
@@ -195,7 +306,7 @@ export function useVoiceInput({
     }
 
     setStatus('transcribing');
-    ExpoSpeechRecognitionModule.stop();
+    runtimeRef.current?.ExpoSpeechRecognitionModule.stop();
   }, [status]);
 
   const cancelVoiceInput = useCallback(() => {
@@ -205,72 +316,25 @@ export function useVoiceInput({
 
     cancelRequestedRef.current = true;
     finishWithoutCommit();
-    ExpoSpeechRecognitionModule.abort();
+    runtimeRef.current?.ExpoSpeechRecognitionModule.abort();
   }, [finishWithoutCommit, status]);
 
-  useSpeechRecognitionEvent('start', () => {
-    if (!cancelRequestedRef.current && !timeoutRequestedRef.current) {
-      setStatus('recording');
-    }
-  });
+  useEffect(() => {
+    let mounted = true;
 
-  useSpeechRecognitionEvent('result', (event: ExpoSpeechRecognitionResultEvent) => {
-    if (cancelRequestedRef.current || timeoutRequestedRef.current || !event.isFinal) {
-      return;
-    }
+    void loadSpeechRuntime().then((runtime) => {
+      if (mounted && runtime) {
+        registerSpeechEventListeners(runtime);
+      }
+    });
 
-    const transcript = event.results[0]?.transcript ?? '';
-    latestTranscriptRef.current = transcript;
-    shouldCommitRef.current = transcript.trim().length > 0;
-  });
-
-  useSpeechRecognitionEvent('nomatch', () => {
-    shouldCommitRef.current = false;
-    latestTranscriptRef.current = '';
-    showNoSpeechAlert();
-  });
-
-  useSpeechRecognitionEvent('error', (event: ExpoSpeechRecognitionErrorEvent) => {
-    clearVoiceTimeout();
-
-    if (event.error === 'aborted' && (cancelRequestedRef.current || timeoutRequestedRef.current)) {
-      setStatus('idle');
-      return;
-    }
-
-    const errorCopy = messageForError(event.error);
-    shouldCommitRef.current = false;
-    latestTranscriptRef.current = '';
-    handledTerminalEventRef.current = true;
-    setStatus('idle');
-
-    if (isPermissionError(event.error)) {
-      showPermissionAlert();
-    } else if (errorCopy) {
-      Alert.alert(errorCopy.title, errorCopy.message);
-    }
-  });
-
-  useSpeechRecognitionEvent('end', () => {
-    clearVoiceTimeout();
-
-    if (cancelRequestedRef.current || timeoutRequestedRef.current) {
-      setStatus('idle');
-      return;
-    }
-
-    if (shouldCommitRef.current) {
-      onTranscript(latestTranscriptRef.current);
-    } else if (!handledTerminalEventRef.current) {
-      showNoSpeechAlert();
-    }
-
-    setStatus('idle');
-    shouldCommitRef.current = false;
-    latestTranscriptRef.current = '';
-  });
-
-  useEffect(() => clearVoiceTimeout, [clearVoiceTimeout]);
+    return () => {
+      mounted = false;
+      clearVoiceTimeout();
+      subscriptionsRef.current.forEach((subscription) => subscription.remove());
+      subscriptionsRef.current = [];
+    };
+  }, [clearVoiceTimeout, loadSpeechRuntime, registerSpeechEventListeners]);
 
   const isAvailable = platformSupported && nativeAvailable && !disabled;
   const visibleStatus = platformSupported && nativeAvailable ? status : 'unavailable';

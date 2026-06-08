@@ -302,7 +302,8 @@ describe('ActivityTab DB-backed aggregation', () => {
     const pendingTextStyle = StyleSheet.flatten(screen.getByText('Pending 1').props.style);
 
     expect(segmentStyle.backgroundColor).toBe('rgba(255, 255, 255, 0.88)');
-    expect(allTabStyle.backgroundColor).toBe('rgba(0, 229, 255, 0.24)');
+    // Active segment uses prototype soft-blue (#D8F6FF, flat approx of #d8f6ff→#97dbff gradient)
+    expect(allTabStyle.backgroundColor).toBe('#D8F6FF');
     expect(allTextStyle.color).toBe('#0D0D0D');
     expect(pendingTextStyle.color).toBe('#888888');
   });

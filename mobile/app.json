@@ -41,6 +41,13 @@
       "expo-router",
       "expo-audio",
       [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "MultiSoul needs microphone access when you record or send audio to your agents.",
+          "speechRecognitionPermission": "MultiSoul uses iOS speech recognition to turn your voice into editable chat text."
+        }
+      ],
+      [
         "expo-notifications",
         {
           "iosDisplayInForeground": false

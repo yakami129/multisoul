@@ -20,12 +20,12 @@ export const activityScreenStyles = StyleSheet.create({
     width: 18,
     height: 18,
     borderRadius: 9,
-    backgroundColor: brandColors.lime,
+    backgroundColor: brandColors.activityLime,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 3,
   },
-  titleSub: { fontFamily: 'Inter', fontSize: 11, color: '#8a8986', fontWeight: '400' },
+  titleSub: { fontFamily: 'Inter', fontSize: 11, color: brandColors.activitySubtitleText, fontWeight: '400' },
   filterBtn: {
     width: 40,
     height: 40,
@@ -38,7 +38,7 @@ export const activityScreenStyles = StyleSheet.create({
     ...brandShadow,
   },
 
-  // ── Segment ─────────────────────────────────────────────────────────────────
+  // ── Segment control ──────────────────────────────────────────────────────────
   segment: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -62,40 +62,47 @@ export const activityScreenStyles = StyleSheet.create({
     gap: 4,
     paddingHorizontal: 3,
   },
-  segItemActive: { backgroundColor: brandRgba.cyanWash },
+  // Segment active: soft blue (#d8f6ff) matching prototype gradient
+  segItemActive: { backgroundColor: brandColors.activitySegActive },
   segItemText: { fontFamily: 'Inter', fontSize: 12, fontWeight: '600', color: brandColors.textMuted },
   segItemTextActive: { fontWeight: '700', color: brandColors.ink },
   segDot: { width: 7, height: 7, borderRadius: 4 },
-  tabUnreadDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: brandColors.coral },
+  tabUnreadDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: brandColors.activityOrange },
 
   // ── Decision banner ─────────────────────────────────────────────────────────
+  // Prototype: linear-gradient(#eaff36→#e8ff3c→#d9f635), border #a0c420
   decisionBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: brandColors.lime,
+    backgroundColor: brandColors.activityBannerYellow,
     borderRadius: 16,
     borderWidth: 1.5,
-    borderColor: 'rgba(0,0,0,0.10)',
+    borderColor: brandColors.activityBannerBorder,
     paddingLeft: 16,
     paddingRight: 12,
     paddingVertical: 12,
     gap: 10,
-    ...brandShadow,
+    shadowColor: 'rgba(86,97,0,0.13)',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 1,
+    shadowRadius: 17,
+    elevation: 3,
   },
+  // Prototype alarm circle: border 7px solid #add01f, bg #fffdf3
   alarmCircle: {
     width: 44,
     height: 44,
     borderRadius: 22,
     borderWidth: 4,
-    borderColor: 'rgba(0,0,0,0.18)',
-    backgroundColor: 'rgba(255,253,243,0.8)',
+    borderColor: brandColors.activityAlarmBorder,
+    backgroundColor: brandColors.activityAlarmBg,
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
   },
   bannerCopy: { flex: 1, gap: 3 },
   bannerTitle: { fontFamily: 'Inter', fontSize: 14, fontWeight: '800', color: brandColors.ink, lineHeight: 18 },
-  bannerSub: { fontFamily: 'Inter', fontSize: 11, color: '#333333', lineHeight: 15 },
+  bannerSub: { fontFamily: 'Inter', fontSize: 11, color: brandColors.activitySubText, lineHeight: 15 },
   reviewPill: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -109,12 +116,12 @@ export const activityScreenStyles = StyleSheet.create({
   },
   reviewPillText: { fontFamily: 'Inter', fontSize: 12, fontWeight: '700', color: brandColors.white },
 
-  // ── Timeline + card row ──────────────────────────────────────────────────────
+  // ── Timeline ─────────────────────────────────────────────────────────────────
   timelineRow: { flexDirection: 'row', alignItems: 'stretch', gap: 8 },
   timelineCol: { width: 32, alignItems: 'center' },
   timelineLineTop: { flex: 1, width: 2, backgroundColor: 'rgba(0,0,0,0.12)', minHeight: 6 },
   timelineLineBottom: { flex: 1, width: 2, backgroundColor: 'rgba(0,0,0,0.12)', minHeight: 6 },
-  // Outer ring: cream bg + 2px accent border; inner disc fills with accent color (matches prototype ticon)
+  // Outer shell: cream bg (#fffdf9) + 2px accent border
   timelineIconOuter: {
     width: 26,
     height: 26,
@@ -122,10 +129,10 @@ export const activityScreenStyles = StyleSheet.create({
     borderWidth: 2,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: brandColors.cream,
+    backgroundColor: brandColors.activityTiconBg,
     flexShrink: 0,
   },
-  // Inner filled disc (replicates ticon::before inset:6px)
+  // Inner disc: solid fill (prototype ticon::before inset:6px)
   timelineIconFill: {
     width: 16,
     height: 16,
@@ -135,14 +142,15 @@ export const activityScreenStyles = StyleSheet.create({
   },
   timelineIconText: { fontFamily: 'Inter', fontSize: 9, fontWeight: '800', color: brandColors.white },
 
-  // ── Card ─────────────────────────────────────────────────────────────────────
+  // ── Card ──────────────────────────────────────────────────────────────────────
   cardWrapper: { flex: 1 },
+  // Prototype: border rgba(22,20,18,0.12), borderRadius 20, gradient bg
   card: {
     flex: 1,
     flexDirection: 'row',
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: 'rgba(22,20,18,0.10)',
+    borderColor: 'rgba(22,20,18,0.12)',
     backgroundColor: brandRgba.white88,
     overflow: 'hidden',
     ...brandShadow,
@@ -158,27 +166,27 @@ export const activityScreenStyles = StyleSheet.create({
     maxWidth: '62%',
   },
   cardAgent: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 1 },
-  cardAgentName: { fontFamily: 'Inter', fontSize: 11, color: '#45464a' },
+  // Prototype .agent { color: #45464a }
+  cardAgentName: { fontFamily: 'Inter', fontSize: 11, color: brandColors.activityAgentText },
   cardTopRight: { position: 'absolute', top: 10, right: 10, alignItems: 'flex-end', gap: 3 },
   cardTime: { fontFamily: 'Inter', fontSize: 10, color: brandColors.textMuted },
+
+  // Tag badges — from prototype: .tag=orange, .tag.green=done, .tag.blue=running
   tagBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10 },
   tagText: { fontFamily: 'Inter', fontSize: 11, fontWeight: '500' },
 
-  // ── Sub-panels ────────────────────────────────────────────────────────────────
+  // ── Sub-panel ─────────────────────────────────────────────────────────────────
+  // Prototype .tool-panel / .message-panel: rgba(255,252,247,0.78), border rgba(40,36,28,0.13)
   subPanel: {
     marginTop: 6,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: 'rgba(40,36,28,0.10)',
+    borderColor: 'rgba(40,36,28,0.13)',
     overflow: 'hidden',
   },
-  subPanelInner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    padding: 10,
-  },
-  subPanelText: { flex: 1, fontFamily: 'Inter', fontSize: 11, color: '#2f2f2f', lineHeight: 16 },
+  subPanelInner: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 10 },
+  // Prototype .message-panel span { color: #2f2f2f }
+  subPanelText: { flex: 1, fontFamily: 'Inter', fontSize: 11, color: brandColors.activitySubText, lineHeight: 16 },
   subReviewBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -188,12 +196,12 @@ export const activityScreenStyles = StyleSheet.create({
     paddingVertical: 5,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.10)',
+    borderColor: 'rgba(0,0,0,0.12)',
     backgroundColor: brandColors.white,
   },
   subReviewText: { fontFamily: 'Inter', fontSize: 11, fontWeight: '600', color: brandColors.ink },
 
-  // ── Done sub-filter ───────────────────────────────────────────────────────────
+  // ── Done sub-filter ──────────────────────────────────────────────────────────
   doneHeader: { gap: 8 },
   doneSegment: {
     flexDirection: 'row',
@@ -212,19 +220,19 @@ export const activityScreenStyles = StyleSheet.create({
     fontFamily: 'Inter',
     fontSize: 12,
     fontWeight: '700',
-    color: brandColors.coral,
+    color: brandColors.activityOrange,
   },
 
-  // ── List ──────────────────────────────────────────────────────────────────────
+  // ── List ────────────────────────────────────────────────────────────────────
   list: {},
   content: { paddingHorizontal: 14, paddingBottom: 126, gap: 0 },
 
-  // ── Load more ─────────────────────────────────────────────────────────────────
+  // ── Load more ────────────────────────────────────────────────────────────────
   loadMoreFooter: { minHeight: 52, alignItems: 'center', justifyContent: 'center', gap: 6 },
   loadMoreText: { fontFamily: 'Inter', fontSize: 12, color: brandColors.textMuted },
-  loadMoreRetryText: { fontFamily: 'Inter', fontSize: 12, fontWeight: '700', color: brandColors.coral },
+  loadMoreRetryText: { fontFamily: 'Inter', fontSize: 12, fontWeight: '700', color: brandColors.activityOrange },
 
-  // ── Swipe delete ──────────────────────────────────────────────────────────────
+  // ── Swipe delete ─────────────────────────────────────────────────────────────
   deleteAction: {
     width: 72,
     backgroundColor: brandColors.white,
@@ -237,7 +245,7 @@ export const activityScreenStyles = StyleSheet.create({
   },
   deleteText: { fontFamily: 'Inter', fontSize: 12, fontWeight: '600', color: brandColors.error },
 
-  // ── Partial failure ────────────────────────────────────────────────────────────
+  // ── Partial failure ─────────────────────────────────────────────────────────
   partialFailure: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -248,9 +256,9 @@ export const activityScreenStyles = StyleSheet.create({
     padding: 10,
   },
   partialFailureText: { flex: 1, fontFamily: 'Inter', fontSize: 11, color: brandColors.ink },
-  partialFailureRetry: { fontFamily: 'Inter', fontSize: 11, fontWeight: '700', color: brandColors.coral },
+  partialFailureRetry: { fontFamily: 'Inter', fontSize: 11, fontWeight: '700', color: brandColors.activityOrange },
 
-  // ── Empty states ──────────────────────────────────────────────────────────────
+  // ── Empty states ─────────────────────────────────────────────────────────────
   emptyBody: {
     flexGrow: 1,
     alignItems: 'center',

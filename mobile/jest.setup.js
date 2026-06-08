@@ -100,6 +100,7 @@ jest.mock('expo-localization', () => ({
 // Mock expo-speech-recognition — native module is not available in Jest environment.
 jest.mock('expo-speech-recognition', () => ({
   ExpoSpeechRecognitionModule: {
+    addListener: jest.fn(() => ({ remove: jest.fn() })),
     abort: jest.fn(),
     isRecognitionAvailable: jest.fn(() => false),
     requestPermissionsAsync: jest.fn().mockResolvedValue({
