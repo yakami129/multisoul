@@ -153,6 +153,7 @@
 | `expo-contacts` | `NSContactsUsageDescription` |
 | `expo-calendar` | `NSCalendarsUsageDescription` |
 | `expo-audio` | `NSMicrophoneUsageDescription` |
+| `expo-speech-recognition` | `NSMicrophoneUsageDescription`, `NSSpeechRecognitionUsageDescription` |
 
 ### R15 · Project skill 入口同步
 
