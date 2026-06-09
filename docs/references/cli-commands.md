@@ -16,7 +16,7 @@ msctl <COMMAND>
 | `agent` | Agent 注册与管理 |
 | `serve` | 启动本地 HTTP/WS 服务器 |
 | `ask-question` | Push a structured question card to mobile through `msctl serve` |
-| `spec` | Spec artifact commands (`save`, `mark-done`) |
+| `spec` | Spec / Idea artifact commands |
 | `daemon` | 后台服务管理 |
 | `logs` | 查看 app/service 日志 |
 
@@ -161,12 +161,55 @@ When the iOS user answers, `msctl serve` marks the card answered and injects a s
 
 ## `msctl spec`
 
-Source: `cli/src/commands/spec.rs`, `cli/src/commands/save_spec.rs`, `cli/src/commands/mark_spec_done.rs`
+Source: `cli/src/commands/spec.rs`, `cli/src/commands/spec_artifact.rs`, `cli/src/commands/spec_dispatch.rs`, `cli/src/commands/spec_idea.rs`
+
+All `msctl spec` commands that call `msctl serve` accept the same connection flags.
+
+| 参数 | 默认值 | 说明 |
+|------|--------|------|
+| `--output <text\|json>` | `json` | Output format; JSON preserves the server response |
+| `--token <TOKEN>` | saved auth token | Bearer token for the running `msctl serve` process |
+| `--port <PORT>` | saved config port, else `8765` | Local `msctl serve` port |
+| `--host <HOST>` | `127.0.0.1` | Host for the local `msctl serve` process |
 
 | 子命令 | 说明 |
 |--------|------|
+| `spec list` | List saved SpecArtifact rows |
+| `spec get` | Get one SpecArtifact detail |
 | `spec save` | Save a repo `docs/product-specs/*.md` file as an immutable Spec artifact snapshot |
+| `spec delete` | Delete a saved SpecArtifact |
+| `spec implement` | Start an implementation conversation for a saved SpecArtifact |
 | `spec mark-done` | Mark a SpecArtifact as implementation-complete |
+| `spec dispatch` | Write a JSON spec body into an agent repo and dispatch implementation |
+| `spec idea ...` | Manage Ideas to Specs source ideas |
+
+### `msctl spec list`
+
+```bash
+msctl spec list --output json
+```
+
+```bash
+msctl spec list --output text
+```
+
+### `msctl spec get`
+
+| 参数 | 默认值 | 说明 |
+|------|--------|------|
+| `--spec-id <ID>` | 必填 | UUID of the SpecArtifact |
+
+```bash
+msctl spec get \
+  --spec-id 05521d4e-021e-43eb-9f7e-fa97d8b91fda \
+  --output json
+```
+
+```bash
+msctl spec get \
+  --spec-id 05521d4e-021e-43eb-9f7e-fa97d8b91fda \
+  --output text
+```
 
 ### `msctl spec save`
 
@@ -174,56 +217,241 @@ Reads a repo-relative product spec file through the provided conversation's targ
 
 | 参数 | 默认值 | 说明 |
 |------|--------|------|
-| `--path <PATH>` | 必填 | Repo-relative path under `docs/product-specs/`, e.g. `docs/product-specs/2026-06-06-SPEC-example.md` |
+| `--path <PATH>` | 必填 | Repo-relative path under `docs/product-specs/` |
 | `--conversation-id <ID>` | 必填 | Interview conversation used to resolve the target repo and source Idea |
-| `--output <text\|json>` | `json` | Output format |
-| `--token <TOKEN>` | saved auth token | Bearer token for the running `msctl serve` process |
-| `--port <PORT>` | saved config port, else `8765` | Local `msctl serve` port |
-| `--host <HOST>` | `127.0.0.1` | Host for the local `msctl serve` process |
-
-Example:
 
 ```bash
 msctl spec save \
-  --path docs/product-specs/2026-06-06-SPEC-example.md \
+  --path docs/product-specs/2026-06-09-SPEC-example.md \
   --conversation-id "$CONV_ID" \
   --output json
 ```
 
-Success response:
+```bash
+msctl spec save \
+  --path docs/product-specs/2026-06-09-SPEC-example.md \
+  --conversation-id "$CONV_ID" \
+  --output text
+```
 
-```json
-{
-  "spec_id": "spec_uuid",
-  "version_id": "version_uuid",
-  "repo_spec_path": "docs/product-specs/2026-06-06-SPEC-example.md",
-  "revision": 1,
-  "status": "saved"
-}
+### `msctl spec delete`
+
+Deletes a saved SpecArtifact. The command asks for confirmation unless `--yes` is passed.
+
+| 参数 | 默认值 | 说明 |
+|------|--------|------|
+| `--spec-id <ID>` | 必填 | UUID of the SpecArtifact |
+| `--yes` | false | Skip interactive confirmation |
+
+```bash
+msctl spec delete \
+  --spec-id 05521d4e-021e-43eb-9f7e-fa97d8b91fda
+```
+
+```bash
+msctl spec delete \
+  --spec-id 05521d4e-021e-43eb-9f7e-fa97d8b91fda \
+  --yes \
+  --output text
+```
+
+### `msctl spec implement`
+
+Starts an implementation conversation for a saved SpecArtifact.
+
+| 参数 | 默认值 | 说明 |
+|------|--------|------|
+| `--spec-id <ID>` | 必填 | UUID of the SpecArtifact |
+
+```bash
+msctl spec implement \
+  --spec-id 05521d4e-021e-43eb-9f7e-fa97d8b91fda \
+  --output json
+```
+
+```bash
+msctl spec implement \
+  --spec-id 05521d4e-021e-43eb-9f7e-fa97d8b91fda \
+  --output text
 ```
 
 ### `msctl spec mark-done`
 
-Marks the given SpecArtifact as implementation-complete and broadcasts a `spec_changed` event so connected mobile clients refresh immediately.
+Marks the given SpecArtifact as implementation-complete and broadcasts a `spec_changed` event.
 
 | 参数 | 默认值 | 说明 |
 |------|--------|------|
-| `--spec-id <ID>` | 必填 | UUID of the SpecArtifact to mark as done |
-| `--token <TOKEN>` | saved auth token | Bearer token for the running `msctl serve` process |
-| `--port <PORT>` | saved config port, else `8765` | Local `msctl serve` port |
-| `--host <HOST>` | `127.0.0.1` | Host for the local `msctl serve` process |
-
-Example:
+| `--spec-id <ID>` | 必填 | UUID of the SpecArtifact |
 
 ```bash
 msctl spec mark-done \
   --spec-id 05521d4e-021e-43eb-9f7e-fa97d8b91fda
 ```
 
-Success output (text mode):
-
+```bash
+msctl spec mark-done \
+  --spec-id 05521d4e-021e-43eb-9f7e-fa97d8b91fda \
+  --output json
 ```
-marked done: 05521d4e-021e-43eb-9f7e-fa97d8b91fda status=done
+
+### `msctl spec dispatch`
+
+Writes a product spec into the target agent repo and starts implementation. JSON body fields match `DispatchSpecBody`.
+
+| 参数 | 默认值 | 说明 |
+|------|--------|------|
+| `--agent-id <ID>` | 必填 | Target agent id |
+| `--json <JSON>` | 与 `--json-file` 二选一 | Inline JSON request body |
+| `--json-file <PATH>` | 与 `--json` 二选一 | JSON request body file; `-` reads stdin |
+
+```bash
+msctl spec dispatch \
+  --agent-id "$AGENT_ID" \
+  --json-file /tmp/dispatch-spec.json \
+  --output json
+```
+
+```bash
+msctl spec dispatch \
+  --agent-id "$AGENT_ID" \
+  --json-file - \
+  --output text < /tmp/dispatch-spec.json
+```
+
+`/tmp/dispatch-spec.json`:
+
+```json
+{
+  "title": "Workflow watch mode",
+  "slug": "workflow-watch-mode",
+  "markdown": "# Workflow watch mode\n\n## Background\n..."
+}
+```
+
+### `msctl spec idea`
+
+| 子命令 | 说明 |
+|--------|------|
+| `spec idea list` | List source ideas |
+| `spec idea create` | Create an idea from JSON body |
+| `spec idea update` | Update an idea from JSON body |
+| `spec idea archive` | Set idea status to `archived` |
+| `spec idea restore` | Set idea status to `open` |
+| `spec idea delete` | Delete an archived idea |
+| `spec idea interview` | Start or reopen the interview conversation |
+
+#### `msctl spec idea list`
+
+```bash
+msctl spec idea list --output json
+```
+
+```bash
+msctl spec idea list --output text
+```
+
+#### `msctl spec idea create`
+
+JSON body fields match `SpecIdeaMutation`.
+
+```bash
+msctl spec idea create \
+  --json-file /tmp/spec-idea.json \
+  --output json
+```
+
+```bash
+msctl spec idea create \
+  --json '{"title":"PR merge guardrail","target_agent_id":"agent_uuid","body":"Need merge policy automation."}' \
+  --output json
+```
+
+```bash
+msctl spec idea create \
+  --json-file - \
+  --output text < /tmp/spec-idea.json
+```
+
+`/tmp/spec-idea.json`:
+
+```json
+{
+  "title": "PR merge guardrail",
+  "target_agent_id": "agent_uuid",
+  "body": "Need merge policy automation.",
+  "notes": [
+    { "body": "CI must pass before merge." }
+  ],
+  "attachments": [
+    {
+      "kind": "link",
+      "title": "Merge policy",
+      "uri": "docs/runbooks/github-pr-merge-policy.md"
+    }
+  ]
+}
+```
+
+#### `msctl spec idea update`
+
+```bash
+msctl spec idea update \
+  --idea-id "$IDEA_ID" \
+  --json-file /tmp/spec-idea-update.json \
+  --output json
+```
+
+```bash
+msctl spec idea update \
+  --idea-id "$IDEA_ID" \
+  --json '{"status":"open","title":"PR merge guardrail v2"}' \
+  --output text
+```
+
+#### `msctl spec idea archive`
+
+```bash
+msctl spec idea archive \
+  --idea-id "$IDEA_ID" \
+  --output text
+```
+
+#### `msctl spec idea restore`
+
+```bash
+msctl spec idea restore \
+  --idea-id "$IDEA_ID" \
+  --output text
+```
+
+#### `msctl spec idea delete`
+
+Deletes an archived idea. The command asks for confirmation unless `--yes` is passed.
+
+```bash
+msctl spec idea delete \
+  --idea-id "$IDEA_ID"
+```
+
+```bash
+msctl spec idea delete \
+  --idea-id "$IDEA_ID" \
+  --yes \
+  --output text
+```
+
+#### `msctl spec idea interview`
+
+```bash
+msctl spec idea interview \
+  --idea-id "$IDEA_ID" \
+  --output json
+```
+
+```bash
+msctl spec idea interview \
+  --idea-id "$IDEA_ID" \
+  --output text
 ```
 
 ---

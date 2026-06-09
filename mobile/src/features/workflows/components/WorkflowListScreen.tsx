@@ -1,5 +1,6 @@
 import { Plus } from 'lucide-react-native';
 import React, { useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { FlatList, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -9,24 +10,20 @@ import { workflowScreenStyles as s } from './workflowScreenStyles';
 
 type FilterTab = 'all' | 'active' | 'ended';
 
-const WATCH_STATUS_LABEL: Record<WatchStatus, string> = {
-  active: 'Active',
-  completed: 'Completed',
-  stopped: 'Stopped',
-  expired: 'Expired',
-  failed: 'Failed',
-};
+type WatchStatusKey =
+  | 'workflows.statusActive'
+  | 'workflows.statusCompleted'
+  | 'workflows.statusStopped'
+  | 'workflows.statusExpired'
+  | 'workflows.statusFailed';
 
-function formatNextRun(nextRunAt: number | null): string {
-  if (!nextRunAt) return 'Disabled';
-  const diff = nextRunAt - Date.now();
-  if (diff <= 0) return 'Due now';
-  const m = Math.floor(diff / 60_000);
-  if (m < 60) return `in ${m}m`;
-  const h = Math.floor(diff / 3_600_000);
-  if (h < 24) return `in ${h}h`;
-  return `in ${Math.floor(h / 24)}d`;
-}
+const WATCH_STATUS_KEY: Record<WatchStatus, WatchStatusKey> = {
+  active: 'workflows.statusActive',
+  completed: 'workflows.statusCompleted',
+  stopped: 'workflows.statusStopped',
+  expired: 'workflows.statusExpired',
+  failed: 'workflows.statusFailed',
+};
 
 function workflowKey(workflow: Workflow): string {
   return `${workflow.endpoint_id}:${workflow.id}`;
@@ -73,6 +70,7 @@ export function WorkflowListScreen({
   onEditWorkflow,
   onDeleteWorkflow,
 }: Props) {
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const [filter, setFilter] = useState<FilterTab>('all');
   const openSwipeableRef = useRef<Swipeable | null>(null);
@@ -80,10 +78,27 @@ export function WorkflowListScreen({
 
   const visibleWorkflows = workflows.filter((wf) => isWorkflowVisible(wf, filter));
 
+  function formatNextRun(nextRunAt: number | null): string {
+    if (!nextRunAt) return t('workflows.disabled');
+    const diff = nextRunAt - Date.now();
+    if (diff <= 0) return t('workflows.dueNow');
+    const m = Math.floor(diff / 60_000);
+    if (m < 60) return `in ${m}m`;
+    const h = Math.floor(diff / 3_600_000);
+    if (h < 24) return `in ${h}h`;
+    return `in ${Math.floor(h / 24)}d`;
+  }
+
+  const filterTabLabel: Record<FilterTab, string> = {
+    all: t('workflows.filterAll'),
+    active: t('workflows.filterActive'),
+    ended: t('workflows.filterEnded'),
+  };
+
   return (
     <View style={[s.root, { paddingTop: insets.top }]}>
       <View style={s.header}>
-        <Text style={s.headerTitle}>Workflows</Text>
+        <Text style={s.headerTitle}>{t('workflows.title')}</Text>
         <TouchableOpacity
           accessibilityRole="button"
           accessibilityLabel="New Workflow"
@@ -106,7 +121,7 @@ export function WorkflowListScreen({
             testID={`workflow-filter-${tab}`}
           >
             <Text style={[ds.filterChipText, filter === tab && ds.filterChipTextActive]}>
-              {tab.charAt(0).toUpperCase() + tab.slice(1)}
+              {filterTabLabel[tab]}
             </Text>
           </TouchableOpacity>
         ))}
@@ -115,14 +130,14 @@ export function WorkflowListScreen({
       {visibleWorkflows.length === 0 ? (
         <View style={s.emptyContainer}>
           <Text style={s.emptyText}>
-            {filter === 'ended' ? 'No ended watches' : 'No workflows yet'}
+            {filter === 'ended' ? t('workflows.noEndedWatches') : t('workflows.noWorkflows')}
           </Text>
           <Text style={s.emptySubtext}>
             {hasEndpoints
               ? filter === 'ended'
-                ? 'Completed, stopped, or expired watches appear here'
-                : 'Tap + to create a scheduled workflow'
-              : 'Add an endpoint in Settings first'}
+                ? t('workflows.endedWatchesHint')
+                : t('workflows.createHint')
+              : t('workflows.addEndpointFirst')}
           </Text>
         </View>
       ) : (
@@ -152,7 +167,7 @@ export function WorkflowListScreen({
                       }}
                       accessibilityLabel={`Edit ${item.name}`}
                     >
-                      <Text style={ds.editText}>EDIT</Text>
+                      <Text style={ds.editText}>{t('workflows.edit')}</Text>
                     </TouchableOpacity>
                   ) : null}
                   <TouchableOpacity
@@ -163,7 +178,7 @@ export function WorkflowListScreen({
                     }}
                     accessibilityLabel={`Delete ${item.name}`}
                   >
-                    <Text style={ds.deleteText}>DELETE</Text>
+                    <Text style={ds.deleteText}>{t('workflows.delete')}</Text>
                   </TouchableOpacity>
                 </View>
               )}
@@ -190,13 +205,14 @@ export function WorkflowListScreen({
                           ]}
                         >
                           <Text style={ds.statusBadgeText}>
-                            {WATCH_STATUS_LABEL[item.watch_status]}
+                            {t(WATCH_STATUS_KEY[item.watch_status])}
                           </Text>
                         </View>
                       ) : null}
                     </View>
                     <Text style={s.rowMeta} numberOfLines={1}>
-                      {item.endpoint_label} · Every {item.interval_minutes ?? '?'} min ·{' '}
+                      {item.endpoint_label} ·{' '}
+                      {t('workflows.everyNMin', { n: item.interval_minutes ?? '?' })} ·{' '}
                       {item.watch_status === 'active'
                         ? formatNextRun(item.next_run_at)
                         : (item.watch_status ?? '—')}

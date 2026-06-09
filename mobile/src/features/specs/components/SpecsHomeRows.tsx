@@ -9,19 +9,19 @@ import {
   Trash2,
 } from 'lucide-react-native';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { Text, TouchableOpacity, View } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 import { brandColors } from '@/theme/brandRefresh';
 import { specsHomeStyles as s } from './SpecsHomeStyles';
 import {
   deriveIdeaTitle,
-  ideaStatusLabel,
+  type IdeaStatus,
+  type SpecAssetStatus,
   relativeAge,
   shortHash,
-  specActionLabel,
   type SpecArtifact,
   type SpecIdea,
-  specStatusLabel,
 } from './specUiModels';
 
 export type AttachmentPreset = 'image' | undefined;
@@ -35,6 +35,7 @@ export function CaptureRow({
   onPress: () => void;
   onPreset: (preset: AttachmentPreset) => void;
 }) {
+  const { t } = useTranslation();
   return (
     <View style={s.section}>
       <TouchableOpacity
@@ -44,17 +45,17 @@ export function CaptureRow({
         style={[s.capture, disabled && s.disabled]}
       >
         <Lightbulb size={18} color={brandColors.coral} />
-        <Text style={s.captureText}>Write an idea...</Text>
+        <Text style={s.captureText}>{t('specs.captureWrite')}</Text>
       </TouchableOpacity>
       <View style={s.captureActions}>
         <MiniAction
           icon={<List size={14} color={brandColors.ink} />}
-          label="Text"
+          label={t('specs.attachmentText')}
           onPress={onPress}
         />
         <MiniAction
           icon={<Image size={14} color={brandColors.ink} />}
-          label="Image"
+          label={t('specs.attachmentImage')}
           onPress={() => onPreset('image')}
         />
       </View>
@@ -112,10 +113,9 @@ export function IdeaRows({
   onUnarchive?: (id: string) => void;
   onDelete?: (id: string) => void;
 }) {
+  const { t } = useTranslation();
   if (ideas.length === 0) {
-    return (
-      <EmptyState title="Nothing archived" body="Archived ideas stay here for traceability." />
-    );
+    return <EmptyState title={t('specs.nothingArchived')} body={t('specs.nothingArchivedBody')} />;
   }
   return (
     <View style={s.group}>
@@ -126,7 +126,7 @@ export function IdeaRows({
             {onArchive ? (
               <Swipeable
                 renderRightActions={() => (
-                  <RowAction label="Archive" onPress={() => onArchive(idea)} />
+                  <RowAction label={t('specs.archiveAction')} onPress={() => onArchive(idea)} />
                 )}
               >
                 {row}
@@ -135,7 +135,10 @@ export function IdeaRows({
               <Swipeable
                 renderRightActions={() => (
                   <>
-                    <RowAction label="Unarchive" onPress={() => onUnarchive(idea.id)} />
+                    <RowAction
+                      label={t('specs.unarchiveAction')}
+                      onPress={() => onUnarchive(idea.id)}
+                    />
                     {onDelete ? (
                       <RowDeleteAction
                         accessibilityLabel={`Delete ${idea.title}`}
@@ -158,15 +161,30 @@ export function IdeaRows({
   );
 }
 
+const IDEA_STATUS_KEY: Record<
+  IdeaStatus,
+  | 'specs.statusOpen'
+  | 'specs.statusInterviewing'
+  | 'specs.statusConverted'
+  | 'specs.statusArchived'
+  | 'specs.statusFailed'
+> = {
+  open: 'specs.statusOpen',
+  interviewing: 'specs.statusInterviewing',
+  converted: 'specs.statusConverted',
+  archived: 'specs.statusArchived',
+  failed: 'specs.statusFailed',
+};
+
 function IdeaRow({ idea, onOpen }: { idea: SpecIdea; onOpen: () => void }) {
+  const { t } = useTranslation();
   const notes = idea.notes.length;
   const attachments = idea.attachments.length;
-  const metadata = [
+  const projectLabel =
     idea.targetRepoPath && idea.targetAgentName
       ? `${idea.targetRepoPath} · ${idea.targetAgentName}`
-      : 'Choose project & agent',
-    `${notes} notes · ${attachments} attachments · ${relativeAge(idea.updatedAt)}`,
-  ];
+      : t('specs.chooseProjectAgent');
+  const metaLine = `${String(notes)} notes · ${String(attachments)} attachments · ${relativeAge(idea.updatedAt)}`;
   return (
     <TouchableOpacity
       accessibilityRole="button"
@@ -180,14 +198,14 @@ function IdeaRow({ idea, onOpen }: { idea: SpecIdea; onOpen: () => void }) {
           {deriveIdeaTitle(idea.title, idea.body)}
         </Text>
         <Text style={s.rowSubtitle} numberOfLines={1}>
-          {metadata[0]}
+          {projectLabel}
         </Text>
         <Text style={s.rowMetaText} numberOfLines={1}>
-          {metadata[1]}
+          {metaLine}
         </Text>
       </View>
       <View style={s.trailing}>
-        <Text style={s.statusText}>{ideaStatusLabel(idea.status)}</Text>
+        <Text style={s.statusText}>{t(IDEA_STATUS_KEY[idea.status])}</Text>
         <ChevronRight size={14} color={brandColors.textSoft} />
       </View>
     </TouchableOpacity>
@@ -237,9 +255,47 @@ export function SpecSection({
   );
 }
 
+const SPEC_STATUS_KEY: Record<
+  SpecAssetStatus,
+  | 'specs.specStatusDraft'
+  | 'specs.specStatusReady'
+  | 'specs.specStatusPlanning'
+  | 'specs.specStatusRunning'
+  | 'specs.specStatusNeedsYou'
+  | 'specs.specStatusDone'
+  | 'specs.statusFailed'
+> = {
+  draft: 'specs.specStatusDraft',
+  ready: 'specs.specStatusReady',
+  planning: 'specs.specStatusPlanning',
+  implementing: 'specs.specStatusRunning',
+  blocked: 'specs.specStatusNeedsYou',
+  done: 'specs.specStatusDone',
+  failed: 'specs.statusFailed',
+};
+
+const SPEC_ACTION_KEY: Record<
+  SpecAssetStatus,
+  | 'specs.actionAnswerRequired'
+  | 'specs.actionOpenChat'
+  | 'specs.actionOpenSummary'
+  | 'specs.actionReviewSpec'
+  | 'specs.actionReviewFailure'
+  | 'specs.actionStartImpl'
+> = {
+  blocked: 'specs.actionAnswerRequired',
+  planning: 'specs.actionOpenChat',
+  implementing: 'specs.actionOpenChat',
+  done: 'specs.actionOpenSummary',
+  draft: 'specs.actionReviewSpec',
+  failed: 'specs.actionReviewFailure',
+  ready: 'specs.actionStartImpl',
+};
+
 function SpecRow({ spec, onOpen }: { spec: SpecArtifact; onOpen: () => void }) {
+  const { t } = useTranslation();
   const version = spec.latestVersion;
-  const statusSummary = spec.statusSummary ?? specActionLabel(spec.status);
+  const statusSummary = spec.statusSummary ?? t(SPEC_ACTION_KEY[spec.status]);
   return (
     <TouchableOpacity
       accessibilityRole="button"
@@ -262,7 +318,7 @@ function SpecRow({ spec, onOpen }: { spec: SpecArtifact; onOpen: () => void }) {
         </Text>
       </View>
       <View style={s.trailing}>
-        <Text style={s.statusText}>{specStatusLabel(spec.status)}</Text>
+        <Text style={s.statusText}>{t(SPEC_STATUS_KEY[spec.status])}</Text>
         <ChevronRight size={14} color={brandColors.textSoft} />
       </View>
     </TouchableOpacity>
@@ -305,6 +361,7 @@ function RowDeleteAction({
   accessibilityLabel: string;
   onPress: () => void;
 }) {
+  const { t } = useTranslation();
   return (
     <TouchableOpacity
       accessibilityRole="button"
@@ -313,7 +370,7 @@ function RowDeleteAction({
       style={s.rowDeleteAction}
     >
       <Trash2 size={16} color={brandColors.error} />
-      <Text style={s.rowDeleteText}>DELETE</Text>
+      <Text style={s.rowDeleteText}>{t('specs.deleteRowAction')}</Text>
     </TouchableOpacity>
   );
 }

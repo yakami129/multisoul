@@ -3,6 +3,10 @@
   "version": 1,
   "documents": [
     {
+      "file": "2026-06-09-msctl-spec-cli.md",
+      "title": "msctl spec 完整命令面 Implementation Plan"
+    },
+    {
       "file": "2026-06-08-testing-infra.md",
       "title": "自动化测试体系建设 Implementation Plan",
       "lastCompletedCommit": "8ce422766bc368d559d8a018aaaee6f54c940504"

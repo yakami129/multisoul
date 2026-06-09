@@ -3,6 +3,10 @@
   "version": 1,
   "documents": [
     {
+      "file": "2026-06-09-msctl-spec-cli-design.md",
+      "title": "msctl spec 完整命令面设计"
+    },
+    {
       "file": "2026-06-07-custom-lint-skill-design.md",
       "title": "Custom Lint Skill 设计"
     },

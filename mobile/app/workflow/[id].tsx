@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   ActivityIndicator,
   Modal,
@@ -63,6 +64,7 @@ function workflowToFormValues(wf: Workflow): WorkflowFormInitialValues {
 }
 
 export default function WorkflowDetailRoute() {
+  const { t } = useTranslation();
   const router = useRouter();
   const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
@@ -282,7 +284,7 @@ export default function WorkflowDetailRoute() {
               key={`edit-${workflow.endpoint_id}-${workflow.id}-${workflow.updated_at}`}
               agents={editAgents}
               initialValues={workflowToFormValues(workflow)}
-              title="Edit Workflow"
+              title={t('workflows.titleEdit')}
               onSave={(input) => updateMutation.mutate(input)}
               onCancel={() => setShowEdit(false)}
             />

@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Modal, View } from 'react-native';
 import { fetchAllAgents } from '@/features/agents/services/agentService';
 import {
@@ -39,6 +40,7 @@ function workflowToFormValues(wf: Workflow): WorkflowFormInitialValues {
 }
 
 export default function WorkflowsTab() {
+  const { t } = useTranslation();
   const router = useRouter();
   const endpoints = useEndpointStore((s) => s.endpoints);
   const queryClient = useQueryClient();
@@ -203,7 +205,7 @@ export default function WorkflowsTab() {
                   ? workflowToFormValues(editingWorkflow)
                   : (templateInitialValues ?? undefined)
               }
-              title={editingWorkflow ? 'Edit Workflow' : 'New Workflow'}
+              title={editingWorkflow ? t('workflows.titleEdit') : t('workflows.titleNew')}
               onSave={(input) =>
                 editingWorkflow
                   ? updateMutation.mutate({ workflow: editingWorkflow, input })

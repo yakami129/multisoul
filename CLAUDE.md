@@ -70,7 +70,7 @@ Monorepo 两大件：
 | 问题 | 去哪儿 |
 |------|--------|
 | **整体架构、协议、数据流** | [`ARCHITECTURE.md`](ARCHITECTURE.md) |
-| **要做什么、为什么做**（产品规格、验收） | [`docs/product-specs/`](docs/product-specs/) |
+| **要做什么、为什么做**（产品规格、验收、E2E 功能测试用例） | [`docs/product-specs/`](docs/product-specs/) |
 | **某 feature 怎么设计的**（方案权衡） | [`docs/design-docs/`](docs/design-docs/) |
 | **历史执行计划、施工步骤** | [`docs/exec-plans/`](docs/exec-plans/) |
 | **API 路径、消息类型、env vars** | [`docs/references/`](docs/references/)（占位）+ [`README.md`](README.md) |
@@ -136,6 +136,7 @@ Run `msctl ask-question -h` for flags, JSON shape, and copy-paste examples.
 - 修改代码后必须按 §5 跑验证；引入了 lint error **必须修根本原因，禁止用 `#[allow]` / `// eslint-disable` / `@ts-ignore` 等抑制指令掩盖**
 - 同一用户流程只能有一个权威实现；避免为不同入口复制 screen / route / protocol 逻辑。需要多入口时，让入口只做参数准备，统一跳到同一页面或调用同一模块。
 - **文档落盘**：产品 / 功能规格 → **只** [`docs/product-specs/`](docs/product-specs/)（`YYYY-MM-DD-SPEC-<feature>.md`）；实施 / 执行计划 → **只** [`docs/exec-plans/`](docs/exec-plans/)（`YYYY-MM-DD-<feature>.md`）；设计权衡 → `docs/design-docs/YYYY-MM-DD-<feature>-design.md`（命名见 [`docs/design-docs/README.md`](docs/design-docs/README.md)）。**勿**在 [`docs/specs/`](docs/specs/)、[`docs/superpowers/`](docs/superpowers/) 新增权威内容。**Superpowers skills**（`writing-plans`、`executing-plans`、`brainstorming` 等）在本仓库落盘**必须**使用上述路径 · [`docs/superpowers/README.md`](docs/superpowers/README.md)
+- **Spec 必含 E2E 功能测试用例文档**：编写或更新产品 / 功能规格时，必须根据“验收标准”逐项派生 E2E 功能测试用例，放在同一 spec 内作为独立章节（推荐标题：`E2E 功能测试用例`）。每个用例至少写清：关联验收项、用户场景、前置条件 / 测试数据、操作步骤、预期结果、目标层级（Mobile / CLI / REST / WS）、自动化提示（可用 selector、API、fixture、日志断言）。若某验收项不适合 E2E，需说明原因并指定替代覆盖（单元 / 集成 / 手动验收）。这些用例用于指导后续 AI 生成 E2E 测试代码。
 - **Exec plan 施工**：`docs/exec-plans/*.md` 所列任务 **全部验证通过后一次** `git commit`；**不要**套用 Superpowers `subagent-driven-development` 的「每任务一 commit」。该次提交后把对应 `documents[]` 条目的 `lastCompletedCommit` 写入 [`docs/exec-plans/index.json`](docs/exec-plans/index.json)（40 位小写 hex，`git rev-parse HEAD`），便于 `git revert <sha>` 撤回该批改动。
 - **Commit 前强制 review**：每次 `git commit` 前必须执行 `requesting-code-review`，修复 Critical/Important 反馈并重新跑对应验证后，才允许提交。若当前运行环境不允许自动派发 subagent，则在当前会话按该 skill 的审查标准执行等效 review。
 - **执行方式选择（强制）**：writing-plans 写完计划后，**必须**用 `AskUserQuestion` 工具弹出问答卡片，让用户在「Subagent 驱动（推荐）」和「当前会话内联执行」之间选择，**禁止**在纯文本里提问或自行假设默认选项。

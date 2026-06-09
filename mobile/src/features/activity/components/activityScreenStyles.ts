@@ -149,9 +149,9 @@ export const activityScreenStyles = StyleSheet.create({
 
   // ── Timeline ─────────────────────────────────────────────────────────────────
   timelineRow: { flexDirection: 'row', alignItems: 'stretch', gap: 8 },
-  timelineCol: { width: 32, alignItems: 'center' },
-  timelineLineTop: { flex: 1, width: 2, backgroundColor: 'rgba(0,0,0,0.12)', minHeight: 6 },
-  timelineLineBottom: { flex: 1, width: 2, backgroundColor: 'rgba(0,0,0,0.12)', minHeight: 6 },
+  timelineCol: { width: 32, alignItems: 'center', paddingTop: 0 },
+  timelineLineTop: { width: 2, height: 0, backgroundColor: 'rgba(0,0,0,0.12)' },
+  timelineLineBottom: { flex: 1, width: 2, backgroundColor: 'rgba(0,0,0,0.12)', minHeight: 10 },
   // Outer shell: cream bg (#fffdf9) + 2px accent border
   timelineIconOuter: {
     width: 26,
@@ -192,19 +192,21 @@ export const activityScreenStyles = StyleSheet.create({
     ...brandShadow,
   },
   cardStrip: { width: 7, flexShrink: 0 },
-  cardInner: { flex: 1, padding: 11, paddingLeft: 11, gap: 5, position: 'relative', minHeight: 72 },
+  cardInner: { flex: 1, padding: 11, paddingLeft: 11, gap: 5, minHeight: 72 },
+  cardHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
   cardTitle: {
+    flex: 1,
+    flexShrink: 1,
     fontFamily: 'Inter',
     fontSize: 13,
     fontWeight: '700',
     color: brandColors.ink,
     lineHeight: 18,
-    maxWidth: '62%',
   },
   cardAgent: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 1 },
   // Prototype .agent { color: #45464a }
   cardAgentName: { fontFamily: 'Inter', fontSize: 11, color: brandColors.activityAgentText },
-  cardTopRight: { position: 'absolute', top: 10, right: 10, alignItems: 'flex-end', gap: 3 },
+  cardMeta: { flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 0, marginTop: 1 },
   cardTime: { fontFamily: 'Inter', fontSize: 10, color: brandColors.textMuted },
 
   // Tag badges — from prototype: .tag=orange, .tag.green=done, .tag.blue=running

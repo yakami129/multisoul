@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -14,16 +15,6 @@ import { brandColors, brandRgba } from '@/theme/brandRefresh';
 import { type Agent } from '@/types';
 import { type WorkflowInput, type WorkflowMode, type WorkflowScheduleKind } from '../types';
 import { workflowScreenStyles as s } from './workflowScreenStyles';
-
-const WEEKDAYS = [
-  { label: 'Mon', value: 1 },
-  { label: 'Tue', value: 2 },
-  { label: 'Wed', value: 3 },
-  { label: 'Thu', value: 4 },
-  { label: 'Fri', value: 5 },
-  { label: 'Sat', value: 6 },
-  { label: 'Sun', value: 7 },
-];
 
 const INTERVAL_PRESETS = [5, 10, 15, 30] as const;
 const DURATION_PRESETS = [30, 60, 120] as const;
@@ -71,8 +62,19 @@ export function WorkflowFormScreen({
   onSave,
   onCancel,
 }: Props) {
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const [name, setName] = useState(initialValues?.name ?? '');
+
+  const weekdays = [
+    { label: t('workflows.weekdayMon'), value: 1 },
+    { label: t('workflows.weekdayTue'), value: 2 },
+    { label: t('workflows.weekdayWed'), value: 3 },
+    { label: t('workflows.weekdayThu'), value: 4 },
+    { label: t('workflows.weekdayFri'), value: 5 },
+    { label: t('workflows.weekdaySat'), value: 6 },
+    { label: t('workflows.weekdaySun'), value: 7 },
+  ];
   const [agentId, setAgentId] = useState(initialValues?.agent_id ?? agents[0]?.id ?? '');
   const [prompt, setPrompt] = useState(initialValues?.prompt ?? '');
 
@@ -174,11 +176,11 @@ export function WorkflowFormScreen({
     >
       <View style={s.formHeader}>
         <TouchableOpacity onPress={onCancel} accessibilityRole="button">
-          <Text style={s.formCancel}>Cancel</Text>
+          <Text style={s.formCancel}>{t('workflows.cancel')}</Text>
         </TouchableOpacity>
         <Text style={s.formTitle}>{title}</Text>
         <TouchableOpacity onPress={handleSave} accessibilityRole="button" disabled={!canSave}>
-          <Text style={[s.formSave, !canSave && s.formSaveDisabled]}>Save</Text>
+          <Text style={[s.formSave, !canSave && s.formSaveDisabled]}>{t('workflows.save')}</Text>
         </TouchableOpacity>
       </View>
 
@@ -191,7 +193,7 @@ export function WorkflowFormScreen({
         {/* Mode selector (only for blank workflow) */}
         {canSelectMode && (
           <>
-            <Text style={s.fieldLabel}>Mode</Text>
+            <Text style={s.fieldLabel}>{t('workflows.modeLabel')}</Text>
             <View style={s.segment}>
               {(['recurring', 'watch'] as WorkflowMode[]).map((m) => (
                 <TouchableOpacity
@@ -201,7 +203,7 @@ export function WorkflowFormScreen({
                   accessibilityRole="button"
                 >
                   <Text style={[s.segmentText, mode === m && s.segmentTextActive]}>
-                    {m === 'recurring' ? 'Recurring' : 'Watch'}
+                    {m === 'recurring' ? t('workflows.modeRecurring') : t('workflows.modeWatch')}
                   </Text>
                 </TouchableOpacity>
               ))}
@@ -209,16 +211,16 @@ export function WorkflowFormScreen({
           </>
         )}
 
-        <Text style={s.fieldLabel}>Name</Text>
+        <Text style={s.fieldLabel}>{t('workflows.nameLabel')}</Text>
         <TextInput
           style={s.textInput}
           value={name}
           onChangeText={setName}
-          placeholder="e.g. CI Watch"
+          placeholder={t('workflows.namePlaceholder')}
           placeholderTextColor={brandColors.textMuted}
         />
 
-        <Text style={s.fieldLabel}>Agent</Text>
+        <Text style={s.fieldLabel}>{t('workflows.agentLabel')}</Text>
         {agents.map((agent) => (
           <TouchableOpacity
             key={agent.id}
@@ -247,7 +249,7 @@ export function WorkflowFormScreen({
 
         {mode === 'recurring' ? (
           <>
-            <Text style={s.fieldLabel}>Schedule</Text>
+            <Text style={s.fieldLabel}>{t('workflows.scheduleLabel')}</Text>
             <View style={s.segment}>
               {(['daily', 'weekly'] as WorkflowScheduleKind[]).map((kind) => (
                 <TouchableOpacity
@@ -257,13 +259,15 @@ export function WorkflowFormScreen({
                   accessibilityRole="button"
                 >
                   <Text style={[s.segmentText, scheduleKind === kind && s.segmentTextActive]}>
-                    {kind.charAt(0).toUpperCase() + kind.slice(1)}
+                    {kind === 'daily'
+                      ? t('workflows.scheduleDaily')
+                      : t('workflows.scheduleWeekly')}
                   </Text>
                 </TouchableOpacity>
               ))}
             </View>
 
-            <Text style={s.fieldLabel}>Time</Text>
+            <Text style={s.fieldLabel}>{t('workflows.timeLabel')}</Text>
             <TextInput
               style={s.textInput}
               value={timeOfDay}
@@ -275,9 +279,9 @@ export function WorkflowFormScreen({
 
             {scheduleKind === 'weekly' && (
               <>
-                <Text style={s.fieldLabel}>Weekday</Text>
+                <Text style={s.fieldLabel}>{t('workflows.weekdayLabel')}</Text>
                 <View style={s.segment}>
-                  {WEEKDAYS.map((day) => (
+                  {weekdays.map((day) => (
                     <TouchableOpacity
                       key={day.value}
                       style={[s.segmentItem, dayOfWeek === day.value && s.segmentItemActive]}
@@ -295,7 +299,7 @@ export function WorkflowFormScreen({
           </>
         ) : (
           <>
-            <Text style={s.fieldLabel}>Interval</Text>
+            <Text style={s.fieldLabel}>{t('workflows.intervalLabel')}</Text>
             <View style={s.segment}>
               {INTERVAL_PRESETS.map((mins) => (
                 <TouchableOpacity
@@ -326,7 +330,7 @@ export function WorkflowFormScreen({
                 accessibilityRole="button"
               >
                 <Text style={[s.segmentText, useCustomInterval && s.segmentTextActive]}>
-                  Custom
+                  {t('workflows.intervalCustom')}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -336,13 +340,13 @@ export function WorkflowFormScreen({
                 style={s.textInput}
                 value={customInterval}
                 onChangeText={setCustomInterval}
-                placeholder="1–240 minutes"
+                placeholder={t('workflows.intervalPlaceholder')}
                 placeholderTextColor={brandColors.textMuted}
                 keyboardType="number-pad"
               />
             )}
 
-            <Text style={s.fieldLabel}>Duration</Text>
+            <Text style={s.fieldLabel}>{t('workflows.durationLabel')}</Text>
             <View style={s.segment}>
               {DURATION_PRESETS.map((mins) => (
                 <TouchableOpacity
@@ -358,41 +362,38 @@ export function WorkflowFormScreen({
               ))}
             </View>
 
-            <Text style={s.fieldLabel}>Max Runs (optional)</Text>
+            <Text style={s.fieldLabel}>{t('workflows.maxRunsLabel')}</Text>
             <TextInput
               style={s.textInput}
               value={maxRuns}
               onChangeText={setMaxRuns}
-              placeholder="e.g. 6"
+              placeholder={t('workflows.maxRunsPlaceholder')}
               placeholderTextColor={brandColors.textMuted}
               keyboardType="number-pad"
             />
 
-            <Text style={s.fieldLabel}>Stop Condition</Text>
+            <Text style={s.fieldLabel}>{t('workflows.stopConditionLabel')}</Text>
             <TextInput
               style={[s.textInput, s.textInputMultiline]}
               value={stopCondition}
               onChangeText={setStopCondition}
-              placeholder="e.g. All CI checks pass with no new failures"
+              placeholder={t('workflows.stopConditionPlaceholder')}
               placeholderTextColor={brandColors.textMuted}
               multiline
             />
 
             <View style={watchNoticeContainer}>
-              <Text style={watchNoticeText}>
-                Dangerous actions (commit, push, merge, release, rollback, delete, migration)
-                require user confirmation before execution.
-              </Text>
+              <Text style={watchNoticeText}>{t('workflows.watchNotice')}</Text>
             </View>
           </>
         )}
 
-        <Text style={s.fieldLabel}>Prompt</Text>
+        <Text style={s.fieldLabel}>{t('workflows.promptLabel')}</Text>
         <TextInput
           style={[s.textInput, s.textInputMultiline]}
           value={prompt}
           onChangeText={setPrompt}
-          placeholder="What should the agent do?"
+          placeholder={t('workflows.promptPlaceholder')}
           placeholderTextColor={brandColors.textMuted}
           multiline
         />

@@ -162,24 +162,27 @@ export function ActivityRow({
             <View style={[s.card, { marginBottom: isLast ? 0 : 10 }]}>
               <View style={[s.cardStrip, { backgroundColor: icon.border }]} />
               <View style={s.cardInner}>
-                <Text
-                  style={[s.cardTitle, isUnreadDone && { fontWeight: '800' }]}
-                  numberOfLines={2}
-                >
-                  {item.title}
-                </Text>
+                <View style={s.cardHeader}>
+                  <Text
+                    style={[s.cardTitle, isUnreadDone && { fontWeight: '800' }]}
+                    numberOfLines={2}
+                  >
+                    {item.title}
+                  </Text>
+                  <View style={s.cardMeta}>
+                    <Text style={s.cardTime}>{formatRelativeTime(item.timestamp)}</Text>
+                    <View style={[s.tagBadge, { backgroundColor: tag.bg }]}>
+                      <Text style={[s.tagText, { color: tag.color }]} numberOfLines={1}>
+                        {item.statusLabel}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
                 <View style={s.cardAgent}>
                   <Bot size={10} color="#45464a" />
                   <Text style={s.cardAgentName} numberOfLines={1}>
                     {displayName}
                   </Text>
-                </View>
-
-                <View style={s.cardTopRight}>
-                  <Text style={s.cardTime}>{formatRelativeTime(item.timestamp)}</Text>
-                  <View style={[s.tagBadge, { backgroundColor: tag.bg }]}>
-                    <Text style={[s.tagText, { color: tag.color }]}>{item.statusLabel}</Text>
-                  </View>
                 </View>
 
                 {!!item.subtitle && (
