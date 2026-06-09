@@ -8,6 +8,7 @@
 //!  4. Asserts against the live server
 //!  5. Drops `TestServer`, which kills the child process
 
+use serial_test::serial;
 use std::net::TcpListener;
 use std::process::{Child, Command};
 use tempfile::TempDir;
@@ -88,7 +89,7 @@ impl Drop for TestServer {
 async fn wait_for_ready(base_url: &str) {
     let client = reqwest::Client::new();
     let url = format!("{}/api/v1/healthz", base_url);
-    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(15);
     loop {
         if let Ok(resp) = client.get(&url).send().await {
             if resp.status().is_success() {
@@ -96,7 +97,7 @@ async fn wait_for_ready(base_url: &str) {
             }
         }
         if std::time::Instant::now() >= deadline {
-            panic!("Server at {} did not become ready within 5s", base_url);
+            panic!("Server at {} did not become ready within 15s", base_url);
         }
         tokio::time::sleep(std::time::Duration::from_millis(100)).await;
     }
@@ -106,6 +107,7 @@ async fn wait_for_ready(base_url: &str) {
 
 /// GET /api/v1/agents without any token must return 401.
 #[tokio::test]
+#[serial]
 async fn auth_no_token_returns_401() {
     let srv = TestServer::start();
     wait_for_ready(&srv.base_url()).await;
@@ -120,6 +122,7 @@ async fn auth_no_token_returns_401() {
 
 /// GET /api/v1/agents with a wrong Bearer token must return 401.
 #[tokio::test]
+#[serial]
 async fn auth_wrong_token_returns_401() {
     let srv = TestServer::start();
     wait_for_ready(&srv.base_url()).await;
@@ -138,6 +141,7 @@ async fn auth_wrong_token_returns_401() {
 
 /// GET /api/v1/agents with the correct Bearer token must return 200.
 #[tokio::test]
+#[serial]
 async fn auth_valid_token_returns_200() {
     let srv = TestServer::start();
     wait_for_ready(&srv.base_url()).await;
@@ -158,6 +162,7 @@ async fn auth_valid_token_returns_200() {
 /// Since the REST API has no POST /api/v1/agents, we register via the CLI
 /// `msctl agent register` command pointing at the same HOME directory.
 #[tokio::test]
+#[serial]
 async fn agent_crud() {
     let srv = TestServer::start();
     wait_for_ready(&srv.base_url()).await;
@@ -197,11 +202,12 @@ async fn agent_crud() {
     assert_eq!(list_resp.status(), 200);
     let agents: serde_json::Value = list_resp.json().await.expect("parse list");
     let arr = agents.as_array().expect("agents must be array");
-    assert!(!arr.is_empty(), "registered agent must appear in list");
-
-    let agent_id = arr[0]["id"].as_str().expect("agent id").to_string();
-    assert_eq!(arr[0]["name"], "e2e-test-agent");
-    assert_eq!(arr[0]["runtime"], "claude-code");
+    let registered = arr
+        .iter()
+        .find(|agent| agent["name"] == "e2e-test-agent")
+        .expect("registered agent must appear in list");
+    let agent_id = registered["id"].as_str().expect("agent id").to_string();
+    assert_eq!(registered["runtime"], "claude-code");
 
     // GET /api/v1/agents/:id → fields match
     let get_resp = client
@@ -221,6 +227,7 @@ async fn agent_crud() {
 
 /// Register an agent, create a conversation, send a message, list messages.
 #[tokio::test]
+#[serial]
 async fn conversation_and_messages() {
     let srv = TestServer::start();
     wait_for_ready(&srv.base_url()).await;
@@ -323,6 +330,7 @@ async fn conversation_and_messages() {
 
 /// WebSocket upgrade to /ws/conversations/:id must succeed.
 #[tokio::test]
+#[serial]
 async fn websocket_upgrade_succeeds() {
     let srv = TestServer::start();
     wait_for_ready(&srv.base_url()).await;
@@ -392,6 +400,7 @@ async fn websocket_upgrade_succeeds() {
 
 /// Register a push token and delete it.
 #[tokio::test]
+#[serial]
 async fn push_token_register_and_delete() {
     let srv = TestServer::start();
     wait_for_ready(&srv.base_url()).await;
@@ -437,6 +446,7 @@ async fn push_token_register_and_delete() {
 
 /// Registering the same push token twice must be idempotent (not 500).
 #[tokio::test]
+#[serial]
 async fn push_token_duplicate_is_idempotent() {
     let srv = TestServer::start();
     wait_for_ready(&srv.base_url()).await;
