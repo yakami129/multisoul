@@ -1,4 +1,7 @@
+import { type AgentTarget } from '@/components/agent-target';
 import { type SpecDraft } from '../types';
+
+export type SpecTarget = AgentTarget;
 
 export type IdeaStatus = 'open' | 'interviewing' | 'converted' | 'archived' | 'failed';
 export type SpecAssetStatus =
@@ -80,14 +83,6 @@ export interface SpecArtifact {
   endpointOffline?: boolean;
   createdAt: number;
   updatedAt: number;
-}
-
-export interface SpecTarget {
-  endpointId: string;
-  endpointLabel: string;
-  agentId: string;
-  agentName: string;
-  repoPath: string;
 }
 
 export function relativeAge(ts: number): string {

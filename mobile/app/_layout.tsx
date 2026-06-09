@@ -3,7 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import * as Notifications from 'expo-notifications';
 import { Stack, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { I18nextProvider } from 'react-i18next';
 import { AppState } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -111,6 +111,8 @@ export default function RootLayout() {
     });
   }, [splashDone, router]);
 
+  const onSplashComplete = useCallback(() => setSplashDone(true), []);
+
   return (
     <I18nextProvider i18n={i18n}>
       <GestureHandlerRootView style={{ flex: 1 }}>
@@ -119,7 +121,7 @@ export default function RootLayout() {
             <QueryClientProvider client={queryClient}>
               <StatusBar style="dark" backgroundColor={brandColors.cream} />
               {!splashDone ? (
-                <SplashScreen onComplete={() => setSplashDone(true)} />
+                <SplashScreen onComplete={onSplashComplete} />
               ) : (
                 <Stack>
                   <Stack.Screen name="(tabs)" options={{ headerShown: false }} />

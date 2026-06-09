@@ -3,13 +3,18 @@ import { normalizeEndpointBaseUrl } from '@/features/settings/services/endpointL
 import { useEndpointStore } from '@/store/endpointStore';
 
 const _clients: Map<string, AxiosInstance> = new Map();
+const _lastTouched: Map<string, number> = new Map();
+const TOUCH_THROTTLE_MS = 30_000;
 
 function touchEndpointLastSeen(baseUrl: string | undefined): void {
   if (!baseUrl) return;
   const normalized = normalizeEndpointBaseUrl(baseUrl);
+  const now = Date.now();
+  if (now - (_lastTouched.get(normalized) ?? 0) < TOUCH_THROTTLE_MS) return;
+  _lastTouched.set(normalized, now);
   const { endpoints, updateLastSeen } = useEndpointStore.getState();
   const match = endpoints.find((ep) => normalizeEndpointBaseUrl(ep.base_url) === normalized);
-  if (match) void updateLastSeen(match.id, Date.now());
+  if (match) void updateLastSeen(match.id, now);
 }
 
 export function getEndpointClient(base_url: string, token: string): AxiosInstance {

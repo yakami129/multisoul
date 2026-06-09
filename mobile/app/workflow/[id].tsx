@@ -283,6 +283,8 @@ export default function WorkflowDetailRoute() {
             <WorkflowFormScreen
               key={`edit-${workflow.endpoint_id}-${workflow.id}-${workflow.updated_at}`}
               agents={editAgents}
+              endpoints={endpoints}
+              lockedEndpointId={workflow.endpoint_id}
               initialValues={workflowToFormValues(workflow)}
               title={t('workflows.titleEdit')}
               onSave={(input) => updateMutation.mutate(input)}

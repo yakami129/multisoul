@@ -3,6 +3,7 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { AgentTargetPickerSheet } from '@/components/agent-target';
 import { brandColors } from '@/theme/brandRefresh';
 import { type Agent, type Endpoint } from '@/types';
 import { IdeaEditorSheet, type IdeaEditorValue } from './IdeaEditorSheet';
@@ -16,7 +17,6 @@ import {
 } from './SpecsHomeRows';
 import { specsHomeStyles as s } from './SpecsHomeStyles';
 import { type SpecArtifact, type SpecIdea, type SpecTarget } from './specUiModels';
-import { TargetPickerSheet } from './TargetPickerSheet';
 
 type Segment = 'ideas' | 'specs';
 
@@ -262,7 +262,7 @@ export function SpecsHomeScreen({
           setEditorVisible(false);
         }}
       >
-        <TargetPickerSheet
+        <AgentTargetPickerSheet
           visible={targetPickerVisible}
           endpoints={endpoints}
           agents={agents}

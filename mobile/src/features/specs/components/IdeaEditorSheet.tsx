@@ -15,6 +15,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { AgentTargetField } from '@/components/agent-target';
 import { brandColors, brandRgba, brandTypography } from '@/theme/brandRefresh';
 import { AttachmentButton, AttachmentRow } from './IdeaAttachmentRow';
 import { deriveIdeaTitle, type SpecIdeaAttachment, type SpecTarget } from './specUiModels';
@@ -304,21 +305,7 @@ export function IdeaEditorSheet({
 
             <View style={s.group}>
               <Text style={s.sectionTitle}>{t('specs.editorTarget')}</Text>
-              <TouchableOpacity
-                accessibilityRole="button"
-                onPress={onChooseTarget}
-                style={s.targetRow}
-              >
-                <View style={s.targetBody}>
-                  <Text style={s.targetTitle}>{t('specs.editorProjectAgent')}</Text>
-                  <Text style={s.targetSubtitle} numberOfLines={1}>
-                    {target ? target.agentName : t('specs.editorChoose')}
-                  </Text>
-                </View>
-                <Text style={s.chooseText}>
-                  {target ? t('specs.editorChange') : t('specs.editorChoose')}
-                </Text>
-              </TouchableOpacity>
+              <AgentTargetField value={target} onPress={onChooseTarget} />
             </View>
           </ScrollView>
         </KeyboardAvoidingView>
@@ -379,9 +366,4 @@ const s = StyleSheet.create({
     color: brandColors.ink,
   },
   bodyInput: { minHeight: 130, lineHeight: 20 },
-  targetRow: { minHeight: 54, flexDirection: 'row', alignItems: 'center', gap: 12 },
-  targetBody: { flex: 1, minWidth: 0 },
-  targetTitle: { fontFamily: 'Inter', fontSize: 13, fontWeight: '800', color: brandColors.ink },
-  targetSubtitle: { marginTop: 2, fontFamily: 'Inter', fontSize: 12, color: brandColors.textSoft },
-  chooseText: { fontFamily: 'Inter', fontSize: 13, fontWeight: '800', color: brandColors.coral },
 });

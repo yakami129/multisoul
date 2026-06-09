@@ -12,6 +12,7 @@ interface EndpointState {
   addEndpoint: (input: { label: string; base_url: string; token: string }) => Promise<void>;
   removeEndpoint: (id: string) => Promise<void>;
   updateLastSeen: (id: string, ts: number) => Promise<void>;
+  batchUpdateLastSeen: (ids: string[], ts: number) => Promise<void>;
 }
 
 const TOKEN_KEY = (id: string) => `endpoint_token_${id}`;
@@ -74,6 +75,18 @@ export const useEndpointStore = create<EndpointState>((set, get) => ({
     await db.runAsync('UPDATE endpoints SET last_seen_at = ? WHERE id = ?', [ts, id]);
     set((s) => ({
       endpoints: s.endpoints.map((e) => (e.id === id ? { ...e, last_seen_at: ts } : e)),
+    }));
+  },
+
+  batchUpdateLastSeen: async (ids, ts) => {
+    if (ids.length === 0) return;
+    const db = getDb();
+    const idSet = new Set(ids);
+    await Promise.all(
+      ids.map((id) => db.runAsync('UPDATE endpoints SET last_seen_at = ? WHERE id = ?', [ts, id])),
+    );
+    set((s) => ({
+      endpoints: s.endpoints.map((e) => (idSet.has(e.id) ? { ...e, last_seen_at: ts } : e)),
     }));
   },
 }));

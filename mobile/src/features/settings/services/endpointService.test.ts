@@ -27,8 +27,8 @@ describe('endpointService', () => {
 
   it('updates last_seen_at for reachable endpoints', async () => {
     mockedAxios.get.mockResolvedValue({ status: 200 });
-    const updateLastSeen = jest
-      .spyOn(useEndpointStore.getState(), 'updateLastSeen')
+    const batchUpdate = jest
+      .spyOn(useEndpointStore.getState(), 'batchUpdateLastSeen')
       .mockResolvedValue();
 
     await pingAllEndpoints();
@@ -36,17 +36,17 @@ describe('endpointService', () => {
     expect(mockedAxios.get).toHaveBeenCalledWith('http://127.0.0.1:8765/api/v1/healthz', {
       timeout: 5000,
     });
-    expect(updateLastSeen).toHaveBeenCalledWith('ep-1', expect.any(Number));
+    expect(batchUpdate).toHaveBeenCalledWith(['ep-1'], expect.any(Number));
   });
 
   it('leaves last_seen_at unchanged when healthz fails', async () => {
     mockedAxios.get.mockRejectedValue(new Error('offline'));
-    const updateLastSeen = jest
-      .spyOn(useEndpointStore.getState(), 'updateLastSeen')
+    const batchUpdate = jest
+      .spyOn(useEndpointStore.getState(), 'batchUpdateLastSeen')
       .mockResolvedValue();
 
     await pingAllEndpoints();
 
-    expect(updateLastSeen).not.toHaveBeenCalled();
+    expect(batchUpdate).not.toHaveBeenCalled();
   });
 });

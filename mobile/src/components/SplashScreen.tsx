@@ -47,6 +47,7 @@ export function SplashScreen({ onComplete }: Props) {
         style={s.video}
         nativeControls={false}
         contentFit="cover"
+        pointerEvents="none"
       />
     </View>
   );

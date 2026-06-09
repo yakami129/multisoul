@@ -168,33 +168,6 @@ export const workflowScreenStyles = StyleSheet.create({
     color: brandColors.white,
     fontWeight: '600',
   },
-  agentRow: {
-    backgroundColor: brandRgba.white88,
-    borderRadius: 10,
-    minHeight: 56,
-    paddingHorizontal: 12,
-    paddingVertical: 9,
-    marginBottom: 4,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  agentRowSelected: {
-    borderWidth: 1,
-    borderColor: brandColors.coral,
-  },
-  agentCopy: { flex: 1, minWidth: 0 },
-  agentName: {
-    fontFamily: 'Inter',
-    fontSize: 13,
-    lineHeight: 17,
-    color: brandColors.ink,
-  },
-  agentEndpoint: {
-    fontFamily: 'Inter',
-    fontSize: 11,
-    color: brandColors.textSoft,
-  },
   // Template picker styles
   pickerRoot: {
     flex: 1,

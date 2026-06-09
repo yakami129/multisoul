@@ -3,6 +3,10 @@
   "version": 1,
   "documents": [
     {
+      "file": "2026-06-09-workflow-agent-picker.md",
+      "title": "Workflow Agent 选择组件统一 Implementation Plan"
+    },
+    {
       "file": "2026-06-09-msctl-spec-cli.md",
       "title": "msctl spec 完整命令面 Implementation Plan",
       "lastCompletedCommit": "b9c583cd2a5adb1e7b8669ffd867eff97626afb2"

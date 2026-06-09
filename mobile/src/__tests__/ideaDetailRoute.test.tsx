@@ -46,8 +46,9 @@ jest.mock('@/features/specs/components/IdeaEditorSheet', () => ({
   IdeaEditorSheet: () => null,
 }));
 
-jest.mock('@/features/specs/components/TargetPickerSheet', () => ({
-  TargetPickerSheet: () => null,
+jest.mock('@/components/agent-target', () => ({
+  AgentTargetPickerSheet: () => null,
+  AgentTargetField: () => null,
 }));
 
 jest.mock('expo-router', () => ({

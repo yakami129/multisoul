@@ -1,12 +1,12 @@
 import { useQuery } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React from 'react';
+import { AgentTargetPickerSheet } from '@/components/agent-target';
 import { fetchAllAgents } from '@/features/agents/services/agentService';
 import { buildChatDetailPath } from '@/features/chat/utils/chatRoutes';
 import { IdeaDetailScreen } from '@/features/specs/components/IdeaDetailScreen';
 import { IdeaEditorSheet, type IdeaEditorValue } from '@/features/specs/components/IdeaEditorSheet';
 import { type SpecTarget } from '@/features/specs/components/specUiModels';
-import { TargetPickerSheet } from '@/features/specs/components/TargetPickerSheet';
 import { saveIdea } from '@/features/specs/services/specAssetRepository';
 import {
   startSpecIdeaInterview,
@@ -169,7 +169,7 @@ export default function IdeaDetailRoute() {
         onClose={() => setEditorVisible(false)}
         onSave={handleEditSave}
       >
-        <TargetPickerSheet
+        <AgentTargetPickerSheet
           visible={targetPickerVisible}
           endpoints={endpoints}
           agents={agents}

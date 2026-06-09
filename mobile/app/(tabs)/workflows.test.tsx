@@ -103,6 +103,15 @@ beforeEach(() => {
   mockUpdateWorkflow.mockResolvedValue({});
 });
 
+function selectAgent(
+  queries: Pick<ReturnType<typeof renderScreen>, 'getByLabelText' | 'getByText'>,
+  agentName = 'MultiSoul Agent',
+) {
+  fireEvent.press(queries.getByLabelText('Agent'));
+  fireEvent.press(queries.getByText(agentName));
+  fireEvent.press(queries.getByText('Done'));
+}
+
 /// 场景：用户不使用模板，从 Blank Workflow 创建。
 ///
 /// 数据构造：
@@ -124,10 +133,11 @@ test('blank workflow creation goes through the existing create payload', async (
   fireEvent.press(getByTestId('workflow-template-blank'));
 
   await waitFor(() => expect(getByPlaceholderText('e.g. CI Watch')).toBeTruthy());
-  await waitFor(() => expect(getByText('MultiSoul Agent')).toBeTruthy());
+  await waitFor(() => expect(getByLabelText('Agent')).toBeTruthy());
 
   fireEvent.changeText(getByPlaceholderText('e.g. CI Watch'), 'Custom Morning Run');
   fireEvent.changeText(getByPlaceholderText('What should the agent do?'), 'Summarize repo');
+  selectAgent({ getByLabelText, getByText });
   fireEvent.press(getByText('Save'));
 
   await waitFor(() => expect(mockCreateWorkflow).toHaveBeenCalledTimes(1));
@@ -171,9 +181,10 @@ test('template workflow creation pre-fills form but saves plain workflow input',
   fireEvent.press(getByTestId(`workflow-template-${template.id}`));
 
   await waitFor(() => expect(getByDisplayValue(template.initial_values.name)).toBeTruthy());
-  await waitFor(() => expect(getByText('MultiSoul Agent')).toBeTruthy());
+  await waitFor(() => expect(getByLabelText('Agent')).toBeTruthy());
   expect(getByDisplayValue(template.initial_values.prompt)).toBeTruthy();
 
+  selectAgent({ getByLabelText, getByText });
   fireEvent.press(getByText('Save'));
 
   await waitFor(() => expect(mockCreateWorkflow).toHaveBeenCalledTimes(1));

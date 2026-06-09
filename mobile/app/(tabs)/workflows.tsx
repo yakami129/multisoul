@@ -200,6 +200,8 @@ export default function WorkflowsTab() {
                     : 'blank'
               }
               agents={visibleFormAgents}
+              endpoints={endpoints}
+              lockedEndpointId={editingWorkflow?.endpoint_id}
               initialValues={
                 editingWorkflow
                   ? workflowToFormValues(editingWorkflow)

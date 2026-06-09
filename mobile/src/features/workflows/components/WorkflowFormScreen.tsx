@@ -1,18 +1,23 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  Switch,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import {
+  AgentTargetField,
+  AgentTargetPickerSheet,
+  resolveAgentTarget,
+  type AgentTarget,
+} from '@/components/agent-target';
 import { brandColors, brandRgba } from '@/theme/brandRefresh';
-import { type Agent } from '@/types';
+import { type Agent, type Endpoint } from '@/types';
 import { type WorkflowInput, type WorkflowMode, type WorkflowScheduleKind } from '../types';
 import { workflowScreenStyles as s } from './workflowScreenStyles';
 
@@ -47,6 +52,8 @@ export interface WorkflowFormInitialValues {
 
 interface Props {
   agents: Agent[];
+  endpoints: Endpoint[];
+  lockedEndpointId?: string;
   initialValues?: WorkflowFormInitialValues;
   title?: string;
   showModeSelector?: boolean;
@@ -56,6 +63,8 @@ interface Props {
 
 export function WorkflowFormScreen({
   agents,
+  endpoints,
+  lockedEndpointId,
   initialValues,
   title = 'Workflow',
   showModeSelector,
@@ -75,7 +84,10 @@ export function WorkflowFormScreen({
     { label: t('workflows.weekdaySat'), value: 6 },
     { label: t('workflows.weekdaySun'), value: 7 },
   ];
-  const [agentId, setAgentId] = useState(initialValues?.agent_id ?? agents[0]?.id ?? '');
+  const [selectedTarget, setSelectedTarget] = useState<AgentTarget | undefined>(() =>
+    resolveAgentTarget(initialValues?.agent_id, agents, endpoints),
+  );
+  const [pickerVisible, setPickerVisible] = useState(false);
   const [prompt, setPrompt] = useState(initialValues?.prompt ?? '');
 
   // Mode: show selector only when showModeSelector is true (blank workflow) or not set and mode is from template
@@ -111,15 +123,6 @@ export function WorkflowFormScreen({
   );
   const [stopCondition, setStopCondition] = useState(initialValues?.stop_condition ?? '');
 
-  useEffect(() => {
-    if (agentId.length > 0) return;
-    if (initialValues?.agent_id && agents.some((agent) => agent.id === initialValues.agent_id)) {
-      setAgentId(initialValues.agent_id);
-      return;
-    }
-    if (agents[0]) setAgentId(agents[0].id);
-  }, [agentId, agents, initialValues?.agent_id]);
-
   const normalizedTimeOfDay = normalizeTimeOfDay(timeOfDay);
   const effectiveInterval = useCustomInterval ? Number(customInterval) : intervalMinutes;
   const intervalValid =
@@ -128,26 +131,26 @@ export function WorkflowFormScreen({
   const canSaveRecurring =
     name.trim().length > 0 &&
     prompt.trim().length > 0 &&
-    agentId.length > 0 &&
+    selectedTarget != null &&
     normalizedTimeOfDay !== null;
 
   const canSaveWatch =
     name.trim().length > 0 &&
     prompt.trim().length > 0 &&
-    agentId.length > 0 &&
+    selectedTarget != null &&
     intervalValid &&
     (maxRuns === '' || (Number.isInteger(Number(maxRuns)) && Number(maxRuns) > 0));
 
   const canSave = mode === 'watch' ? canSaveWatch : canSaveRecurring;
 
   function handleSave() {
-    if (!canSave) return;
+    if (!canSave || !selectedTarget) return;
     if (mode === 'watch') {
       const maxRunsNum = maxRuns !== '' ? Number(maxRuns) : null;
       const expiresAt = Date.now() + durationMinutes * 60_000;
       onSave({
         name: name.trim(),
-        agent_id: agentId,
+        agent_id: selectedTarget.agentId,
         prompt: prompt.trim(),
         mode: 'watch',
         interval_minutes: effectiveInterval,
@@ -159,7 +162,7 @@ export function WorkflowFormScreen({
       if (normalizedTimeOfDay === null) return;
       onSave({
         name: name.trim(),
-        agent_id: agentId,
+        agent_id: selectedTarget.agentId,
         prompt: prompt.trim(),
         mode: 'recurring',
         schedule_kind: scheduleKind,
@@ -221,31 +224,11 @@ export function WorkflowFormScreen({
         />
 
         <Text style={s.fieldLabel}>{t('workflows.agentLabel')}</Text>
-        {agents.map((agent) => (
-          <TouchableOpacity
-            key={agent.id}
-            style={[s.agentRow, agentId === agent.id && s.agentRowSelected]}
-            onPress={() => setAgentId(agent.id)}
-            accessibilityRole="radio"
-            accessibilityState={{ selected: agentId === agent.id }}
-          >
-            <View style={s.agentCopy}>
-              <Text style={s.agentName} numberOfLines={1}>
-                {agent.name}
-              </Text>
-              <Text style={s.agentEndpoint} numberOfLines={1}>
-                {agent.endpoint_label}
-              </Text>
-            </View>
-            {agentId === agent.id && (
-              <Switch
-                value
-                disabled
-                trackColor={{ false: brandRgba.ink18, true: brandColors.cyan }}
-              />
-            )}
-          </TouchableOpacity>
-        ))}
+        <AgentTargetField
+          value={selectedTarget}
+          onPress={() => setPickerVisible(true)}
+          accessibilityLabel={t('workflows.agentLabel')}
+        />
 
         {mode === 'recurring' ? (
           <>
@@ -398,6 +381,19 @@ export function WorkflowFormScreen({
           multiline
         />
       </ScrollView>
+
+      <AgentTargetPickerSheet
+        visible={pickerVisible}
+        endpoints={endpoints}
+        agents={agents}
+        selectedTarget={selectedTarget}
+        lockedEndpointId={lockedEndpointId}
+        onClose={() => setPickerVisible(false)}
+        onDone={(target) => {
+          setSelectedTarget(target);
+          setPickerVisible(false);
+        }}
+      />
     </KeyboardAvoidingView>
   );
 }
