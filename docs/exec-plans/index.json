@@ -4,7 +4,8 @@
   "documents": [
     {
       "file": "2026-06-09-msctl-spec-cli.md",
-      "title": "msctl spec 完整命令面 Implementation Plan"
+      "title": "msctl spec 完整命令面 Implementation Plan",
+      "lastCompletedCommit": "b9c583cd2a5adb1e7b8669ffd867eff97626afb2"
     },
     {
       "file": "2026-06-08-testing-infra.md",
