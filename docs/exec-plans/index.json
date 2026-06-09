@@ -3,8 +3,28 @@
   "version": 1,
   "documents": [
     {
+      "file": "2026-06-09-workflow-agent-picker.md",
+      "title": "Workflow Agent \u9009\u62e9\u7ec4\u4ef6\u7edf\u4e00 Implementation Plan",
+      "lastCompletedCommit": "778d69eb3471ec8f419b27e0d01f492ae38fe6ab"
+    },
+    {
+      "file": "2026-06-09-msctl-spec-cli.md",
+      "title": "msctl spec \u5b8c\u6574\u547d\u4ee4\u9762 Implementation Plan",
+      "lastCompletedCommit": "b9c583cd2a5adb1e7b8669ffd867eff97626afb2"
+    },
+    {
+      "file": "2026-06-09-bugflx.md",
+      "title": "bugflx \u79fb\u52a8\u7aef\u6587\u6848\u3001\u5e03\u5c40\u4e0e\u7aef\u70b9\u5728\u7ebf\u68c0\u6d4b\u4fee\u590d Implementation Plan",
+      "lastCompletedCommit": "a0a41f0e13d50772c6630dd0d449e0d5b9c07c44"
+    },
+    {
+      "file": "2026-06-08-testing-infra.md",
+      "title": "\u81ea\u52a8\u5316\u6d4b\u8bd5\u4f53\u7cfb\u5efa\u8bbe Implementation Plan",
+      "lastCompletedCommit": "8ce422766bc368d559d8a018aaaee6f54c940504"
+    },
+    {
       "file": "2026-06-07-workflow-watch-mode.md",
-      "title": "Workflow Watch 模式 Implementation Plan",
+      "title": "Workflow Watch \u6a21\u5f0f Implementation Plan",
       "lastCompletedCommit": "f3c689742a26e2fe7263245da623aa46eeea95c7"
     },
     {
@@ -13,20 +33,20 @@
     },
     {
       "file": "2026-06-07-idea-share-attachments.md",
-      "title": "Idea 快速采集与附件支持 Implementation Plan"
+      "title": "Idea \u5feb\u901f\u91c7\u96c6\u4e0e\u9644\u4ef6\u652f\u6301 Implementation Plan"
     },
     {
       "file": "2026-06-07-daemon-quickstart-relay-default.md",
-      "title": "daemon quickstart 默认 Relay Implementation Plan"
+      "title": "daemon quickstart \u9ed8\u8ba4 Relay Implementation Plan"
     },
     {
       "file": "2026-06-07-cli-command-grouping.md",
-      "title": "CLI 命令分组（msctl spec）Implementation Plan",
+      "title": "CLI \u547d\u4ee4\u5206\u7ec4\uff08msctl spec\uff09Implementation Plan",
       "lastCompletedCommit": "6f0151eb43a871941a610819e94ea9851d14a527"
     },
     {
       "file": "2026-06-07-chat-auto-scroll.md",
-      "title": "Chat 自动滚动修复实施计划",
+      "title": "Chat \u81ea\u52a8\u6eda\u52a8\u4fee\u590d\u5b9e\u65bd\u8ba1\u5212",
       "lastCompletedCommit": "c17e3b72f937513d4d3a1316621545b3d80a9add"
     },
     {
@@ -121,15 +141,15 @@
     },
     {
       "file": "2026-05-29-ios-payment.md",
-      "title": "iOS 付费机制 Implementation Plan (Phase 2)"
+      "title": "iOS \u4ed8\u8d39\u673a\u5236 Implementation Plan (Phase 2)"
     },
     {
       "file": "2026-05-29-cloudflare-tunnel.md",
-      "title": "Cloudflare Tunnel 自动隧道 Implementation Plan (Phase 1)"
+      "title": "Cloudflare Tunnel \u81ea\u52a8\u96a7\u9053 Implementation Plan (Phase 1)"
     },
     {
       "file": "2026-05-27-ios-payment-implementation.md",
-      "title": "iOS 付费机制实施计划"
+      "title": "iOS \u4ed8\u8d39\u673a\u5236\u5b9e\u65bd\u8ba1\u5212"
     },
     {
       "file": "2026-05-27-agent-quick-register.md",
@@ -187,20 +207,20 @@
     },
     {
       "file": "2026-05-17-agents-workspace-filter.md",
-      "title": "Agents 工作空间筛选功能实施计划"
+      "title": "Agents \u5de5\u4f5c\u7a7a\u95f4\u7b5b\u9009\u529f\u80fd\u5b9e\u65bd\u8ba1\u5212"
     },
     {
       "file": "2026-05-11-ui-redesign-pencil.md",
-      "title": "UI 重构：迁移到 Pencil 设计系统（深色+橙色）",
+      "title": "UI \u91cd\u6784\uff1a\u8fc1\u79fb\u5230 Pencil \u8bbe\u8ba1\u7cfb\u7edf\uff08\u6df1\u8272+\u6a59\u8272\uff09",
       "lastCompletedCommit": "d41abce6c09f82d4b5daf74ba48cb928ca4b835c"
     },
     {
       "file": "2026-05-11-bugfix-bot.md",
-      "title": "bugfix-bot Plugin Agent 实施计划"
+      "title": "bugfix-bot Plugin Agent \u5b9e\u65bd\u8ba1\u5212"
     },
     {
       "file": "2026-05-03-ios-permission-guard.md",
-      "title": "iOS 权限声明守护",
+      "title": "iOS \u6743\u9650\u58f0\u660e\u5b88\u62a4",
       "lastCompletedCommit": "8c32f547d9b8792f3036cf452adb0425994b912a"
     },
     {
@@ -209,7 +229,7 @@
     },
     {
       "file": "2026-05-03-chat-ios-ux.md",
-      "title": "Chat iOS UX 改造 Implementation Plan"
+      "title": "Chat iOS UX \u6539\u9020 Implementation Plan"
     },
     {
       "file": "2026-05-03-agent-card-chat-entry.md",
@@ -221,7 +241,7 @@
     },
     {
       "file": "2026-05-02-chat-media.md",
-      "title": "Chat 图片上传 Implementation Plan"
+      "title": "Chat \u56fe\u7247\u4e0a\u4f20 Implementation Plan"
     },
     {
       "file": "2026-05-01-inbox-askquestion-regression.md",
@@ -237,7 +257,7 @@
     },
     {
       "file": "2026-04-28-inbox-delete.md",
-      "title": "Inbox 条目删除 Implementation Plan"
+      "title": "Inbox \u6761\u76ee\u5220\u9664 Implementation Plan"
     },
     {
       "file": "2026-04-27-swipe-to-delete-recent.md",
@@ -245,7 +265,7 @@
     },
     {
       "file": "2026-04-27-recent-conversation-preview.md",
-      "title": "Recent 会话列表预览优化 SPEC"
+      "title": "Recent \u4f1a\u8bdd\u5217\u8868\u9884\u89c8\u4f18\u5316 SPEC"
     },
     {
       "file": "2026-04-27-msctl-daemon.md",
@@ -253,7 +273,7 @@
     },
     {
       "file": "2026-04-27-askquestion-sync.md",
-      "title": "AskQuestion Card 双向同步修复 Implementation Plan"
+      "title": "AskQuestion Card \u53cc\u5411\u540c\u6b65\u4fee\u590d Implementation Plan"
     },
     {
       "file": "2026-04-27-ask-question-multiselect.md",
@@ -261,7 +281,7 @@
     },
     {
       "file": "2026-04-26-multisoul-runtime-longrunning.md",
-      "title": "MultiSoul Runtime 长驻进程重构计划"
+      "title": "MultiSoul Runtime \u957f\u9a7b\u8fdb\u7a0b\u91cd\u6784\u8ba1\u5212"
     },
     {
       "file": "2026-04-26-multisoul-phase2.md",

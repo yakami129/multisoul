@@ -1,6 +1,7 @@
 import * as ImagePicker from 'expo-image-picker';
 import { Image as ImageIcon, X } from 'lucide-react-native';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   ActionSheetIOS,
   Alert,
@@ -14,6 +15,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { AgentTargetField } from '@/components/agent-target';
 import { brandColors, brandRgba, brandTypography } from '@/theme/brandRefresh';
 import { AttachmentButton, AttachmentRow } from './IdeaAttachmentRow';
 import { deriveIdeaTitle, type SpecIdeaAttachment, type SpecTarget } from './specUiModels';
@@ -46,6 +48,7 @@ export function IdeaEditorSheet({
   onClose,
   onSave,
 }: Props) {
+  const { t } = useTranslation();
   const [title, setTitle] = React.useState(initialValue?.title ?? '');
   const [body, setBody] = React.useState(initialValue?.body ?? '');
   const [attachments, setAttachments] = React.useState<SpecIdeaAttachment[]>(
@@ -247,43 +250,45 @@ export function IdeaEditorSheet({
               style={s.toolbarButton}
             >
               <X size={18} color={brandColors.ink} />
-              <Text style={s.toolbarText}>Cancel</Text>
+              <Text style={s.toolbarText}>{t('common.cancel')}</Text>
             </TouchableOpacity>
-            <Text style={s.toolbarTitle}>{initialValue ? 'Edit Idea' : 'New Idea'}</Text>
+            <Text style={s.toolbarTitle}>
+              {initialValue ? t('specs.editIdea') : t('specs.newIdea')}
+            </Text>
             <TouchableOpacity accessibilityRole="button" onPress={handleSave} style={s.doneButton}>
-              <Text style={s.doneText}>Done</Text>
+              <Text style={s.doneText}>{t('common.done')}</Text>
             </TouchableOpacity>
           </View>
 
           <ScrollView contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
             <View style={s.group}>
-              <Text style={s.label}>Title, optional</Text>
+              <Text style={s.label}>{t('specs.editorTitleLabel')}</Text>
               <TextInput
                 accessibilityLabel="Idea title"
                 value={title}
                 onChangeText={setTitle}
-                placeholder="Auto-derived from the first line"
+                placeholder={t('specs.editorTitlePlaceholder')}
                 placeholderTextColor={brandColors.textMuted}
                 style={s.input}
               />
-              <Text style={s.label}>Body</Text>
+              <Text style={s.label}>{t('specs.editorBodyLabel')}</Text>
               <TextInput
                 accessibilityLabel="Idea body"
                 value={body}
                 onChangeText={setBody}
                 multiline
                 textAlignVertical="top"
-                placeholder="Capture the rough idea, bug, link, or context..."
+                placeholder={t('specs.editorBodyPlaceholder')}
                 placeholderTextColor={brandColors.textMuted}
                 style={[s.input, s.bodyInput]}
               />
             </View>
 
             <View style={s.group}>
-              <Text style={s.sectionTitle}>Attachments</Text>
+              <Text style={s.sectionTitle}>{t('specs.editorAttachments')}</Text>
               <AttachmentButton
                 icon={<ImageIcon size={16} color={brandColors.ink} />}
-                label="Add Image"
+                label={t('specs.editorAddImage')}
                 onPress={() => {
                   void pickImage();
                 }}
@@ -299,20 +304,8 @@ export function IdeaEditorSheet({
             </View>
 
             <View style={s.group}>
-              <Text style={s.sectionTitle}>Target</Text>
-              <TouchableOpacity
-                accessibilityRole="button"
-                onPress={onChooseTarget}
-                style={s.targetRow}
-              >
-                <View style={s.targetBody}>
-                  <Text style={s.targetTitle}>Project & Agent</Text>
-                  <Text style={s.targetSubtitle} numberOfLines={1}>
-                    {target ? target.agentName : 'Choose'}
-                  </Text>
-                </View>
-                <Text style={s.chooseText}>{target ? 'Change' : 'Choose'}</Text>
-              </TouchableOpacity>
+              <Text style={s.sectionTitle}>{t('specs.editorTarget')}</Text>
+              <AgentTargetField value={target} onPress={onChooseTarget} />
             </View>
           </ScrollView>
         </KeyboardAvoidingView>
@@ -373,9 +366,4 @@ const s = StyleSheet.create({
     color: brandColors.ink,
   },
   bodyInput: { minHeight: 130, lineHeight: 20 },
-  targetRow: { minHeight: 54, flexDirection: 'row', alignItems: 'center', gap: 12 },
-  targetBody: { flex: 1, minWidth: 0 },
-  targetTitle: { fontFamily: 'Inter', fontSize: 13, fontWeight: '800', color: brandColors.ink },
-  targetSubtitle: { marginTop: 2, fontFamily: 'Inter', fontSize: 12, color: brandColors.textSoft },
-  chooseText: { fontFamily: 'Inter', fontSize: 13, fontWeight: '800', color: brandColors.coral },
 });

@@ -219,17 +219,16 @@ fn build_interview_instruction(context: &InterviewIdeaContext, conversation_id: 
         context.attachment_summaries.join("\n")
     };
     format!(
-        "Use the Idea below as interview material. Conduct a normal conversation to clarify requirements and produce an executable product spec.\n\n\
-         ## Context\n\
-         - Idea: {title}\n\
-         - Repo: {repo}\n\
-         - Conversation: {conversation_id}\n\n\
-         ### Body\n\
+        "## Idea: {title}\n\n\
          {body}\n\n\
          ### Notes\n\
          {notes}\n\n\
          ### Attachments\n\
          {attachments}\n\n\
+         ---\n\n\
+         Repo: {repo}\n\
+         Conversation: {conversation_id}\n\n\
+         Use the Idea above as interview material. Conduct a normal conversation to clarify requirements and produce an executable product spec.\n\n\
          ## Workflow\n\
          1. Clarify background, goals, scope, non-goals, main flows, edge cases, UI/UX, and acceptance criteria.\n\
          2. For structured decisions, use AskUserQuestion; if unavailable, run `msctl ask-question`.\n\

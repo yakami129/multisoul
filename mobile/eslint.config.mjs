@@ -40,7 +40,7 @@ export default tseslint.config(
       'jest.environment.js',
       'tailwind.config.js',
       'jest.mock-expo-winter.js',
-      '__mocks__/**',
+      '**/__mocks__/**',
     ],
   },
 

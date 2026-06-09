@@ -1,7 +1,7 @@
 import { fireEvent, render } from '@testing-library/react-native';
 import React from 'react';
 import { type Agent, type Endpoint } from '@/types';
-import { TargetPickerSheet } from './TargetPickerSheet';
+import { AgentTargetPickerSheet } from './AgentTargetPickerSheet';
 
 const endpoints: Endpoint[] = [
   {
@@ -51,7 +51,7 @@ const agents: Agent[] = [
 test('keeps Done disabled until an agent is selected', () => {
   const onDone = jest.fn();
   const { getByText } = render(
-    <TargetPickerSheet
+    <AgentTargetPickerSheet
       visible
       endpoints={endpoints}
       agents={agents}
@@ -71,7 +71,7 @@ test('keeps Done disabled until an agent is selected', () => {
 
 test('shows all agents before endpoint filtering', () => {
   const { getByText } = render(
-    <TargetPickerSheet
+    <AgentTargetPickerSheet
       visible
       endpoints={endpoints}
       agents={agents}
@@ -86,7 +86,7 @@ test('shows all agents before endpoint filtering', () => {
 
 test('filters agents by search query and selected endpoint', () => {
   const { getByLabelText, getByText, queryByText } = render(
-    <TargetPickerSheet
+    <AgentTargetPickerSheet
       visible
       endpoints={endpoints}
       agents={agents}
@@ -109,7 +109,7 @@ test('filters agents by search query and selected endpoint', () => {
 test('returns endpoint, agent, and repo target on Done', () => {
   const onDone = jest.fn();
   const { getByText } = render(
-    <TargetPickerSheet
+    <AgentTargetPickerSheet
       visible
       endpoints={endpoints}
       agents={agents}
@@ -128,4 +128,27 @@ test('returns endpoint, agent, and repo target on Done', () => {
     agentName: 'Codex Runner',
     repoPath: '/repo/multisoul',
   });
+});
+
+test('lockedEndpointId shows only agents on that endpoint and endpoint is read-only', () => {
+  const onDone = jest.fn();
+  const { getByText, queryByText } = render(
+    <AgentTargetPickerSheet
+      visible
+      endpoints={endpoints}
+      agents={agents}
+      lockedEndpointId="ep-online"
+      onClose={() => {}}
+      onDone={onDone}
+    />,
+  );
+
+  expect(getByText('Office Mac')).toBeTruthy();
+  expect(queryByText('Travel Mac')).toBeNull();
+  expect(getByText('Codex Runner')).toBeTruthy();
+  expect(queryByText('Docs Runner')).toBeNull();
+
+  fireEvent.press(getByText('Codex Runner'));
+  fireEvent.press(getByText('Done'));
+  expect(onDone).toHaveBeenCalledWith(expect.objectContaining({ agentId: 'agent-1' }));
 });

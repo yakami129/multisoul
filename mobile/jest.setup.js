@@ -2,6 +2,9 @@ jest.mock('@react-native-async-storage/async-storage', () =>
   require('@react-native-async-storage/async-storage/jest/async-storage-mock')
 );
 
+// Initialize i18next with real translations so components using useTranslation work in tests.
+require('./src/i18n');
+
 // Mock react-native-reanimated — v4's own mock.js pulls in native worklets which
 // don't initialise in Jest. Provide a minimal hand-rolled mock instead.
 jest.mock('react-native-reanimated', () => {

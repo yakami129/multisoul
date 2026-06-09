@@ -8,12 +8,51 @@ import {
   Play,
 } from 'lucide-react-native';
 import React from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
+import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { brandColors, brandRgba, brandTypography } from '@/theme/brandRefresh';
+import { brandColors } from '@/theme/brandRefresh';
 import { type SpecArtifact, type SpecArtifactDetail, type SpecDraft } from '../types';
+import { specDetailScreenStyles as s } from './specDetailScreenStyles';
 import { SpecMarkdownReader } from './SpecMarkdownReader';
-import { relativeAge, shortHash, specActionLabel, specStatusLabel } from './specUiModels';
+import { type SpecAssetStatus, relativeAge, shortHash } from './specUiModels';
+
+const SPEC_STATUS_KEY: Record<
+  SpecAssetStatus,
+  | 'specs.specStatusDraft'
+  | 'specs.specStatusReady'
+  | 'specs.specStatusPlanning'
+  | 'specs.specStatusRunning'
+  | 'specs.specStatusNeedsYou'
+  | 'specs.specStatusDone'
+  | 'specs.statusFailed'
+> = {
+  draft: 'specs.specStatusDraft',
+  ready: 'specs.specStatusReady',
+  planning: 'specs.specStatusPlanning',
+  implementing: 'specs.specStatusRunning',
+  blocked: 'specs.specStatusNeedsYou',
+  done: 'specs.specStatusDone',
+  failed: 'specs.statusFailed',
+};
+
+const SPEC_ACTION_KEY: Record<
+  SpecAssetStatus,
+  | 'specs.actionAnswerRequired'
+  | 'specs.actionOpenChat'
+  | 'specs.actionOpenSummary'
+  | 'specs.actionReviewSpec'
+  | 'specs.actionReviewFailure'
+  | 'specs.actionStartImpl'
+> = {
+  blocked: 'specs.actionAnswerRequired',
+  planning: 'specs.actionOpenChat',
+  implementing: 'specs.actionOpenChat',
+  done: 'specs.actionOpenSummary',
+  draft: 'specs.actionReviewSpec',
+  failed: 'specs.actionReviewFailure',
+  ready: 'specs.actionStartImpl',
+};
 
 interface Props {
   detail: SpecArtifactDetail | undefined;
@@ -48,16 +87,21 @@ export function SpecDetailScreen({
   onOpenSourceIdea,
   onReadFull,
 }: Props) {
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const spec = detail?.spec ?? fallbackSpec;
   const latest = detail?.latestVersion;
+  const backLabel = t('specs.backToSpecs');
+  const headerTitle = t('specs.headerSpec');
 
   if (!spec && !legacySpec) {
     return (
       <View style={[s.root, { paddingTop: insets.top }]}>
-        <Header onBack={onBack} />
+        <Header onBack={onBack} backLabel={backLabel} headerTitle={headerTitle} />
         <View style={s.centered}>
-          <Text style={s.emptyTitle}>{isLoading ? 'Loading spec...' : 'Spec not found'}</Text>
+          <Text style={s.emptyTitle}>
+            {isLoading ? t('specs.loadingSpec') : t('specs.specNotFound')}
+          </Text>
         </View>
       </View>
     );
@@ -66,7 +110,7 @@ export function SpecDetailScreen({
   if (!spec && legacySpec) {
     return (
       <View style={[s.root, { paddingTop: insets.top }]}>
-        <Header onBack={onBack} />
+        <Header onBack={onBack} backLabel={backLabel} headerTitle={headerTitle} />
         <ScrollView contentContainerStyle={s.content}>
           <View style={s.hero}>
             <View style={s.heroIcon}>
@@ -77,11 +121,8 @@ export function SpecDetailScreen({
               <Text style={s.subtitle}>{legacySpec.repoSpecPath || legacySpec.targetRepoPath}</Text>
             </View>
           </View>
-          <Section title="Legacy Draft">
-            <Text style={s.bodyText}>
-              This local draft predates artifact snapshots. Interview it as an Idea or save a repo
-              spec to create the current detail view.
-            </Text>
+          <Section title={t('specs.legacyDraft')}>
+            <Text style={s.bodyText}>{t('specs.legacyDraftDesc')}</Text>
             <SpecMarkdownReader markdown={legacySpec.markdownPreview} collapsed />
           </Section>
         </ScrollView>
@@ -94,17 +135,17 @@ export function SpecDetailScreen({
   const hash = latest?.markdownSha256;
   const implementationChatId = currentSpec.latestImplementationConversationId;
   const primaryLabel = implementationChatId
-    ? 'Open Implementation'
+    ? t('specs.openImplementation')
     : isStartingImplementation
-      ? 'Starting...'
-      : specActionLabel(currentSpec.status);
+      ? t('specs.startingEllipsis')
+      : t(SPEC_ACTION_KEY[currentSpec.status]);
   const primaryDisabled =
     isStartingImplementation ||
     (!implementationChatId && ['blocked', 'done', 'failed'].includes(currentSpec.status));
 
   return (
     <View style={[s.root, { paddingTop: insets.top }]}>
-      <Header onBack={onBack} />
+      <Header onBack={onBack} backLabel={backLabel} headerTitle={headerTitle} />
       <ScrollView contentContainerStyle={[s.content, { paddingBottom: insets.bottom + 96 }]}>
         <View style={s.hero}>
           <View style={s.heroIcon}>
@@ -119,61 +160,64 @@ export function SpecDetailScreen({
             </Text>
           </View>
           <View style={s.statusPill}>
-            <Text style={s.statusText}>{specStatusLabel(currentSpec.status)}</Text>
+            <Text style={s.statusText}>{t(SPEC_STATUS_KEY[currentSpec.status])}</Text>
           </View>
         </View>
 
         <View style={s.metricGrid}>
           <Metric
             icon={<GitBranch size={15} color={brandColors.ink} />}
-            label="Revision"
+            label={t('specs.labelRevision')}
             value={`v${revision}`}
           />
           <Metric
             icon={<Hash size={15} color={brandColors.ink} />}
-            label="Hash"
+            label={t('specs.labelHash')}
             value={shortHash(hash)}
           />
         </View>
 
-        <Section title="Repository">
-          <InfoRow label="Repo" value={currentSpec.targetRepoPath || 'Unknown repo'} />
+        <Section title={t('specs.sectionRepository')}>
           <InfoRow
-            label="Spec file"
-            value={currentSpec.repoSpecPath || latest?.repoSpecPath || 'Not saved'}
+            label={t('specs.labelRepo')}
+            value={currentSpec.targetRepoPath || t('specs.unknownRepo')}
           />
-          <InfoRow label="Updated" value={relativeAge(currentSpec.updatedAt)} />
+          <InfoRow
+            label={t('specs.labelSpecFile')}
+            value={currentSpec.repoSpecPath || latest?.repoSpecPath || t('specs.notSaved')}
+          />
+          <InfoRow label={t('specs.labelUpdated')} value={relativeAge(currentSpec.updatedAt)} />
         </Section>
 
-        <Section title="Artifact Snapshot">
+        <Section title={t('specs.sectionArtifact')}>
           <SpecMarkdownReader markdown={latest?.markdown} collapsed={!showFullMarkdown} />
           <TouchableOpacity accessibilityRole="button" onPress={onReadFull} style={s.inlineButton}>
             <ExternalLink size={15} color={brandColors.ink} />
             <Text style={s.inlineButtonText}>
-              {showFullMarkdown ? 'Collapse snapshot' : 'Read full snapshot'}
+              {showFullMarkdown ? t('specs.collapseSnapshot') : t('specs.readFullSnapshot')}
             </Text>
           </TouchableOpacity>
         </Section>
 
-        <Section title="Source">
+        <Section title={t('specs.sectionSource')}>
           <ActionRow
             icon={<FileText size={16} color={brandColors.ink} />}
-            label="Idea"
-            value={sourceIdeaTitle || currentSpec.sourceIdeaId || 'Not linked'}
+            label={t('specs.labelIdea')}
+            value={sourceIdeaTitle || currentSpec.sourceIdeaId || t('specs.notLinked')}
             disabled={!currentSpec.sourceIdeaId}
             onPress={onOpenSourceIdea}
           />
           <ActionRow
             icon={<MessageSquare size={16} color={brandColors.ink} />}
-            label="Interview chat"
-            value={currentSpec.interviewConversationId || 'Not linked'}
+            label={t('specs.interviewChat')}
+            value={currentSpec.interviewConversationId || t('specs.notLinked')}
             disabled={!currentSpec.interviewConversationId}
             onPress={onOpenInterviewChat}
           />
           <ActionRow
             icon={<MessageSquare size={16} color={brandColors.ink} />}
-            label="Latest implementation"
-            value={implementationChatId || 'Not started'}
+            label={t('specs.labelLatestImpl')}
+            value={implementationChatId || t('specs.notStarted')}
             disabled={!implementationChatId}
             onPress={onOpenImplementationChat}
           />
@@ -198,14 +242,22 @@ export function SpecDetailScreen({
   );
 }
 
-function Header({ onBack }: { onBack: () => void }) {
+function Header({
+  onBack,
+  backLabel,
+  headerTitle,
+}: {
+  onBack: () => void;
+  backLabel: string;
+  headerTitle: string;
+}) {
   return (
     <View style={s.header}>
       <TouchableOpacity accessibilityRole="button" onPress={onBack} style={s.backButton}>
         <ChevronLeft size={20} color={brandColors.ink} />
-        <Text style={s.backText}>Specs</Text>
+        <Text style={s.backText}>{backLabel}</Text>
       </TouchableOpacity>
-      <Text style={s.headerTitle}>Spec</Text>
+      <Text style={s.headerTitle}>{headerTitle}</Text>
       <View style={s.headerSpacer} />
     </View>
   );
@@ -276,210 +328,3 @@ function ActionRow({
     </TouchableOpacity>
   );
 }
-
-const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: brandColors.cream },
-  header: {
-    minHeight: 50,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-  },
-  backButton: { minWidth: 72, minHeight: 44, flexDirection: 'row', alignItems: 'center' },
-  backText: {
-    fontFamily: brandTypography.body,
-    fontSize: 13,
-    fontWeight: '700',
-    color: brandColors.ink,
-  },
-  headerTitle: {
-    fontFamily: brandTypography.display,
-    fontSize: 18,
-    fontWeight: '700',
-    color: brandColors.ink,
-  },
-  headerSpacer: { width: 72 },
-  centered: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  emptyTitle: {
-    fontFamily: brandTypography.display,
-    fontSize: 20,
-    fontWeight: '700',
-    color: brandColors.ink,
-  },
-  content: { padding: 16, gap: 12 },
-  hero: {
-    minHeight: 72,
-    borderRadius: 16,
-    backgroundColor: brandRgba.white88,
-    borderWidth: 1,
-    borderColor: brandColors.silver,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    padding: 14,
-  },
-  heroIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: brandRgba.cyanSoft,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  heroBody: { flex: 1, minWidth: 0 },
-  title: {
-    fontFamily: brandTypography.display,
-    fontSize: 19,
-    lineHeight: 23,
-    fontWeight: '700',
-    color: brandColors.ink,
-  },
-  subtitle: {
-    marginTop: 3,
-    fontFamily: brandTypography.body,
-    fontSize: 11,
-    color: brandColors.textSoft,
-  },
-  statusPill: {
-    minHeight: 26,
-    borderRadius: 13,
-    paddingHorizontal: 9,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: brandRgba.limeSoft,
-  },
-  statusText: {
-    fontFamily: brandTypography.body,
-    fontSize: 10,
-    fontWeight: '800',
-    color: brandColors.ink,
-  },
-  metricGrid: { flexDirection: 'row', gap: 10 },
-  metric: {
-    flex: 1,
-    minHeight: 54,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: brandColors.silver,
-    backgroundColor: brandRgba.white88,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 9,
-    paddingHorizontal: 12,
-  },
-  metricLabel: { fontFamily: brandTypography.body, fontSize: 10, color: brandColors.textSoft },
-  metricValue: {
-    marginTop: 2,
-    fontFamily: brandTypography.body,
-    fontSize: 13,
-    fontWeight: '800',
-    color: brandColors.ink,
-  },
-  section: {
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: brandColors.silver,
-    backgroundColor: brandRgba.white88,
-    padding: 14,
-    gap: 10,
-  },
-  sectionTitle: {
-    fontFamily: brandTypography.body,
-    fontSize: 11,
-    fontWeight: '800',
-    color: brandColors.coral,
-  },
-  bodyText: {
-    fontFamily: brandTypography.body,
-    fontSize: 13,
-    lineHeight: 19,
-    color: brandColors.ink,
-  },
-  infoRow: {
-    minHeight: 34,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 12,
-    alignItems: 'center',
-  },
-  infoLabel: { fontFamily: brandTypography.body, fontSize: 12, color: brandColors.textSoft },
-  infoValue: {
-    flex: 1,
-    textAlign: 'right',
-    fontFamily: brandTypography.body,
-    fontSize: 12,
-    fontWeight: '700',
-    color: brandColors.ink,
-  },
-  inlineButton: {
-    minHeight: 40,
-    borderRadius: 10,
-    backgroundColor: brandRgba.ink08,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 7,
-  },
-  inlineButtonText: {
-    fontFamily: brandTypography.body,
-    fontSize: 13,
-    fontWeight: '800',
-    color: brandColors.ink,
-  },
-  actionRow: { minHeight: 54, flexDirection: 'row', alignItems: 'center', gap: 10 },
-  actionIcon: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
-    backgroundColor: brandRgba.ink08,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  actionBody: { flex: 1, minWidth: 0 },
-  actionLabel: {
-    fontFamily: brandTypography.body,
-    fontSize: 13,
-    fontWeight: '800',
-    color: brandColors.ink,
-  },
-  actionValue: {
-    marginTop: 2,
-    fontFamily: brandTypography.body,
-    fontSize: 11,
-    color: brandColors.textSoft,
-  },
-  errorText: {
-    fontFamily: brandTypography.body,
-    fontSize: 12,
-    lineHeight: 17,
-    color: brandColors.error,
-  },
-  bottomBar: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    paddingHorizontal: 16,
-    paddingTop: 10,
-    backgroundColor: brandRgba.white88,
-    borderTopWidth: 1,
-    borderTopColor: brandColors.silver,
-  },
-  primaryButton: {
-    minHeight: 46,
-    borderRadius: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 7,
-    backgroundColor: brandColors.ink,
-  },
-  primaryText: {
-    fontFamily: brandTypography.body,
-    fontSize: 13,
-    fontWeight: '800',
-    color: brandColors.white,
-  },
-  disabled: { opacity: 0.45 },
-});

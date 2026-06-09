@@ -1,0 +1,3 @@
+# E2E-only throwaway tokens (not real secrets; excluded from check-no-secrets.sh)
+valid_token = "ms_v2_aabbccddaabbccddaabbccddaabbccdd"
+wrong_token = "ms_v2_wrongtoken000000000000000000000"

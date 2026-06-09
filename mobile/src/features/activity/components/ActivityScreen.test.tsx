@@ -1,6 +1,8 @@
-import { render } from '@testing-library/react-native';
+import { fireEvent, render } from '@testing-library/react-native';
 import React from 'react';
+import { StyleSheet } from 'react-native';
 import ActivityScreen, { type ActivityItem } from './ActivityScreen';
+import { activityScreenStyles } from './activityScreenStyles';
 
 jest.mock('react-native-gesture-handler', () => {
   const { View } = require('react-native');
@@ -77,6 +79,18 @@ test('activity row with workflowName shows it in subtitle metadata', () => {
 /// 预期结果：
 ///   - 正断言：subtitle 区域包含原始 subtitle 文本。
 ///   - 负断言：不显示任何 workflow 相关文本。
+test('done sub-filter header keeps 12px spacing before the first card', () => {
+  const { getByLabelText, getByTestId } = render(
+    <ActivityScreen needsAttention={[]} running={[]} done={[item()]} onOpenItem={() => {}} />,
+  );
+
+  fireEvent.press(getByLabelText('Show Done activity, 1 item'));
+
+  const headerStyle = StyleSheet.flatten(getByTestId('activity-done-header').props.style);
+  expect(headerStyle.marginBottom).toBe(activityScreenStyles.doneHeader.marginBottom);
+  expect(headerStyle.marginBottom).toBe(12);
+});
+
 test('activity row without workflowName shows normal subtitle', () => {
   const normalItem = item({ workflowName: undefined });
 

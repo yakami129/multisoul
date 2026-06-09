@@ -2,6 +2,7 @@ import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as Clipboard from 'expo-clipboard';
 import { ChevronLeft, Info, Terminal, X } from 'lucide-react-native';
 import React, { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   ActivityIndicator,
   Modal,
@@ -29,6 +30,7 @@ interface Props {
 }
 
 export function AddEndpointModal({ visible, onClose, onAdd, initialTab = 'qr' }: Props) {
+  const { t } = useTranslation();
   const [tab, setTab] = useState<Tab>(initialTab);
   const [status, setStatus] = useState<ScanStatus>('idle');
   const [manualStatus, setManualStatus] = useState<ManualStatus>('idle');
@@ -185,7 +187,7 @@ export function AddEndpointModal({ visible, onClose, onAdd, initialTab = 'qr' }:
           }}
         >
           <Text style={[s.modeTabText, tab === 'qr' && s.modeTabTextActive]} numberOfLines={1}>
-            SCAN QR
+            {t('qr.scanQR')}
           </Text>
           {tab === 'qr' ? (
             <TouchableOpacity
@@ -212,7 +214,7 @@ export function AddEndpointModal({ visible, onClose, onAdd, initialTab = 'qr' }:
           }}
         >
           <Text style={[s.modeTabText, tab === 'manual' && s.modeTabTextActive]} numberOfLines={1}>
-            MANUAL
+            {t('qr.manual')}
           </Text>
         </TouchableOpacity>
       </View>
@@ -234,11 +236,11 @@ export function AddEndpointModal({ visible, onClose, onAdd, initialTab = 'qr' }:
             void requestPermission();
           }}
         >
-          <Text style={s.permText}>TAP TO ALLOW CAMERA</Text>
+          <Text style={s.permText}>{t('qr.tapToAllowCamera')}</Text>
         </TouchableOpacity>
       )}
-      {status === 'invalid_qr' && <Text style={s.errText}>INVALID QR CODE</Text>}
-      {status === 'connection_err' && <Text style={s.errText}>CANNOT REACH ENDPOINT</Text>}
+      {status === 'invalid_qr' && <Text style={s.errText}>{t('qr.invalidQR')}</Text>}
+      {status === 'connection_err' && <Text style={s.errText}>{t('qr.cannotReach')}</Text>}
     </>
   );
 
@@ -247,9 +249,7 @@ export function AddEndpointModal({ visible, onClose, onAdd, initialTab = 'qr' }:
 
   const renderManualEntry = () => (
     <View style={s.manualCard}>
-      <Text style={s.manualCardSubtitle}>
-        Paste the connection string from msctl, or type the service address and token.
-      </Text>
+      <Text style={s.manualCardSubtitle}>{t('qr.manualSubtitle')}</Text>
       <TouchableOpacity
         accessibilityRole="button"
         accessibilityLabel="Paste connection string"
@@ -258,9 +258,9 @@ export function AddEndpointModal({ visible, onClose, onAdd, initialTab = 'qr' }:
           void handlePasteConnectionString();
         }}
       >
-        <Text style={s.pasteLinkText}>Paste connection string</Text>
+        <Text style={s.pasteLinkText}>{t('qr.pasteConnectionString')}</Text>
       </TouchableOpacity>
-      <Text style={s.fieldLabel}>Service address</Text>
+      <Text style={s.fieldLabel}>{t('qr.serviceAddress')}</Text>
       <TextInput
         style={s.textInput}
         value={manualUrl}
@@ -275,7 +275,7 @@ export function AddEndpointModal({ visible, onClose, onAdd, initialTab = 'qr' }:
         keyboardType="url"
         accessibilityLabel="Service address"
       />
-      <Text style={s.fieldLabel}>Token</Text>
+      <Text style={s.fieldLabel}>{t('qr.token')}</Text>
       <TextInput
         style={s.textInput}
         value={manualToken}
@@ -291,10 +291,10 @@ export function AddEndpointModal({ visible, onClose, onAdd, initialTab = 'qr' }:
         accessibilityLabel="Token"
       />
       {manualStatus === 'invalid_paste' && (
-        <Text style={s.manualErrText}>INVALID CONNECTION STRING</Text>
+        <Text style={s.manualErrText}>{t('qr.invalidConnectionString')}</Text>
       )}
       {manualStatus === 'connection_err' && (
-        <Text style={s.manualErrText}>CANNOT REACH ENDPOINT</Text>
+        <Text style={s.manualErrText}>{t('qr.cannotReach')}</Text>
       )}
       <TouchableOpacity
         accessibilityRole="button"
@@ -306,7 +306,7 @@ export function AddEndpointModal({ visible, onClose, onAdd, initialTab = 'qr' }:
         {manualStatus === 'checking' ? (
           <ActivityIndicator size="small" color={brandColors.white} />
         ) : (
-          <Text style={s.connectButtonText}>Connect</Text>
+          <Text style={s.connectButtonText}>{t('qr.connect')}</Text>
         )}
       </TouchableOpacity>
     </View>
@@ -316,11 +316,9 @@ export function AddEndpointModal({ visible, onClose, onAdd, initialTab = 'qr' }:
     <>
       <View style={s.qrCard}>
         <Text style={s.qrCardTitle} numberOfLines={1}>
-          Scan setup QR
+          {t('qr.scanSetupQR')}
         </Text>
-        <Text style={s.qrCardSubtitle}>
-          Open msctl on your machine and scan the generated code.
-        </Text>
+        <Text style={s.qrCardSubtitle}>{t('qr.scanInstructions')}</Text>
         <View style={s.fullScannerBox}>{renderQrScanner()}</View>
       </View>
       <TouchableOpacity
@@ -331,7 +329,7 @@ export function AddEndpointModal({ visible, onClose, onAdd, initialTab = 'qr' }:
       >
         <Terminal size={16} color={brandColors.coral} />
         <Text style={s.commandHintText} numberOfLines={2}>
-          Need commands? Tap the help icon next to SCAN QR.
+          {t('qr.needCommandsHint')}
         </Text>
       </TouchableOpacity>
     </>
@@ -352,11 +350,11 @@ export function AddEndpointModal({ visible, onClose, onAdd, initialTab = 'qr' }:
           >
             <ChevronLeft size={18} color={brandColors.ink} />
             <Text style={s.backText} numberOfLines={1}>
-              Agents
+              {t('qr.backToAgents')}
             </Text>
           </TouchableOpacity>
           <Text style={s.fullNavTitle} numberOfLines={1}>
-            Add Endpoint
+            {t('qr.addEndpointTitle')}
           </Text>
           <View style={s.navSpacer} />
         </View>
@@ -367,7 +365,7 @@ export function AddEndpointModal({ visible, onClose, onAdd, initialTab = 'qr' }:
         >
           <View style={s.titleRow}>
             <Text style={s.fullTitle} numberOfLines={2}>
-              Connect a machine
+              {t('qr.connectMachine')}
             </Text>
             <TouchableOpacity
               accessibilityLabel="Close Add Endpoint"

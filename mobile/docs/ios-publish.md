@@ -51,6 +51,7 @@ cd mobile && ./scripts/publish-ios-local.sh
 |------|---------|
 | `app.json` | `ios.bundleIdentifier = com.yakami0129.multisoul` |
 | `app.json` | `expo.version`（营销版本）、`expo.ios.buildNumber`（构建号，权威；`publish-ios-local.sh` 会写入本机 `Info.plist`） |
+| `app.json` | `expo.ios.infoPlist`（隐私用途说明等；本地发布前会同步到本机 `Info.plist`，避免仅改 `app.json` 却未 `prebuild` 导致 90683） |
 | `app.json` | `extra.eas.projectId = 3555d4e1-4ac3-4e0c-9816-4383af1872e9` |
 | `eas.json` | `build.production.autoIncrement = true`、`submit.production` |
 

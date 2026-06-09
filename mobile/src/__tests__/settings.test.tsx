@@ -2,7 +2,16 @@ import { act, render, screen } from '@testing-library/react-native';
 import React from 'react';
 import { Alert } from 'react-native';
 import SettingsScreen from '../../app/(tabs)/settings';
+import { pingAllEndpoints } from '../features/settings/services/endpointService';
 import { useEndpointStore } from '../store/endpointStore';
+
+jest.mock('expo-router', () => ({
+  useFocusEffect: (callback: () => void) => callback(),
+}));
+
+jest.mock('../features/settings/services/endpointService', () => ({
+  pingAllEndpoints: jest.fn(),
+}));
 
 jest.mock('react-native-safe-area-context', () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
@@ -39,6 +48,7 @@ jest.mock('../api/endpointClient', () => ({
 ///   - Negative: Open logs button is absent because Settings no longer owns that interaction
 describe('SettingsScreen', () => {
   beforeEach(async () => {
+    jest.clearAllMocks();
     jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
     useEndpointStore.setState({
       endpoints: [
@@ -47,7 +57,7 @@ describe('SettingsScreen', () => {
           label: 'Home Server',
           base_url: 'http://192.168.1.1:8765',
           token: 'tok',
-          last_seen_at: null,
+          last_seen_at: Date.now(),
         },
         {
           id: 'ep-2',
@@ -86,5 +96,28 @@ describe('SettingsScreen', () => {
     render(<SettingsScreen />);
 
     expect(screen.getByText('NO ENDPOINTS CONFIGURED')).toBeTruthy();
+  });
+
+  it('shows hero online/offline counts without push ready', () => {
+    render(<SettingsScreen />);
+
+    expect(screen.getByText(/2 machines · 1 Online · 1 Offline/)).toBeTruthy();
+    expect(screen.queryByText('push ready')).toBeNull();
+    expect(screen.queryByText('推送就绪')).toBeNull();
+  });
+
+  it('pings endpoints when the screen gains focus', () => {
+    render(<SettingsScreen />);
+
+    expect(pingAllEndpoints).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows online and offline pills on endpoint rows', () => {
+    render(<SettingsScreen />);
+
+    expect(screen.getByText('Online')).toBeTruthy();
+    expect(screen.getByText('Offline')).toBeTruthy();
+    expect(screen.queryByText('Live')).toBeNull();
+    expect(screen.queryByText('Idle')).toBeNull();
   });
 });

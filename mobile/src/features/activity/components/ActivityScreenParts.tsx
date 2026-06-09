@@ -1,5 +1,6 @@
 import { AlarmClock, Bot, Check, ChevronRight, Clock, X } from 'lucide-react-native';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { Text, TouchableOpacity, View } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 import { brandColors } from '@/theme/brandRefresh';
@@ -46,40 +47,43 @@ export function PartialFailureBanner({
   failedEndpointLabels: string[];
   onRetry?: () => void;
 }) {
+  const { t } = useTranslation();
   if (failedEndpointLabels.length === 0) return null;
   return (
     <View style={s.partialFailure}>
       <Text style={s.partialFailureText}>
-        Some endpoints failed: {failedEndpointLabels.join(', ')}
+        {t('activity.partialFailed', { labels: failedEndpointLabels.join(', ') })}
       </Text>
       <TouchableOpacity
         onPress={onRetry}
         accessibilityRole="button"
         accessibilityLabel="Retry failed endpoints"
       >
-        <Text style={s.partialFailureRetry}>Retry</Text>
+        <Text style={s.partialFailureRetry}>{t('activity.retry')}</Text>
       </TouchableOpacity>
     </View>
   );
 }
 
 export function DecisionBanner({ count, onPress }: { count: number; onPress: () => void }) {
-  const label = count === 1 ? 'task needs' : 'tasks need';
+  const { t } = useTranslation();
+  const bannerText =
+    count === 1
+      ? t('activity.decisionBannerSingular', { count })
+      : t('activity.decisionBannerPlural', { count });
   return (
     <TouchableOpacity
       style={s.decisionBanner}
       onPress={onPress}
       activeOpacity={0.85}
       accessibilityRole="button"
-      accessibilityLabel={`${count} ${label} your decision. Tap to review.`}
+      accessibilityLabel={bannerText}
     >
       <View style={s.alarmCircle}>
         <AlarmClock size={18} color={brandColors.ink} />
       </View>
       <View style={s.bannerCopy}>
-        <Text style={s.bannerTitle}>
-          {count} {label} your decision
-        </Text>
+        <Text style={s.bannerTitle}>{bannerText}</Text>
         <Text style={s.bannerSub}>Your input is needed to keep things moving.</Text>
       </View>
       <View style={s.reviewPill}>
@@ -158,24 +162,27 @@ export function ActivityRow({
             <View style={[s.card, { marginBottom: isLast ? 0 : 10 }]}>
               <View style={[s.cardStrip, { backgroundColor: icon.border }]} />
               <View style={s.cardInner}>
-                <Text
-                  style={[s.cardTitle, isUnreadDone && { fontWeight: '800' }]}
-                  numberOfLines={2}
-                >
-                  {item.title}
-                </Text>
+                <View style={s.cardHeader}>
+                  <Text
+                    style={[s.cardTitle, isUnreadDone && { fontWeight: '800' }]}
+                    numberOfLines={2}
+                  >
+                    {item.title}
+                  </Text>
+                  <View style={s.cardMeta}>
+                    <Text style={s.cardTime}>{formatRelativeTime(item.timestamp)}</Text>
+                    <View style={[s.tagBadge, { backgroundColor: tag.bg }]}>
+                      <Text style={[s.tagText, { color: tag.color }]} numberOfLines={1}>
+                        {item.statusLabel}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
                 <View style={s.cardAgent}>
                   <Bot size={10} color="#45464a" />
                   <Text style={s.cardAgentName} numberOfLines={1}>
                     {displayName}
                   </Text>
-                </View>
-
-                <View style={s.cardTopRight}>
-                  <Text style={s.cardTime}>{formatRelativeTime(item.timestamp)}</Text>
-                  <View style={[s.tagBadge, { backgroundColor: tag.bg }]}>
-                    <Text style={[s.tagText, { color: tag.color }]}>{item.statusLabel}</Text>
-                  </View>
                 </View>
 
                 {!!item.subtitle && (

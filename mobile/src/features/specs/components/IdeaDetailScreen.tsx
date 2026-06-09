@@ -10,6 +10,7 @@ import {
   RotateCcw,
 } from 'lucide-react-native';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { brandColors, brandRgba, brandTypography } from '@/theme/brandRefresh';
@@ -36,10 +37,10 @@ function attachmentIcon(kind: SpecIdeaAttachment['kind']) {
   return <FileText size={15} color={brandColors.coral} />;
 }
 
-function attachmentTitle(attachment: SpecIdeaAttachment): string {
+function attachmentTitle(attachment: SpecIdeaAttachment, logSnippet: string): string {
   if (attachment.title?.trim()) return attachment.title;
   if (attachment.uri?.trim()) return attachment.uri;
-  if (attachment.text?.trim()) return attachment.text.split('\n')[0]?.slice(0, 80) || 'Log snippet';
+  if (attachment.text?.trim()) return attachment.text.split('\n')[0]?.slice(0, 80) || logSnippet;
   return `${attachment.kind} attachment`;
 }
 
@@ -55,14 +56,20 @@ export function IdeaDetailScreen({
   onArchive,
   onUnarchive,
 }: Props) {
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
 
   if (!idea) {
     return (
       <View style={[s.root, { paddingTop: insets.top }]}>
-        <Header onBack={onBack} onEdit={undefined} />
+        <Header
+          onBack={onBack}
+          onEdit={undefined}
+          backLabel={t('specs.backToIdeas')}
+          headerTitle={t('specs.headerIdea')}
+        />
         <View style={s.centered}>
-          <Text style={s.emptyTitle}>Idea not found</Text>
+          <Text style={s.emptyTitle}>{t('specs.ideaNotFound')}</Text>
         </View>
       </View>
     );
@@ -71,19 +78,25 @@ export function IdeaDetailScreen({
   const hasTarget = Boolean(idea.targetRepoPath && idea.targetAgentId && idea.targetEndpointId);
   const canStart = hasTarget && !isStartingInterview && idea.status !== 'converted';
   const primaryLabel = idea.interviewConversationId
-    ? 'Continue Interview'
+    ? t('specs.continueInterview')
     : isStartingInterview
-      ? 'Starting...'
-      : 'Start Interview';
+      ? t('specs.startingEllipsis')
+      : t('specs.startInterview');
+  const logSnippet = t('specs.logSnippet');
 
   return (
     <View style={[s.root, { paddingTop: insets.top }]}>
-      <Header onBack={onBack} onEdit={onEdit} />
+      <Header
+        onBack={onBack}
+        onEdit={onEdit}
+        backLabel={t('specs.backToIdeas')}
+        headerTitle={t('specs.headerIdea')}
+      />
       <ScrollView contentContainerStyle={[s.content, { paddingBottom: insets.bottom + 96 }]}>
         <PinnedIdeaSummary idea={idea} />
 
-        <Section title="Notes">
-          <Text style={s.bodyText}>{idea.body.trim() || 'No primary note yet.'}</Text>
+        <Section title={t('specs.sectionNotes')}>
+          <Text style={s.bodyText}>{idea.body.trim() || t('specs.noPrimaryNote')}</Text>
           {idea.notes.length > 0 ? (
             <View style={s.noteList}>
               {idea.notes.map((note) => (
@@ -94,11 +107,11 @@ export function IdeaDetailScreen({
               ))}
             </View>
           ) : (
-            <Text style={s.mutedText}>Additional notes will appear here as the idea grows.</Text>
+            <Text style={s.mutedText}>{t('specs.notesGrow')}</Text>
           )}
         </Section>
 
-        <Section title="Attachments">
+        <Section title={t('specs.sectionAttachments')}>
           {idea.attachments.length > 0 ? (
             <View style={s.attachmentList}>
               {idea.attachments.map((attachment) => (
@@ -106,49 +119,51 @@ export function IdeaDetailScreen({
                   <View style={s.attachmentIcon}>{attachmentIcon(attachment.kind)}</View>
                   <View style={s.attachmentBody}>
                     <Text style={s.attachmentTitle} numberOfLines={1}>
-                      {attachmentTitle(attachment)}
+                      {attachmentTitle(attachment, logSnippet)}
                     </Text>
                     <Text style={s.attachmentMeta} numberOfLines={2}>
                       {attachment.uri ||
                         attachment.fileId ||
                         attachment.text ||
-                        'Saved with this idea'}
+                        t('specs.savedWithIdea')}
                     </Text>
                   </View>
                 </View>
               ))}
             </View>
           ) : (
-            <Text style={s.mutedText}>
-              Links, logs, and screenshots can be attached from capture.
-            </Text>
+            <Text style={s.mutedText}>{t('specs.attachmentsEmpty')}</Text>
           )}
         </Section>
 
-        <Section title="Target">
-          <InfoRow label="Repo" value={idea.targetRepoPath || 'Not selected'} />
+        <Section title={t('specs.sectionTarget')}>
           <InfoRow
-            label="Agent"
-            value={idea.targetAgentName || idea.targetAgentId || 'Not selected'}
+            label={t('specs.labelRepo')}
+            value={idea.targetRepoPath || t('specs.notSelected')}
           />
-          <InfoRow label="Endpoint" value={idea.targetEndpointId || 'Not selected'} />
-          {!hasTarget ? (
-            <Text style={s.errorText}>Choose a repo and agent before interviewing.</Text>
-          ) : null}
+          <InfoRow
+            label={t('specs.labelAgent')}
+            value={idea.targetAgentName || idea.targetAgentId || t('specs.notSelected')}
+          />
+          <InfoRow
+            label={t('specs.labelEndpoint')}
+            value={idea.targetEndpointId || t('specs.notSelected')}
+          />
+          {!hasTarget ? <Text style={s.errorText}>{t('specs.chooseRepoFirst')}</Text> : null}
         </Section>
 
-        <Section title="Related">
+        <Section title={t('specs.sectionRelated')}>
           <ActionRow
             icon={<MessageSquare size={16} color={brandColors.ink} />}
-            label="Interview chat"
-            value={idea.interviewConversationId || 'Not started'}
+            label={t('specs.interviewChat')}
+            value={idea.interviewConversationId || t('specs.notStarted')}
             disabled={!idea.interviewConversationId}
             onPress={onOpenInterviewChat}
           />
           <ActionRow
             icon={<FileText size={16} color={brandColors.ink} />}
-            label="Converted spec"
-            value={idea.convertedSpecId || 'Not saved'}
+            label={t('specs.convertedSpec')}
+            value={idea.convertedSpecId || t('specs.notSaved')}
             disabled={!idea.convertedSpecId}
             onPress={onOpenConvertedSpec}
           />
@@ -170,7 +185,7 @@ export function IdeaDetailScreen({
             <Archive size={17} color={brandColors.ink} />
           )}
           <Text style={s.secondaryText}>
-            {idea.status === 'archived' ? 'Unarchive' : 'Archive'}
+            {idea.status === 'archived' ? t('specs.ideaUnarchive') : t('specs.ideaArchive')}
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -188,14 +203,24 @@ export function IdeaDetailScreen({
   );
 }
 
-function Header({ onBack, onEdit }: { onBack: () => void; onEdit?: () => void }) {
+function Header({
+  onBack,
+  onEdit,
+  backLabel,
+  headerTitle,
+}: {
+  onBack: () => void;
+  onEdit?: () => void;
+  backLabel: string;
+  headerTitle: string;
+}) {
   return (
     <View style={s.header}>
       <TouchableOpacity accessibilityRole="button" onPress={onBack} style={s.backButton}>
         <ChevronLeft size={20} color={brandColors.ink} />
-        <Text style={s.backText}>Ideas</Text>
+        <Text style={s.backText}>{backLabel}</Text>
       </TouchableOpacity>
-      <Text style={s.headerTitle}>Idea</Text>
+      <Text style={s.headerTitle}>{headerTitle}</Text>
       {onEdit ? (
         <TouchableOpacity
           accessibilityRole="button"

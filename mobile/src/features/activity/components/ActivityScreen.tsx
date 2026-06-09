@@ -1,5 +1,6 @@
 import { CircleCheck, MessageCircle, SlidersHorizontal, Sparkles } from 'lucide-react-native';
 import React, { useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   ActivityIndicator,
   FlatList,
@@ -65,6 +66,19 @@ export default function ActivityScreen({
   onMarkAllDoneRead,
   onDeleteItem,
 }: Props) {
+  const { t } = useTranslation();
+  const filterLabel: Record<
+    ActivityFilter,
+    | 'activity.filterAll'
+    | 'activity.filterPending'
+    | 'activity.filterRunning'
+    | 'activity.filterDone'
+  > = {
+    all: 'activity.filterAll',
+    pending: 'activity.filterPending',
+    running: 'activity.filterRunning',
+    done: 'activity.filterDone',
+  };
   const [activeFilter, setActiveFilter] = useState<ActivityFilter>('all');
   const [doneFilter, setDoneFilter] = useState<DoneFilter>('unread');
   const listRef = useRef<FlatList<ActivityItem> | null>(null);
@@ -95,12 +109,12 @@ export default function ActivityScreen({
 
   const emptyText =
     activeFilter === 'pending'
-      ? 'No pending decisions.'
+      ? t('activity.noPending')
       : activeFilter === 'running'
-        ? 'No active sessions.'
+        ? t('activity.noRunning')
         : activeFilter === 'done'
-          ? 'No recent results.'
-          : 'No activity.';
+          ? t('activity.noDone')
+          : t('activity.noActivity');
 
   const handleFilterPress = (key: ActivityFilter) => {
     if (activeFilter !== key) {
@@ -121,7 +135,7 @@ export default function ActivityScreen({
         />
       )}
       {activeFilter === 'done' && (
-        <View style={s.doneHeader}>
+        <View testID="activity-done-header" style={s.doneHeader}>
           <View style={s.doneSegment}>
             {(['unread', 'read'] as const).map((filter) => {
               const selected = doneFilter === filter;
@@ -135,7 +149,7 @@ export default function ActivityScreen({
                   accessibilityState={{ selected }}
                 >
                   <Text style={[s.doneSegmentText, selected && s.doneSegmentTextActive]}>
-                    {filter === 'unread' ? 'Unread' : 'Read'} {count}
+                    {filter === 'unread' ? t('activity.unread') : t('activity.read')} {count}
                   </Text>
                 </TouchableOpacity>
               );
@@ -150,7 +164,7 @@ export default function ActivityScreen({
               accessibilityRole="button"
               accessibilityLabel="Mark all Done items read"
             >
-              <Text style={s.markReadText}>Mark All Read</Text>
+              <Text style={s.markReadText}>{t('activity.markAllRead')}</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -163,7 +177,7 @@ export default function ActivityScreen({
       return (
         <View style={s.loadMoreFooter} accessibilityLiveRegion="polite">
           <ActivityIndicator color={brandColors.activityCyan} />
-          <Text style={s.loadMoreText}>Loading more activity...</Text>
+          <Text style={s.loadMoreText}>{t('activity.loadingMore')}</Text>
         </View>
       );
     }
@@ -175,7 +189,7 @@ export default function ActivityScreen({
           accessibilityRole="button"
           accessibilityLabel="Retry loading more activity"
         >
-          <Text style={s.loadMoreRetryText}>Load failed. Tap to retry.</Text>
+          <Text style={s.loadMoreRetryText}>{t('activity.loadFailed')}</Text>
         </TouchableOpacity>
       );
     }
@@ -196,12 +210,12 @@ export default function ActivityScreen({
         <View style={s.titleRow}>
           <View style={s.titleGroup}>
             <View style={s.titleWithSpark}>
-              <Text style={s.title}>Activity</Text>
+              <Text style={s.title}>{t('activity.title')}</Text>
               <View style={s.sparkIcon} pointerEvents="none">
                 <Sparkles size={10} color={brandColors.ink} />
               </View>
             </View>
-            <Text style={s.titleSub}>Mission log</Text>
+            <Text style={s.titleSub}>{t('activity.missionLog')}</Text>
           </View>
           <View style={s.filterBtn}>
             <SlidersHorizontal size={17} color={brandColors.ink} />
@@ -221,11 +235,11 @@ export default function ActivityScreen({
                   onPress={() => handleFilterPress(filter.key)}
                   accessibilityRole="button"
                   accessibilityState={{ selected }}
-                  accessibilityLabel={`Show ${filter.label} activity, ${itemCountLabel(count)}${filter.key === 'done' && unreadDone.length > 0 ? `, ${unreadDone.length} unread` : ''}`}
+                  accessibilityLabel={`Show ${t(filterLabel[filter.key])} activity, ${itemCountLabel(count)}${filter.key === 'done' && unreadDone.length > 0 ? `, ${unreadDone.length} unread` : ''}`}
                 >
                   {filter.dot && <View style={[s.segDot, { backgroundColor: filter.dot }]} />}
                   <Text style={[s.segItemText, selected && s.segItemTextActive]}>
-                    {filter.label} {count}
+                    {t(filterLabel[filter.key])} {count}
                   </Text>
                   {doneUnread && <View testID="activity-done-unread-dot" style={s.tabUnreadDot} />}
                 </TouchableOpacity>
@@ -244,15 +258,15 @@ export default function ActivityScreen({
           <View style={s.emptyIconWrap}>
             <MessageCircle size={30} color={brandColors.error} />
           </View>
-          <Text style={s.emptyTitle}>Could not load activity</Text>
-          <Text style={s.emptyDesc}>All configured endpoints failed to respond.</Text>
+          <Text style={s.emptyTitle}>{t('activity.couldNotLoad')}</Text>
+          <Text style={s.emptyDesc}>{t('activity.allEndpointsFailed')}</Text>
           <TouchableOpacity
             style={s.retryButton}
             onPress={onRetry}
             accessibilityRole="button"
             accessibilityLabel="Retry activity"
           >
-            <Text style={s.retryText}>Retry</Text>
+            <Text style={s.retryText}>{t('activity.retry')}</Text>
           </TouchableOpacity>
         </ScrollView>
       ) : totalCount === 0 ? (
@@ -265,11 +279,11 @@ export default function ActivityScreen({
           <View style={s.emptyIconWrap}>
             <CircleCheck size={30} color={brandColors.activityLime} />
           </View>
-          <Text style={s.emptyTitle}>{hasEndpoints ? 'All caught up' : 'Connect an endpoint'}</Text>
+          <Text style={s.emptyTitle}>
+            {hasEndpoints ? t('activity.allCaughtUp') : t('activity.connectEndpoint')}
+          </Text>
           <Text style={s.emptyDesc}>
-            {hasEndpoints
-              ? 'No decisions, running sessions, or recent results.'
-              : 'Add an endpoint in Settings to see Activity.'}
+            {hasEndpoints ? t('activity.nothingPending') : t('activity.addEndpointInSettings')}
           </Text>
         </ScrollView>
       ) : (

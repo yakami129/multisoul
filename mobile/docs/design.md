@@ -226,7 +226,7 @@ Search / Filter row (42)
 Section: Agent Fleet
 Agent row (62): runtime tile, name, machine, repo path, status pill, overflow
 Section: Quick Workflows
-Workflow rows: Daily Standup → Workflows, Connect Machine → Add Endpoint QR；标题与说明保持单行
+Workflow rows: Automations → Workflows, Connect Machine → Add Endpoint QR；标题与说明保持单行
 Floating Ink Tab Bar
 ```
 

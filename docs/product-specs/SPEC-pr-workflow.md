@@ -31,10 +31,11 @@
 | Job | 内容 |
 |-----|------|
 | `repo-checks` | AGENTS.md 大小、secrets 检查、色彩合规、行数限制 |
-| `mobile-check` | typecheck + lint + format + test |
+| `mobile-check` | typecheck + lint + format + test（含 coverage 阈值） |
 | `cli-check` | build + test + clippy + fmt |
+| `cli-e2e` | build + `cargo test --test e2e_tests`（真实启动 serve 的 HTTP 集成测试） |
 
-需在 branch protection 中将这三个 job 设为 required。
+需在 branch protection 中将这四个 job 设为 required。
 
 ## 5. GitHub Branch Protection Rules
 
@@ -42,7 +43,7 @@
 
 - ✅ Require a pull request before merging
 - ✅ Require status checks to pass before merging
-  - Required checks: `repo checks (constraints)`, `mobile (typecheck + lint + test)`, `cli (build + test)`
+  - Required checks: `repo checks (constraints)`, `mobile (typecheck + lint + test)`, `cli (build + test)`, `cli (serve e2e)`
 - ✅ Require branches to be up to date before merging
 - ✅ Do not allow bypassing the above settings
 - 合并策略：只允许 Squash merge（在 repo Settings → General → Pull Requests 中设置）
@@ -56,7 +57,7 @@
 <!-- 改了什么，为什么 -->
 
 ## Test plan
-- [ ] CI 通过（cargo test + cargo build + pnpm typecheck + pnpm test）
+- [ ] CI 通过（`bash scripts/test-all.sh` 或等价：`cargo test` + `cargo test --test e2e_tests` + `pnpm typecheck` + `pnpm test`）
 - [ ] 手动验证：...
 
 ## Risk
@@ -69,7 +70,7 @@
 - 分支命名遵循 `feat/xxx` 规范
 
 ### 完成功能后
-1. 在分支上运行完整验证（`cargo test` + `cargo build` + `pnpm typecheck` + `pnpm test --watchAll=false`）
+1. 在分支上运行完整验证（`bash scripts/test-all.sh` 或等价，含 `cargo test --test e2e_tests`）
 2. 使用 `commit` skill 提交代码
 3. **等待用户确认**后，使用 `gh pr create` 开 PR（附带 Summary + Test plan + Risk）
 4. 等待 CI 结果

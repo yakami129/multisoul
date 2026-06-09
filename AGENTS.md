@@ -56,7 +56,7 @@ Monorepo 两大件：
 | 问题 | 去哪儿 |
 |------|--------|
 | **整体架构、协议、数据流** | [`ARCHITECTURE.md`](ARCHITECTURE.md) |
-| **要做什么、为什么做**（产品规格、验收） | [`docs/product-specs/`](docs/product-specs/) |
+| **要做什么、为什么做**（产品规格、验收、E2E 功能测试用例） | [`docs/product-specs/`](docs/product-specs/) |
 | **某 feature 怎么设计的**（方案权衡） | [`docs/design-docs/`](docs/design-docs/) |
 | **历史执行计划、施工步骤** | [`docs/exec-plans/`](docs/exec-plans/) |
 | **API 路径、消息类型、env vars** | [`docs/references/`](docs/references/)（占位）+ [`README.md`](README.md) |
@@ -96,6 +96,8 @@ pnpm test -- --watchAll=false        # 单跑测试
 # CLI
 cd cli && cargo build
 cargo test
+bash scripts/test-e2e.sh             # CLI Serve E2E（仓库根）
+bash scripts/test-all.sh             # 全套（仓库根）
 cargo run -- serve                   # 启动本地 HTTP/WS
 # Runtime 推送问答卡片（详见 §7；示例见 `msctl ask-question -h`）
 cargo run -- ask-question --conversation-id "$CONV_ID" --questions '[...]' --output json
@@ -122,7 +124,7 @@ Run `msctl ask-question -h` for flags, JSON shape, and copy-paste examples.
 - 用户场景常常 **不便打字**。涉及决策一律按上文 MANDATORY 执行；有 `AskUserQuestion` 时用该工具给 2-5 个结构化选项，**不要让用户敲字回答**
 - 行动前先检索本地文件，不要凭记忆回答
 - 修改代码后必须按 §5 跑验证；引入了 lint error **必须修根本原因，禁止用 `#[allow]` / `// eslint-disable` / `@ts-ignore` 抑制**
-- **文档落盘**：产品 / 功能规格（要做什么、验收）→ **只** [`docs/product-specs/`](docs/product-specs/)（`YYYY-MM-DD-SPEC-<feature>.md`）；实施 / 执行计划 → **只** [`docs/exec-plans/`](docs/exec-plans/)（`YYYY-MM-DD-<feature>.md`）；设计权衡 → `docs/design-docs/YYYY-MM-DD-<feature>-design.md`（命名见 [`docs/design-docs/README.md`](docs/design-docs/README.md)）。**勿**在 [`docs/specs/`](docs/specs/)、[`docs/superpowers/`](docs/superpowers/) 新增权威内容。**Superpowers skills**（`writing-plans`、`executing-plans`、`brainstorming` 等）在本仓库写规格或计划时**必须**使用上述 canonical 路径 · [`docs/superpowers/README.md`](docs/superpowers/README.md)
+- **文档落盘**：产品 / 功能规格（要做什么、验收）→ **只** [`docs/product-specs/`](docs/product-specs/)（`YYYY-MM-DD-SPEC-<feature>.md`），且必须由验收标准派生 **E2E 功能测试用例文档**，指导 AI 生成 E2E 测试用例；实施 / 执行计划 → **只** [`docs/exec-plans/`](docs/exec-plans/)（`YYYY-MM-DD-<feature>.md`）；设计权衡 → `docs/design-docs/YYYY-MM-DD-<feature>-design.md`（命名见 [`docs/design-docs/README.md`](docs/design-docs/README.md)）。**勿**在 [`docs/specs/`](docs/specs/)、[`docs/superpowers/`](docs/superpowers/) 新增权威内容。**Superpowers skills**（`writing-plans`、`executing-plans`、`brainstorming` 等）在本仓库写规格或计划时**必须**使用上述 canonical 路径 · [`docs/superpowers/README.md`](docs/superpowers/README.md)
 - **Exec plan 施工**：全部任务验证通过后一次 `git commit`；不要套用 `subagent-driven-development` 的「每任务一 commit」。提交后把 `lastCompletedCommit` 写入 [`docs/exec-plans/index.json`](docs/exec-plans/index.json)（40 位 SHA）。
 - **Commit 前强制 review**：每次 `git commit` 前必须执行 `requesting-code-review`，修复 Critical/Important 反馈并重新验证后，才允许提交。
 - **执行方式选择（强制）**：writing-plans 写完计划后，**必须**用 `AskUserQuestion` 弹卡片让用户选「Subagent 驱动（推荐）」或「当前会话内联执行」，**禁止**纯文本提问或自行假设。

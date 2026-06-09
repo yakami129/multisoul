@@ -163,7 +163,7 @@ EOF
 gh pr checks
 ```
 
-Wait for all 3 checks to pass: `repo checks (constraints)`, `mobile (typecheck + lint + test)`, `cli (build + test)`.
+Wait for all 4 checks to pass: `repo checks (constraints)`, `mobile (typecheck + lint + test)`, `cli (build + test)`, `cli (serve e2e)`.
 
 - [ ] **Step 4: Merge (Squash)**
 
@@ -196,6 +196,7 @@ Check the following:
     - `repo checks (constraints)`
     - `mobile (typecheck + lint + test)`
     - `cli (build + test)`
+    - `cli (serve e2e)`
 - ✅ **Do not allow bypassing the above settings**
 
 Click **Save changes**.

@@ -173,9 +173,10 @@
 | 触发 | `pull_request` 与 `push: main` |
 | Job 1 (`repo-checks`) | 跑 R1-R3、R6、R8、R9、R11-R15 共十一个脚本 |
 | Job 2 (`mobile-check`) | `pnpm typecheck` + `pnpm lint`（含 R4、R10）+ `pnpm test` |
-| Job 3 (`cli-check`) | `cargo build --all-targets` + `cargo test` |
+| Job 3 (`cli-check`) | `cargo build --all-targets` + `cargo test` + clippy + fmt |
+| Job 4 (`cli-e2e`) | `cargo build` + `cargo test --test e2e_tests`（真实启动 `msctl serve` 的 HTTP 集成测试） |
 | 角色 | 兜底 —— 若开发者本地用 `--no-verify` 跳过 husky，CI 仍应在合并前拦住坏变更 |
-| **合并闸** | **GitHub `main` 必须启用 branch protection：`Require status checks to pass`，且三张 green（`repo checks (constraints)`、`mobile (typecheck + lint + test)`、`cli (build + test)`）；**任一失败则不得合并**；并启用 *Do not allow bypassing*，禁止以 admin 身份绕过硬闸。操作说明见 [`docs/runbooks/github-pr-merge-policy.md`](../runbooks/github-pr-merge-policy.md) |
+| **合并闸** | **GitHub `main` 必须启用 branch protection：`Require status checks to pass`，且四张 green（`repo checks (constraints)`、`mobile (typecheck + lint + test)`、`cli (build + test)`、`cli (serve e2e)`）；**任一失败则不得合并**；并启用 *Do not allow bypassing*，禁止以 admin 身份绕过硬闸。操作说明见 [`docs/runbooks/github-pr-merge-policy.md`](../runbooks/github-pr-merge-policy.md) |
 
 ## 加新规则的流程
 

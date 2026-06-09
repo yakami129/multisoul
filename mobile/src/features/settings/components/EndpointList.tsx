@@ -1,6 +1,8 @@
 import { ChevronRight, Laptop, Plus, Server, Trash2 } from 'lucide-react-native';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { View, Text, FlatList, TouchableOpacity, StyleSheet } from 'react-native';
+import { endpointOnline } from '@/features/settings/services/endpointLiveness';
 import { brandColors, brandRgba } from '@/theme/brandRefresh';
 import { type Endpoint } from '@/types';
 
@@ -10,11 +12,8 @@ interface Props {
   onAddEndpoint?: () => void;
 }
 
-function endpointOnline(endpoint: Endpoint) {
-  return endpoint.last_seen_at !== null && Date.now() - endpoint.last_seen_at < 60_000;
-}
-
 export function EndpointList({ endpoints, onRemove, onAddEndpoint }: Props) {
+  const { t } = useTranslation();
   const data = [...endpoints, null];
 
   if (endpoints.length === 0) {
@@ -73,7 +72,7 @@ export function EndpointList({ endpoints, onRemove, onAddEndpoint }: Props) {
             );
           }
 
-          const online = endpointOnline(item);
+          const online = endpointOnline(item.last_seen_at);
           const EndpointIcon = online ? Laptop : Server;
           return (
             <View style={[s.row, !isLast && s.divided]}>
@@ -105,7 +104,7 @@ export function EndpointList({ endpoints, onRemove, onAddEndpoint }: Props) {
                     style={[s.statusText, online ? s.statusLiveText : s.statusIdleText]}
                     numberOfLines={1}
                   >
-                    {online ? 'Live' : 'Idle'}
+                    {online ? t('settings.online') : t('settings.offline')}
                   </Text>
                 </View>
               </View>

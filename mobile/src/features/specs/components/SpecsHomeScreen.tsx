@@ -1,7 +1,9 @@
 import { ChevronDown, ChevronUp, CircleAlert, Plus, Search } from 'lucide-react-native';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { Alert, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { AgentTargetPickerSheet } from '@/components/agent-target';
 import { brandColors } from '@/theme/brandRefresh';
 import { type Agent, type Endpoint } from '@/types';
 import { IdeaEditorSheet, type IdeaEditorValue } from './IdeaEditorSheet';
@@ -15,7 +17,6 @@ import {
 } from './SpecsHomeRows';
 import { specsHomeStyles as s } from './SpecsHomeStyles';
 import { type SpecArtifact, type SpecIdea, type SpecTarget } from './specUiModels';
-import { TargetPickerSheet } from './TargetPickerSheet';
 
 type Segment = 'ideas' | 'specs';
 
@@ -34,10 +35,7 @@ interface Props {
   onDeleteSpec?: (id: string) => void;
 }
 
-const SEGMENTS: Array<{ key: Segment; label: string }> = [
-  { key: 'ideas', label: 'Ideas' },
-  { key: 'specs', label: 'Specs' },
-];
+type SegmentKey = Segment;
 
 export function SpecsHomeScreen({
   ideas,
@@ -53,8 +51,14 @@ export function SpecsHomeScreen({
   onDeleteArchivedIdea,
   onDeleteSpec,
 }: Props) {
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const [segment, setSegment] = React.useState<Segment>('ideas');
+
+  const segments: Array<{ key: SegmentKey; label: string }> = [
+    { key: 'ideas', label: t('specs.segmentIdeas') },
+    { key: 'specs', label: t('specs.segmentSpecs') },
+  ];
   const [editorVisible, setEditorVisible] = React.useState(false);
   const [targetPickerVisible, setTargetPickerVisible] = React.useState(false);
   const [attachmentPreset, setAttachmentPreset] = React.useState<AttachmentPreset>();
@@ -81,10 +85,10 @@ export function SpecsHomeScreen({
   };
 
   const handleDeleteIdea = (ideaId: string) => {
-    Alert.alert('Delete idea?', 'This idea will be permanently removed. This cannot be undone.', [
-      { text: 'Cancel', style: 'cancel' },
+    Alert.alert(t('specs.deleteIdea'), t('specs.deleteIdeaBody'), [
+      { text: t('common.cancel'), style: 'cancel' },
       {
-        text: 'Delete',
+        text: t('specs.delete'),
         style: 'destructive',
         onPress: () => onDeleteArchivedIdea?.(ideaId),
       },
@@ -92,26 +96,22 @@ export function SpecsHomeScreen({
   };
 
   const handleDeleteSpec = (specId: string) => {
-    Alert.alert(
-      'Delete spec?',
-      'This removes the saved spec from MultiSoul. The repo file is not deleted.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: () => onDeleteSpec?.(specId),
-        },
-      ],
-    );
+    Alert.alert(t('specs.deleteSpec'), t('specs.deleteSpecBody'), [
+      { text: t('common.cancel'), style: 'cancel' },
+      {
+        text: t('specs.delete'),
+        style: 'destructive',
+        onPress: () => onDeleteSpec?.(specId),
+      },
+    ]);
   };
 
   return (
     <View style={[s.root, { paddingTop: insets.top }]}>
       <View style={s.header}>
         <View>
-          <Text style={s.title}>Specs</Text>
-          <Text style={s.subtitle}>Ideas into executable plans</Text>
+          <Text style={s.title}>{t('specs.title')}</Text>
+          <Text style={s.subtitle}>{t('specs.subtitle')}</Text>
         </View>
         <View style={s.headerActions}>
           <TouchableOpacity
@@ -134,7 +134,7 @@ export function SpecsHomeScreen({
       </View>
 
       <View style={s.segment}>
-        {SEGMENTS.map((item) => {
+        {segments.map((item) => {
           const selected = segment === item.key;
           return (
             <TouchableOpacity
@@ -157,8 +157,10 @@ export function SpecsHomeScreen({
           style={s.attention}
         >
           <CircleAlert size={16} color={brandColors.coral} />
-          <Text style={s.attentionText}>{needsYou.length} item needs your decision</Text>
-          <Text style={s.attentionAction}>Review</Text>
+          <Text style={s.attentionText}>
+            {t('specs.needsDecision', { count: needsYou.length })}
+          </Text>
+          <Text style={s.attentionAction}>{t('specs.review')}</Text>
         </TouchableOpacity>
       ) : null}
 
@@ -171,18 +173,18 @@ export function SpecsHomeScreen({
               onPreset={openEditor}
             />
             <IdeaSection
-              title="Open Ideas"
+              title={t('specs.openIdeas')}
               ideas={openIdeas}
-              emptyTitle="Capture your first idea"
-              emptyBody="Start with one sentence. You can add links, logs, and screenshots later."
+              emptyTitle={t('specs.captureFirst')}
+              emptyBody={t('specs.captureFirstBody')}
               onOpenIdea={onOpenIdea}
               onArchive={onArchiveIdea ? handleArchive : undefined}
             />
             <IdeaSection
-              title="Converted Recently"
+              title={t('specs.convertedRecently')}
               ideas={convertedIdeas}
-              emptyTitle="No converted ideas"
-              emptyBody="Saved specs will link back to their source ideas."
+              emptyTitle={t('specs.noConverted')}
+              emptyBody={t('specs.noConvertedBody')}
               onOpenIdea={onOpenIdea}
             />
             <View style={s.section}>
@@ -191,7 +193,7 @@ export function SpecsHomeScreen({
                 onPress={() => setArchivedExpanded((value) => !value)}
                 style={s.sectionHeaderButton}
               >
-                <Text style={s.sectionTitle}>Archived</Text>
+                <Text style={s.sectionTitle}>{t('specs.archived')}</Text>
                 <View style={s.sectionHeaderRight}>
                   <Text style={s.sectionCount}>{archivedIdeas.length}</Text>
                   {archivedExpanded ? (
@@ -214,34 +216,34 @@ export function SpecsHomeScreen({
         ) : (
           <>
             <SpecSection
-              title="Needs You"
+              title={t('specs.needsYou')}
               specs={needsYou}
               onOpenSpec={onOpenSpec}
               onDeleteSpec={onDeleteSpec ? handleDeleteSpec : undefined}
             />
             <SpecSection
-              title="Ready"
+              title={t('specs.ready')}
               specs={ready}
               onOpenSpec={onOpenSpec}
               onDeleteSpec={onDeleteSpec ? handleDeleteSpec : undefined}
             />
             <SpecSection
-              title="In Progress"
+              title={t('specs.inProgress')}
               specs={inProgress}
               onOpenSpec={onOpenSpec}
               onDeleteSpec={onDeleteSpec ? handleDeleteSpec : undefined}
             />
             <SpecSection
-              title="Done"
+              title={t('specs.done')}
               specs={done}
               onOpenSpec={onOpenSpec}
               onDeleteSpec={onDeleteSpec ? handleDeleteSpec : undefined}
             />
             {specs.length === 0 ? (
               <EmptyState
-                title="No saved specs"
-                body="Interview an idea, then save a repo spec artifact."
-                action="Go to Ideas"
+                title={t('specs.noSavedSpecs')}
+                body={t('specs.noSavedSpecsBody')}
+                action={t('specs.goToIdeas')}
                 onAction={() => setSegment('ideas')}
               />
             ) : null}
@@ -260,7 +262,7 @@ export function SpecsHomeScreen({
           setEditorVisible(false);
         }}
       >
-        <TargetPickerSheet
+        <AgentTargetPickerSheet
           visible={targetPickerVisible}
           endpoints={endpoints}
           agents={agents}
