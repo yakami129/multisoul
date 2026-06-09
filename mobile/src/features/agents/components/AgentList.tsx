@@ -8,6 +8,7 @@ import {
   Sparkles,
 } from 'lucide-react-native';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   ActivityIndicator,
   Image,
@@ -40,8 +41,14 @@ interface Props {
   onOpenWorkflows?: () => void;
 }
 
+type ProjectStatusLabel =
+  | 'agents.statusAwaiting'
+  | 'agents.statusRunning'
+  | 'agents.statusFailed'
+  | 'agents.statusIdle';
+
 type ProjectStatus = {
-  label: string;
+  label: ProjectStatusLabel;
   kind: 'idle' | 'running' | 'awaiting_question' | 'failed';
   isActive: boolean;
   pendingCount: number;
@@ -63,22 +70,22 @@ function projectStatus(conversations: Conversation[]): ProjectStatus {
   const pendingCount = conversations.filter((conv) => conv.status === 'awaiting_question').length;
   if (pendingCount > 0) {
     return {
-      label: 'Running · Awaiting answer',
+      label: 'agents.statusAwaiting',
       kind: 'awaiting_question',
       isActive: true,
       pendingCount,
     };
   }
   if (conversations.some((conv) => conv.status === 'running')) {
-    return { label: 'Running', kind: 'running', isActive: true, pendingCount: 0 };
+    return { label: 'agents.statusRunning', kind: 'running', isActive: true, pendingCount: 0 };
   }
   // Only show Failed if the most recent conversation is failed; historical failures don't
   // affect fleet status once newer conversations exist.
   const mostRecent = [...conversations].sort((a, b) => b.last_message_at - a.last_message_at)[0];
   if (mostRecent?.status === 'failed') {
-    return { label: 'Failed', kind: 'failed', isActive: false, pendingCount: 0 };
+    return { label: 'agents.statusFailed', kind: 'failed', isActive: false, pendingCount: 0 };
   }
-  return { label: 'Idle', kind: 'idle', isActive: false, pendingCount: 0 };
+  return { label: 'agents.statusIdle', kind: 'idle', isActive: false, pendingCount: 0 };
 }
 
 function SectionTitle({ title, action }: { title: string; action?: React.ReactNode }) {
@@ -146,9 +153,9 @@ function QuickWorkflowCard({
   );
 }
 
-function endpointName(agents: Agent[]) {
+function endpointName(agents: Agent[], fallback: string) {
   const first = agents.find((agent) => agent.endpoint_label.trim().length > 0);
-  return first?.endpoint_label ?? 'your machine';
+  return first?.endpoint_label ?? fallback;
 }
 
 export function AgentList({
@@ -161,6 +168,7 @@ export function AgentList({
   onAddEndpoint,
   onOpenWorkflows,
 }: Props) {
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const searchRef = React.useRef<TextInput>(null);
   const [isRefreshing, setIsRefreshing] = React.useState(false);
@@ -239,10 +247,10 @@ export function AgentList({
     if (isLoading) {
       return (
         <>
-          <SectionTitle title="Agent Fleet" />
+          <SectionTitle title={t('agents.fleetTitle')} />
           <View testID="projects-group" style={s.fleetLoadingCard}>
             <ActivityIndicator size="small" color={brandColors.cyan} />
-            <Text style={s.loadingText}>Loading agents...</Text>
+            <Text style={s.loadingText}>{t('agents.loadingAgents')}</Text>
           </View>
         </>
       );
@@ -258,17 +266,13 @@ export function AgentList({
           />
           {agents.length === 0 ? (
             <>
-              <Text style={s.emptyTitle}>Connect a machine</Text>
-              <Text style={s.emptyDesc}>
-                Add a machine by scanning its QR code or pasting a connection string.
-              </Text>
+              <Text style={s.emptyTitle}>{t('agents.connectMachine')}</Text>
+              <Text style={s.emptyDesc}>{t('agents.connectMachineDesc')}</Text>
             </>
           ) : (
             <>
-              <Text style={s.emptyTitle}>No agents found</Text>
-              <Text style={s.emptyDesc}>
-                Try a different agent name, path, runtime, or machine.
-              </Text>
+              <Text style={s.emptyTitle}>{t('agents.noAgentsFound')}</Text>
+              <Text style={s.emptyDesc}>{t('agents.noAgentsFoundDesc')}</Text>
             </>
           )}
         </View>
@@ -278,10 +282,10 @@ export function AgentList({
     return (
       <>
         <SectionTitle
-          title="Agent Fleet"
+          title={t('agents.fleetTitle')}
           action={
             <View style={s.viewAll}>
-              <Text style={s.viewAllText}>View All</Text>
+              <Text style={s.viewAllText}>{t('agents.viewAll')}</Text>
               <ChevronRight size={18} color={brandColors.textSoft} />
             </View>
           }
@@ -292,7 +296,7 @@ export function AgentList({
               <AgentCard
                 agent={project.agent}
                 index={index}
-                statusLabel={project.status.label}
+                statusLabel={t(project.status.label)}
                 isActive={project.status.isActive}
                 pendingCount={project.status.pendingCount}
                 metaVariant="machine"
@@ -311,15 +315,15 @@ export function AgentList({
   if (isError) {
     return (
       <View style={[s.root, { paddingTop: insets.top }]}>
-        <Text style={s.pageTitle}>Agents</Text>
+        <Text style={s.pageTitle}>{t('agents.title')}</Text>
         <View style={s.centered}>
           <View style={s.errorIconWrap}>
             <AlertCircle size={36} color={brandColors.error} />
           </View>
-          <Text style={s.errorTitle}>Failed to load</Text>
+          <Text style={s.errorTitle}>{t('agents.failedToLoad')}</Text>
           <Text style={s.errorDesc}>{String(error)}</Text>
           <TouchableOpacity style={s.retryBtn} onPress={onRefetch}>
-            <Text style={s.retryText}>Retry</Text>
+            <Text style={s.retryText}>{t('agents.retry')}</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -383,14 +387,12 @@ export function AgentList({
             <Sparkles size={15} color={brandColors.white} />
           </View>
           <View style={s.heroCopy}>
-            <Text style={s.heroTitle}>Your agents{'\n'}in your hand</Text>
-            <Text style={s.heroText}>
-              Remote control for your local AI agents. Focus on what matters.
-            </Text>
+            <Text style={s.heroTitle}>{t('agents.heroTitle')}</Text>
+            <Text style={s.heroText}>{t('agents.heroText')}</Text>
             <View style={s.connectionChip}>
               <View style={s.connectionDot} />
               <Text style={s.connectionText} numberOfLines={1} ellipsizeMode="tail">
-                Connected to {endpointName(agents)}
+                {t('agents.connectedTo', { name: endpointName(agents, t('agents.yourMachine')) })}
               </Text>
             </View>
           </View>
@@ -402,20 +404,20 @@ export function AgentList({
           <View style={s.statsCard}>
             <StatCell
               value={stats.running}
-              label="Running"
+              label={t('agents.statsRunning')}
               color={brandColors.cyan}
               icon={<Play size={11} color={brandColors.white} fill={brandColors.white} />}
             />
             <StatCell
               value={stats.needsYou}
-              label="Needs You"
+              label={t('agents.statsNeedsYou')}
               color={brandColors.coral}
               icon={<Text style={s.statBang}>!</Text>}
               bordered
             />
             <StatCell
               value={stats.done}
-              label="Done"
+              label={t('agents.statsDone')}
               color={brandColors.lime}
               icon={<Text style={s.statCheck}>✓</Text>}
               bordered
@@ -430,7 +432,7 @@ export function AgentList({
               ref={searchRef}
               value={query}
               onChangeText={setQuery}
-              placeholder="Search agents..."
+              placeholder={t('agents.searchPlaceholder')}
               placeholderTextColor={brandColors.textSoft}
               style={s.searchInput}
               autoCapitalize="none"
@@ -453,7 +455,7 @@ export function AgentList({
           <View style={s.filterSummary}>
             <Text style={s.filterSummaryText} numberOfLines={1} ellipsizeMode="tail">
               {selectedEndpoint.label} · {selectedEndpoint.count}{' '}
-              {selectedEndpoint.count === 1 ? 'agent' : 'agents'}
+              {selectedEndpoint.count === 1 ? t('agents.agent') : t('agents.agents')}
             </Text>
             <TouchableOpacity
               accessibilityLabel="Clear endpoint filter"
@@ -461,24 +463,24 @@ export function AgentList({
               onPress={() => setSelectedEndpointId('all')}
               style={s.filterClearButton}
             >
-              <Text style={s.filterClearText}>Clear</Text>
+              <Text style={s.filterClearText}>{t('agents.clearFilter')}</Text>
             </TouchableOpacity>
           </View>
         ) : null}
 
         {renderContent()}
 
-        <SectionTitle title="Quick Workflows" />
+        <SectionTitle title={t('agents.quickWorkflows')} />
         <View style={s.workflowGrid}>
           <QuickWorkflowCard
-            title="Daily Standup"
-            subtitle="Get updates from all agents and tasks."
+            title={t('agents.dailyStandup')}
+            subtitle={t('agents.dailyStandupSubtitle')}
             image={brandAssets.mascotLaptopWorking}
             onPress={onOpenWorkflows}
           />
           <QuickWorkflowCard
-            title="Connect Machine"
-            subtitle="Add a new machine and start commanding."
+            title={t('agents.connectMachineWorkflow')}
+            subtitle={t('agents.connectMachineWorkflowSubtitle')}
             image={brandAssets.mascotPhoneStanding}
             onPress={onAddEndpoint}
           />

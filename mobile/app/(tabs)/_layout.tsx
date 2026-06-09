@@ -1,6 +1,7 @@
 import { Tabs } from 'expo-router';
 import { Activity, FileText } from 'lucide-react-native';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Image, type ImageSourcePropType, View } from 'react-native';
 import { ReleaseLogsModal } from '@/features/settings/components/ReleaseLogsModal';
 import { useEndpointStore } from '@/store/endpointStore';
@@ -127,6 +128,7 @@ function SettingsIcon({ focused }: { color: string; focused: boolean }) {
 }
 
 export default function TabLayout() {
+  const { t } = useTranslation();
   const endpoints = useEndpointStore((s) => s.endpoints);
   const [releaseLogsVisible, setReleaseLogsVisible] = useState(false);
 
@@ -136,21 +138,21 @@ export default function TabLayout() {
         <Tabs.Screen
           name="index"
           options={{
-            title: 'Agents',
+            title: t('tabs.agents'),
             tabBarIcon: AgentsIcon,
           }}
         />
         <Tabs.Screen
           name="specs"
           options={{
-            title: 'Specs',
+            title: t('tabs.specs'),
             tabBarIcon: SpecsIcon,
           }}
         />
         <Tabs.Screen
           name="activity"
           options={{
-            title: 'Activity',
+            title: t('tabs.activity'),
             tabBarIcon: ActivityIcon,
           }}
         />
@@ -163,7 +165,7 @@ export default function TabLayout() {
         <Tabs.Screen
           name="settings"
           options={{
-            title: 'Settings',
+            title: t('tabs.settings'),
             tabBarIcon: SettingsIcon,
           }}
           listeners={{

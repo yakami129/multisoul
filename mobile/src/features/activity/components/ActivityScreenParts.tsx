@@ -1,5 +1,6 @@
 import { AlarmClock, Bot, Check, ChevronRight, Clock, X } from 'lucide-react-native';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { Text, TouchableOpacity, View } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 import { brandColors } from '@/theme/brandRefresh';
@@ -46,40 +47,43 @@ export function PartialFailureBanner({
   failedEndpointLabels: string[];
   onRetry?: () => void;
 }) {
+  const { t } = useTranslation();
   if (failedEndpointLabels.length === 0) return null;
   return (
     <View style={s.partialFailure}>
       <Text style={s.partialFailureText}>
-        Some endpoints failed: {failedEndpointLabels.join(', ')}
+        {t('activity.partialFailed', { labels: failedEndpointLabels.join(', ') })}
       </Text>
       <TouchableOpacity
         onPress={onRetry}
         accessibilityRole="button"
         accessibilityLabel="Retry failed endpoints"
       >
-        <Text style={s.partialFailureRetry}>Retry</Text>
+        <Text style={s.partialFailureRetry}>{t('activity.retry')}</Text>
       </TouchableOpacity>
     </View>
   );
 }
 
 export function DecisionBanner({ count, onPress }: { count: number; onPress: () => void }) {
-  const label = count === 1 ? 'task needs' : 'tasks need';
+  const { t } = useTranslation();
+  const bannerText =
+    count === 1
+      ? t('activity.decisionBannerSingular', { count })
+      : t('activity.decisionBannerPlural', { count });
   return (
     <TouchableOpacity
       style={s.decisionBanner}
       onPress={onPress}
       activeOpacity={0.85}
       accessibilityRole="button"
-      accessibilityLabel={`${count} ${label} your decision. Tap to review.`}
+      accessibilityLabel={bannerText}
     >
       <View style={s.alarmCircle}>
         <AlarmClock size={18} color={brandColors.ink} />
       </View>
       <View style={s.bannerCopy}>
-        <Text style={s.bannerTitle}>
-          {count} {label} your decision
-        </Text>
+        <Text style={s.bannerTitle}>{bannerText}</Text>
         <Text style={s.bannerSub}>Your input is needed to keep things moving.</Text>
       </View>
       <View style={s.reviewPill}>

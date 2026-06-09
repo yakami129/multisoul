@@ -2,6 +2,7 @@ import {
   Bell,
   CheckCircle2,
   ChevronRight,
+  Globe,
   KeyRound,
   Plus,
   QrCode,
@@ -10,12 +11,14 @@ import {
   Trash2,
 } from 'lucide-react-native';
 import React, { useState } from 'react';
-import { Image, ScrollView, Switch, Text, TouchableOpacity, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
+import { Alert, Image, ScrollView, Switch, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AddEndpointModal } from '@/features/settings/components/AddEndpointModal';
 import { EndpointList } from '@/features/settings/components/EndpointList';
 import { s } from '@/features/settings/components/settingsScreenStyles';
 import { useEndpointStore } from '@/store/endpointStore';
+import { useLanguageStore } from '@/store/languageStore';
 import { brandAssets, brandColors, brandRgba } from '@/theme/brandRefresh';
 
 function endpointOnline(lastSeenAt: number | null) {
@@ -90,14 +93,34 @@ function StaticLinkRow({
 }
 
 export default function SettingsScreen() {
+  const { t } = useTranslation();
   const endpoints = useEndpointStore((state) => state.endpoints);
   const addEndpoint = useEndpointStore((state) => state.addEndpoint);
   const removeEndpoint = useEndpointStore((state) => state.removeEndpoint);
+  const { language, setLanguage } = useLanguageStore();
   const [modalVisible, setModalVisible] = useState(false);
   const onlineCount = endpoints.filter((endpoint) => endpointOnline(endpoint.last_seen_at)).length;
-  const machineLabel = endpoints.length === 1 ? 'machine' : 'machines';
+  const machineLabel = endpoints.length === 1 ? t('settings.machine') : t('settings.machines');
 
   const openAddEndpoint = () => setModalVisible(true);
+
+  const handleLanguagePress = () => {
+    Alert.alert(t('settings.language'), undefined, [
+      {
+        text: t('settings.languageEnglish'),
+        onPress: () => {
+          void setLanguage('en');
+        },
+      },
+      {
+        text: t('settings.languageChinese'),
+        onPress: () => {
+          void setLanguage('zh');
+        },
+      },
+      { text: t('common.cancel'), style: 'cancel' },
+    ]);
+  };
 
   return (
     <SafeAreaView style={s.safe}>
@@ -107,10 +130,10 @@ export default function SettingsScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={s.nav}>
-          <Text style={s.navTitle}>Settings</Text>
+          <Text style={s.navTitle}>{t('settings.title')}</Text>
           <TouchableOpacity
             accessibilityRole="button"
-            accessibilityLabel="Add endpoint"
+            accessibilityLabel={t('settings.addEndpoint')}
             onPress={openAddEndpoint}
             style={s.addButton}
           >
@@ -125,26 +148,27 @@ export default function SettingsScreen() {
             resizeMode="contain"
           />
           <View style={s.heroContent}>
-            <Text style={s.heroTitle}>Command Console</Text>
+            <Text style={s.heroTitle}>{t('settings.commandConsole')}</Text>
             <Text style={s.heroMeta}>
-              {endpoints.length} {machineLabel} · {onlineCount} live · push ready
+              {endpoints.length} {machineLabel} · {onlineCount} {t('settings.live')} ·{' '}
+              {t('settings.pushReady')}
             </Text>
             <TouchableOpacity
               accessibilityRole="button"
-              accessibilityLabel="Scan setup QR"
+              accessibilityLabel={t('settings.scanQR')}
               onPress={openAddEndpoint}
               style={s.scanButton}
             >
               <QrCode size={20} color={brandColors.white} />
-              <Text style={s.scanText}>Scan setup QR</Text>
+              <Text style={s.scanText}>{t('settings.scanQR')}</Text>
             </TouchableOpacity>
           </View>
         </View>
 
         <View style={s.sectionHeader}>
-          <Text style={s.sectionLabel}>Endpoints</Text>
+          <Text style={s.sectionLabel}>{t('settings.endpoints')}</Text>
           <View style={s.manageWrap} accessibilityElementsHidden>
-            <Text style={s.manageText}>Manage</Text>
+            <Text style={s.manageText}>{t('settings.manage')}</Text>
             <ChevronRight size={16} color={brandColors.textSoft} />
           </View>
         </View>
@@ -157,56 +181,76 @@ export default function SettingsScreen() {
         />
 
         <View style={s.sectionHeader}>
-          <Text style={s.sectionLabel}>Preferences</Text>
+          <Text style={s.sectionLabel}>{t('settings.preferences')}</Text>
         </View>
         <View style={s.sectionCard}>
           <StaticToggleRow
-            title="Decision notifications"
-            subtitle="Get notified when a decision is needed"
+            title={t('settings.decisionNotifications')}
+            subtitle={t('settings.decisionNotificationsSubtitle')}
             color={brandColors.lime}
             icon={<Bell size={20} color={brandColors.ink} />}
             value
             divided
           />
           <StaticToggleRow
-            title="Task completion alerts"
-            subtitle="Notify me when tasks complete"
+            title={t('settings.taskCompletion')}
+            subtitle={t('settings.taskCompletionSubtitle')}
             color={brandColors.coral}
             icon={<CheckCircle2 size={20} color={brandColors.ink} />}
             value
             divided
           />
           <StaticToggleRow
-            title="Ask before tool write"
-            subtitle="Confirm before writing files or running commands"
+            title={t('settings.askBeforeWrite')}
+            subtitle={t('settings.askBeforeWriteSubtitle')}
             color={brandColors.cyan}
             icon={<Sparkles size={20} color={brandColors.ink} />}
             value
+            divided
           />
+          <TouchableOpacity
+            style={[s.row, s.divider]}
+            onPress={handleLanguagePress}
+            accessibilityRole="button"
+            accessibilityLabel={t('settings.language')}
+          >
+            <View style={[s.iconCircle, { backgroundColor: brandColors.cyan }]}>
+              <Globe size={20} color={brandColors.ink} />
+            </View>
+            <View style={s.rowCopy}>
+              <Text style={s.rowTitle} numberOfLines={1}>
+                {t('settings.language')}
+              </Text>
+              <Text style={s.rowSubtitle} numberOfLines={1}>
+                {language === 'zh' ? t('settings.languageChinese') : t('settings.languageEnglish')}
+              </Text>
+            </View>
+            <ChevronRight size={18} color={brandColors.textSoft} />
+          </TouchableOpacity>
         </View>
 
         <View style={s.sectionHeader}>
-          <Text style={s.sectionLabel}>Security</Text>
+          <Text style={s.sectionLabel}>{t('settings.security')}</Text>
         </View>
         <View style={s.sectionCard}>
           <StaticLinkRow
-            title="Bearer token"
-            subtitle="Manage API access token"
+            title={t('settings.bearerToken')}
+            subtitle={t('settings.bearerTokenSubtitle')}
             color={brandRgba.ink08}
             icon={<KeyRound size={20} color={brandColors.ink} />}
             divided
           />
           <StaticToggleRow
-            title="Local data only"
-            subtitle="All data stays on your machines"
+            title={t('settings.localData')}
+            subtitle={t('settings.localDataSubtitle')}
             color={brandRgba.ink08}
             icon={<ShieldCheck size={20} color={brandColors.ink} />}
             value
             divided
           />
           <StaticLinkRow
-            title="Delete endpoint"
-            subtitle="Remove an endpoint and revoke access"
+            title={t('settings.deleteEndpoint')}
+            subtitle={t('settings.deleteEndpointSubtitle')}
             color={brandRgba.coralSoft}
             icon={<Trash2 size={20} color={brandColors.coral} />}
             destructive
