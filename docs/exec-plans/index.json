@@ -9,7 +9,8 @@
     },
     {
       "file": "2026-06-09-bugflx.md",
-      "title": "bugflx 移动端文案、布局与端点在线检测修复 Implementation Plan"
+      "title": "bugflx 移动端文案、布局与端点在线检测修复 Implementation Plan",
+      "lastCompletedCommit": "a0a41f0e13d50772c6630dd0d449e0d5b9c07c44"
     },
     {
       "file": "2026-06-08-testing-infra.md",
