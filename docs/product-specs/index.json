@@ -91,6 +91,10 @@
       "title": "自动化测试体系建设 SPEC"
     },
     {
+      "file": "2026-06-09-SPEC-bugflx.md",
+      "title": "bugflx 移动端文案、布局与端点在线检测修复 SPEC"
+    },
+    {
       "file": "SPEC-activity-pagination.md",
       "title": "Activity 模块分页滚动加载优化 SPEC"
     },

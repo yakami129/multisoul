@@ -135,7 +135,7 @@ export default function ActivityScreen({
         />
       )}
       {activeFilter === 'done' && (
-        <View style={s.doneHeader}>
+        <View testID="activity-done-header" style={s.doneHeader}>
           <View style={s.doneSegment}>
             {(['unread', 'read'] as const).map((filter) => {
               const selected = doneFilter === filter;

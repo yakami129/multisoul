@@ -1,5 +1,6 @@
 import { Bot, Check, Server, X } from 'lucide-react-native';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Modal,
   ScrollView,
@@ -32,6 +33,7 @@ export function TargetPickerSheet({
   onClose,
   onDone,
 }: Props) {
+  const { t } = useTranslation();
   const [query, setQuery] = React.useState('');
   const [endpointId, setEndpointId] = React.useState('');
   const [agentId, setAgentId] = React.useState(selectedTarget?.agentId ?? '');
@@ -72,9 +74,9 @@ export function TargetPickerSheet({
       <View style={s.toolbar}>
         <TouchableOpacity accessibilityRole="button" onPress={onClose} style={s.toolbarButton}>
           <X size={18} color={brandColors.ink} />
-          <Text style={s.toolbarText}>Cancel</Text>
+          <Text style={s.toolbarText}>{t('common.cancel')}</Text>
         </TouchableOpacity>
-        <Text style={s.toolbarTitle}>Choose Target</Text>
+        <Text style={s.toolbarTitle}>{t('specs.chooseTarget')}</Text>
         <TouchableOpacity
           accessibilityRole="button"
           accessibilityState={{ disabled: !canDone }}
@@ -82,7 +84,7 @@ export function TargetPickerSheet({
           onPress={finish}
           style={[s.doneButton, !canDone && s.doneDisabled]}
         >
-          <Text style={s.doneText}>Done</Text>
+          <Text style={s.doneText}>{t('common.done')}</Text>
         </TouchableOpacity>
       </View>
 
@@ -91,13 +93,13 @@ export function TargetPickerSheet({
           accessibilityLabel="Search agents"
           value={query}
           onChangeText={setQuery}
-          placeholder="Search agents or repos"
+          placeholder={t('specs.searchAgentsRepos')}
           placeholderTextColor={brandColors.textMuted}
           style={s.search}
         />
 
         <View style={s.group}>
-          <Text style={s.sectionTitle}>Endpoints</Text>
+          <Text style={s.sectionTitle}>{t('specs.sectionEndpoints')}</Text>
           {endpoints.map((endpoint) => {
             const offline = !endpoint.last_seen_at && !agentEndpointIds.has(endpoint.id);
             const selected = endpoint.id === endpointId;
@@ -117,9 +119,7 @@ export function TargetPickerSheet({
                 <View style={s.rowBody}>
                   <Text style={s.rowTitle}>{endpoint.label}</Text>
                   <Text style={s.rowSubtitle}>
-                    {offline
-                      ? 'Offline. Reconnect before starting an interview.'
-                      : endpoint.base_url}
+                    {offline ? t('specs.endpointOffline') : endpoint.base_url}
                   </Text>
                 </View>
                 <View style={[s.checkSlot, selected && s.checkSlotSelected]}>
@@ -131,7 +131,7 @@ export function TargetPickerSheet({
         </View>
 
         <View style={s.group}>
-          <Text style={s.sectionTitle}>Agents</Text>
+          <Text style={s.sectionTitle}>{t('specs.sectionAgents')}</Text>
           {filteredAgents.length > 0 ? (
             filteredAgents.map((agent) => {
               const selected = agent.id === agentId;
@@ -161,8 +161,8 @@ export function TargetPickerSheet({
             })
           ) : (
             <View style={s.empty}>
-              <Text style={s.emptyTitle}>No agents for this target</Text>
-              <Text style={s.emptyBody}>Open Agents to register a runner for this repo.</Text>
+              <Text style={s.emptyTitle}>{t('specs.noAgentsForTarget')}</Text>
+              <Text style={s.emptyBody}>{t('specs.noAgentsForTargetBody')}</Text>
             </View>
           )}
         </View>

@@ -1,3 +1,4 @@
+import { useFocusEffect } from 'expo-router';
 import {
   Bell,
   CheckCircle2,
@@ -10,20 +11,18 @@ import {
   Sparkles,
   Trash2,
 } from 'lucide-react-native';
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, Image, ScrollView, Switch, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AddEndpointModal } from '@/features/settings/components/AddEndpointModal';
 import { EndpointList } from '@/features/settings/components/EndpointList';
 import { s } from '@/features/settings/components/settingsScreenStyles';
+import { countOnlineEndpoints } from '@/features/settings/services/endpointLiveness';
+import { pingAllEndpoints } from '@/features/settings/services/endpointService';
 import { useEndpointStore } from '@/store/endpointStore';
 import { useLanguageStore } from '@/store/languageStore';
 import { brandAssets, brandColors, brandRgba } from '@/theme/brandRefresh';
-
-function endpointOnline(lastSeenAt: number | null) {
-  return lastSeenAt !== null && Date.now() - lastSeenAt < 60_000;
-}
 
 function StaticToggleRow({
   title,
@@ -99,8 +98,15 @@ export default function SettingsScreen() {
   const removeEndpoint = useEndpointStore((state) => state.removeEndpoint);
   const { language, setLanguage } = useLanguageStore();
   const [modalVisible, setModalVisible] = useState(false);
-  const onlineCount = endpoints.filter((endpoint) => endpointOnline(endpoint.last_seen_at)).length;
+  const onlineCount = countOnlineEndpoints(endpoints);
+  const offlineCount = endpoints.length - onlineCount;
   const machineLabel = endpoints.length === 1 ? t('settings.machine') : t('settings.machines');
+
+  useFocusEffect(
+    useCallback(() => {
+      void pingAllEndpoints();
+    }, []),
+  );
 
   const openAddEndpoint = () => setModalVisible(true);
 
@@ -150,8 +156,8 @@ export default function SettingsScreen() {
           <View style={s.heroContent}>
             <Text style={s.heroTitle}>{t('settings.commandConsole')}</Text>
             <Text style={s.heroMeta}>
-              {endpoints.length} {machineLabel} · {onlineCount} {t('settings.live')} ·{' '}
-              {t('settings.pushReady')}
+              {endpoints.length} {machineLabel} · {onlineCount} {t('settings.online')} ·{' '}
+              {offlineCount} {t('settings.offline')}
             </Text>
             <TouchableOpacity
               accessibilityRole="button"

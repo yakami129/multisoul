@@ -125,7 +125,8 @@
     "moduleNameMapper": {
       "^@/(.*)$": "<rootDir>/src/$1",
       "^react-native-css-interop/jsx-runtime$": "react/jsx-runtime",
-      "^react-native-css-interop/jsx-dev-runtime$": "react/jsx-dev-runtime"
+      "^react-native-css-interop/jsx-dev-runtime$": "react/jsx-dev-runtime",
+      "\\.css$": "<rootDir>/src/__mocks__/fileMock.js"
     },
     "coverageThreshold": {
       "global": {

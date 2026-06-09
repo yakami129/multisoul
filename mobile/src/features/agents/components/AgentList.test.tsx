@@ -105,7 +105,7 @@ describe('AgentList', () => {
 
     fireEvent.press(getByLabelText('Add endpoint'));
     fireEvent.press(getByText('Connect Machine'));
-    fireEvent.press(getByText('Daily Standup'));
+    fireEvent.press(getByText('Automations'));
 
     expect(onAddEndpoint).toHaveBeenCalledTimes(2);
     expect(onOpenWorkflows).toHaveBeenCalledTimes(1);
@@ -124,9 +124,9 @@ describe('AgentList', () => {
       />,
     );
 
-    expect(getByText('Daily Standup').props.numberOfLines).toBe(1);
+    expect(getByText('Automations').props.numberOfLines).toBe(1);
     expect(getByText('Connect Machine').props.numberOfLines).toBe(1);
-    expect(getByText('Get updates from all agents and tasks.').props.numberOfLines).toBe(1);
+    expect(getByText('View and manage scheduled automations.').props.numberOfLines).toBe(1);
     expect(getByText('Add a new machine and start commanding.').props.numberOfLines).toBe(1);
   });
 

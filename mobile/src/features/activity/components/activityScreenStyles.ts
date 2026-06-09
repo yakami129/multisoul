@@ -246,7 +246,7 @@ export const activityScreenStyles = StyleSheet.create({
   subReviewText: { fontFamily: 'Inter', fontSize: 11, fontWeight: '600', color: brandColors.ink },
 
   // ── Done sub-filter ──────────────────────────────────────────────────────────
-  doneHeader: { gap: 8 },
+  doneHeader: { gap: 8, marginBottom: 12 },
   doneSegment: {
     flexDirection: 'row',
     backgroundColor: brandRgba.white70,

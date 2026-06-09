@@ -12,6 +12,7 @@ import { ErrorBoundary } from '../src/components/ErrorBoundary';
 import { SplashScreen } from '../src/components/SplashScreen';
 import { initDb } from '../src/db';
 import { buildNotificationInboxItem } from '../src/features/inbox/utils/buildNotificationInboxItem';
+import { pingAllEndpoints } from '../src/features/settings/services/endpointService';
 import i18n from '../src/i18n';
 import { getNotificationNavTarget } from '../src/services/notificationNavigation';
 import { registerPushTokenForEndpoints } from '../src/services/pushTokenService';
@@ -52,10 +53,18 @@ export default function RootLayout() {
       await initDb();
       await loadLanguage();
       await loadEndpoints();
+      void pingAllEndpoints();
       await loadInbox();
       await loadSpecs();
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') void pingAllEndpoints();
+    });
+    return () => sub.remove();
   }, []);
 
   useEffect(() => {

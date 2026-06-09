@@ -33,7 +33,7 @@ import { type Workflow, type WorkflowInput, type WorkflowRun } from '@/features/
 import { useEndpointStore } from '@/store/endpointStore';
 import { brandColors, brandRgba } from '@/theme/brandRefresh';
 
-function formatNextRun(ts: number | null): string {
+function formatNextRun(ts: number | null, todayLabel: string): string {
   if (!ts) return '—';
   const d = new Date(ts);
   const today = new Date();
@@ -43,7 +43,7 @@ function formatNextRun(ts: number | null): string {
     d.getFullYear() === today.getFullYear();
   const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   return isToday
-    ? `Today ${time}`
+    ? `${todayLabel} ${time}`
     : `${d.toLocaleDateString([], { month: 'short', day: 'numeric' })} ${time}`;
 }
 
@@ -155,10 +155,10 @@ export default function WorkflowDetailRoute() {
 
   const scheduleLabel =
     workflow?.mode === 'watch'
-      ? `Every ${workflow.interval_minutes ?? '?'} min`
+      ? t('workflows.everyNMin', { n: workflow.interval_minutes ?? '?' })
       : workflow?.schedule_kind === 'weekly'
-        ? `Weekly at ${workflow.time_of_day}`
-        : `Daily at ${workflow?.time_of_day ?? '—'}`;
+        ? t('workflows.scheduleWeeklyAt', { time: workflow.time_of_day })
+        : t('workflows.scheduleDailyAt', { time: workflow?.time_of_day ?? '—' });
 
   const promptPreview = workflow?.prompt
     ? workflow.prompt.length > 40
@@ -177,7 +177,7 @@ export default function WorkflowDetailRoute() {
         >
           <Text style={s.backChevron}>‹</Text>
         </TouchableOpacity>
-        <Text style={s.headerTitle}>Workflow Detail</Text>
+        <Text style={s.headerTitle}>{t('workflows.detailTitle')}</Text>
         {workflow ? (
           <TouchableOpacity
             onPress={() => setShowEdit(true)}
@@ -185,7 +185,7 @@ export default function WorkflowDetailRoute() {
             accessibilityLabel="Edit Workflow"
             style={s.headerSide}
           >
-            <Text style={s.headerEditText}>Edit</Text>
+            <Text style={s.headerEditText}>{t('workflows.detailEdit')}</Text>
           </TouchableOpacity>
         ) : (
           <View style={s.headerSide} />
@@ -196,7 +196,7 @@ export default function WorkflowDetailRoute() {
         <ActivityIndicator color={brandColors.cyan} style={{ marginTop: 48 }} />
       ) : !workflow ? (
         <View style={s.empty}>
-          <Text style={s.emptyText}>Workflow not found</Text>
+          <Text style={s.emptyText}>{t('workflows.notFound')}</Text>
         </View>
       ) : (
         <ScrollView contentContainerStyle={[s.scroll, { paddingBottom: insets.bottom + 32 }]}>
@@ -221,21 +221,21 @@ export default function WorkflowDetailRoute() {
           {/* Info card */}
           <View style={s.infoCard}>
             <View style={s.infoRow}>
-              <Text style={s.infoLabel}>Next Run</Text>
+              <Text style={s.infoLabel}>{t('workflows.infoNextRun')}</Text>
               <Text style={s.infoValue} numberOfLines={1}>
-                {formatNextRun(workflow.next_run_at)}
+                {formatNextRun(workflow.next_run_at, t('workflows.today'))}
               </Text>
             </View>
             <View style={s.divider} />
             <View style={s.infoRow}>
-              <Text style={s.infoLabel}>Schedule</Text>
+              <Text style={s.infoLabel}>{t('workflows.infoSchedule')}</Text>
               <Text style={s.infoValue} numberOfLines={1}>
                 {scheduleLabel}
               </Text>
             </View>
             <View style={s.divider} />
             <View style={s.infoRow}>
-              <Text style={s.infoLabel}>Prompt</Text>
+              <Text style={s.infoLabel}>{t('workflows.infoPrompt')}</Text>
               <Text style={s.infoValue} numberOfLines={1}>
                 {promptPreview}
               </Text>
@@ -254,9 +254,9 @@ export default function WorkflowDetailRoute() {
           ) : null}
 
           {/* Recent Runs */}
-          <Text style={s.sectionHeader}>RECENT RUNS</Text>
+          <Text style={s.sectionHeader}>{t('workflows.recentRuns')}</Text>
           {runs.length === 0 ? (
-            <Text style={s.noRuns}>No runs yet</Text>
+            <Text style={s.noRuns}>{t('workflows.noRuns')}</Text>
           ) : (
             <WorkflowRunsCard
               runs={runs}

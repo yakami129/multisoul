@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { brandColors, brandRgba } from '@/theme/brandRefresh';
 import { type Workflow, type WorkflowRun } from '../types';
@@ -10,22 +11,33 @@ const DOT_COLOR: Record<string, string> = {
   skipped_overlap: brandColors.textMuted,
 };
 
-const STATUS_LABEL: Record<string, string> = {
-  running: 'Running',
-  completed: 'Completed',
-  failed: 'Failed',
-  skipped_overlap: 'Skipped Overlap',
+type RunStatusKey =
+  | 'workflows.runStatusRunning'
+  | 'workflows.runStatusCompleted'
+  | 'workflows.runStatusFailed'
+  | 'workflows.runStatusSkipped';
+const RUN_STATUS_KEY: Record<string, RunStatusKey> = {
+  running: 'workflows.runStatusRunning',
+  completed: 'workflows.runStatusCompleted',
+  failed: 'workflows.runStatusFailed',
+  skipped_overlap: 'workflows.runStatusSkipped',
 };
 
-const WATCH_STATUS_LABEL: Record<string, string> = {
-  active: 'Active',
-  completed: 'Completed',
-  stopped: 'Stopped',
-  expired: 'Expired',
-  failed: 'Failed',
+type WatchStatusDetailKey =
+  | 'workflows.statusActive'
+  | 'workflows.statusCompleted'
+  | 'workflows.statusStopped'
+  | 'workflows.statusExpired'
+  | 'workflows.statusFailed';
+const WATCH_STATUS_KEY: Record<string, WatchStatusDetailKey> = {
+  active: 'workflows.statusActive',
+  completed: 'workflows.statusCompleted',
+  stopped: 'workflows.statusStopped',
+  expired: 'workflows.statusExpired',
+  failed: 'workflows.statusFailed',
 };
 
-function formatNextRunOrExpiry(ts: number | null): string {
+function formatNextRunOrExpiry(ts: number | null, todayLabel: string): string {
   if (!ts) return '—';
   const d = new Date(ts);
   const today = new Date();
@@ -35,12 +47,8 @@ function formatNextRunOrExpiry(ts: number | null): string {
     d.getFullYear() === today.getFullYear();
   const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   return isToday
-    ? `Today ${time}`
+    ? `${todayLabel} ${time}`
     : `${d.toLocaleDateString([], { month: 'short', day: 'numeric' })} ${time}`;
-}
-
-function formatRunTime(ts: number): string {
-  return formatNextRunOrExpiry(ts);
 }
 
 interface WatchCardProps {
@@ -58,18 +66,22 @@ export function WorkflowWatchCard({
   onStopWatch,
   onRestartWatch,
 }: WatchCardProps) {
+  const { t } = useTranslation();
+  const todayLabel = t('workflows.today');
   return (
     <>
       <View style={cs.infoCard}>
         <View style={cs.infoRow}>
-          <Text style={cs.infoLabel}>Status</Text>
+          <Text style={cs.infoLabel}>{t('workflows.infoStatus')}</Text>
           <Text style={[cs.infoValue, workflow.watch_status === 'active' && cs.watchActive]}>
-            {workflow.watch_status ? WATCH_STATUS_LABEL[workflow.watch_status] : '—'}
+            {workflow.watch_status
+              ? t(WATCH_STATUS_KEY[workflow.watch_status] ?? 'workflows.statusFailed')
+              : '—'}
           </Text>
         </View>
         <View style={cs.divider} />
         <View style={cs.infoRow}>
-          <Text style={cs.infoLabel}>Runs</Text>
+          <Text style={cs.infoLabel}>{t('workflows.infoRuns')}</Text>
           <Text style={cs.infoValue}>
             {workflow.run_count}
             {workflow.max_runs ? ` / ${workflow.max_runs}` : ''}
@@ -79,8 +91,10 @@ export function WorkflowWatchCard({
           <>
             <View style={cs.divider} />
             <View style={cs.infoRow}>
-              <Text style={cs.infoLabel}>Expires</Text>
-              <Text style={cs.infoValue}>{formatNextRunOrExpiry(workflow.expires_at)}</Text>
+              <Text style={cs.infoLabel}>{t('workflows.infoExpires')}</Text>
+              <Text style={cs.infoValue}>
+                {formatNextRunOrExpiry(workflow.expires_at, todayLabel)}
+              </Text>
             </View>
           </>
         ) : null}
@@ -88,7 +102,7 @@ export function WorkflowWatchCard({
           <>
             <View style={cs.divider} />
             <View style={[cs.infoRow, { alignItems: 'flex-start' }]}>
-              <Text style={cs.infoLabel}>Stop Condition</Text>
+              <Text style={cs.infoLabel}>{t('workflows.infoStopCondition')}</Text>
               <Text style={[cs.infoValue, { maxWidth: '55%' }]} numberOfLines={3}>
                 {workflow.stop_condition}
               </Text>
@@ -106,7 +120,7 @@ export function WorkflowWatchCard({
             accessibilityRole="button"
             accessibilityLabel="Stop Watch"
           >
-            <Text style={cs.watchBtnText}>Stop Watch</Text>
+            <Text style={cs.watchBtnText}>{t('workflows.stopWatch')}</Text>
           </TouchableOpacity>
         ) : (
           <TouchableOpacity
@@ -116,7 +130,7 @@ export function WorkflowWatchCard({
             accessibilityRole="button"
             accessibilityLabel="Restart Watch"
           >
-            <Text style={cs.watchBtnText}>Restart Watch</Text>
+            <Text style={cs.watchBtnText}>{t('workflows.restartWatch')}</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -130,11 +144,14 @@ interface RunsCardProps {
 }
 
 export function WorkflowRunsCard({ runs, onOpenConversation }: RunsCardProps) {
+  const { t } = useTranslation();
+  const todayLabel = t('workflows.today');
   return (
     <View style={cs.runsCard}>
       {runs.map((run, idx) => {
         const isLast = idx === runs.length - 1;
         const canOpen = !!run.conversation_id;
+        const statusKey = RUN_STATUS_KEY[run.status];
         return (
           <View key={run.id}>
             <View style={cs.runRow}>
@@ -146,15 +163,15 @@ export function WorkflowRunsCard({ runs, onOpenConversation }: RunsCardProps) {
               />
               <View style={cs.runInfo}>
                 <Text style={cs.runStatus} numberOfLines={1}>
-                  {run.run_number != null ? `Run #${run.run_number} · ` : ''}
-                  {STATUS_LABEL[run.status] ?? run.status}
+                  {run.run_number != null ? t('workflows.runNumber', { n: run.run_number }) : ''}
+                  {statusKey ? t(statusKey) : run.status}
                 </Text>
                 <Text style={cs.runTime} numberOfLines={1}>
-                  {formatRunTime(run.scheduled_for)}
+                  {formatNextRunOrExpiry(run.scheduled_for, todayLabel)}
                 </Text>
                 {run.stop_condition_satisfied === true ? (
                   <Text style={cs.runStopSatisfied} numberOfLines={1}>
-                    Stop condition satisfied
+                    {t('workflows.stopConditionSatisfied')}
                   </Text>
                 ) : null}
                 {run.error_message ? (
@@ -169,12 +186,12 @@ export function WorkflowRunsCard({ runs, onOpenConversation }: RunsCardProps) {
                   accessibilityRole="button"
                 >
                   <Text style={cs.openLink} numberOfLines={1}>
-                    Open Conversation
+                    {t('workflows.openConversation')}
                   </Text>
                 </TouchableOpacity>
               ) : (
                 <Text style={cs.noConv} numberOfLines={1}>
-                  No conversation
+                  {t('workflows.noConversation')}
                 </Text>
               )}
             </View>

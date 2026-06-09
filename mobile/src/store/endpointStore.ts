@@ -3,6 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { v4 as uuidv4 } from 'uuid';
 import { create } from 'zustand';
 import { getDb } from '@/db';
+import { normalizeEndpointBaseUrl } from '@/features/settings/services/endpointLiveness';
 import { type Endpoint } from '@/types';
 
 interface EndpointState {
@@ -16,18 +17,7 @@ interface EndpointState {
 const TOKEN_KEY = (id: string) => `endpoint_token_${id}`;
 const pendingEndpointBaseUrls = new Set<string>();
 
-function normalizeEndpointBaseUrl(baseUrl: string): string {
-  const trimmed = baseUrl.trim().replace(/\/+$/, '');
-  try {
-    const parsed = new URL(trimmed);
-    const pathname = parsed.pathname === '/' ? '' : parsed.pathname.replace(/\/+$/, '');
-    return `${parsed.protocol}//${parsed.host}${pathname}`.toLowerCase();
-  } catch {
-    return trimmed.toLowerCase();
-  }
-}
-
-export const useEndpointStore = create<EndpointState>((set) => ({
+export const useEndpointStore = create<EndpointState>((set, get) => ({
   endpoints: [],
 
   load: async () => {
@@ -66,6 +56,7 @@ export const useEndpointStore = create<EndpointState>((set) => ({
       await AsyncStorage.setItem(TOKEN_KEY(id), token);
       const ep: Endpoint = { id, label, base_url: normalizedBaseUrl, token, last_seen_at: null };
       set((s) => ({ endpoints: [...s.endpoints, ep] }));
+      await get().updateLastSeen(id, Date.now());
     } finally {
       pendingEndpointBaseUrls.delete(normalizedBaseUrl);
     }
