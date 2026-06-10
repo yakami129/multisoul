@@ -38,6 +38,14 @@ const CLAUDE_MODELS: &[BuiltinModel] = &[
         id: "claude-opus-4-6",
         label: "Opus 4.6",
     },
+    BuiltinModel {
+        id: "claude-opus-4-8",
+        label: "Opus 4.8",
+    },
+    BuiltinModel {
+        id: "claude-fable-5",
+        label: "Fable 5",
+    },
 ];
 
 const CODEX_MODELS: &[BuiltinModel] = &[
