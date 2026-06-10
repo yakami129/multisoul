@@ -183,7 +183,9 @@ export async function loadIdeas(): Promise<SpecIdea[]> {
   const rows = await getDb().getAllAsync<IdeaRow>(
     'SELECT * FROM spec_ideas ORDER BY updated_at DESC',
   );
-  return rows.map(rowToIdea);
+  return rows
+    .map(rowToIdea)
+    .filter((idea) => !(idea.pendingMutation === 'delete' && idea.status === 'archived'));
 }
 
 export async function loadPendingIdeas(endpointId: string): Promise<SpecIdea[]> {
@@ -201,12 +203,47 @@ export async function replaceIdeasForEndpoint(
   ideas: SpecIdea[],
 ): Promise<void> {
   const db = getDb();
-  await db.runAsync(
-    'DELETE FROM spec_ideas WHERE target_endpoint_id = ? AND pending_mutation IS NULL',
+  const localRows = await db.getAllAsync<IdeaRow>(
+    'SELECT * FROM spec_ideas WHERE target_endpoint_id = ?',
     [endpointId],
   );
-  for (const idea of ideas) {
-    await saveIdea({ ...idea, targetEndpointId: endpointId }, null, null);
+  const localIdeas = localRows.map(rowToIdea);
+  const localMap = new Map(localIdeas.map((idea) => [idea.id, idea] as const));
+  const remoteMap = new Map(
+    ideas.map((idea) => [idea.id, { ...idea, targetEndpointId: endpointId }] as const),
+  );
+
+  for (const localIdea of localIdeas) {
+    const remoteIdea = remoteMap.get(localIdea.id);
+    if (!remoteIdea) {
+      if (localIdea.pendingMutation === 'delete') {
+        await deleteIdea(localIdea.id);
+      } else if (!localIdea.pendingMutation) {
+        await deleteIdea(localIdea.id);
+      }
+      continue;
+    }
+
+    if (localIdea.pendingMutation === 'delete') {
+      continue;
+    }
+    if (localIdea.pendingMutation) {
+      continue;
+    }
+
+    await saveIdea(remoteIdea, null, null);
+    remoteMap.delete(localIdea.id);
+  }
+
+  for (const [ideaId, remoteIdea] of remoteMap) {
+    const localIdea = localMap.get(ideaId);
+    if (localIdea?.pendingMutation === 'delete') {
+      continue;
+    }
+    if (localIdea?.pendingMutation) {
+      continue;
+    }
+    await saveIdea(remoteIdea, null, null);
   }
 }
 

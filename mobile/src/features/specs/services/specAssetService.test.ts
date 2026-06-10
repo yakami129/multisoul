@@ -202,6 +202,50 @@ test('does not resync ideas that are already authoritative', async () => {
   expect(mockPatch).not.toHaveBeenCalled();
 });
 
+test('flushes delete tombstone by archiving first when needed', async () => {
+  mockPatch.mockResolvedValueOnce({
+    data: {
+      idea: {
+        id: 'idea-del',
+        title: 'Archived remotely',
+        status: 'archived',
+        target_agent_id: 'agent-1',
+        target_endpoint_id: 'ep-1',
+        target_repo_path: '/repo/multisoul',
+        target_agent_name: 'Codex Runner',
+        body: 'Body',
+        created_at: 1,
+        updated_at: 2,
+        archived_at: 2,
+      },
+    },
+  });
+  mockDelete.mockResolvedValueOnce({ data: null });
+
+  const synced = await syncSpecIdeaBeforeServerAction(endpoint, {
+    id: 'idea-del',
+    title: 'Delete me',
+    status: 'open',
+    targetAgentId: 'agent-1',
+    targetEndpointId: 'ep-1',
+    targetRepoPath: '/repo/multisoul',
+    targetAgentName: 'Codex Runner',
+    body: 'Body',
+    notes: [],
+    attachments: [],
+    createdAt: 1,
+    updatedAt: 1,
+    pendingMutation: 'delete',
+  });
+
+  expect(mockPatch).toHaveBeenCalledWith(
+    '/api/v1/spec-ideas/idea-del',
+    expect.objectContaining({ status: 'archived' }),
+  );
+  expect(mockDelete).toHaveBeenCalledWith('/api/v1/spec-ideas/idea-del');
+  expect(synced.pendingMutation).toBeUndefined();
+});
+
 test('fetches specs and detail with latest version fallback', async () => {
   mockGet
     .mockResolvedValueOnce({

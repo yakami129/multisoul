@@ -259,6 +259,20 @@ export async function syncSpecIdeaBeforeServerAction(
   if (idea.pendingMutation === 'create') {
     return createSpecIdea(endpoint, input);
   }
+  if (idea.pendingMutation === 'delete') {
+    if (idea.status !== 'archived') {
+      await updateSpecIdea(endpoint, idea.id, {
+        status: 'archived',
+        archivedAt: idea.archivedAt ?? Date.now(),
+      });
+    }
+    await deleteSpecIdea(endpoint, idea.id);
+    return {
+      ...idea,
+      pendingMutation: undefined,
+      lastSyncError: undefined,
+    };
+  }
   return updateSpecIdea(endpoint, idea.id, input);
 }
 

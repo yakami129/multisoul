@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, waitFor } from '@testing-library/react-native';
 import React from 'react';
 import WorkflowsTab from './workflows';
-import { WORKFLOW_TEMPLATES } from '../../src/features/workflows/templates';
+import { getWorkflowTemplates } from '../../src/features/workflows/templates';
 
 const mockPush = jest.fn();
 const mockFetchAllAgents = jest.fn();
@@ -18,6 +18,7 @@ const endpoint = {
   label: 'Office Mac',
   base_url: 'http://localhost:8765',
   token: 'token-1',
+  last_seen_at: 10,
 };
 
 const agent = {
@@ -103,11 +104,13 @@ beforeEach(() => {
   mockUpdateWorkflow.mockResolvedValue({});
 });
 
-function selectAgent(
+async function selectAgent(
   queries: Pick<ReturnType<typeof renderScreen>, 'getByLabelText' | 'getByText'>,
   agentName = 'MultiSoul Agent',
 ) {
+  await waitFor(() => expect(mockFetchAllAgents).toHaveBeenCalled());
   fireEvent.press(queries.getByLabelText('Agent'));
+  await waitFor(() => expect(queries.getByText(agentName)).toBeTruthy());
   fireEvent.press(queries.getByText(agentName));
   fireEvent.press(queries.getByText('Done'));
 }
@@ -137,7 +140,7 @@ test('blank workflow creation goes through the existing create payload', async (
 
   fireEvent.changeText(getByPlaceholderText('e.g. CI Watch'), 'Custom Morning Run');
   fireEvent.changeText(getByPlaceholderText('What should the agent do?'), 'Summarize repo');
-  selectAgent({ getByLabelText, getByText });
+  await selectAgent({ getByLabelText, getByText });
   fireEvent.press(getByText('Save'));
 
   await waitFor(() => expect(mockCreateWorkflow).toHaveBeenCalledTimes(1));
@@ -172,7 +175,7 @@ test('blank workflow creation goes through the existing create payload', async (
 ///   - 正断言：createWorkflow payload 是模板 initial_values + agent_id。
 ///   - 负断言：payload 不包含模板元数据。
 test('template workflow creation pre-fills form but saves plain workflow input', async () => {
-  const template = WORKFLOW_TEMPLATES.find((item) => item.id === 'ci-failure-triage');
+  const template = getWorkflowTemplates().find((item) => item.id === 'ci-failure-triage');
   if (!template) throw new Error('test template must exist');
 
   const { getByDisplayValue, getByLabelText, getByTestId, getByText } = renderScreen();
@@ -184,7 +187,7 @@ test('template workflow creation pre-fills form but saves plain workflow input',
   await waitFor(() => expect(getByLabelText('Agent')).toBeTruthy());
   expect(getByDisplayValue(template.initial_values.prompt)).toBeTruthy();
 
-  selectAgent({ getByLabelText, getByText });
+  await selectAgent({ getByLabelText, getByText });
   fireEvent.press(getByText('Save'));
 
   await waitFor(() => expect(mockCreateWorkflow).toHaveBeenCalledTimes(1));

@@ -11,7 +11,7 @@ import {
   loadVoiceRecognitionRuntime,
   type VoiceRecognitionRuntime,
 } from './voiceRecognitionRuntime';
-import { getSystemSpeechLocale } from '../utils/voiceInputText';
+import { DEFAULT_SPEECH_LOCALE, getSystemSpeechLocale } from '../utils/voiceInputText';
 
 export const VOICE_INPUT_TIMEOUT_MS = 45_000;
 
@@ -108,6 +108,9 @@ export function useVoiceInput({
   const runtimeRef = useRef<VoiceRecognitionRuntime | null>(null);
   const subscriptionsRef = useRef<EventSubscription[]>([]);
   const onTranscriptRef = useRef(onTranscript);
+  const shouldRetryWithEnglishRef = useRef(false);
+  const hasRetriedWithEnglishRef = useRef(false);
+  const startVoiceTimeoutRef = useRef<() => void>(() => {});
 
   const platformSupported = Platform.OS === 'ios';
 
@@ -128,6 +131,8 @@ export function useVoiceInput({
     cancelRequestedRef.current = false;
     timeoutRequestedRef.current = false;
     handledTerminalEventRef.current = false;
+    shouldRetryWithEnglishRef.current = false;
+    hasRetriedWithEnglishRef.current = false;
   }, []);
 
   const showNoSpeechAlert = useCallback(() => {
@@ -189,6 +194,16 @@ export function useVoiceInput({
           showNoSpeechAlert();
         }),
         addVoiceRecognitionListener(runtime, 'error', (event: ExpoSpeechRecognitionErrorEvent) => {
+          // Silently retry with en-US when system locale isn't supported by the recognizer.
+          // Only retry once — if en-US also fails, fall through to the normal error path.
+          if (event.error === 'language-not-supported' && !hasRetriedWithEnglishRef.current) {
+            shouldRetryWithEnglishRef.current = true;
+            handledTerminalEventRef.current = true;
+            shouldCommitRef.current = false;
+            latestTranscriptRef.current = '';
+            return;
+          }
+
           clearVoiceTimeout();
 
           if (
@@ -219,6 +234,20 @@ export function useVoiceInput({
             return;
           }
 
+          if (shouldRetryWithEnglishRef.current) {
+            shouldRetryWithEnglishRef.current = false;
+            hasRetriedWithEnglishRef.current = true;
+            handledTerminalEventRef.current = false;
+            startVoiceTimeoutRef.current();
+            runtimeRef.current?.ExpoSpeechRecognitionModule.start({
+              lang: DEFAULT_SPEECH_LOCALE,
+              interimResults: true,
+              continuous: false,
+              iosTaskHint: runtimeRef.current?.TaskHintIOS.dictation,
+            });
+            return;
+          }
+
           if (shouldCommitRef.current) {
             onTranscriptRef.current(latestTranscriptRef.current);
           } else if (!handledTerminalEventRef.current) {
@@ -244,6 +273,10 @@ export function useVoiceInput({
       Alert.alert('Voice input timed out', 'Try again after speaking clearly into the microphone.');
     }, VOICE_INPUT_TIMEOUT_MS);
   }, [clearVoiceTimeout, finishWithoutCommit]);
+
+  useEffect(() => {
+    startVoiceTimeoutRef.current = startVoiceTimeout;
+  }, [startVoiceTimeout]);
 
   const startVoiceInput = useCallback(async () => {
     if (!platformSupported || disabled || status !== 'idle') {

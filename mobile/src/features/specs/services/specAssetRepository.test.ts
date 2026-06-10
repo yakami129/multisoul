@@ -112,6 +112,28 @@ test('loads cached ideas and pending endpoint mutations', async () => {
 });
 
 test('replaces endpoint ideas without deleting pending local edits', async () => {
+  mockGetAllAsync.mockResolvedValueOnce([
+    {
+      id: 'idea-local',
+      title: 'Local pending',
+      status: 'archived',
+      target_agent_id: 'agent-1',
+      target_endpoint_id: 'ep-1',
+      target_repo_path: '/repo/multisoul',
+      target_agent_name: 'Codex Runner',
+      body: 'Local body',
+      notes_json: '[]',
+      attachments_json: '[]',
+      interview_conversation_id: null,
+      converted_spec_id: null,
+      error_message: null,
+      pending_mutation: 'delete',
+      last_sync_error: null,
+      created_at: 1,
+      updated_at: 9,
+      archived_at: 9,
+    },
+  ]);
   await replaceIdeasForEndpoint('ep-1', [
     {
       id: 'idea-2',
@@ -127,14 +149,83 @@ test('replaces endpoint ideas without deleting pending local edits', async () =>
       createdAt: 1,
       updatedAt: 2,
     },
+    {
+      id: 'idea-local',
+      title: 'Remote stale',
+      status: 'archived',
+      targetAgentId: 'agent-1',
+      targetEndpointId: 'wrong-endpoint',
+      targetRepoPath: '/repo/multisoul',
+      targetAgentName: 'Codex Runner',
+      body: 'Remote stale body',
+      notes: [],
+      attachments: [],
+      createdAt: 1,
+      updatedAt: 2,
+    },
   ]);
 
-  expect(mockRunAsync).toHaveBeenNthCalledWith(
-    1,
-    'DELETE FROM spec_ideas WHERE target_endpoint_id = ? AND pending_mutation IS NULL',
+  expect(mockGetAllAsync).toHaveBeenCalledWith(
+    'SELECT * FROM spec_ideas WHERE target_endpoint_id = ?',
     ['ep-1'],
   );
-  expect(mockRunAsync.mock.calls[1][1][4]).toBe('ep-1');
+  const insertCalls = mockRunAsync.mock.calls.filter((call) =>
+    String(call[0]).includes('INSERT OR REPLACE INTO spec_ideas'),
+  );
+  expect(insertCalls).toHaveLength(1);
+  expect(insertCalls[0][1][0]).toBe('idea-2');
+  expect(insertCalls[0][1][4]).toBe('ep-1');
+});
+
+test('loadIdeas hides archived delete tombstones from the UI list', async () => {
+  mockGetAllAsync
+    .mockResolvedValueOnce([])
+    .mockResolvedValueOnce([])
+    .mockResolvedValueOnce([
+      {
+        id: 'idea-del',
+        title: 'Delete me',
+        status: 'archived',
+        target_agent_id: 'agent-1',
+        target_endpoint_id: 'ep-1',
+        target_repo_path: '/repo/multisoul',
+        target_agent_name: 'Codex Runner',
+        body: 'Body',
+        notes_json: '[]',
+        attachments_json: '[]',
+        interview_conversation_id: null,
+        converted_spec_id: null,
+        error_message: null,
+        pending_mutation: 'delete',
+        last_sync_error: null,
+        created_at: 1,
+        updated_at: 2,
+        archived_at: 2,
+      },
+      {
+        id: 'idea-keep',
+        title: 'Keep me',
+        status: 'open',
+        target_agent_id: 'agent-1',
+        target_endpoint_id: 'ep-1',
+        target_repo_path: '/repo/multisoul',
+        target_agent_name: 'Codex Runner',
+        body: 'Body',
+        notes_json: '[]',
+        attachments_json: '[]',
+        interview_conversation_id: null,
+        converted_spec_id: null,
+        error_message: null,
+        pending_mutation: null,
+        last_sync_error: null,
+        created_at: 1,
+        updated_at: 3,
+        archived_at: null,
+      },
+    ]);
+
+  const ideas = await loadIdeas();
+  expect(ideas.map((idea) => idea.id)).toEqual(['idea-keep']);
 });
 
 test('saves and loads spec artifact detail with latest version ordering', async () => {
