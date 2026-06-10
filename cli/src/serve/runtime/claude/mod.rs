@@ -6,7 +6,7 @@ use crate::logging;
 use crate::serve::runtime::DispatchMessage;
 use crate::serve::state::{start_new_process_group, AppState, SessionHandle};
 use serde_json::Value;
-use std::io::{BufRead, BufReader};
+use std::io::BufReader;
 use std::process::{Child, ChildStdin, Command, Stdio};
 use tracing::{debug, error, info, info_span, warn};
 
@@ -14,9 +14,7 @@ mod stream;
 
 mod db;
 
-use db::{
-    broadcast, clear_session_id, insert_message, load_session_id, mark_failed, save_session_id,
-};
+use db::{broadcast, insert_message, load_session_id, mark_failed};
 use stream::process_turn;
 
 // ─── public API ──────────────────────────────────────────────────────────────
@@ -114,28 +112,9 @@ fn session_worker(
         }
     };
     info!(pid = ?child.id(), resume = ?session_id, "agent_spawn");
+    session_handle.set_current_pid(child.id());
 
-    // Read the system event to capture/update session_id
     let mut reader = BufReader::new(child.stdout.take().expect("no stdout"));
-    if read_system_event(&mut reader, &state, &conv_id, &mut session_id) {
-        warn!("agent_stale_session_detected");
-        clear_session_id(&state, &conv_id);
-        session_id = None;
-        let _ = child.kill();
-        let _ = child.wait();
-        let (fresh_child, fresh_stdin) =
-            match spawn_claude(&project_path, None, active_child_model.as_deref()) {
-                Some(pair) => pair,
-                None => {
-                    mark_failed(&state, &conv_id);
-                    return;
-                }
-            };
-        child = fresh_child;
-        stdin = fresh_stdin;
-        reader = BufReader::new(child.stdout.take().expect("no stdout"));
-        let _ = read_system_event(&mut reader, &state, &conv_id, &mut session_id);
-    }
 
     // Main loop: wait for message → write → read until result → repeat
     loop {
@@ -169,26 +148,6 @@ fn session_worker(
                     stdin = s;
                     active_child_model = msg_model_id.clone();
                     reader = BufReader::new(child.stdout.take().expect("no stdout"));
-                    if read_system_event(&mut reader, &state, &conv_id, &mut session_id) {
-                        warn!("agent_stale_session_on_model_change");
-                        clear_session_id(&state, &conv_id);
-                        session_id = None;
-                        let stale_pid = child.id();
-                        let _ = child.kill();
-                        session_handle.clear_current_pid(stale_pid);
-                        let _ = child.wait();
-                        let Some((fresh_child, fresh_stdin)) =
-                            spawn_claude(&project_path, None, active_child_model.as_deref())
-                        else {
-                            mark_failed(&state, &conv_id);
-                            continue;
-                        };
-                        child = fresh_child;
-                        session_handle.set_current_pid(child.id());
-                        stdin = fresh_stdin;
-                        reader = BufReader::new(child.stdout.take().expect("no stdout"));
-                        let _ = read_system_event(&mut reader, &state, &conv_id, &mut session_id);
-                    }
                 }
                 None => {
                     mark_failed(&state, &conv_id);
@@ -219,6 +178,7 @@ fn session_worker(
                 &state,
                 &conv_id,
                 &turn_input,
+                &mut session_id,
                 &answer_rx,
             ) {
                 Ok(()) => {
@@ -251,29 +211,6 @@ fn session_worker(
                             session_handle.set_current_pid(child.id());
                             stdin = s;
                             reader = BufReader::new(child.stdout.take().expect("no stdout"));
-                            if read_system_event(&mut reader, &state, &conv_id, &mut session_id) {
-                                warn!("agent_stale_session_on_respawn");
-                                clear_session_id(&state, &conv_id);
-                                session_id = None;
-                                let _ = child.kill();
-                                session_handle.clear_current_pid(child.id());
-                                let _ = child.wait();
-                                if let Some((fresh_child, fresh_stdin)) =
-                                    spawn_claude(&project_path, None, active_child_model.as_deref())
-                                {
-                                    child = fresh_child;
-                                    session_handle.set_current_pid(child.id());
-                                    stdin = fresh_stdin;
-                                    reader =
-                                        BufReader::new(child.stdout.take().expect("no stdout"));
-                                    let _ = read_system_event(
-                                        &mut reader,
-                                        &state,
-                                        &conv_id,
-                                        &mut session_id,
-                                    );
-                                }
-                            }
                         }
                         None => {
                             error!(attempt, "agent_respawn_failed");
@@ -349,46 +286,6 @@ fn normalize_model_id(model_id: Option<&str>) -> Option<String> {
 mod io;
 
 pub(super) use io::{write_user_message, write_user_message_with_image};
-
-/// Read the `system` event from stdout to capture the session_id.
-/// Stops after the first system event or first non-system event.
-/// Returns true when Claude reports that the saved --resume session no longer exists.
-fn read_system_event(
-    reader: &mut BufReader<std::process::ChildStdout>,
-    state: &AppState,
-    conv_id: &str,
-    session_id: &mut Option<String>,
-) -> bool {
-    let mut line = String::new();
-    for _ in 0..20 {
-        line.clear();
-        match reader.read_line(&mut line) {
-            Ok(0) | Err(_) => return false,
-            Ok(_) => {}
-        }
-        let trimmed = line.trim();
-        if trimmed.is_empty() {
-            continue;
-        }
-        debug!(line = %trimmed, "agent_system_line");
-        if let Ok(raw) = serde_json::from_str::<Value>(trimmed) {
-            if is_stale_session_error(&raw) {
-                return true;
-            }
-            if raw["type"].as_str() == Some("system") {
-                if let Some(sid) = raw["session_id"].as_str().filter(|s| !s.is_empty()) {
-                    *session_id = Some(sid.to_string());
-                    save_session_id(state, conv_id, sid);
-                    debug!(session_id = %sid, "agent_session_captured");
-                }
-                return false; // system event consumed
-            }
-            // Non-system event — stop looking (claude may not emit system on resume)
-            return false;
-        }
-    }
-    false
-}
 
 fn is_stale_session_error(raw: &Value) -> bool {
     raw["is_error"].as_bool().unwrap_or(false)

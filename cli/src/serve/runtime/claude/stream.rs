@@ -13,7 +13,11 @@ use std::process::ChildStdin;
 use std::time::Instant;
 use tracing::{debug, info};
 
-use super::{broadcast, insert_message, write_user_message, write_user_message_with_image};
+use super::{
+    broadcast,
+    db::{clear_session_id, save_session_id},
+    insert_message, is_stale_session_error, write_user_message, write_user_message_with_image,
+};
 
 /// Input for a single Claude turn: the user's message plus optional image attachment.
 pub(super) struct TurnInput<'a> {
@@ -37,6 +41,7 @@ pub(super) fn process_turn(
     state: &AppState,
     conv_id: &str,
     input: &TurnInput<'_>,
+    session_id: &mut Option<String>,
     answer_rx: &std::sync::mpsc::Receiver<AnswerPayload>,
 ) -> Result<(), String> {
     // Update conversation status → running
@@ -78,9 +83,19 @@ pub(super) fn process_turn(
             Err(_) => continue,
         };
 
+        if is_stale_session_error(&raw) {
+            clear_session_id(state, conv_id);
+            *session_id = None;
+            return Err("stale Claude resume session".into());
+        }
+
         match raw["type"].as_str().unwrap_or("") {
             "system" => {
-                // session_id can appear again on reconnect; ignore here (already captured)
+                if let Some(sid) = raw["session_id"].as_str().filter(|s| !s.is_empty()) {
+                    *session_id = Some(sid.to_string());
+                    save_session_id(state, conv_id, sid);
+                    debug!(session_id = %sid, "agent_session_captured");
+                }
             }
             "control_request" => {
                 // Claude Code requests permission to use a tool.

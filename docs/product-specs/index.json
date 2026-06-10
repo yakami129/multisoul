@@ -95,6 +95,10 @@
       "title": "bugflx 移动端文案、布局与端点在线检测修复 SPEC"
     },
     {
+      "file": "2026-06-09-SPEC-spec-idea-sync-fix.md",
+      "title": "Spec Idea 同步修复 SPEC"
+    },
+    {
       "file": "2026-06-09-SPEC-workflow-agent-picker.md",
       "title": "Workflow Agent 选择组件统一 SPEC"
     },

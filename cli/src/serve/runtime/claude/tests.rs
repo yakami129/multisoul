@@ -265,12 +265,14 @@ fn abort_kills_child_blocking_inside_claude_process_turn() {
             uploads_dir: std::path::Path::new("/tmp/uploads"),
             seq: 1,
         };
+        let mut session_id = None;
         stream::process_turn(
             &mut stdin,
             &mut reader,
             &state_for_turn,
             "conv-1",
             &input,
+            &mut session_id,
             &answer_rx,
         )
     });

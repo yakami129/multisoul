@@ -351,7 +351,8 @@ Claude Code 使用 **JSON stream protocol**，每行一个 JSON 事件：
 
 关键差异点：
 - **`control_request`**：Claude Code 会先发 `control_request` 请求 tool 权限，runtime 必须回写 `control_response` 才能继续。`AskUserQuestion` 在此阶段拦截并等待 mobile 用户作答。
-- **`claude_session_id`**：第一条 `system` 事件携带 `session_id`，存入 DB 后用于会话恢复（`--resume`）。
+- **`claude_session_id`**：`process_turn` 的 stdout 循环里遇到 `system` 事件时捕获 `session_id` 并存入 DB，用于后续 `--resume`；不在 spawn 后阻塞等待 startup stdout（Claude Code 升级后可能启动期无输出）。若 stdout 报告 resume session 失效，清空 DB 中的 `claude_session_id` 并让 worker respawn fresh 进程。
+- **pid 登记时机**：`spawn_claude` 成功后立即 `session_handle.set_current_pid`，再进入 `process_turn` 阻塞读 stdout，确保 abort 能杀掉首条消息处理前的子进程。
 - **stdin 协议**：用户消息以 JSON lines 写入，格式见 `claude_io.rs`。
 
 ---
@@ -389,6 +390,7 @@ KodaX 使用 `kodax --mode json --session <conversation_id> --agent-mode ama <pr
 | 死锁：先锁 `db` 再锁 `sessions` | 两把锁顺序不一致 | 统一按 `sessions → db` 顺序；或 `drop()` 后再取下一把锁 |
 | Worker crash 但 sessions map 未清理 | sender 变悬空 | 检测到 `tx.send()` 失败时重建 worker（参考两个 runtime 的模板） |
 | 停止按钮只让 UI 变 idle，但 CLI 仍在跑 | abort 只删除 sender，未 kill 当前子进程 | `sessions` 保存 `SessionHandle`，runtime 登记 pid，spawn 时创建独立 process group，abort 时 kill 进程组 |
+| spawn 后阻塞读 startup stdout 才登记 pid | Claude Code 升级后启动期可能无 stdout，abort 无法 kill 阻塞中的子进程 | spawn 后立即 `set_current_pid`，在 `process_turn` 内处理 `system` / stale session |
 | `spawn_blocking` 里调用 `.await` | blocking 线程不能 await | 所有 DB 和 I/O 操作使用同步 API |
 | stdin 未关闭导致子进程挂起 | 很多 CLI 等 EOF 才开始处理 | 写完后 `drop(stdin)` 或显式 close |
 | broadcast channel 已无接收者 | WS 断开后 send 返回 0 | 正常情况，用 `unwrap_or(0)` 忽略 |
