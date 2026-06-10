@@ -12,7 +12,6 @@ import { useTranslation } from 'react-i18next';
 import {
   ActivityIndicator,
   Image,
-  type ImageSourcePropType,
   RefreshControl,
   ScrollView,
   Text,
@@ -23,10 +22,17 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useChatStore } from '@/store/chatStore';
 import { brandAssets, brandColors } from '@/theme/brandRefresh';
-import { type Agent, type Conversation } from '@/types';
+import { type Agent } from '@/types';
 import { AgentCard } from './AgentCard';
 import { AgentEndpointFilterSheet } from './AgentEndpointFilterSheet';
 import { s } from './AgentList.styles';
+import { QuickWorkflowCard, SectionTitle, StatCell } from './AgentListParts';
+import {
+  endpointName,
+  type ProjectItem,
+  projectStatus,
+  sortProjectsByStatus,
+} from './agentProjectStatus';
 import { getEndpointFilterOptions } from '../utils/endpointFilterUtils';
 
 interface Props {
@@ -39,123 +45,6 @@ interface Props {
   onAgentPress: (id: string, endpoint_id: string, name: string) => void;
   onAddEndpoint?: () => void;
   onOpenWorkflows?: () => void;
-}
-
-type ProjectStatusLabel =
-  | 'agents.statusAwaiting'
-  | 'agents.statusRunning'
-  | 'agents.statusFailed'
-  | 'agents.statusIdle';
-
-type ProjectStatus = {
-  label: ProjectStatusLabel;
-  kind: 'idle' | 'running' | 'awaiting_question' | 'failed';
-  isActive: boolean;
-  pendingCount: number;
-};
-
-type ProjectItem = {
-  agent: Agent;
-  status: ProjectStatus;
-};
-
-const PROJECT_STATUS_RANK: Record<ProjectStatus['kind'], number> = {
-  awaiting_question: 0,
-  running: 1,
-  failed: 2,
-  idle: 3,
-};
-
-function projectStatus(conversations: Conversation[]): ProjectStatus {
-  const pendingCount = conversations.filter((conv) => conv.status === 'awaiting_question').length;
-  if (pendingCount > 0) {
-    return {
-      label: 'agents.statusAwaiting',
-      kind: 'awaiting_question',
-      isActive: true,
-      pendingCount,
-    };
-  }
-  if (conversations.some((conv) => conv.status === 'running')) {
-    return { label: 'agents.statusRunning', kind: 'running', isActive: true, pendingCount: 0 };
-  }
-  // Only show Failed if the most recent conversation is failed; historical failures don't
-  // affect fleet status once newer conversations exist.
-  const mostRecent = [...conversations].sort((a, b) => b.last_message_at - a.last_message_at)[0];
-  if (mostRecent?.status === 'failed') {
-    return { label: 'agents.statusFailed', kind: 'failed', isActive: false, pendingCount: 0 };
-  }
-  return { label: 'agents.statusIdle', kind: 'idle', isActive: false, pendingCount: 0 };
-}
-
-function SectionTitle({ title, action }: { title: string; action?: React.ReactNode }) {
-  return (
-    <View style={s.sectionHeader}>
-      <Text style={s.sectionTitle}>{title}</Text>
-      {action}
-    </View>
-  );
-}
-
-function StatCell({
-  value,
-  label,
-  color,
-  icon,
-  bordered,
-}: {
-  value: number;
-  label: string;
-  color: string;
-  icon: React.ReactNode;
-  bordered?: boolean;
-}) {
-  return (
-    <View style={[s.statCell, bordered && s.statCellBorder]}>
-      <View style={[s.statIcon, { backgroundColor: color }]}>{icon}</View>
-      <Text style={s.statValue}>{value}</Text>
-      <Text style={s.statLabel}>{label}</Text>
-    </View>
-  );
-}
-
-function QuickWorkflowCard({
-  title,
-  subtitle,
-  image,
-  onPress,
-}: {
-  title: string;
-  subtitle: string;
-  image: ImageSourcePropType;
-  onPress?: () => void;
-}) {
-  return (
-    <TouchableOpacity
-      accessibilityRole="button"
-      disabled={!onPress}
-      onPress={onPress}
-      style={s.workflowCard}
-    >
-      <Image source={image} style={s.workflowImage} resizeMode="contain" />
-      <View style={s.workflowCopy}>
-        <Text style={s.workflowTitle} numberOfLines={1} ellipsizeMode="tail">
-          {title}
-        </Text>
-        <Text style={s.workflowSubtitle} numberOfLines={1} ellipsizeMode="tail">
-          {subtitle}
-        </Text>
-      </View>
-      <View style={s.workflowArrow}>
-        <ChevronRight size={18} color={brandColors.ink} />
-      </View>
-    </TouchableOpacity>
-  );
-}
-
-function endpointName(agents: Agent[], fallback: string) {
-  const first = agents.find((agent) => agent.endpoint_label.trim().length > 0);
-  return first?.endpoint_label ?? fallback;
 }
 
 export function AgentList({
@@ -196,14 +85,7 @@ export function AgentList({
       }),
     [agents, conversations],
   );
-  const sortedProjects = React.useMemo(
-    () =>
-      [...projects].sort(
-        (left, right) =>
-          PROJECT_STATUS_RANK[left.status.kind] - PROJECT_STATUS_RANK[right.status.kind],
-      ),
-    [projects],
-  );
+  const sortedProjects = React.useMemo(() => sortProjectsByStatus(projects), [projects]);
 
   const filterOptions = React.useMemo(() => getEndpointFilterOptions(agents), [agents]);
   const selectedEndpoint = filterOptions.find((option) => option.id === selectedEndpointId);
@@ -268,6 +150,14 @@ export function AgentList({
             <>
               <Text style={s.emptyTitle}>{t('agents.connectMachine')}</Text>
               <Text style={s.emptyDesc}>{t('agents.connectMachineDesc')}</Text>
+              <TouchableOpacity
+                accessibilityRole="button"
+                accessibilityLabel="Scan QR Code to connect machine"
+                style={s.emptyBtn}
+                onPress={onAddEndpoint}
+              >
+                <Text style={s.emptyBtnText}>{t('agents.connectMachineCta')}</Text>
+              </TouchableOpacity>
             </>
           ) : (
             <>

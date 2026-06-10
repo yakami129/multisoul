@@ -42,6 +42,7 @@
   "agents.loadingAgents": "Loading agents...",
   "agents.connectMachine": "Connect a machine",
   "agents.connectMachineDesc": "Add a machine by scanning its QR code or pasting a connection string.",
+  "agents.connectMachineCta": "Scan QR Code",
   "agents.noAgentsFound": "No agents found",
   "agents.noAgentsFoundDesc": "Try a different agent name, path, runtime, or machine.",
   "agents.viewAll": "View All",
