@@ -10,6 +10,16 @@ use std::io::{BufRead, BufReader, IsTerminal, Seek, SeekFrom, Write};
 use std::path::PathBuf;
 use std::time::Duration;
 
+/// Which log records to include based on the `source` field in the log entry.
+pub enum SourceFilter {
+    /// Include all records regardless of source.
+    All,
+    /// Include only records that are NOT from mobile (i.e. the original app log experience).
+    AppOnly,
+    /// Include only records that have `source == "mobile"`.
+    MobileOnly,
+}
+
 pub struct AppLogOptions {
     pub tail: usize,
     pub follow: bool,
@@ -21,6 +31,10 @@ pub struct AppLogOptions {
     pub log_dir: Option<PathBuf>,
     pub prefix: bool,
     pub missing_ok: bool,
+    /// Source filter derived from `--source` flag.
+    pub source: SourceFilter,
+    /// Filter by mobile_session_id when set.
+    pub trace: Option<String>,
 }
 
 pub fn handle(opts: AppLogOptions) -> Result<()> {
@@ -79,6 +93,8 @@ pub fn formatted_tail_lines(
         conv: None,
         min_level: level_rank(level)?,
         grep: None,
+        source: SourceFilter::All,
+        trace: None,
     };
     let renderer = Renderer {
         json: false,
@@ -97,6 +113,8 @@ pub fn format_log_line_for_stream(line: &str, level: &str) -> Result<Option<Stri
         conv: None,
         min_level: level_rank(level)?,
         grep: None,
+        source: SourceFilter::All,
+        trace: None,
     };
     let Some(rec) = LogRecord::from_line(line.trim_end()) else {
         return Ok(None);
@@ -119,6 +137,8 @@ struct Filter {
     conv: Option<String>,
     min_level: u8,
     grep: Option<Regex>,
+    source: SourceFilter,
+    trace: Option<String>,
 }
 
 impl Filter {
@@ -139,6 +159,12 @@ impl Filter {
             conv: opts.conv.clone(),
             min_level,
             grep,
+            source: match opts.source {
+                SourceFilter::All => SourceFilter::All,
+                SourceFilter::AppOnly => SourceFilter::AppOnly,
+                SourceFilter::MobileOnly => SourceFilter::MobileOnly,
+            },
+            trace: opts.trace.clone(),
         })
     }
 
@@ -159,6 +185,24 @@ impl Filter {
         }
         if let Some(re) = &self.grep {
             if !re.is_match(&record.message) {
+                return false;
+            }
+        }
+        // Source filter
+        let is_mobile = record.fields.get("source").and_then(|v| v.as_str()) == Some("mobile");
+        match self.source {
+            SourceFilter::AppOnly if is_mobile => return false,
+            SourceFilter::MobileOnly if !is_mobile => return false,
+            _ => {}
+        }
+        // Trace filter (mobile_session_id)
+        if let Some(wanted) = &self.trace {
+            let got = record
+                .fields
+                .get("mobile_session_id")
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
+            if got != wanted.as_str() {
                 return false;
             }
         }

@@ -103,6 +103,10 @@
       "title": "Workflow Agent 选择组件统一 SPEC"
     },
     {
+      "file": "2026-06-10-SPEC-ios-telemetry.md",
+      "title": "iOS 埋点与错误追踪 SPEC"
+    },
+    {
       "file": "SPEC-activity-pagination.md",
       "title": "Activity 模块分页滚动加载优化 SPEC"
     },

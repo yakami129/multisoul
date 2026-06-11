@@ -126,7 +126,7 @@
         },
         {
           "path": "mobile/src/hooks/useWebSocket.ts",
-          "sha256": "3ea41cc103438a8111ad4d60738bbbdf737795e167152aadc9c925deeb7ac2a3",
+          "sha256": "06f5c002a95c606691a85f5f29615e93b1c17d0e6ead0196e29acfde11842c23",
           "reason": "Mobile WebSocket 端不再调度本地完成通知，以避免重复推送；发送回答后清理已回答 ask 的 inbox 状态。"
         }
       ]

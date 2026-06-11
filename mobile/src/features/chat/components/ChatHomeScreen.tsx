@@ -10,6 +10,7 @@ import {
   RefreshControl,
 } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
+import { useTelemetryTimer } from '@/services/telemetry';
 import { brandColors, brandRgba, brandTypography } from '@/theme/brandRefresh';
 import { type Conversation } from '@/types';
 
@@ -32,6 +33,7 @@ export default function ChatHomeScreen({
   isRefreshing = false,
   onRefresh,
 }: Props) {
+  useTelemetryTimer('chat', 'route_load');
   const [search, setSearch] = React.useState('');
   const openSwipeableRef = useRef<Swipeable | null>(null);
 

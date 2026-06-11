@@ -7,6 +7,7 @@ import {
 import { markAskAnswered, loadAnsweredAsks } from '@/features/inbox/services/inboxService';
 import { buildAskQuestionInboxItem } from '@/features/inbox/utils/buildAskQuestionInboxItem';
 import { mirrorAskQuestionsToInbox } from '@/features/inbox/utils/mirrorAskQuestionsToInbox';
+import { TelemetryService } from '@/services/telemetry';
 import { useChatStore } from '@/store/chatStore';
 import { useInboxStore } from '@/store/inboxStore';
 import {
@@ -128,6 +129,7 @@ export function useWebSocket({
   // Set to false in the useEffect cleanup so a stale socket's onclose won't
   // trigger a reconnect after the effect has been torn down.
   const isCurrentRef = useRef(true);
+  const retryCountRef = useRef(0);
 
   useEffect(() => {
     if (convIdRef.current !== conv_id) {
@@ -261,6 +263,20 @@ export function useWebSocket({
     };
 
     ws.onerror = () => {
+      try {
+        TelemetryService.getInstance().track({
+          event_type: 'ws_error',
+          level: 'error',
+          data: {
+            reason: 'connection_error',
+            endpoint: url,
+            retry_count: retryCountRef.current,
+          },
+        });
+      } catch {
+        // Never break WS logic
+      }
+      retryCountRef.current += 1;
       ws.close();
     };
   }, [

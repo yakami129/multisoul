@@ -20,6 +20,7 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTelemetryTimer } from '@/services/telemetry';
 import { useChatStore } from '@/store/chatStore';
 import { brandAssets, brandColors } from '@/theme/brandRefresh';
 import { type Agent } from '@/types';
@@ -57,6 +58,7 @@ export function AgentList({
   onAddEndpoint,
   onOpenWorkflows,
 }: Props) {
+  useTelemetryTimer('agents');
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const searchRef = React.useRef<TextInput>(null);
