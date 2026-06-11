@@ -19,9 +19,11 @@ msctl agent get <id>         # Show agent details
 msctl agent codex            # Quick register current project with Codex
 msctl agent claude-code      # Quick register current project with Claude Code
 msctl agent cursor-cli       # Quick register current project with Cursor
+msctl agent opencode         # Quick register current project with OpenCode
 msctl agent register --name <name> --project <path> --runtime claude-code
 msctl agent register --name <name> --project <path> --runtime codex
 msctl agent register --name <name> --project <path> --runtime cursor-cli
+msctl agent register --name <name> --project <path> --runtime opencode
 msctl agent invoke <id> --message "<task>"
 msctl agent delete <id>
 ```

@@ -30,4 +30,9 @@ export const SETUP_COMMANDS: SetupCommand[] = [
     title: 'Cursor Agent CLI',
     command: 'cd /path/to/project\nmsctl agent cursor-cli',
   },
+  {
+    id: 'opencode',
+    title: 'OpenCode',
+    command: 'cd /path/to/project\nmsctl agent opencode',
+  },
 ];

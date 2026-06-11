@@ -8,7 +8,7 @@
 
 ## 1. 概述
 
-MultiSoul CLI（`msctl`）通过 **Runtime 适配层** 驱动 AI agent 子进程。当前内置四个 runtime：
+MultiSoul CLI（`msctl`）通过 **Runtime 适配层** 驱动 AI agent 子进程。当前内置五个 runtime：
 
 | runtime 标识 | 实现文件 | 驱动的子进程 |
 |---|---|---|
@@ -16,6 +16,7 @@ MultiSoul CLI（`msctl`）通过 **Runtime 适配层** 驱动 AI agent 子进程
 | `codex` | `cli/src/serve/runtime/codex/mod.rs` | `codex` 可执行文件（OpenAI Codex CLI） |
 | `cursor-cli` | `cli/src/serve/runtime/cursor/mod.rs` | `agent`（Cursor Agent CLI，`CURSOR_AGENT_BIN` 可覆盖） |
 | `kodax` | `cli/src/serve/runtime/kodax/mod.rs` | `kodax`（KodaX CLI，`KODAX_BIN` 可覆盖） |
+| `opencode` | `cli/src/serve/runtime/opencode/mod.rs` | `opencode`（OpenCode CLI，`OPENCODE_BIN` 可覆盖） |
 
 本文档说明如何接入更多 runtime，复用已有骨架，只需实现差异部分。
 
@@ -34,10 +35,11 @@ serve/routes/messages.rs          ← 解析请求，调用 runtime 分发
         ▼
 serve/runtime/mod.rs              ← send_to_session()，按 agent.runtime 字段 match
         │
-        ├── "codex"       ──▶  codex.rs   :: send_to_session()
-        ├── "cursor-cli"  ──▶  cursor.rs  :: send_to_session()
-        ├── "kodax"       ──▶  kodax.rs   :: send_to_session()
-        └── _             ──▶  claude.rs  :: send_to_session()
+        ├── "codex"       ──▶  codex.rs     :: send_to_session()
+        ├── "cursor-cli"  ──▶  cursor.rs   :: send_to_session()
+        ├── "kodax"       ──▶  kodax.rs    :: send_to_session()
+        ├── "opencode"    ──▶  opencode.rs :: send_to_session()
+        └── _             ──▶  claude.rs   :: send_to_session()
 ```
 
 每个 runtime 运行在 **独立的 blocking 线程**（`tokio::task::spawn_blocking`）中，通过 `std::sync::mpsc` 接收来自 HTTP handler 的消息，通过 `tokio::sync::broadcast` 向 WebSocket 客户端推送事件。运行中的子进程必须通过 `SessionHandle` 登记当前 pid；`POST /api/v1/conversations/:id/abort` 会移除该 handle 并终止对应进程组，避免 UI 停止按钮只断开队列却无法中断正在执行的 CLI runtime。

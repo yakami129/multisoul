@@ -17,7 +17,8 @@ use crate::commands::agent_quick_register;
   msctl agent codex
   msctl agent claude-code
   msctl agent cursor-cli
-  msctl agent kodax")]
+  msctl agent kodax
+  msctl agent opencode")]
 pub enum AgentCommands {
     /// Register a new agent. Use --type plugin for plugin agents.
     Register {
@@ -26,7 +27,7 @@ pub enum AgentCommands {
         /// Required for runtime agents; omit for plugin agents
         #[arg(long)]
         project: Option<String>,
-        /// Runtime: claude-code | codex | cursor-cli | kodax
+        /// Runtime: claude-code | codex | cursor-cli | kodax | opencode
         #[arg(long, default_value = "claude-code")]
         runtime: String,
         /// Permission mode: suggest | auto-edit | full-auto | yolo

@@ -12,7 +12,7 @@ export interface Agent {
   id: string;
   name: string;
   project_path: string;
-  runtime: 'claude-code' | 'codex' | 'cursor-cli' | 'custom';
+  runtime: 'claude-code' | 'codex' | 'cursor-cli' | 'opencode' | 'custom';
   created_at: number;
   // Injected by App after fetch:
   endpoint_id: string;
