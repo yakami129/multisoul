@@ -102,6 +102,16 @@ function mergeIdeasForState(ideas: SpecIdea[]): SpecIdea[] {
   return ideas.filter((idea) => !(idea.pendingMutation === 'delete' && idea.status === 'archived'));
 }
 
+const PENDING_IDEA_FLUSH_BACKOFF_MS = 60_000;
+const pendingIdeaFlushAttemptAt = new Map<string, number>();
+
+function shouldSkipPendingIdeaFlush(idea: SpecIdea): boolean {
+  if (!idea.lastSyncError) return false;
+  const lastAttempt = pendingIdeaFlushAttemptAt.get(idea.id);
+  if (lastAttempt == null) return false;
+  return Date.now() - lastAttempt < PENDING_IDEA_FLUSH_BACKOFF_MS;
+}
+
 export const useSpecStore = create<SpecState>((set, get) => ({
   specs: [],
   ideas: [],
@@ -145,8 +155,13 @@ export const useSpecStore = create<SpecState>((set, get) => ({
       await import('@/features/specs/services/specAssetService');
     const pendingIdeas = await loadPendingIdeas(endpoint.id);
     for (const idea of pendingIdeas) {
+      if (shouldSkipPendingIdeaFlush(idea)) {
+        continue;
+      }
+      pendingIdeaFlushAttemptAt.set(idea.id, Date.now());
       try {
         const syncedIdea = await syncSpecIdeaBeforeServerAction(endpoint, idea);
+        pendingIdeaFlushAttemptAt.delete(idea.id);
         if (idea.pendingMutation === 'delete') {
           await deleteIdea(idea.id);
           set((state) => ({
