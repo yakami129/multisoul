@@ -1,6 +1,7 @@
 //! InfCode runtime adapter.
 //! Spawns one `infcode --mode json` subprocess per user turn and maps JSONL stdout into MultiSoul messages.
 
+mod cli_compat;
 mod events;
 
 use serde_json::Value;
@@ -17,6 +18,10 @@ use crate::serve::routes::activity_events::{
 };
 use crate::serve::runtime::DispatchMessage;
 use crate::serve::state::{start_new_process_group, AppState, SessionHandle};
+use cli_compat::{
+    legacy_fallback_invocation, normalize_model_id, primary_invocation, sanitize_legacy_output,
+    InfcodeInvocation, InfcodeOutputMode,
+};
 use events::{parse_json_event, InfcodeEvent};
 
 pub fn send_to_session(
@@ -139,11 +144,6 @@ fn process_turn(
     turn: InfcodeTurn<'_>,
     session_handle: &SessionHandle,
 ) -> Result<(), String> {
-    let mut child = spawn_infcode(conv_id, turn.prompt, turn.project_path, turn.model_id)?;
-    let child_pid = child.id();
-    session_handle.set_current_pid(child_pid);
-    debug!(pid = child_pid, conv_id = %conv_id, "infcode_spawned");
-
     {
         let db = state.db.lock().unwrap();
         let _ = db.execute(
@@ -152,7 +152,60 @@ fn process_turn(
         );
     }
 
-    let result = read_infcode_stdout(state, conv_id, turn.user_seq, &mut child);
+    let primary = primary_invocation(conv_id, turn.prompt, turn.model_id)?;
+    match run_invocation(
+        state,
+        conv_id,
+        turn.user_seq,
+        turn.project_path,
+        session_handle,
+        &primary,
+    ) {
+        Ok(()) => Ok(()),
+        Err(primary_error) => {
+            let Some(fallback) =
+                legacy_fallback_invocation(&primary, turn.prompt, turn.model_id, &primary_error)
+            else {
+                return Err(primary_error);
+            };
+            warn!(
+                error = %primary_error,
+                fallback_bin = %fallback.bin,
+                "infcode_legacy_fallback"
+            );
+            run_invocation(
+                state,
+                conv_id,
+                turn.user_seq,
+                turn.project_path,
+                session_handle,
+                &fallback,
+            )
+            .map_err(|fallback_error| format!("{primary_error}; fallback failed: {fallback_error}"))
+        }
+    }
+}
+
+fn run_invocation(
+    state: &AppState,
+    conv_id: &str,
+    user_seq: i64,
+    project_path: &str,
+    session_handle: &SessionHandle,
+    invocation: &InfcodeInvocation,
+) -> Result<(), String> {
+    let mut child = spawn_infcode(project_path, invocation)?;
+    let child_pid = child.id();
+    session_handle.set_current_pid(child_pid);
+    debug!(
+        pid = child_pid,
+        conv_id = %conv_id,
+        bin = %invocation.bin,
+        output_mode = ?invocation.output_mode,
+        "infcode_spawned"
+    );
+
+    let result = read_infcode_stdout(state, conv_id, user_seq, &mut child, invocation.output_mode);
     session_handle.clear_current_pid(child_pid);
     result
 }
@@ -162,6 +215,7 @@ fn read_infcode_stdout(
     conv_id: &str,
     user_seq: i64,
     child: &mut Child,
+    output_mode: InfcodeOutputMode,
 ) -> Result<(), String> {
     let mut reader = BufReader::new(child.stdout.take().ok_or("no stdout")?);
     let stderr_tail = drain_stderr_tail(child.stderr.take());
@@ -182,26 +236,34 @@ fn read_infcode_stdout(
         }
         debug!(line = %trimmed, "infcode_stdout_line");
 
-        match serde_json::from_str::<Value>(trimmed) {
-            Ok(value) => match parse_json_event(&value) {
-                InfcodeEvent::AgentText(text) => emit_agent_text(state, conv_id, text),
-                InfcodeEvent::ToolCall {
-                    call_id,
-                    tool,
-                    args,
-                } => emit_tool_call(state, conv_id, call_id, tool, args),
-                InfcodeEvent::ToolResult {
-                    call_id,
-                    ok,
-                    summary,
-                } => emit_tool_result(state, conv_id, call_id, ok, summary),
-                InfcodeEvent::Completed => terminal_status = Some(Ok(())),
-                InfcodeEvent::Failed(message) => terminal_status = Some(Err(message)),
-                InfcodeEvent::Ignored => {
-                    debug!(event_type = ?value.get("type"), "infcode_unhandled_event")
+        match output_mode {
+            InfcodeOutputMode::JsonEvents => match serde_json::from_str::<Value>(trimmed) {
+                Ok(value) => match parse_json_event(&value) {
+                    InfcodeEvent::AgentText(text) => emit_agent_text(state, conv_id, text),
+                    InfcodeEvent::ToolCall {
+                        call_id,
+                        tool,
+                        args,
+                    } => emit_tool_call(state, conv_id, call_id, tool, args),
+                    InfcodeEvent::ToolResult {
+                        call_id,
+                        ok,
+                        summary,
+                    } => emit_tool_result(state, conv_id, call_id, ok, summary),
+                    InfcodeEvent::Completed => terminal_status = Some(Ok(())),
+                    InfcodeEvent::Failed(message) => terminal_status = Some(Err(message)),
+                    InfcodeEvent::Ignored => {
+                        debug!(event_type = ?value.get("type"), "infcode_unhandled_event")
+                    }
+                },
+                Err(_) => {
+                    if !fallback_text.is_empty() {
+                        fallback_text.push('\n');
+                    }
+                    fallback_text.push_str(trimmed);
                 }
             },
-            Err(_) => {
+            InfcodeOutputMode::LegacyPrint => {
                 if !fallback_text.is_empty() {
                     fallback_text.push('\n');
                 }
@@ -211,7 +273,15 @@ fn read_infcode_stdout(
     }
 
     if !fallback_text.is_empty() {
-        emit_agent_text(state, conv_id, fallback_text);
+        match output_mode {
+            InfcodeOutputMode::JsonEvents => emit_agent_text(state, conv_id, fallback_text),
+            InfcodeOutputMode::LegacyPrint => {
+                let cleaned = sanitize_legacy_output(&fallback_text);
+                if !cleaned.is_empty() {
+                    emit_agent_text(state, conv_id, cleaned);
+                }
+            }
+        }
     }
 
     let status = child.wait().map_err(|e| format!("wait: {}", e))?;
@@ -234,77 +304,18 @@ fn read_infcode_stdout(
     }
 }
 
-fn spawn_infcode(
-    conv_id: &str,
-    prompt: &str,
-    project_path: &str,
-    model_id: Option<&str>,
-) -> Result<Child, String> {
-    let bin = infcode_bin();
-    let args = build_infcode_args(conv_id, prompt, model_id)?;
-    debug!(args = ?args, "infcode_spawn_args");
+fn spawn_infcode(project_path: &str, invocation: &InfcodeInvocation) -> Result<Child, String> {
+    debug!(args = ?invocation.args, bin = %invocation.bin, "infcode_spawn_args");
 
-    let mut cmd = Command::new(&bin);
-    cmd.args(&args)
+    let mut cmd = Command::new(&invocation.bin);
+    cmd.args(&invocation.args)
         .current_dir(project_path)
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
     start_new_process_group(&mut cmd);
-    cmd.spawn().map_err(|e| format!("spawn {}: {}", bin, e))
-}
-
-fn infcode_bin() -> String {
-    std::env::var("INFCODE_BIN").unwrap_or_else(|_| "infcode".to_string())
-}
-
-fn build_infcode_args(
-    conv_id: &str,
-    prompt: &str,
-    model_id: Option<&str>,
-) -> Result<Vec<String>, String> {
-    let mut args = vec![
-        "--mode".to_string(),
-        "json".to_string(),
-        "--session".to_string(),
-        conv_id.to_string(),
-        "--agent-mode".to_string(),
-        "ama".to_string(),
-    ];
-    if let Some(model_id) = normalize_model_id(model_id) {
-        let (provider, model) = split_provider_model(&model_id)?;
-        args.push("-m".to_string());
-        args.push(provider.to_string());
-        args.push("--model".to_string());
-        args.push(model.to_string());
-    }
-    args.push(prompt.to_string());
-    Ok(args)
-}
-
-fn split_provider_model(model_id: &str) -> Result<(&str, &str), String> {
-    let (provider, model) = model_id.split_once(':').ok_or_else(|| {
-        format!(
-            "invalid InfCode model id `{}`: expected provider:model",
-            model_id
-        )
-    })?;
-    let provider = provider.trim();
-    let model = model.trim();
-    if provider.is_empty() || model.is_empty() {
-        return Err(format!(
-            "invalid InfCode model id `{}`: provider and model must be non-empty",
-            model_id
-        ));
-    }
-    Ok((provider, model))
-}
-
-fn normalize_model_id(model_id: Option<&str>) -> Option<String> {
-    model_id
-        .map(str::trim)
-        .filter(|model_id| !model_id.is_empty())
-        .map(ToString::to_string)
+    cmd.spawn()
+        .map_err(|e| format!("spawn {}: {}", invocation.bin, e))
 }
 
 fn emit_agent_text(state: &AppState, conv_id: &str, text: String) {

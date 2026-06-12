@@ -8,10 +8,6 @@
 
 - 品牌系统：[`mobile/docs/design.md`](../../mobile/docs/design.md)，保留 Cream Console、Ink Control、Signal Palette。
 - Apple Human Interface Guidelines：以 Hierarchy、Harmony、Consistency、清晰反馈、渐进披露、系统导航和无障碍为约束。
-- 本次原型图仅作为概念输入，不逐像素照搬：
-  - ![Ideas / Specs Board](assets/ideas-to-specs-refactor/01-ideas-specs-board.png)
-  - ![Chat-first Interview](assets/ideas-to-specs-refactor/02-chat-first-interview.png)
-  - ![Spec Implementation Workbench](assets/ideas-to-specs-refactor/03-spec-implementation-workbench.png)
 - Apple-first 完整交互图：
   - ![Ideas to Specs Apple-first interaction map](assets/ideas-to-specs-refactor/04-apple-first-interaction-map.png)
 

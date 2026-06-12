@@ -1,6 +1,7 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React from 'react';
 import { buildChatDetailPath } from '@/features/chat/utils/chatRoutes';
+import { seedChatConversation } from '@/features/chat/utils/seedChatConversation';
 import { SpecDetailScreen } from '@/features/specs/components/SpecDetailScreen';
 import {
   loadSpecDetail,
@@ -80,6 +81,11 @@ export default function SpecDetailRoute() {
   const openChat = React.useCallback(
     (conversationId: string | undefined) => {
       if (!conversationId || !spec) return;
+      seedChatConversation({
+        id: conversationId,
+        endpointId: spec.targetEndpointId,
+        agentId: spec.targetAgentId,
+      });
       router.push(
         buildChatDetailPath({
           conversationId,
@@ -104,6 +110,12 @@ export default function SpecDetailRoute() {
           await saveSpecArtifact(result.spec);
           await loadAssets();
         }
+        seedChatConversation({
+          id: result.conversationId,
+          status: 'running',
+          endpointId: spec.targetEndpointId,
+          agentId: spec.targetAgentId,
+        });
         openChat(result.conversationId);
       })
       .catch((error: unknown) => setErrorMessage(errorText(error)))

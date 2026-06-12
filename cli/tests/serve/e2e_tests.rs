@@ -48,15 +48,21 @@ struct TestServer {
 
 impl TestServer {
     fn start() -> Self {
+        Self::start_with_env(&[])
+    }
+
+    fn start_with_env(envs: &[(String, String)]) -> Self {
         let port = find_free_port();
         let (token, _) = e2e_fixture_tokens();
         let home = tempfile::tempdir().expect("tempdir");
         let bin = env!("CARGO_BIN_EXE_msctl");
-        let child = Command::new(bin)
-            .args(["serve", "--port", &port.to_string(), "--token", &token])
-            .env("HOME", home.path())
-            .spawn()
-            .expect("spawn msctl serve");
+        let mut cmd = Command::new(bin);
+        cmd.args(["serve", "--port", &port.to_string(), "--token", &token])
+            .env("HOME", home.path());
+        for (key, value) in envs {
+            cmd.env(key, value);
+        }
+        let child = cmd.spawn().expect("spawn msctl serve");
         TestServer {
             port,
             token,
@@ -100,6 +106,38 @@ async fn wait_for_ready(base_url: &str) {
             panic!("Server at {} did not become ready within 15s", base_url);
         }
         tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    }
+}
+
+fn write_fake_kodax(dir: &std::path::Path, unix_script: &str, windows_script: &str) {
+    let path = if cfg!(windows) {
+        dir.join("kodax.cmd")
+    } else {
+        dir.join("kodax")
+    };
+    std::fs::write(
+        &path,
+        if cfg!(windows) {
+            windows_script
+        } else {
+            unix_script
+        },
+    )
+    .expect("write fake kodax");
+    make_executable(&path);
+}
+
+fn make_executable(path: &std::path::Path) {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mut perms = std::fs::metadata(path).expect("metadata").permissions();
+        perms.set_mode(0o755);
+        std::fs::set_permissions(path, perms).expect("chmod");
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = path;
     }
 }
 
@@ -326,6 +364,150 @@ async fn conversation_and_messages() {
         user_msg["payload"]["text"], "hello e2e",
         "message text must match"
     );
+}
+
+#[tokio::test]
+#[serial]
+async fn infcode_runtime_falls_back_to_kodax_legacy_mode() {
+    let bin_dir = tempfile::tempdir().expect("bin tempdir");
+    write_fake_kodax(
+        bin_dir.path(),
+        r#"#!/bin/sh
+if [ "$1" = "--mode" ]; then
+  echo "error: too many arguments. Expected 0 arguments but got 1." >&2
+  exit 1
+fi
+printf '%s\n' '[KodaX] Provider: infplacex'
+printf '%s\n' '[Assistant]'
+printf '%s\n' 'legacy e2e ok'
+printf '%s\n' '[KodaX] Done!'
+"#,
+        r#"@echo off
+if "%1"=="--mode" (
+  echo error: too many arguments. Expected 0 arguments but got 1. 1>&2
+  exit /b 1
+)
+echo [KodaX] Provider: infplacex
+echo [Assistant]
+echo legacy e2e ok
+echo [KodaX] Done!
+"#,
+    );
+    let path = std::env::var("PATH").expect("PATH");
+    let sep = if cfg!(windows) { ";" } else { ":" };
+    let server_path = format!("{}{}{}", bin_dir.path().display(), sep, path);
+    let srv = TestServer::start_with_env(&[
+        ("PATH".to_string(), server_path),
+        ("INFCODE_BIN".to_string(), String::new()),
+    ]);
+    wait_for_ready(&srv.base_url()).await;
+
+    let project_dir = tempfile::tempdir().expect("project tempdir");
+    let bin = env!("CARGO_BIN_EXE_msctl");
+    let reg = Command::new(bin)
+        .args([
+            "agent",
+            "register",
+            "--name",
+            "infcode-e2e-agent",
+            "--project",
+            project_dir.path().to_str().unwrap(),
+            "--runtime",
+            "infcode",
+        ])
+        .env("HOME", srv.home_path())
+        .output()
+        .expect("msctl agent register");
+    assert!(
+        reg.status.success(),
+        "agent register must succeed, stderr: {}",
+        String::from_utf8_lossy(&reg.stderr)
+    );
+
+    let client = reqwest::Client::new();
+    let agents: serde_json::Value = client
+        .get(format!("{}/api/v1/agents", srv.base_url()))
+        .header("Authorization", &srv.auth_header())
+        .send()
+        .await
+        .expect("list agents")
+        .json()
+        .await
+        .expect("parse agents");
+    let agent_id = agents
+        .as_array()
+        .and_then(|agents| {
+            agents
+                .iter()
+                .find(|agent| agent["name"] == "infcode-e2e-agent")
+        })
+        .and_then(|agent| agent["id"].as_str())
+        .expect("registered infcode agent id")
+        .to_string();
+
+    let conv: serde_json::Value = client
+        .post(format!(
+            "{}/api/v1/agents/{}/conversations",
+            srv.base_url(),
+            agent_id
+        ))
+        .header("Authorization", &srv.auth_header())
+        .header("Content-Type", "application/json")
+        .body(r#"{"title":"infcode e2e"}"#)
+        .send()
+        .await
+        .expect("create conversation")
+        .json()
+        .await
+        .expect("parse conversation");
+    let conv_id = conv["id"].as_str().expect("conv id").to_string();
+
+    let msg_resp = client
+        .post(format!(
+            "{}/api/v1/conversations/{}/messages",
+            srv.base_url(),
+            conv_id
+        ))
+        .header("Authorization", &srv.auth_header())
+        .header("Content-Type", "application/json")
+        .body(r#"{"text":"hello infcode"}"#)
+        .send()
+        .await
+        .expect("post message");
+    assert_eq!(msg_resp.status(), 201, "post message must return 201");
+
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+    loop {
+        let msgs: serde_json::Value = client
+            .get(format!(
+                "{}/api/v1/conversations/{}/messages",
+                srv.base_url(),
+                conv_id
+            ))
+            .header("Authorization", &srv.auth_header())
+            .send()
+            .await
+            .expect("list messages")
+            .json()
+            .await
+            .expect("parse messages");
+        let msgs_arr = msgs.as_array().expect("messages must be array");
+        let saw_agent_text = msgs_arr.iter().any(|message| {
+            message["role"] == "agent_text" && message["payload"]["text"] == "legacy e2e ok"
+        });
+        let saw_completed = msgs_arr.iter().any(|message| {
+            message["role"] == "task_status" && message["payload"]["status"] == "completed"
+        });
+        if saw_agent_text && saw_completed {
+            break;
+        }
+        assert!(
+            std::time::Instant::now() < deadline,
+            "infcode runtime did not emit legacy fallback reply within 10s; messages: {}",
+            msgs
+        );
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    }
 }
 
 /// WebSocket upgrade to /ws/conversations/:id must succeed.
