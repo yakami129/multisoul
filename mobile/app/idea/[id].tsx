@@ -4,6 +4,7 @@ import React from 'react';
 import { AgentTargetPickerSheet } from '@/components/agent-target';
 import { fetchAllAgents } from '@/features/agents/services/agentService';
 import { buildChatDetailPath } from '@/features/chat/utils/chatRoutes';
+import { seedChatConversation } from '@/features/chat/utils/seedChatConversation';
 import { IdeaDetailScreen } from '@/features/specs/components/IdeaDetailScreen';
 import { IdeaEditorSheet, type IdeaEditorValue } from '@/features/specs/components/IdeaEditorSheet';
 import { type SpecTarget } from '@/features/specs/components/specUiModels';
@@ -84,6 +85,12 @@ export default function IdeaDetailRoute() {
   const openChat = React.useCallback(
     (conversationId: string) => {
       if (!idea) return;
+      seedChatConversation({
+        id: conversationId,
+        endpointId: idea.targetEndpointId,
+        agentId: idea.targetAgentId,
+        agentName: idea.targetAgentName,
+      });
       router.push(
         buildChatDetailPath({
           conversationId,
@@ -118,6 +125,13 @@ export default function IdeaDetailRoute() {
           await saveIdea(result.idea, null, null);
           await loadAssets();
         }
+        seedChatConversation({
+          id: result.conversationId,
+          status: 'running',
+          endpointId: idea.targetEndpointId,
+          agentId: idea.targetAgentId,
+          agentName: idea.targetAgentName,
+        });
         openChat(result.conversationId);
       })
       .catch((error: unknown) => {

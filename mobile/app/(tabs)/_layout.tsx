@@ -7,11 +7,11 @@ import { ReleaseLogsModal } from '@/features/settings/components/ReleaseLogsModa
 import { useEndpointStore } from '@/store/endpointStore';
 import { brandAssets, brandColors, brandRgba } from '@/theme/brandRefresh';
 
-export const TAB_BAR_HEIGHT = 50;
+export const TAB_BAR_HEIGHT = 48;
 export const TAB_BAR_SAFE_AREA_BOTTOM = 28;
 const TAB_ICON_SLOT_SIZE = 34;
-const FOCUSED_TAB_ICON_SIZE = 31;
-const IDLE_TAB_ICON_SIZE = 24;
+const FOCUSED_TAB_ICON_SIZE = 30;
+const IDLE_TAB_ICON_SIZE = 30;
 
 export const tabScreenOptions = {
   headerShown: false,
@@ -23,10 +23,10 @@ export const tabScreenOptions = {
     height: TAB_BAR_HEIGHT + TAB_BAR_SAFE_AREA_BOTTOM,
     position: 'absolute' as const,
     bottom: 10,
-    left: 20,
-    right: 20,
-    borderRadius: 30,
-    paddingHorizontal: 14,
+    left: 48,
+    right: 48,
+    borderRadius: 36,
+    paddingHorizontal: 4,
     paddingBottom: TAB_BAR_SAFE_AREA_BOTTOM,
     paddingTop: 0,
     shadowColor: '#000000',
@@ -52,16 +52,18 @@ export const tabScreenOptions = {
   },
   tabBarItemStyle: {
     height: TAB_BAR_HEIGHT,
-    paddingTop: 0,
+    paddingTop: 2,
     paddingBottom: 0,
+    paddingHorizontal: 0,
     alignItems: 'center' as const,
     justifyContent: 'center' as const,
+    flex: 1,
   },
 };
 
 function BrandedTabIcon({ source, focused }: { source: ImageSourcePropType; focused: boolean }) {
   const traySize = focused ? FOCUSED_TAB_ICON_SIZE : IDLE_TAB_ICON_SIZE;
-  const imageSize = focused ? 23 : 20;
+  const imageSize = focused ? 24 : 22;
 
   return (
     <View
@@ -111,7 +113,7 @@ function AgentsIcon({ focused }: { color: string; focused: boolean }) {
 function SpecsIcon({ color, focused }: { color: string; focused: boolean }) {
   return (
     <LucideTabIcon focused={focused}>
-      <FileText size={20} color={color} />
+      <FileText size={22} color={color} />
     </LucideTabIcon>
   );
 }
@@ -120,7 +122,7 @@ function ActivityIcon({ color, focused }: { color: string; focused: boolean }) {
     <BrandedTabIcon source={brandAssets.iconActivity} focused />
   ) : (
     <LucideTabIcon focused={focused}>
-      <Activity size={20} color={color} />
+      <Activity size={22} color={color} />
     </LucideTabIcon>
   );
 }
