@@ -82,6 +82,29 @@ const CURSOR_MODELS: &[BuiltinModel] = &[
     },
 ];
 
+const OPENCODE_MODELS: &[BuiltinModel] = &[
+    BuiltinModel {
+        id: "anthropic/claude-opus-4-5",
+        label: "Anthropic / Claude Opus 4.5",
+    },
+    BuiltinModel {
+        id: "anthropic/claude-sonnet-4-5",
+        label: "Anthropic / Claude Sonnet 4.5",
+    },
+    BuiltinModel {
+        id: "openai/gpt-4.1",
+        label: "OpenAI / GPT-4.1",
+    },
+    BuiltinModel {
+        id: "google/gemini-2.5-pro",
+        label: "Google / Gemini 2.5 Pro",
+    },
+    BuiltinModel {
+        id: "opencode/big-pickle",
+        label: "OpenCode / Big Pickle",
+    },
+];
+
 const KODAX_MODELS: &[BuiltinModel] = &[
     BuiltinModel {
         id: "openai:gpt-5.3-codex",
@@ -214,6 +237,7 @@ fn builtin_models(runtime: &str) -> Result<&'static [BuiltinModel], ModelProvide
         "codex" => Ok(CODEX_MODELS),
         "cursor-cli" => Ok(CURSOR_MODELS),
         "kodax" => Ok(KODAX_MODELS),
+        "opencode" => Ok(OPENCODE_MODELS),
         other => Err(ModelProviderError::UnknownRuntime(other.to_string())),
     }
 }

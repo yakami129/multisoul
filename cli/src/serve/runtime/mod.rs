@@ -3,6 +3,7 @@ pub mod codex;
 mod cursor;
 mod kodax;
 pub mod models;
+mod opencode;
 
 use crate::serve::state::AppState;
 
@@ -25,7 +26,7 @@ pub fn send_to_session(
     mode: &str,
 ) {
     let runtime_text = match (runtime, message.file_id) {
-        ("cursor-cli" | "kodax", Some(fid)) => {
+        ("cursor-cli" | "kodax" | "opencode", Some(fid)) => {
             inject_image_prefix(message.text, fid, &state.uploads_dir)
         }
         _ => message.text.to_string(),
@@ -33,7 +34,7 @@ pub fn send_to_session(
     let context_text = inject_runtime_context(&runtime_text, conv_id);
     let runtime_message = DispatchMessage {
         text: &context_text,
-        file_id: if runtime == "cursor-cli" || runtime == "kodax" {
+        file_id: if runtime == "cursor-cli" || runtime == "kodax" || runtime == "opencode" {
             None
         } else {
             message.file_id
@@ -51,6 +52,9 @@ pub fn send_to_session(
         }
         "kodax" => {
             kodax::send_to_session(state, conv_id, runtime_message, project_path, mode);
+        }
+        "opencode" => {
+            opencode::send_to_session(state, conv_id, runtime_message, project_path, mode);
         }
         _ => claude::send_to_session(state, conv_id, runtime_message, project_path),
     }
