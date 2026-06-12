@@ -15,7 +15,7 @@ MultiSoul CLI（`msctl`）通过 **Runtime 适配层** 驱动 AI agent 子进程
 | `claude-code`（默认） | `cli/src/serve/runtime/claude/mod.rs` | `claude` 可执行文件（Claude Code SDK） |
 | `codex` | `cli/src/serve/runtime/codex/mod.rs` | `codex` 可执行文件（OpenAI Codex CLI） |
 | `cursor-cli` | `cli/src/serve/runtime/cursor/mod.rs` | `agent`（Cursor Agent CLI，`CURSOR_AGENT_BIN` 可覆盖） |
-| `kodax` | `cli/src/serve/runtime/kodax/mod.rs` | `kodax`（KodaX CLI，`KODAX_BIN` 可覆盖） |
+| `infcode` | `cli/src/serve/runtime/infcode/mod.rs` | `infcode`（InfCode CLI，`INFCODE_BIN` 可覆盖） |
 | `opencode` | `cli/src/serve/runtime/opencode/mod.rs` | `opencode`（OpenCode CLI，`OPENCODE_BIN` 可覆盖） |
 
 本文档说明如何接入更多 runtime，复用已有骨架，只需实现差异部分。
@@ -37,7 +37,7 @@ serve/runtime/mod.rs              ← send_to_session()，按 agent.runtime 字�
         │
         ├── "codex"       ──▶  codex.rs     :: send_to_session()
         ├── "cursor-cli"  ──▶  cursor.rs   :: send_to_session()
-        ├── "kodax"       ──▶  kodax.rs    :: send_to_session()
+        ├── "infcode"       ──▶  infcode.rs    :: send_to_session()
         ├── "opencode"    ──▶  opencode.rs :: send_to_session()
         └── _             ──▶  claude.rs   :: send_to_session()
 ```
@@ -310,7 +310,7 @@ pub fn send_to_session(...) {
 }
 ```
 
-> **注意：** `claude` runtime 直接传递 `file_id` 以发送 base64 image block；`codex` runtime 直接传递 `file_id` 并在 adapter 内追加 `--image <path>`；不原生支持图片 content block / image flag 的 runtime（如 `cursor-cli`、`kodax` 及新接入的 runtime）才应加入路径前缀注入分支。
+> **注意：** `claude` runtime 直接传递 `file_id` 以发送 base64 image block；`codex` runtime 直接传递 `file_id` 并在 adapter 内追加 `--image <path>`；不原生支持图片 content block / image flag 的 runtime（如 `cursor-cli`、`infcode` 及新接入的 runtime）才应加入路径前缀注入分支。
 
 ---
 
@@ -371,14 +371,14 @@ Codex 使用 `codex exec` / `codex exec resume <thread_id>` 命令；`full-auto`
 - **单测位置**：`codex.rs` 旁的 `codex_tests.rs`（`#[path = "codex_tests.rs"] mod tests`），用于满足仓库单文件行数上限。
 - **模型参数**：conversation 有具体 `model_id` 时，fresh 与 resume 都追加 `--model <model_id>`；Default/`NULL` 不追加。预热进程必须绑定当前模型，模型变化后丢弃旧模型预热进程。
 
-## 7. KodaX 实现要点（供参考）
+## 7. InfCode 实现要点（供参考）
 
-KodaX 使用 `kodax --mode json --session <conversation_id> --agent-mode ama <prompt>` 命令；V1 每条用户消息启动一次子进程，不做预热。
+InfCode 使用 `infcode --mode json --session <conversation_id> --agent-mode ama <prompt>` 命令；V1 每条用户消息启动一次子进程，不做预热。
 
-- **Session ID**：MultiSoul `conversation_id` 直接作为 KodaX `--session`，不新增 `kodax_session_id` 字段。
+- **Session ID**：MultiSoul `conversation_id` 直接作为 InfCode `--session`，不新增 `infcode_session_id` 字段。
 - **模型参数**：conversation 有具体 `model_id` 时使用 `provider:model` 编码，adapter 拆分为 `-m <provider> --model <model>`；Default/`NULL` 不传 provider/model。
 - **图片输入**：与 Cursor 一样在 dispatch 层注入图片路径提示，并在传入 adapter 前清空 `file_id`。
-- **模式标志**：MultiSoul `suggest` / `auto-edit` / `full-auto` / `yolo` 不映射为 KodaX 权限语义；KodaX 固定 `--agent-mode ama`，不传 `--reasoning`，使用 KodaX 默认 auto。
+- **模式标志**：MultiSoul `suggest` / `auto-edit` / `full-auto` / `yolo` 不映射为 InfCode 权限语义；InfCode 固定 `--agent-mode ama`，不传 `--reasoning`，使用 InfCode 默认 auto。
 - **事件映射**：`text.delta` / `thinking.delta` / `thinking.end` 写 `agent_text`；`tool.start` 写 `tool_call`；`tool.result` 写 `tool_result`；`complete` / `run.result` 写 `task_status`；非 JSON stdout 合并为纯文本 fallback。
 - **Abort**：与其他 runtime 一样登记当前子进程 pid，`POST .../abort` 通过 `SessionHandle` kill 进程组。
 
@@ -435,7 +435,7 @@ KodaX 使用 `kodax --mode json --session <conversation_id> --agent-mode ama <pr
 >
 > **2026-06-01（workflow schedule storage）**：`cli/src/db.rs` 新增 `workflows` 与 `workflow_runs` 表，用于本机 daemon 调度固定 prompt 并记录每次运行。每次实际触发都会创建新的 conversation；`workflow_runs.conversation_id` 允许为空，以支持重叠触发被跳过时仅记录 `skipped_overlap` 日志。该 schema 属于 workflow 调度层，不改变 runtime adapter 的接入契约。
 >
-> **2026-06-02（KodaX runtime）**：新增 `kodax` runtime adapter 和 dispatch match arm。KodaX V1 以 `kodax --mode json --session <conversation_id> --agent-mode ama <prompt>` 单次子进程执行，`provider:model` 拆分为 `-m <provider> --model <model>`，图片输入沿用 dispatch 层路径前缀注入，abort 复用 `SessionHandle` pid kill 路径。
+> **2026-06-02（InfCode runtime）**：新增 `infcode` runtime adapter 和 dispatch match arm。InfCode V1 以 `infcode --mode json --session <conversation_id> --agent-mode ama <prompt>` 单次子进程执行，`provider:model` 拆分为 `-m <provider> --model <model>`，图片输入沿用 dispatch 层路径前缀注入，abort 复用 `SessionHandle` pid kill 路径。
 >
 > **2026-06-03（state.rs CI split）**：`cli/src/serve/state.rs` 将内联测试迁移到相邻 `state/tests.rs`，并应用 `cargo fmt` 输出，解除单文件行数与格式化 CI 闸；`AppState`、`AnswerMap`、`SessionHandle` 运行时设计正文无需变更。
 

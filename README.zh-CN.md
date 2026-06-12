@@ -97,7 +97,7 @@ cd /path/to/project
 msctl agent codex
 msctl agent claude-code
 msctl agent cursor-cli
-msctl agent kodax
+msctl agent infcode
 ```
 
 <details>
@@ -134,13 +134,13 @@ msctl agent register \
   --mode ask
 ```
 
-**KodaX**
+**InfCode**
 
 ```bash
 msctl agent register \
-  --name work-kodax \
+  --name work-infcode \
   --project /path/to/project \
-  --runtime kodax \
+  --runtime infcode \
   --mode full-auto
 ```
 
@@ -237,7 +237,7 @@ cargo run -- daemon quickstart
 cargo run -- agent codex
 cargo run -- agent claude-code
 cargo run -- agent cursor-cli
-cargo run -- agent kodax
+cargo run -- agent infcode
 cargo run -- serve
 ```
 
@@ -248,7 +248,7 @@ cd /path/to/project
 cargo run --manifest-path /path/to/multisoul/cli/Cargo.toml -- agent codex
 cargo run --manifest-path /path/to/multisoul/cli/Cargo.toml -- agent claude-code
 cargo run --manifest-path /path/to/multisoul/cli/Cargo.toml -- agent cursor-cli
-cargo run --manifest-path /path/to/multisoul/cli/Cargo.toml -- agent kodax
+cargo run --manifest-path /path/to/multisoul/cli/Cargo.toml -- agent infcode
 ```
 
 其他子命令同理：把 `msctl` 换成 `cargo run --`（或带 `--manifest-path` 的等价写法），例如 `cargo run -- logs --source service -f`。

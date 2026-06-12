@@ -100,7 +100,7 @@ Expected: PASS.
 - Modify: `cli/src/serve/runtime/codex/turn.rs`
 - Modify: `cli/src/serve/runtime/cursor/db.rs`
 - Modify as needed: `cli/src/serve/runtime/claude/**`
-- Modify as needed: `cli/src/serve/runtime/kodax/**`
+- Modify as needed: `cli/src/serve/runtime/infcode/**`
 - Modify as needed: `cli/src/serve/workflows.rs`
 - Add or modify focused CLI tests
 

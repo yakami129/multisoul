@@ -233,9 +233,9 @@ mod tests {
             "cursor-cli should default to AGENTS.md"
         );
         assert_eq!(
-            resolve_inject_target("kodax"),
+            resolve_inject_target("infcode"),
             "AGENTS.md",
-            "kodax should default to AGENTS.md"
+            "infcode should default to AGENTS.md"
         );
         assert_eq!(
             resolve_inject_target("unknown-runtime"),

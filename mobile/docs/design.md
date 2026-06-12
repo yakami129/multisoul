@@ -273,11 +273,11 @@ Floating Tab Bar
 
 ### 7.1 Tab Bar
 
-- 高度：50px visible rail + 28px safe-area padding，cornerRadius 30px
+- 高度：56px visible rail + 28px safe-area padding，cornerRadius 36px
 - 背景：`brand.ink`
-- 位置：浮动胶囊，左右约 20px，底部避开 Home Indicator
-- 布局：horizontal，space_between，padding `[0, 14]`
-- 图标：Lucide 或 brand-refresh transparent icon，20-31px
+- 位置：浮动胶囊，左右约 48px，底部避开 Home Indicator
+- 布局：horizontal，space_between，padding `[0, 4]`，每 item flex:1
+- 图标：Lucide 或 brand-refresh transparent icon，22-34px，托盘 40×40px
 - 标签：Inter 10px/600
 - 激活：浅蓝圆形托盘 + `text.onCream`
 - 非激活：白色 70% 或 muted 图标
