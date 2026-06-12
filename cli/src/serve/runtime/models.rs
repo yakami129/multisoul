@@ -105,7 +105,7 @@ const OPENCODE_MODELS: &[BuiltinModel] = &[
     },
 ];
 
-const KODAX_MODELS: &[BuiltinModel] = &[
+const INFCODE_MODELS: &[BuiltinModel] = &[
     BuiltinModel {
         id: "openai:gpt-5.3-codex",
         label: "OpenAI / GPT-5.3 Codex",
@@ -236,7 +236,7 @@ fn builtin_models(runtime: &str) -> Result<&'static [BuiltinModel], ModelProvide
         "claude-code" => Ok(CLAUDE_MODELS),
         "codex" => Ok(CODEX_MODELS),
         "cursor-cli" => Ok(CURSOR_MODELS),
-        "kodax" => Ok(KODAX_MODELS),
+        "infcode" => Ok(INFCODE_MODELS),
         "opencode" => Ok(OPENCODE_MODELS),
         other => Err(ModelProviderError::UnknownRuntime(other.to_string())),
     }

@@ -1,5 +1,5 @@
-//! KodaX runtime adapter.
-//! Spawns one `kodax --mode json` subprocess per user turn and maps JSONL stdout into MultiSoul messages.
+//! InfCode runtime adapter.
+//! Spawns one `infcode --mode json` subprocess per user turn and maps JSONL stdout into MultiSoul messages.
 
 mod events;
 
@@ -17,7 +17,7 @@ use crate::serve::routes::activity_events::{
 };
 use crate::serve::runtime::DispatchMessage;
 use crate::serve::state::{start_new_process_group, AppState, SessionHandle};
-use events::{parse_json_event, KodaxEvent};
+use events::{parse_json_event, InfcodeEvent};
 
 pub fn send_to_session(
     state: &AppState,
@@ -74,7 +74,7 @@ fn session_worker(
     rx: std::sync::mpsc::Receiver<crate::serve::state::SessionMessage>,
     session_handle: SessionHandle,
 ) {
-    let span = info_span!("session_worker", conv_id = %conv_id, runtime = "kodax", mode = %mode);
+    let span = info_span!("session_worker", conv_id = %conv_id, runtime = "infcode", mode = %mode);
     let _enter = span.enter();
     info!("session_worker_started");
 
@@ -96,7 +96,7 @@ fn session_worker(
         match process_turn(
             &state,
             &conv_id,
-            KodaxTurn {
+            InfcodeTurn {
                 prompt: &msg.user_text,
                 user_seq: msg.seq,
                 project_path: &project_path,
@@ -126,7 +126,7 @@ fn session_worker(
     }
 }
 
-struct KodaxTurn<'a> {
+struct InfcodeTurn<'a> {
     prompt: &'a str,
     user_seq: i64,
     project_path: &'a str,
@@ -136,13 +136,13 @@ struct KodaxTurn<'a> {
 fn process_turn(
     state: &AppState,
     conv_id: &str,
-    turn: KodaxTurn<'_>,
+    turn: InfcodeTurn<'_>,
     session_handle: &SessionHandle,
 ) -> Result<(), String> {
-    let mut child = spawn_kodax(conv_id, turn.prompt, turn.project_path, turn.model_id)?;
+    let mut child = spawn_infcode(conv_id, turn.prompt, turn.project_path, turn.model_id)?;
     let child_pid = child.id();
     session_handle.set_current_pid(child_pid);
-    debug!(pid = child_pid, conv_id = %conv_id, "kodax_spawned");
+    debug!(pid = child_pid, conv_id = %conv_id, "infcode_spawned");
 
     {
         let db = state.db.lock().unwrap();
@@ -152,12 +152,12 @@ fn process_turn(
         );
     }
 
-    let result = read_kodax_stdout(state, conv_id, turn.user_seq, &mut child);
+    let result = read_infcode_stdout(state, conv_id, turn.user_seq, &mut child);
     session_handle.clear_current_pid(child_pid);
     result
 }
 
-fn read_kodax_stdout(
+fn read_infcode_stdout(
     state: &AppState,
     conv_id: &str,
     user_seq: i64,
@@ -180,25 +180,25 @@ fn read_kodax_stdout(
         if trimmed.is_empty() {
             continue;
         }
-        debug!(line = %trimmed, "kodax_stdout_line");
+        debug!(line = %trimmed, "infcode_stdout_line");
 
         match serde_json::from_str::<Value>(trimmed) {
             Ok(value) => match parse_json_event(&value) {
-                KodaxEvent::AgentText(text) => emit_agent_text(state, conv_id, text),
-                KodaxEvent::ToolCall {
+                InfcodeEvent::AgentText(text) => emit_agent_text(state, conv_id, text),
+                InfcodeEvent::ToolCall {
                     call_id,
                     tool,
                     args,
                 } => emit_tool_call(state, conv_id, call_id, tool, args),
-                KodaxEvent::ToolResult {
+                InfcodeEvent::ToolResult {
                     call_id,
                     ok,
                     summary,
                 } => emit_tool_result(state, conv_id, call_id, ok, summary),
-                KodaxEvent::Completed => terminal_status = Some(Ok(())),
-                KodaxEvent::Failed(message) => terminal_status = Some(Err(message)),
-                KodaxEvent::Ignored => {
-                    debug!(event_type = ?value.get("type"), "kodax_unhandled_event")
+                InfcodeEvent::Completed => terminal_status = Some(Ok(())),
+                InfcodeEvent::Failed(message) => terminal_status = Some(Err(message)),
+                InfcodeEvent::Ignored => {
+                    debug!(event_type = ?value.get("type"), "infcode_unhandled_event")
                 }
             },
             Err(_) => {
@@ -218,9 +218,9 @@ fn read_kodax_stdout(
     let stderr_tail = stderr_tail.tail();
     if !status.success() {
         let message = if stderr_tail.is_empty() {
-            format!("kodax exited with status {}", status)
+            format!("infcode exited with status {}", status)
         } else {
-            format!("kodax exited with status {}: {}", status, stderr_tail)
+            format!("infcode exited with status {}: {}", status, stderr_tail)
         };
         return Err(message);
     }
@@ -234,15 +234,15 @@ fn read_kodax_stdout(
     }
 }
 
-fn spawn_kodax(
+fn spawn_infcode(
     conv_id: &str,
     prompt: &str,
     project_path: &str,
     model_id: Option<&str>,
 ) -> Result<Child, String> {
-    let bin = kodax_bin();
-    let args = build_kodax_args(conv_id, prompt, model_id)?;
-    debug!(args = ?args, "kodax_spawn_args");
+    let bin = infcode_bin();
+    let args = build_infcode_args(conv_id, prompt, model_id)?;
+    debug!(args = ?args, "infcode_spawn_args");
 
     let mut cmd = Command::new(&bin);
     cmd.args(&args)
@@ -254,11 +254,11 @@ fn spawn_kodax(
     cmd.spawn().map_err(|e| format!("spawn {}: {}", bin, e))
 }
 
-fn kodax_bin() -> String {
-    std::env::var("KODAX_BIN").unwrap_or_else(|_| "kodax".to_string())
+fn infcode_bin() -> String {
+    std::env::var("INFCODE_BIN").unwrap_or_else(|_| "infcode".to_string())
 }
 
-fn build_kodax_args(
+fn build_infcode_args(
     conv_id: &str,
     prompt: &str,
     model_id: Option<&str>,
@@ -285,7 +285,7 @@ fn build_kodax_args(
 fn split_provider_model(model_id: &str) -> Result<(&str, &str), String> {
     let (provider, model) = model_id.split_once(':').ok_or_else(|| {
         format!(
-            "invalid KodaX model id `{}`: expected provider:model",
+            "invalid InfCode model id `{}`: expected provider:model",
             model_id
         )
     })?;
@@ -293,7 +293,7 @@ fn split_provider_model(model_id: &str) -> Result<(&str, &str), String> {
     let model = model.trim();
     if provider.is_empty() || model.is_empty() {
         return Err(format!(
-            "invalid KodaX model id `{}`: provider and model must be non-empty",
+            "invalid InfCode model id `{}`: provider and model must be non-empty",
             model_id
         ));
     }

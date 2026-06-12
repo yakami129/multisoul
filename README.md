@@ -101,7 +101,7 @@ cd /path/to/project
 msctl agent codex
 msctl agent claude-code
 msctl agent cursor-cli
-msctl agent kodax
+msctl agent infcode
 ```
 
 <details>
@@ -138,13 +138,13 @@ msctl agent register \
   --mode ask
 ```
 
-**KodaX**
+**InfCode**
 
 ```bash
 msctl agent register \
-  --name work-kodax \
+  --name work-infcode \
   --project /path/to/project \
-  --runtime kodax \
+  --runtime infcode \
   --mode full-auto
 ```
 
@@ -241,7 +241,7 @@ cargo run -- daemon quickstart
 cargo run -- agent codex
 cargo run -- agent claude-code
 cargo run -- agent cursor-cli
-cargo run -- agent kodax
+cargo run -- agent infcode
 cargo run -- serve
 ```
 
@@ -252,7 +252,7 @@ cd /path/to/project
 cargo run --manifest-path /path/to/multisoul/cli/Cargo.toml -- agent codex
 cargo run --manifest-path /path/to/multisoul/cli/Cargo.toml -- agent claude-code
 cargo run --manifest-path /path/to/multisoul/cli/Cargo.toml -- agent cursor-cli
-cargo run --manifest-path /path/to/multisoul/cli/Cargo.toml -- agent kodax
+cargo run --manifest-path /path/to/multisoul/cli/Cargo.toml -- agent infcode
 ```
 
 Replace `msctl` with `cargo run --` (or `cargo run --manifest-path … --`) for any other subcommand, e.g. `cargo run -- logs --source service -f`.

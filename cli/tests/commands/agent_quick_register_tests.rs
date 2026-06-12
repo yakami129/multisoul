@@ -17,7 +17,7 @@ fn parse_agent_args(args: &[&str]) -> AgentCommands {
 /// quick register runtime validation: accepts supported runtimes and rejects unknown values.
 ///
 /// 数据构造：
-///   accepted = codex / claude-code / cursor-cli / kodax
+///   accepted = codex / claude-code / cursor-cli / infcode
 ///   rejected = unknown
 ///
 /// 执行过程：
@@ -42,14 +42,14 @@ fn test_quick_register_accepts_all_current_runtimes() {
         "quick register should accept cursor-cli runtime"
     );
     assert!(
-        validate_quick_register_runtime("kodax").is_ok(),
-        "quick register should accept kodax runtime"
+        validate_quick_register_runtime("infcode").is_ok(),
+        "quick register should accept infcode runtime"
     );
     let message = validate_quick_register_runtime("unknown")
         .expect_err("unknown runtime should be rejected")
         .to_string();
     assert!(
-        message.contains("claude-code, codex, cursor-cli, kodax"),
+        message.contains("claude-code, codex, cursor-cli, infcode"),
         "invalid runtime error should list every supported runtime"
     );
 }
@@ -60,13 +60,13 @@ fn test_quick_register_accepts_all_current_runtimes() {
 ///   argv1 = ["agent", "codex"]
 ///   argv2 = ["agent", "claude-code"]
 ///   argv3 = ["agent", "cursor-cli"]
-///   argv4 = ["agent", "kodax"]
+///   argv4 = ["agent", "infcode"]
 ///
 /// 执行过程：
 ///   1. 解析 codex → AgentCommands::QuickRegister(["codex"])
 ///   2. 解析 claude-code → AgentCommands::QuickRegister(["claude-code"])
 ///   3. 解析 cursor-cli → AgentCommands::QuickRegister(["cursor-cli"])
-///   4. 解析 kodax → AgentCommands::QuickRegister(["kodax"])
+///   4. 解析 infcode → AgentCommands::QuickRegister(["infcode"])
 ///
 /// 预期结果：
 ///   - 正断言：四条快捷命令均进入 QuickRegister
@@ -97,13 +97,13 @@ fn test_quick_register_clap_parses_runtime_shortcuts() {
         ),
         _ => panic!("cursor-cli shortcut must not parse as a traditional subcommand"),
     }
-    match parse_agent_args(&["agent", "kodax"]) {
+    match parse_agent_args(&["agent", "infcode"]) {
         AgentCommands::QuickRegister(args) => assert_eq!(
             args,
-            vec!["kodax".to_string()],
-            "kodax shortcut should parse as the sole quick-register arg"
+            vec!["infcode".to_string()],
+            "infcode shortcut should parse as the sole quick-register arg"
         ),
-        _ => panic!("kodax shortcut must not parse as a traditional subcommand"),
+        _ => panic!("infcode shortcut must not parse as a traditional subcommand"),
     }
 }
 
@@ -170,7 +170,7 @@ fn test_quick_register_preflight_rejects_invalid_inputs_without_db() {
 ///
 /// 数据构造：
 ///   command = AgentCommands clap command
-///   examples = codex / claude-code / cursor-cli / kodax quick-register lines
+///   examples = codex / claude-code / cursor-cli / infcode quick-register lines
 ///
 /// 执行过程：
 ///   1. 渲染 agent help
@@ -196,8 +196,8 @@ fn test_quick_register_help_documents_runtime_shortcuts() {
         "agent help should document the cursor-cli quick-register shortcut"
     );
     assert!(
-        help.contains("msctl agent kodax"),
-        "agent help should document the kodax quick-register shortcut"
+        help.contains("msctl agent infcode"),
+        "agent help should document the infcode quick-register shortcut"
     );
     assert!(
         help.contains("register"),
@@ -454,45 +454,48 @@ fn test_quick_register_supports_claude_code_and_cursor_cli() {
     );
 }
 
-/// quick register kodax: writes DB row with default mode and injects AGENTS.md.
+/// quick register infcode: writes DB row with default mode and injects AGENTS.md.
 #[test]
-fn test_quick_register_kodax_writes_agent_and_injects_agents_md() {
-    let dir = tempfile::tempdir().expect("temp dir should be created for KodaX register");
+fn test_quick_register_infcode_writes_agent_and_injects_agents_md() {
+    let dir = tempfile::tempdir().expect("temp dir should be created for InfCode register");
     let conn = open_temp_db(&dir);
-    let workspace = dir.path().join("kodax-demo");
-    std::fs::create_dir_all(&workspace).expect("kodax workspace should be created");
+    let workspace = dir.path().join("infcode-demo");
+    std::fs::create_dir_all(&workspace).expect("infcode workspace should be created");
 
-    let result = quick_register_in_workspace(&conn, "kodax", &workspace)
-        .expect("kodax quick register should succeed");
+    let result = quick_register_in_workspace(&conn, "infcode", &workspace)
+        .expect("infcode quick register should succeed");
 
     assert_eq!(
-        result.runtime, "kodax",
-        "quick register result should preserve kodax runtime"
+        result.runtime, "infcode",
+        "quick register result should preserve infcode runtime"
     );
     let row: (String, String, String, String) = conn
         .query_row(
-            "SELECT name, project_path, runtime, mode FROM agents WHERE name = 'kodax-demo'",
+            "SELECT name, project_path, runtime, mode FROM agents WHERE name = 'infcode-demo'",
             [],
             |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)),
         )
-        .expect("kodax-demo row should be queryable");
-    assert_eq!(row.0, "kodax-demo", "DB name should match workspace");
+        .expect("infcode-demo row should be queryable");
+    assert_eq!(row.0, "infcode-demo", "DB name should match workspace");
     assert_eq!(
         row.1,
         workspace.to_str().expect("workspace path should be UTF-8"),
         "DB project_path should match workspace"
     );
-    assert_eq!(row.2, "kodax", "DB runtime should match requested runtime");
+    assert_eq!(
+        row.2, "infcode",
+        "DB runtime should match requested runtime"
+    );
     assert_eq!(
         row.3, "full-auto",
         "DB mode should use quick-register default"
     );
     assert!(
         workspace.join("AGENTS.md").exists(),
-        "kodax should inject AGENTS.md"
+        "infcode should inject AGENTS.md"
     );
     assert!(
         !workspace.join("CLAUDE.md").exists(),
-        "kodax must not inject CLAUDE.md"
+        "infcode must not inject CLAUDE.md"
     );
 }

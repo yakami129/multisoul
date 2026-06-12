@@ -6,8 +6,8 @@ use std::{
 use tempfile::tempdir;
 
 #[test]
-fn build_kodax_args_uses_json_session_agent_mode_and_provider_model() {
-    let args = build_kodax_args("conv-1", "hello", Some("openai:gpt-5.4")).unwrap();
+fn build_infcode_args_uses_json_session_agent_mode_and_provider_model() {
+    let args = build_infcode_args("conv-1", "hello", Some("openai:gpt-5.4")).unwrap();
 
     assert_eq!(
         args,
@@ -24,13 +24,13 @@ fn build_kodax_args_uses_json_session_agent_mode_and_provider_model() {
             "gpt-5.4",
             "hello",
         ],
-        "KodaX argv should use JSON mode, MultiSoul conversation id, AMA mode, provider, model, then prompt"
+        "InfCode argv should use JSON mode, MultiSoul conversation id, AMA mode, provider, model, then prompt"
     );
 }
 
 #[test]
-fn build_kodax_args_omits_provider_model_for_default() {
-    let args = build_kodax_args("conv-1", "hello", None).unwrap();
+fn build_infcode_args_omits_provider_model_for_default() {
+    let args = build_infcode_args("conv-1", "hello", None).unwrap();
 
     assert_eq!(
         args,
@@ -43,11 +43,11 @@ fn build_kodax_args_omits_provider_model_for_default() {
             "ama",
             "hello",
         ],
-        "Default KodaX model should not pass provider/model flags"
+        "Default InfCode model should not pass provider/model flags"
     );
     assert!(
         !args.iter().any(|arg| arg == "-m" || arg == "--model"),
-        "None model_id must not add KodaX provider/model args"
+        "None model_id must not add InfCode provider/model args"
     );
 }
 
@@ -59,7 +59,7 @@ fn split_provider_model_requires_non_empty_provider_and_model() {
     );
     assert!(
         split_provider_model("gpt-5.4").is_err(),
-        "KodaX model ids must be encoded as provider:model"
+        "InfCode model ids must be encoded as provider:model"
     );
     assert!(
         split_provider_model(":gpt-5.4").is_err(),
@@ -73,9 +73,9 @@ fn split_provider_model_requires_non_empty_provider_and_model() {
 
 #[test]
 fn process_turn_maps_jsonl_events_into_messages_and_completion() {
-    let state = make_kodax_state();
+    let state = make_infcode_state();
     let dir = tempdir().unwrap();
-    let fake_kodax = write_fake_kodax(
+    let fake_infcode = write_fake_infcode(
         dir.path(),
         r#"#!/bin/sh
 printf '%s
@@ -100,14 +100,14 @@ echo {"type":"tool.result","id":"tool-1","name":"bash","content":"/repo"}
 echo {"type":"run.result","success":true,"sessionId":"conv-1"}
 "#,
     );
-    let _env_guard = KodaxBinGuard::set(&fake_kodax);
+    let _env_guard = InfcodeBinGuard::set(&fake_infcode);
     let (tx, _rx) = std::sync::mpsc::channel();
     let handle = SessionHandle::new(tx);
 
     process_turn(
         &state,
         "conv-1",
-        KodaxTurn {
+        InfcodeTurn {
             prompt: "hello",
             user_seq: 1,
             project_path: dir.path().to_str().unwrap(),
@@ -115,7 +115,7 @@ echo {"type":"run.result","success":true,"sessionId":"conv-1"}
         },
         &handle,
     )
-    .expect("fake JSONL KodaX run should complete");
+    .expect("fake JSONL InfCode run should complete");
 
     assert_eq!(conversation_status(&state), "completed");
     let messages = messages_for(&state);
@@ -154,21 +154,21 @@ echo {"type":"run.result","success":true,"sessionId":"conv-1"}
 
 #[test]
 fn process_turn_falls_back_to_plain_text_stdout() {
-    let state = make_kodax_state();
+    let state = make_infcode_state();
     let dir = tempdir().unwrap();
-    let fake_kodax = write_fake_kodax(
+    let fake_infcode = write_fake_infcode(
         dir.path(),
         "#!/bin/sh\nprintf '%s\\n' 'plain line one'\nprintf '%s\\n' 'plain line two'\n",
         "@echo off\necho plain line one\necho plain line two\n",
     );
-    let _env_guard = KodaxBinGuard::set(&fake_kodax);
+    let _env_guard = InfcodeBinGuard::set(&fake_infcode);
     let (tx, _rx) = std::sync::mpsc::channel();
     let handle = SessionHandle::new(tx);
 
     process_turn(
         &state,
         "conv-1",
-        KodaxTurn {
+        InfcodeTurn {
             prompt: "hello",
             user_seq: 1,
             project_path: dir.path().to_str().unwrap(),
@@ -190,9 +190,9 @@ fn process_turn_falls_back_to_plain_text_stdout() {
 
 #[test]
 fn process_turn_drains_large_stderr_without_deadlock() {
-    let state = make_kodax_state();
+    let state = make_infcode_state();
     let dir = tempdir().unwrap();
-    let fake_kodax = write_fake_kodax(
+    let fake_infcode = write_fake_infcode(
         dir.path(),
         r#"#!/bin/sh
 for i in $(seq 1 2000); do
@@ -207,7 +207,7 @@ echo {"type":"text.delta","text":"done"}
 echo {"type":"run.result","success":true,"sessionId":"conv-1"}
 "#,
     );
-    let _env_guard = KodaxBinGuard::set(&fake_kodax);
+    let _env_guard = InfcodeBinGuard::set(&fake_infcode);
     let (tx, _rx) = std::sync::mpsc::channel();
     let handle = SessionHandle::new(tx);
 
@@ -215,7 +215,7 @@ echo {"type":"run.result","success":true,"sessionId":"conv-1"}
     process_turn(
         &state,
         "conv-1",
-        KodaxTurn {
+        InfcodeTurn {
             prompt: "hello",
             user_seq: 1,
             project_path: dir.path().to_str().unwrap(),
@@ -227,7 +227,7 @@ echo {"type":"run.result","success":true,"sessionId":"conv-1"}
 
     assert!(
         started.elapsed() < Duration::from_secs(5),
-        "KodaX stderr drain should prevent pipe deadlock"
+        "InfCode stderr drain should prevent pipe deadlock"
     );
     assert_eq!(conversation_status(&state), "completed");
     assert!(
@@ -242,12 +242,12 @@ echo {"type":"run.result","success":true,"sessionId":"conv-1"}
 #[cfg(unix)]
 #[test]
 fn abort_kills_child_and_worker_marks_aborted() {
-    let state = make_kodax_state();
+    let state = make_infcode_state();
     let dir = tempdir().unwrap();
-    let fake_kodax = dir.path().join("kodax");
-    std::fs::write(&fake_kodax, "#!/bin/sh\nsleep 30\n").unwrap();
-    make_executable(&fake_kodax);
-    let _env_guard = KodaxBinGuard::set(&fake_kodax);
+    let fake_infcode = dir.path().join("infcode");
+    std::fs::write(&fake_infcode, "#!/bin/sh\nsleep 30\n").unwrap();
+    make_executable(&fake_infcode);
+    let _env_guard = InfcodeBinGuard::set(&fake_infcode);
 
     let (tx, rx) = std::sync::mpsc::channel();
     let handle = SessionHandle::new(tx.clone());
@@ -281,7 +281,7 @@ fn abort_kills_child_and_worker_marks_aborted() {
     assert!(
         wait_until(Duration::from_millis(1000), || conversation_status(&state)
             == "running"),
-        "KodaX worker should mark conversation running after spawning child"
+        "InfCode worker should mark conversation running after spawning child"
     );
     let registered_pid = state
         .sessions
@@ -291,34 +291,34 @@ fn abort_kills_child_and_worker_marks_aborted() {
         .and_then(|session| *session.current_pid.lock().unwrap());
     assert!(
         registered_pid.is_some(),
-        "KodaX worker should register current child pid before abort"
+        "InfCode worker should register current child pid before abort"
     );
 
     let removed_session = state.sessions.lock().unwrap().remove("conv-1").unwrap();
     assert!(
         removed_session.abort_current_process(),
-        "abort_current_process should kill the registered KodaX process group"
+        "abort_current_process should kill the registered InfCode process group"
     );
 
     let worker_result = join_with_timeout(worker, Duration::from_millis(1000));
     assert!(
         worker_result.is_some(),
-        "KodaX worker should exit within 1000ms after abort kills child"
+        "InfCode worker should exit within 1000ms after abort kills child"
     );
     worker_result
         .unwrap()
-        .expect("KodaX worker should not panic");
+        .expect("InfCode worker should not panic");
     assert_eq!(conversation_status(&state), "aborted");
     assert!(
         messages_for(&state)
             .iter()
             .any(|(role, payload)| role == "task_status"
                 && payload.get("status").and_then(|status| status.as_str()) == Some("aborted")),
-        "aborted KodaX turn should emit aborted task_status"
+        "aborted InfCode turn should emit aborted task_status"
     );
 }
 
-fn make_kodax_state() -> AppState {
+fn make_infcode_state() -> AppState {
     let conn = rusqlite::Connection::open_in_memory().unwrap();
     conn.execute_batch(
         "CREATE TABLE agents (
@@ -347,7 +347,7 @@ fn make_kodax_state() -> AppState {
     )
     .unwrap();
     conn.execute(
-        "INSERT INTO agents (id, name) VALUES ('agent-1', 'KodaX')",
+        "INSERT INTO agents (id, name) VALUES ('agent-1', 'InfCode')",
         [],
     )
     .unwrap();
@@ -432,15 +432,15 @@ fn make_executable(path: &std::path::Path) {
     }
 }
 
-fn write_fake_kodax(
+fn write_fake_infcode(
     dir: &std::path::Path,
     unix_script: &str,
     windows_script: &str,
 ) -> std::path::PathBuf {
     let (path, script) = if cfg!(windows) {
-        (dir.join("kodax.cmd"), windows_script)
+        (dir.join("infcode.cmd"), windows_script)
     } else {
-        (dir.join("kodax"), unix_script)
+        (dir.join("infcode"), unix_script)
     };
 
     std::fs::write(&path, script).unwrap();
@@ -448,17 +448,17 @@ fn write_fake_kodax(
     path
 }
 
-struct KodaxBinGuard {
+struct InfcodeBinGuard {
     _lock: std::sync::MutexGuard<'static, ()>,
     previous: Option<String>,
 }
 
-impl KodaxBinGuard {
+impl InfcodeBinGuard {
     fn set(value: &std::path::Path) -> Self {
         static ENV_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
         let lock = ENV_LOCK.get_or_init(|| Mutex::new(())).lock().unwrap();
-        let previous = std::env::var("KODAX_BIN").ok();
-        std::env::set_var("KODAX_BIN", value);
+        let previous = std::env::var("INFCODE_BIN").ok();
+        std::env::set_var("INFCODE_BIN", value);
         Self {
             _lock: lock,
             previous,
@@ -466,12 +466,12 @@ impl KodaxBinGuard {
     }
 }
 
-impl Drop for KodaxBinGuard {
+impl Drop for InfcodeBinGuard {
     fn drop(&mut self) {
         if let Some(value) = &self.previous {
-            std::env::set_var("KODAX_BIN", value);
+            std::env::set_var("INFCODE_BIN", value);
         } else {
-            std::env::remove_var("KODAX_BIN");
+            std::env::remove_var("INFCODE_BIN");
         }
     }
 }

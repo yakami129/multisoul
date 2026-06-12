@@ -1,7 +1,7 @@
 use serde_json::Value;
 
 #[derive(Debug, PartialEq)]
-pub(super) enum KodaxEvent {
+pub(super) enum InfcodeEvent {
     AgentText(String),
     ToolCall {
         call_id: String,
@@ -18,41 +18,41 @@ pub(super) enum KodaxEvent {
     Ignored,
 }
 
-pub(super) fn parse_json_event(v: &Value) -> KodaxEvent {
+pub(super) fn parse_json_event(v: &Value) -> InfcodeEvent {
     let event_type = v.get("type").and_then(|t| t.as_str()).unwrap_or("");
     match event_type {
         "text" | "text.delta" => text_from_fields(v, &["text", "content", "delta"])
-            .map(KodaxEvent::AgentText)
-            .unwrap_or(KodaxEvent::Ignored),
+            .map(InfcodeEvent::AgentText)
+            .unwrap_or(InfcodeEvent::Ignored),
         "assistant" | "message" if is_assistant(v) => assistant_text(v)
-            .map(KodaxEvent::AgentText)
-            .unwrap_or(KodaxEvent::Ignored),
+            .map(InfcodeEvent::AgentText)
+            .unwrap_or(InfcodeEvent::Ignored),
         "thinking" | "thinking.delta" => {
             text_from_fields(v, &["text", "thinking", "content", "delta"])
-                .map(KodaxEvent::AgentText)
-                .unwrap_or(KodaxEvent::Ignored)
+                .map(InfcodeEvent::AgentText)
+                .unwrap_or(InfcodeEvent::Ignored)
         }
         "thinking.end" => text_from_fields(v, &["thinking", "text", "content"])
-            .map(KodaxEvent::AgentText)
-            .unwrap_or(KodaxEvent::Ignored),
+            .map(InfcodeEvent::AgentText)
+            .unwrap_or(InfcodeEvent::Ignored),
         "tool.start" => parse_tool_start(v),
         "tool.result" => parse_tool_result(v),
-        "complete" => KodaxEvent::Completed,
+        "complete" => InfcodeEvent::Completed,
         "run.result" => {
             if v.get("success").and_then(|s| s.as_bool()).unwrap_or(false) {
-                KodaxEvent::Completed
+                InfcodeEvent::Completed
             } else {
-                KodaxEvent::Failed(error_message(v, "kodax run failed"))
+                InfcodeEvent::Failed(error_message(v, "infcode run failed"))
             }
         }
-        "error" => KodaxEvent::Failed(error_message(v, "kodax error")),
-        _ => KodaxEvent::Ignored,
+        "error" => InfcodeEvent::Failed(error_message(v, "infcode error")),
+        _ => InfcodeEvent::Ignored,
     }
 }
 
-fn parse_tool_start(v: &Value) -> KodaxEvent {
+fn parse_tool_start(v: &Value) -> InfcodeEvent {
     let Some(call_id) = string_field(v, &["id", "call_id", "toolId"]) else {
-        return KodaxEvent::Ignored;
+        return InfcodeEvent::Ignored;
     };
     let tool = string_field(v, &["name", "tool", "toolName"]).unwrap_or_else(|| "tool".to_string());
     let args = v
@@ -60,16 +60,16 @@ fn parse_tool_start(v: &Value) -> KodaxEvent {
         .or_else(|| v.get("args"))
         .cloned()
         .unwrap_or_else(|| serde_json::json!({}));
-    KodaxEvent::ToolCall {
+    InfcodeEvent::ToolCall {
         call_id,
         tool,
         args,
     }
 }
 
-fn parse_tool_result(v: &Value) -> KodaxEvent {
+fn parse_tool_result(v: &Value) -> InfcodeEvent {
     let Some(call_id) = string_field(v, &["id", "call_id", "toolId"]) else {
-        return KodaxEvent::Ignored;
+        return InfcodeEvent::Ignored;
     };
     let ok = v
         .get("ok")
@@ -83,7 +83,7 @@ fn parse_tool_result(v: &Value) -> KodaxEvent {
         });
     let summary = text_from_fields(v, &["summary", "content", "output", "text", "message"])
         .unwrap_or_default();
-    KodaxEvent::ToolResult {
+    InfcodeEvent::ToolResult {
         call_id,
         ok,
         summary,
@@ -172,18 +172,18 @@ mod tests {
     fn parses_text_and_thinking_events_as_agent_text() {
         assert_eq!(
             parse_json_event(&json!({"type":"text.delta","text":"hello"})),
-            KodaxEvent::AgentText("hello".to_string())
+            InfcodeEvent::AgentText("hello".to_string())
         );
         assert_eq!(
             parse_json_event(&json!({"type":"thinking.end","thinking":"plan"})),
-            KodaxEvent::AgentText("plan".to_string())
+            InfcodeEvent::AgentText("plan".to_string())
         );
         assert_eq!(
             parse_json_event(&json!({
                 "type":"assistant",
                 "message":{"role":"assistant","content":[{"type":"text","text":"done"}]}
             })),
-            KodaxEvent::AgentText("done".to_string())
+            InfcodeEvent::AgentText("done".to_string())
         );
     }
 
@@ -196,7 +196,7 @@ mod tests {
                 "name":"bash",
                 "input":{"command":"pwd"}
             })),
-            KodaxEvent::ToolCall {
+            InfcodeEvent::ToolCall {
                 call_id: "tool-1".to_string(),
                 tool: "bash".to_string(),
                 args: json!({"command":"pwd"}),
@@ -208,7 +208,7 @@ mod tests {
                 "id":"tool-1",
                 "content":"/repo"
             })),
-            KodaxEvent::ToolResult {
+            InfcodeEvent::ToolResult {
                 call_id: "tool-1".to_string(),
                 ok: true,
                 summary: "/repo".to_string(),
@@ -220,17 +220,17 @@ mod tests {
     fn parses_completion_and_failure_events() {
         assert_eq!(
             parse_json_event(&json!({"type":"complete"})),
-            KodaxEvent::Completed
+            InfcodeEvent::Completed
         );
         assert_eq!(
             parse_json_event(&json!({"type":"run.result","success":true})),
-            KodaxEvent::Completed
+            InfcodeEvent::Completed
         );
         assert_eq!(
             parse_json_event(
                 &json!({"type":"run.result","success":false,"signalReason":"blocked"})
             ),
-            KodaxEvent::Failed("blocked".to_string())
+            InfcodeEvent::Failed("blocked".to_string())
         );
     }
 }

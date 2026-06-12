@@ -39,7 +39,7 @@ Source: `cli/src/commands/agent.rs`
 
 | 子命令 | 参数 | 说明 |
 |--------|------|------|
-| `agent <runtime>` | `codex` \| `claude-code` \| `cursor-cli` \| `kodax` | 快速注册当前目录为 agent |
+| `agent <runtime>` | `codex` \| `claude-code` \| `cursor-cli` \| `infcode` | 快速注册当前目录为 agent |
 | `agent register` | `--name <NAME>` `--project <PATH>` `--runtime <RUNTIME>` `--mode <MODE>` | 注册新 agent 到本地 `serve.db` |
 | `agent list` | — | 列出所有已注册 agent |
 | `agent get` | `<ID>` | 查看指定 agent 详情 |
@@ -56,7 +56,7 @@ cd /path/to/project
 msctl agent codex
 msctl agent claude-code
 msctl agent cursor-cli
-msctl agent kodax
+msctl agent infcode
 ```
 
 在 `cli/` 目录开发时：
@@ -65,7 +65,7 @@ msctl agent kodax
 cargo run -- agent codex
 cargo run -- agent claude-code
 cargo run -- agent cursor-cli
-cargo run -- agent kodax
+cargo run -- agent infcode
 ```
 
 从源码注册其他项目目录时：
@@ -75,7 +75,7 @@ cd /path/to/project
 cargo run --manifest-path /path/to/multisoul/cli/Cargo.toml -- agent codex
 cargo run --manifest-path /path/to/multisoul/cli/Cargo.toml -- agent claude-code
 cargo run --manifest-path /path/to/multisoul/cli/Cargo.toml -- agent cursor-cli
-cargo run --manifest-path /path/to/multisoul/cli/Cargo.toml -- agent kodax
+cargo run --manifest-path /path/to/multisoul/cli/Cargo.toml -- agent infcode
 ```
 
 ### `agent register` 参数说明
@@ -84,7 +84,7 @@ cargo run --manifest-path /path/to/multisoul/cli/Cargo.toml -- agent kodax
 |------|--------|------|
 | `--name` | 必填 | Agent 名称（唯一） |
 | `--project` | 必填 | 项目目录绝对路径 |
-| `--runtime` | `claude-code` | 运行时：`claude-code` \| `codex` \| `cursor-cli` \| `kodax` |
+| `--runtime` | `claude-code` | 运行时：`claude-code` \| `codex` \| `cursor-cli` \| `infcode` |
 | `--mode` | `full-auto` | 权限模式（仅 codex）：`suggest` \| `auto-edit` \| `full-auto` \| `yolo` |
 
 ---
