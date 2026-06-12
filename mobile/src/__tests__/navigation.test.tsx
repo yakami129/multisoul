@@ -350,9 +350,9 @@ describe('Tab navigation', () => {
   /// iOS tab bar labels: safe-area padding must not consume the 50px content rail
   ///
   /// Data construction:
-  ///   visible rail = 50px, keeping the brand refresh capsule compact
+  ///   visible rail = 48px, keeping the brand refresh capsule compact
   ///   iOS home indicator inset = 28px, preserving room without over-covering content
-  ///   total height must be 50 + 28 = 78px so labels keep their own vertical space
+  ///   total height must be 48 + 28 = 76px so labels keep their own vertical space
   ///
   /// Execution:
   ///   1. Read the exported tab screen options used by expo-router Tabs
@@ -366,14 +366,14 @@ describe('Tab navigation', () => {
   it('keeps iOS tab labels visible above the home indicator inset', () => {
     const style = tabScreenOptions.tabBarStyle;
 
-    expect(TAB_BAR_HEIGHT).toBe(50, 'visible tab rail should remain compact at 50px');
+    expect(TAB_BAR_HEIGHT).toBe(48, 'visible tab rail should remain compact at 48px');
     expect(TAB_BAR_SAFE_AREA_BOTTOM).toBe(
       28,
       'bottom inset should preserve the iOS home indicator area',
     );
     expect(style.height).toBe(
-      78,
-      'tabBarStyle.height should be 50 + 28 so iOS safe-area padding does not clip labels',
+      76,
+      'tabBarStyle.height should be 48 + 28 so iOS safe-area padding does not clip labels',
     );
     expect(style.marginBottom).toBe(
       undefined,
