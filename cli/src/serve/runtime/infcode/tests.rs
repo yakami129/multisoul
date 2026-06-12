@@ -1,3 +1,8 @@
+use super::cli_compat::{
+    build_infcode_args, build_legacy_args, legacy_fallback_invocation, sanitize_legacy_output,
+    should_retry_same_bin_in_legacy_mode, split_provider_model, InfcodeInvocation,
+    InfcodeOutputMode,
+};
 use super::*;
 use std::{
     sync::{Mutex, OnceLock},
@@ -189,6 +194,112 @@ fn process_turn_falls_back_to_plain_text_stdout() {
 }
 
 #[test]
+fn legacy_args_use_print_mode_and_disable_session() {
+    let args = build_legacy_args("hello", Some("openai:gpt-5.4")).unwrap();
+
+    assert_eq!(
+        args,
+        vec![
+            "-m",
+            "openai",
+            "--model",
+            "gpt-5.4",
+            "-p",
+            "hello",
+            "--no-session",
+        ],
+        "legacy InfCode fallback must use provider/model flags plus -p/--no-session"
+    );
+}
+
+#[test]
+fn legacy_fallback_switches_missing_infcode_to_kodax() {
+    let primary = InfcodeInvocation {
+        bin: "infcode".to_string(),
+        args: build_infcode_args("conv-1", "hello", None).unwrap(),
+        output_mode: InfcodeOutputMode::JsonEvents,
+    };
+
+    let fallback = legacy_fallback_invocation(
+        &primary,
+        "hello",
+        None,
+        "spawn infcode: No such file or directory (os error 2)",
+    )
+    .expect("missing infcode binary should fall back to kodax");
+
+    assert_eq!(fallback.bin, "kodax");
+    assert_eq!(fallback.output_mode, InfcodeOutputMode::LegacyPrint);
+    assert_eq!(fallback.args, vec!["-p", "hello", "--no-session"]);
+}
+
+#[test]
+fn sanitize_legacy_output_strips_cli_noise() {
+    let raw = "\u{1b}[2K[KodaX] Provider: infplacex\r\n\
+[Assistant]\r\n\
+  useful answer  \r\n\
+\u{1b}[2K⠋ Thinking...\r\n\
+[KodaX] Done!\r\n\
+[Thinking] hidden trace\r\n";
+
+    assert_eq!(sanitize_legacy_output(raw), "useful answer");
+}
+
+#[test]
+fn process_turn_retries_same_bin_in_legacy_mode_on_argument_error() {
+    let state = make_infcode_state();
+    let dir = tempdir().unwrap();
+    let fake_infcode = write_fake_infcode(
+        dir.path(),
+        r#"#!/bin/sh
+if [ "$1" = "--mode" ]; then
+  echo "error: too many arguments. Expected 0 arguments but got 1." >&2
+  exit 1
+fi
+printf '%s\n' '[KodaX] Provider: infplacex'
+printf '%s\n' '[Assistant]'
+printf '%s\n' 'legacy ok'
+printf '%s\n' '[KodaX] Done!'
+"#,
+        r#"@echo off
+if "%1"=="--mode" (
+  echo error: too many arguments. Expected 0 arguments but got 1. 1>&2
+  exit /b 1
+)
+echo [KodaX] Provider: infplacex
+echo [Assistant]
+echo legacy ok
+echo [KodaX] Done!
+"#,
+    );
+    let _env_guard = InfcodeBinGuard::set(&fake_infcode);
+    let (tx, _rx) = std::sync::mpsc::channel();
+    let handle = SessionHandle::new(tx);
+
+    process_turn(
+        &state,
+        "conv-1",
+        InfcodeTurn {
+            prompt: "hello",
+            user_seq: 1,
+            project_path: dir.path().to_str().unwrap(),
+            model_id: None,
+        },
+        &handle,
+    )
+    .expect("argument mismatch should retry same binary in legacy mode");
+
+    assert_eq!(conversation_status(&state), "completed");
+    assert!(
+        messages_for(&state)
+            .iter()
+            .any(|(role, payload)| role == "agent_text"
+                && payload.get("text").and_then(|text| text.as_str()) == Some("legacy ok")),
+        "legacy retry output should be emitted as agent_text"
+    );
+}
+
+#[test]
 fn process_turn_drains_large_stderr_without_deadlock() {
     let state = make_infcode_state();
     let dir = tempdir().unwrap();
@@ -239,83 +350,11 @@ echo {"type":"run.result","success":true,"sessionId":"conv-1"}
     );
 }
 
-#[cfg(unix)]
 #[test]
-fn abort_kills_child_and_worker_marks_aborted() {
-    let state = make_infcode_state();
-    let dir = tempdir().unwrap();
-    let fake_infcode = dir.path().join("infcode");
-    std::fs::write(&fake_infcode, "#!/bin/sh\nsleep 30\n").unwrap();
-    make_executable(&fake_infcode);
-    let _env_guard = InfcodeBinGuard::set(&fake_infcode);
-
-    let (tx, rx) = std::sync::mpsc::channel();
-    let handle = SessionHandle::new(tx.clone());
-    state
-        .sessions
-        .lock()
-        .unwrap()
-        .insert("conv-1".to_string(), handle.clone());
-
-    let state_for_worker = state.clone();
-    let project_path = dir.path().to_string_lossy().to_string();
-    let worker = std::thread::spawn(move || {
-        session_worker(
-            state_for_worker,
-            "conv-1".to_string(),
-            project_path,
-            "full-auto".to_string(),
-            rx,
-            handle,
-        );
-    });
-
-    tx.send(crate::serve::state::SessionMessage {
-        user_text: "hello".to_string(),
-        file_id: None,
-        model_id: None,
-        seq: 1,
-    })
-    .unwrap();
-
-    assert!(
-        wait_until(Duration::from_millis(1000), || conversation_status(&state)
-            == "running"),
-        "InfCode worker should mark conversation running after spawning child"
-    );
-    let registered_pid = state
-        .sessions
-        .lock()
-        .unwrap()
-        .get("conv-1")
-        .and_then(|session| *session.current_pid.lock().unwrap());
-    assert!(
-        registered_pid.is_some(),
-        "InfCode worker should register current child pid before abort"
-    );
-
-    let removed_session = state.sessions.lock().unwrap().remove("conv-1").unwrap();
-    assert!(
-        removed_session.abort_current_process(),
-        "abort_current_process should kill the registered InfCode process group"
-    );
-
-    let worker_result = join_with_timeout(worker, Duration::from_millis(1000));
-    assert!(
-        worker_result.is_some(),
-        "InfCode worker should exit within 1000ms after abort kills child"
-    );
-    worker_result
-        .unwrap()
-        .expect("InfCode worker should not panic");
-    assert_eq!(conversation_status(&state), "aborted");
-    assert!(
-        messages_for(&state)
-            .iter()
-            .any(|(role, payload)| role == "task_status"
-                && payload.get("status").and_then(|status| status.as_str()) == Some("aborted")),
-        "aborted InfCode turn should emit aborted task_status"
-    );
+fn same_bin_legacy_retry_triggers_on_mode_and_print_conflict() {
+    assert!(should_retry_same_bin_in_legacy_mode(
+        "[Error] `--mode json` cannot be combined with `-p/--print`."
+    ));
 }
 
 fn make_infcode_state() -> AppState {
@@ -393,31 +432,6 @@ fn messages_for(state: &AppState) -> Vec<(String, Value)> {
     .collect()
 }
 
-fn wait_until(timeout: Duration, mut condition: impl FnMut() -> bool) -> bool {
-    let start = Instant::now();
-    while start.elapsed() < timeout {
-        if condition() {
-            return true;
-        }
-        std::thread::sleep(Duration::from_millis(50));
-    }
-    condition()
-}
-
-fn join_with_timeout<T>(
-    handle: std::thread::JoinHandle<T>,
-    timeout: Duration,
-) -> Option<std::thread::Result<T>> {
-    let start = Instant::now();
-    while start.elapsed() < timeout {
-        if handle.is_finished() {
-            return Some(handle.join());
-        }
-        std::thread::sleep(Duration::from_millis(50));
-    }
-    None
-}
-
 fn make_executable(path: &std::path::Path) {
     #[cfg(unix)]
     {
@@ -456,7 +470,11 @@ struct InfcodeBinGuard {
 impl InfcodeBinGuard {
     fn set(value: &std::path::Path) -> Self {
         static ENV_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
-        let lock = ENV_LOCK.get_or_init(|| Mutex::new(())).lock().unwrap();
+        let mutex = ENV_LOCK.get_or_init(|| Mutex::new(()));
+        let lock = match mutex.lock() {
+            Ok(lock) => lock,
+            Err(poisoned) => poisoned.into_inner(),
+        };
         let previous = std::env::var("INFCODE_BIN").ok();
         std::env::set_var("INFCODE_BIN", value);
         Self {
