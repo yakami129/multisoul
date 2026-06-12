@@ -312,18 +312,24 @@ it('renders an explicit content-level close button for the QR-only flow', () => 
 it('shows setup commands for install, service start, and all agent runtime variants', () => {
   render(<AddEndpointModal visible onClose={() => {}} onAdd={() => {}} initialTab="qr" />);
 
+  // Commands are now also shown inline before opening the help sheet.
+  expect(screen.getAllByText('1. Install msctl').length >= 1).toBe(true);
+  expect(screen.getAllByText('2. Start service').length >= 1).toBe(true);
+
   fireEvent.press(screen.getByLabelText('Show setup commands'));
 
+  // Help sheet header only exists once (not inline).
   expect(screen.getByText('Set up local agent')).toBeTruthy();
   expect(screen.getByText('Run these commands on the machine you want to connect.')).toBeTruthy();
-  expect(screen.getByText('1. Install msctl')).toBeTruthy();
-  expect(screen.getByText('2. Start service')).toBeTruthy();
-  expect(screen.getByText('msctl daemon quickstart')).toBeTruthy();
+  // Commands appear in both inline section and help sheet after it opens.
+  expect(screen.getAllByText('1. Install msctl').length >= 1).toBe(true);
+  expect(screen.getAllByText('2. Start service').length >= 1).toBe(true);
+  expect(screen.getAllByText('msctl daemon quickstart').length >= 1).toBe(true);
   expect(screen.queryByText('--tailnet true')).toBeNull();
-  expect(screen.getByText('3. Register an Agent')).toBeTruthy();
-  expect(screen.getByText('Codex')).toBeTruthy();
-  expect(screen.getByText('Claude Code')).toBeTruthy();
-  expect(screen.getByText('Cursor Agent CLI')).toBeTruthy();
+  expect(screen.getAllByText('3. Register an Agent').length >= 1).toBe(true);
+  expect(screen.getAllByText('Codex').length >= 1).toBe(true);
+  expect(screen.getAllByText('Claude Code').length >= 1).toBe(true);
+  expect(screen.getAllByText('Cursor Agent CLI').length >= 1).toBe(true);
   expect(screen.queryByText('TOKEN')).toBeNull();
 });
 
@@ -349,8 +355,8 @@ it('copies the Codex quick-register command without mixing in other runtime comm
   (Clipboard.setStringAsync as jest.Mock).mockClear();
   render(<AddEndpointModal visible onClose={() => {}} onAdd={() => {}} initialTab="qr" />);
 
-  fireEvent.press(screen.getByLabelText('Show setup commands'));
-  fireEvent.press(screen.getByLabelText('Copy Codex command'));
+  // Codex copy button exists inline; pressing any of them copies the same command.
+  fireEvent.press(screen.getAllByLabelText('Copy Codex command')[0]);
 
   await waitFor(() => {
     expect(Clipboard.setStringAsync).toHaveBeenCalledTimes(1);

@@ -336,4 +336,19 @@ export const s = StyleSheet.create({
     textAlign: 'center',
     maxWidth: 280,
   },
+  emptyBtn: {
+    marginTop: 8,
+    paddingHorizontal: 28,
+    paddingVertical: 12,
+    borderRadius: 26,
+    backgroundColor: brandColors.coral,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyBtnText: {
+    fontFamily: 'Inter',
+    fontSize: 14,
+    fontWeight: '700',
+    color: brandColors.white,
+  },
 });

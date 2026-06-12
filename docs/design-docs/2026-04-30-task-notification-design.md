@@ -23,6 +23,8 @@ Notification ownership is centralized in the CLI to avoid duplicate local + remo
 
 2026-06-10 Claude session capture update: `claude/stream.rs` now persists `claude_session_id` and handles stale `--resume` inside the `process_turn` stdout loop. AskUserQuestion registration, pending-question push timing, and task completion push ownership are unchanged.
 
+2026-06-11 iOS telemetry update: `useWebSocket` now records `ws_error` telemetry on connection failures via `TelemetryService`. This is observability-only and does not schedule local notifications or change chat/inbox state handling.
+
 ---
 
 ## Architecture

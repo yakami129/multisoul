@@ -12,6 +12,7 @@ use std::time::Duration;
 pub enum LogSource {
     All,
     App,
+    Mobile,
     Service,
 }
 
@@ -56,15 +57,20 @@ pub struct LogsArgs {
     /// Override service log file. Hidden for tests and diagnostics.
     #[arg(long, hide = true)]
     pub service_log_file: Option<PathBuf>,
+
+    /// Filter by mobile_session_id (only applies to app/mobile log sources).
+    #[arg(long)]
+    pub trace: Option<String>,
 }
 
 pub fn handle(args: LogsArgs) -> Result<()> {
-    if args.json && args.source != LogSource::App {
-        anyhow::bail!("--json is only supported with --source app");
+    if args.json && args.source != LogSource::App && args.source != LogSource::Mobile {
+        anyhow::bail!("--json is only supported with --source app or --source mobile");
     }
 
     match args.source {
         LogSource::App => logs_app::handle(app_options(&args, false, false)),
+        LogSource::Mobile => logs_app::handle(app_options(&args, false, false)),
         LogSource::Service => logs_service::handle(service_options(&args, false, false)),
         LogSource::All => handle_all(args),
     }
@@ -127,6 +133,12 @@ fn handle_all(args: LogsArgs) -> Result<()> {
 }
 
 fn app_options(args: &LogsArgs, prefix: bool, missing_ok: bool) -> logs_app::AppLogOptions {
+    let source_filter = match args.source {
+        LogSource::App => logs_app::SourceFilter::AppOnly,
+        LogSource::Mobile => logs_app::SourceFilter::MobileOnly,
+        // All includes both app and mobile
+        LogSource::All | LogSource::Service => logs_app::SourceFilter::All,
+    };
     logs_app::AppLogOptions {
         tail: args.tail,
         follow: args.follow,
@@ -138,6 +150,8 @@ fn app_options(args: &LogsArgs, prefix: bool, missing_ok: bool) -> logs_app::App
         log_dir: args.log_dir.clone(),
         prefix,
         missing_ok,
+        source: source_filter,
+        trace: args.trace.clone(),
     }
 }
 

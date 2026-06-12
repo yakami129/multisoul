@@ -15,6 +15,7 @@ const IDLE_TAB_ICON_SIZE = 24;
 
 export const tabScreenOptions = {
   headerShown: false,
+  freezeOnBlur: true,
   tabBarStyle: {
     backgroundColor: brandColors.ink,
     borderTopWidth: 0,

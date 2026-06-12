@@ -1,6 +1,6 @@
 import { fireEvent, render } from '@testing-library/react-native';
 import React from 'react';
-import { WORKFLOW_TEMPLATES } from '../templates';
+import { getWorkflowTemplates } from '../templates';
 import { WorkflowTemplatePickerScreen } from './WorkflowTemplatePickerScreen';
 
 jest.mock('react-native-safe-area-context', () => ({
@@ -53,9 +53,9 @@ test('renders all 14 workflow templates', () => {
     />,
   );
 
-  expect(WORKFLOW_TEMPLATES).toHaveLength(14);
+  expect(getWorkflowTemplates()).toHaveLength(14);
 
-  for (const template of WORKFLOW_TEMPLATES) {
+  for (const template of getWorkflowTemplates()) {
     expect(getByText(template.title)).toBeTruthy();
     expect(getByText(template.description)).toBeTruthy();
   }
@@ -132,7 +132,7 @@ test('pressing Blank Workflow calls onSelectBlank', () => {
 test('pressing a template calls onSelectTemplate with that template', () => {
   const onSelectBlank = jest.fn();
   const onSelectTemplate = jest.fn();
-  const selectedTemplate = WORKFLOW_TEMPLATES[3];
+  const selectedTemplate = getWorkflowTemplates()[3];
 
   const { getByTestId } = render(
     <WorkflowTemplatePickerScreen

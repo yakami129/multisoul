@@ -1,6 +1,6 @@
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as Clipboard from 'expo-clipboard';
-import { ChevronLeft, Info, Terminal, X } from 'lucide-react-native';
+import { ChevronLeft, Info, X } from 'lucide-react-native';
 import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -15,9 +15,15 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { getEndpointClient } from '@/api/endpointClient';
 import { brandColors } from '@/theme/brandRefresh';
+import { AddEndpointCommandBlock } from './AddEndpointCommandBlock';
 import { AddEndpointHelpSheet } from './AddEndpointHelpSheet';
 import { addEndpointModalStyles as s } from './addEndpointModalStyles';
-import type { ManualStatus, ScanStatus, Tab } from './addEndpointModalTypes';
+import {
+  SETUP_COMMANDS,
+  type ManualStatus,
+  type ScanStatus,
+  type Tab,
+} from './addEndpointModalTypes';
 import { getEndpointLabel, parsePairConnection } from './addEndpointModalUtils';
 
 export { parsePairConnection } from './addEndpointModalUtils';
@@ -321,19 +327,36 @@ export function AddEndpointModal({ visible, onClose, onAdd, initialTab = 'qr' }:
         <Text style={s.qrCardSubtitle}>{t('qr.scanInstructions')}</Text>
         <View style={s.fullScannerBox}>{renderQrScanner()}</View>
       </View>
-      <TouchableOpacity
-        accessibilityRole="button"
-        accessibilityLabel="Open setup commands hint"
-        style={s.commandHint}
-        onPress={() => setHelpVisible(true)}
-      >
-        <Terminal size={16} color={brandColors.coral} />
-        <Text style={s.commandHintText} numberOfLines={2}>
-          {t('qr.needCommandsHint')}
-        </Text>
-      </TouchableOpacity>
+      <View style={s.inlineCommandsSection}>
+        <Text style={s.inlineCommandsSectionTitle}>Run on your machine</Text>
+        <AddEndpointCommandBlock
+          command={SETUP_COMMANDS[0]}
+          copiedId={copiedId}
+          onCopy={handleCopyCommand}
+        />
+        <AddEndpointCommandBlock
+          command={SETUP_COMMANDS[1]}
+          copiedId={copiedId}
+          onCopy={handleCopyCommand}
+        />
+        <Text style={s.inlineRegisterTitle}>3. Register an Agent</Text>
+        {SETUP_COMMANDS.slice(2).map((cmd) => (
+          <AddEndpointCommandBlock
+            key={cmd.id}
+            command={cmd}
+            copiedId={copiedId}
+            onCopy={handleCopyCommand}
+            compact
+          />
+        ))}
+      </View>
     </>
   );
+
+  // Avoid mounting the camera + nested scroller subtree (and its native camera
+  // session) while the modal is closed; this kept the Settings tab heavy on every
+  // mount. Modal still animates in because it mounts with visible already true.
+  if (!visible) return null;
 
   return (
     <Modal visible={visible} transparent={false} animationType="slide" onRequestClose={onClose}>

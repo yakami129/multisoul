@@ -287,6 +287,52 @@ describe('useVoiceInput', () => {
     expect(onTranscript).not.toHaveBeenCalled();
   });
 
+  it('silently retries with en-US when the system locale is unsupported, then commits transcript', async () => {
+    mockGetLocales.mockReturnValue([{ languageTag: 'zh-CN' } as ReturnType<typeof getLocales>[0]]);
+    const onTranscript = jest.fn();
+    const { result } = renderVoiceHook({ onTranscript });
+
+    await start(result);
+    // First attempt: iOS reports locale unsupported
+    emit('error', { error: 'language-not-supported', message: 'locale not supported' });
+    emit('end');
+
+    // Should retry silently with en-US — no alert shown, still recording
+    expect(mockSpeechModule.start).toHaveBeenCalledTimes(2);
+    expect(mockSpeechModule.start).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({ lang: 'en-US' }),
+    );
+    expect(Alert.alert).not.toHaveBeenCalled();
+    expect(result.current.status).toBe('recording');
+
+    // en-US recognition succeeds
+    emit('result', { isFinal: true, results: [{ transcript: 'hello world' }] });
+    emit('end');
+
+    expect(onTranscript).toHaveBeenCalledWith('hello world');
+    expect(result.current.status).toBe('idle');
+  });
+
+  it('shows error alert when en-US fallback also fails with language-not-supported', async () => {
+    mockGetLocales.mockReturnValue([{ languageTag: 'zh-CN' } as ReturnType<typeof getLocales>[0]]);
+    const onTranscript = jest.fn();
+    const { result } = renderVoiceHook({ onTranscript });
+
+    await start(result);
+    // First attempt: locale unsupported → triggers retry
+    emit('error', { error: 'language-not-supported', message: 'locale not supported' });
+    emit('end');
+
+    // Second attempt (en-US): also fails with language-not-supported → shows alert this time
+    emit('error', { error: 'language-not-supported', message: 'en-US also not supported' });
+    emit('end');
+
+    expect(Alert.alert).toHaveBeenCalledWith('Language unavailable', expect.any(String));
+    expect(onTranscript).not.toHaveBeenCalled();
+    expect(result.current.status).toBe('idle');
+  });
+
   it('aborts timed-out recordings and returns to idle', async () => {
     jest.useFakeTimers();
     const onTranscript = jest.fn();

@@ -8,7 +8,6 @@ import { I18nextProvider } from 'react-i18next';
 import { AppState } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { ErrorBoundary } from '../src/components/ErrorBoundary';
 import { SplashScreen } from '../src/components/SplashScreen';
 import { initDb } from '../src/db';
 import { buildNotificationInboxItem } from '../src/features/inbox/utils/buildNotificationInboxItem';
@@ -16,6 +15,7 @@ import { pingAllEndpoints } from '../src/features/settings/services/endpointServ
 import i18n from '../src/i18n';
 import { getNotificationNavTarget } from '../src/services/notificationNavigation';
 import { registerPushTokenForEndpoints } from '../src/services/pushTokenService';
+import { TelemetryErrorBoundary } from '../src/services/telemetry';
 import { useEndpointStore } from '../src/store/endpointStore';
 import { useInboxStore } from '../src/store/inboxStore';
 import { useLanguageStore } from '../src/store/languageStore';
@@ -117,7 +117,7 @@ export default function RootLayout() {
     <I18nextProvider i18n={i18n}>
       <GestureHandlerRootView style={{ flex: 1 }}>
         <SafeAreaProvider>
-          <ErrorBoundary>
+          <TelemetryErrorBoundary>
             <QueryClientProvider client={queryClient}>
               <StatusBar style="dark" backgroundColor={brandColors.cream} />
               {!splashDone ? (
@@ -133,7 +133,7 @@ export default function RootLayout() {
                 </Stack>
               )}
             </QueryClientProvider>
-          </ErrorBoundary>
+          </TelemetryErrorBoundary>
         </SafeAreaProvider>
       </GestureHandlerRootView>
     </I18nextProvider>

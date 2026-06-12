@@ -5,6 +5,8 @@ import {
   deleteIdea,
   deleteSpecArtifact as deleteStoredSpecArtifact,
   loadIdeas,
+  loadPendingIdeas,
+  markIdeaSyncError,
   loadSpecs as loadSpecArtifacts,
   replaceIdeasForEndpoint,
   replaceSpecsForEndpoint,
@@ -50,6 +52,7 @@ interface SpecState {
   load: () => Promise<void>;
   loadAssets: () => Promise<void>;
   refreshAssets: (endpoints: Endpoint[]) => Promise<void>;
+  flushPendingIdeas: (endpoint: Endpoint) => Promise<void>;
   createIdea: (input: CreateSpecIdeaInput) => Promise<SpecIdea>;
   updateIdea: (ideaId: string, input: EditIdeaInput) => Promise<void>;
   archiveIdea: (ideaId: string) => Promise<void>;
@@ -95,6 +98,20 @@ function errorMessageFrom(error: unknown): string {
   return error instanceof Error ? error.message : 'Spec dispatch failed';
 }
 
+function mergeIdeasForState(ideas: SpecIdea[]): SpecIdea[] {
+  return ideas.filter((idea) => !(idea.pendingMutation === 'delete' && idea.status === 'archived'));
+}
+
+const PENDING_IDEA_FLUSH_BACKOFF_MS = 60_000;
+const pendingIdeaFlushAttemptAt = new Map<string, number>();
+
+function shouldSkipPendingIdeaFlush(idea: SpecIdea): boolean {
+  if (!idea.lastSyncError) return false;
+  const lastAttempt = pendingIdeaFlushAttemptAt.get(idea.id);
+  if (lastAttempt == null) return false;
+  return Date.now() - lastAttempt < PENDING_IDEA_FLUSH_BACKOFF_MS;
+}
+
 export const useSpecStore = create<SpecState>((set, get) => ({
   specs: [],
   ideas: [],
@@ -107,12 +124,13 @@ export const useSpecStore = create<SpecState>((set, get) => ({
 
   loadAssets: async () => {
     const [ideas, specArtifacts] = await Promise.all([loadIdeas(), loadSpecArtifacts()]);
-    set({ ideas, specArtifacts });
+    set({ ideas: mergeIdeasForState(ideas), specArtifacts });
   },
 
   refreshAssets: async (endpoints) => {
     const { fetchSpecArtifacts, fetchSpecIdeas } =
       await import('@/features/specs/services/specAssetService');
+    await Promise.all(endpoints.map((endpoint) => get().flushPendingIdeas(endpoint)));
     const [ideaResults, specResults] = await Promise.all([
       Promise.allSettled(endpoints.map(fetchSpecIdeas)),
       Promise.allSettled(endpoints.map(fetchSpecArtifacts)),
@@ -130,6 +148,33 @@ export const useSpecStore = create<SpecState>((set, get) => ({
       }),
     );
     await get().loadAssets();
+  },
+
+  flushPendingIdeas: async (endpoint) => {
+    const { syncSpecIdeaBeforeServerAction } =
+      await import('@/features/specs/services/specAssetService');
+    const pendingIdeas = await loadPendingIdeas(endpoint.id);
+    for (const idea of pendingIdeas) {
+      if (shouldSkipPendingIdeaFlush(idea)) {
+        continue;
+      }
+      pendingIdeaFlushAttemptAt.set(idea.id, Date.now());
+      try {
+        const syncedIdea = await syncSpecIdeaBeforeServerAction(endpoint, idea);
+        pendingIdeaFlushAttemptAt.delete(idea.id);
+        if (idea.pendingMutation === 'delete') {
+          await deleteIdea(idea.id);
+          set((state) => ({
+            ideas: mergeIdeasForState(state.ideas.filter((item) => item.id !== idea.id)),
+          }));
+          continue;
+        }
+        await saveIdea(syncedIdea, null, null);
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : 'Idea sync failed';
+        await markIdeaSyncError(idea.id, message);
+      }
+    }
   },
 
   createIdea: async (input) => {
@@ -159,7 +204,9 @@ export const useSpecStore = create<SpecState>((set, get) => ({
       pendingMutation: 'create',
     };
     await saveIdea(idea, 'create', null);
-    set((state) => ({ ideas: [idea, ...state.ideas.filter((item) => item.id !== idea.id)] }));
+    set((state) => ({
+      ideas: mergeIdeasForState([idea, ...state.ideas.filter((item) => item.id !== idea.id)]),
+    }));
     return idea;
   },
 
@@ -181,7 +228,7 @@ export const useSpecStore = create<SpecState>((set, get) => ({
     });
     const idea = ideas.find((item) => item.id === ideaId);
     if (idea) await saveIdea(idea, 'update', null);
-    set({ ideas });
+    set({ ideas: mergeIdeasForState(ideas) });
   },
 
   archiveIdea: async (ideaId) => {
@@ -193,7 +240,7 @@ export const useSpecStore = create<SpecState>((set, get) => ({
     );
     const idea = ideas.find((item) => item.id === ideaId);
     if (idea) await saveIdea(idea, 'archive', null);
-    set({ ideas });
+    set({ ideas: mergeIdeasForState(ideas) });
   },
 
   unarchiveIdea: async (ideaId) => {
@@ -205,21 +252,27 @@ export const useSpecStore = create<SpecState>((set, get) => ({
     );
     const idea = ideas.find((item) => item.id === ideaId);
     if (idea) await saveIdea(idea, 'update', null);
-    set({ ideas });
+    set({ ideas: mergeIdeasForState(ideas) });
   },
 
   deleteArchivedIdea: async (ideaId, endpoint?) => {
     const idea = get().ideas.find((item) => item.id === ideaId);
     if (!idea || idea.status !== 'archived') return;
-    set((state) => ({ ideas: state.ideas.filter((item) => item.id !== ideaId) }));
-    await deleteIdea(ideaId);
+    const tombstoneIdea: SpecIdea = {
+      ...idea,
+      updatedAt: Date.now(),
+      pendingMutation: 'delete',
+      lastSyncError: undefined,
+    };
+    await saveIdea(tombstoneIdea, 'delete', null);
+    set((state) => ({
+      ideas: mergeIdeasForState(
+        state.ideas.map((item) => (item.id === ideaId ? tombstoneIdea : item)),
+      ),
+    }));
     if (endpoint) {
-      const { deleteSpecIdea } = await import('@/features/specs/services/specAssetService');
-      try {
-        await deleteSpecIdea(endpoint, ideaId);
-      } catch {
-        // best-effort; local already deleted
-      }
+      await get().flushPendingIdeas(endpoint);
+      await get().loadAssets();
     }
   },
 

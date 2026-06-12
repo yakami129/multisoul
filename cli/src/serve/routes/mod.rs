@@ -16,6 +16,7 @@ mod messages_tests;
 pub mod push_tokens;
 pub mod runtime_models;
 pub use crate::serve::spec::routes::{ideas as spec_ideas, implement as spec_implement, specs};
+pub mod telemetry;
 pub mod transcript;
 #[cfg(test)]
 #[path = "../../../tests/serve/routes/transcript_tests.rs"]

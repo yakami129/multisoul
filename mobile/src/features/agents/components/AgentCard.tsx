@@ -45,6 +45,10 @@ const runtimeSpecs: Partial<Record<Agent['runtime'], RuntimeSpec>> = {
     backgroundColor: brandColors.sage,
     image: cursorIcon,
   },
+  opencode: {
+    backgroundColor: brandColors.coral,
+    image: codexIcon,
+  },
 };
 
 function AgentCardBreath({ accentColor }: { accentColor: string }) {

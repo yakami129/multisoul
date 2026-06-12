@@ -48,6 +48,13 @@ function asArray<T>(value: unknown, mapper: (item: unknown) => T): T[] {
   return Array.isArray(value) ? value.map(mapper) : [];
 }
 
+function getHttpStatus(error: unknown): number | undefined {
+  if (error != null && typeof error === 'object') {
+    return (error as { response?: { status?: number } }).response?.status;
+  }
+  return undefined;
+}
+
 function ideaStatus(value: unknown): IdeaStatus {
   return ['open', 'interviewing', 'converted', 'archived', 'failed'].includes(String(value))
     ? (value as IdeaStatus)
@@ -258,6 +265,30 @@ export async function syncSpecIdeaBeforeServerAction(
 
   if (idea.pendingMutation === 'create') {
     return createSpecIdea(endpoint, input);
+  }
+  if (idea.pendingMutation === 'delete') {
+    // Local archive may not be synced yet; server rejects DELETE unless status=archived.
+    await updateSpecIdea(endpoint, idea.id, {
+      status: 'archived',
+      archivedAt: idea.archivedAt ?? Date.now(),
+    });
+    try {
+      await deleteSpecIdea(endpoint, idea.id);
+    } catch (error) {
+      if (getHttpStatus(error) === 404) {
+        return {
+          ...idea,
+          pendingMutation: undefined,
+          lastSyncError: undefined,
+        };
+      }
+      throw error;
+    }
+    return {
+      ...idea,
+      pendingMutation: undefined,
+      lastSyncError: undefined,
+    };
   }
   return updateSpecIdea(endpoint, idea.id, input);
 }

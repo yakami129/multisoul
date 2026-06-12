@@ -166,6 +166,8 @@ fn filter_rejects_below_min_level() {
         conv: None,
         min_level: level_rank("warn").unwrap(),
         grep: None,
+        source: SourceFilter::All,
+        trace: None,
     };
     assert!(
         !f.keeps(&rec),
@@ -193,6 +195,8 @@ fn filter_accepts_matching_conv() {
         conv: Some("cnv_abc".to_string()),
         min_level: 0,
         grep: None,
+        source: SourceFilter::All,
+        trace: None,
     };
     assert!(f.keeps(&rec), "record with matching conv_id should be kept");
 }
@@ -217,6 +221,8 @@ fn filter_rejects_other_conv() {
         conv: Some("cnv_other".to_string()),
         min_level: 0,
         grep: None,
+        source: SourceFilter::All,
+        trace: None,
     };
     assert!(
         !f.keeps(&rec),
@@ -246,6 +252,8 @@ fn filter_applies_grep_to_message() {
         conv: None,
         min_level: 0,
         grep: Some(Regex::new("spawn").unwrap()),
+        source: SourceFilter::All,
+        trace: None,
     };
     assert!(
         f.keeps(&rec),
@@ -256,6 +264,8 @@ fn filter_applies_grep_to_message() {
         conv: None,
         min_level: 0,
         grep: Some(Regex::new("nonexistent").unwrap()),
+        source: SourceFilter::All,
+        trace: None,
     };
     assert!(
         !f2.keeps(&rec),
@@ -392,5 +402,147 @@ fn http_error_human_format_includes_method_and_path_from_span() {
     assert!(
         !rendered.trim_start().starts_with('{'),
         "human-readable http_error output must not become raw JSON, got: {rendered}"
+    );
+}
+
+// Helper: write a fixture NDJSON log file with 2 app records + 2 mobile records.
+fn write_fixture_log(log_dir: &std::path::Path, date: &str) {
+    let app_rec1 = r#"{"timestamp":"2026-06-10T10:00:00Z","level":"INFO","target":"msctl::serve::runtime","fields":{"message":"agent_spawn","pid":100},"span":{"name":"session_worker","conv_id":"cnv_app1"}}"#;
+    let app_rec2 = r#"{"timestamp":"2026-06-10T10:00:01Z","level":"WARN","target":"msctl::serve::runtime","fields":{"message":"agent_slow","pid":101}}"#;
+    let mobile_rec1 = r#"{"timestamp":"2026-06-10T10:00:02Z","level":"INFO","target":"msctl::serve::mobile_telemetry","fields":{"message":"route_load","source":"mobile","mobile_session_id":"sess-aaa","event_id":"evt-001","event_type":"route_load","duration_ms":500}}"#;
+    let mobile_rec2 = r#"{"timestamp":"2026-06-10T10:00:03Z","level":"WARN","target":"msctl::serve::mobile_telemetry","fields":{"message":"api_error","source":"mobile","mobile_session_id":"sess-bbb","event_id":"evt-002","event_type":"api_error","status_code":500}}"#;
+    let log_path = log_dir.join(format!("serve.log.{date}"));
+    std::fs::write(
+        &log_path,
+        format!("{app_rec1}\n{app_rec2}\n{mobile_rec1}\n{mobile_rec2}\n"),
+    )
+    .expect("write fixture log");
+}
+
+/// source=mobile フィルター：mobile 記録のみ返す
+///
+/// 数据构造：
+///   2 app records + 2 mobile records (source="mobile")
+///
+/// 预期结果：
+///   - 断言 A：SourceFilter::MobileOnly が 2 条 mobile 記録のみ返す
+///   - 断言 B：app 記録が含まれない
+#[test]
+fn source_mobile_filter_returns_only_mobile_records() {
+    let tmp = tempfile::tempdir().expect("tempdir");
+    let log_dir = tmp.path().join("logs");
+    std::fs::create_dir_all(&log_dir).expect("create log dir");
+    let today = chrono::Utc::now().format("%Y-%m-%d").to_string();
+    write_fixture_log(&log_dir, &today);
+
+    let files = logging::list_log_files(&log_dir);
+    let filter = Filter {
+        since: None,
+        conv: None,
+        min_level: 0,
+        grep: None,
+        source: SourceFilter::MobileOnly,
+        trace: None,
+    };
+    let records = collect_tail_records(&files, &filter, 50).expect("collect records");
+
+    assert_eq!(
+        records.len(),
+        2,
+        "--source mobile should return exactly 2 mobile records, got: {}",
+        records.len()
+    );
+    for (_, rec) in &records {
+        let is_mobile = rec.fields.get("source").and_then(|v| v.as_str()) == Some("mobile");
+        assert!(
+            is_mobile,
+            "--source mobile must only return records with source=mobile"
+        );
+    }
+}
+
+/// source=app フィルター：mobile 記録を除外する
+///
+/// 数据构造：
+///   2 app records + 2 mobile records (source="mobile")
+///
+/// 预期结果：
+///   - 断言 A：SourceFilter::AppOnly が 2 条 app 記録のみ返す
+///   - 断言 B：mobile 記録が含まれない
+#[test]
+fn source_app_filter_excludes_mobile_records() {
+    let tmp = tempfile::tempdir().expect("tempdir");
+    let log_dir = tmp.path().join("logs");
+    std::fs::create_dir_all(&log_dir).expect("create log dir");
+    let today = chrono::Utc::now().format("%Y-%m-%d").to_string();
+    write_fixture_log(&log_dir, &today);
+
+    let files = logging::list_log_files(&log_dir);
+    let filter = Filter {
+        since: None,
+        conv: None,
+        min_level: 0,
+        grep: None,
+        source: SourceFilter::AppOnly,
+        trace: None,
+    };
+    let records = collect_tail_records(&files, &filter, 50).expect("collect records");
+
+    assert_eq!(
+        records.len(),
+        2,
+        "--source app should return exactly 2 app records, got: {}",
+        records.len()
+    );
+    for (_, rec) in &records {
+        let is_mobile = rec.fields.get("source").and_then(|v| v.as_str()) == Some("mobile");
+        assert!(
+            !is_mobile,
+            "--source app must exclude records with source=mobile"
+        );
+    }
+}
+
+/// --trace フィルター：指定 session_id のみ返す
+///
+/// 数据构造：
+///   2 mobile records with different session_ids (sess-aaa, sess-bbb)
+///
+/// 预期结果：
+///   - 断言 A：trace=sess-aaa が sess-aaa の 1 条のみ返す
+#[test]
+fn trace_filter_returns_only_matching_session() {
+    let tmp = tempfile::tempdir().expect("tempdir");
+    let log_dir = tmp.path().join("logs");
+    std::fs::create_dir_all(&log_dir).expect("create log dir");
+    let today = chrono::Utc::now().format("%Y-%m-%d").to_string();
+    write_fixture_log(&log_dir, &today);
+
+    let files = logging::list_log_files(&log_dir);
+    let filter = Filter {
+        since: None,
+        conv: None,
+        min_level: 0,
+        grep: None,
+        source: SourceFilter::All,
+        trace: Some("sess-aaa".to_string()),
+    };
+    let records = collect_tail_records(&files, &filter, 50).expect("collect records");
+
+    assert_eq!(
+        records.len(),
+        1,
+        "--trace sess-aaa should return exactly 1 record, got: {}",
+        records.len()
+    );
+    let session_id = records[0]
+        .1
+        .fields
+        .get("mobile_session_id")
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
+    assert_eq!(
+        session_id, "sess-aaa",
+        "--trace filter must match mobile_session_id exactly"
     );
 }

@@ -100,6 +100,10 @@ runtime dispatch 会先注入 `<multisoul-context>` conversation-id 块，再拼
 
 新增 `kodax` runtime 后，图片策略沿用 Cursor 路径：dispatch 层先把 `file_id` 转成 `[Attached image: <absolute_path> ...]` prompt 前缀，再注入 `<multisoul-context>` conversation-id 块，最后把 `file_id` 清空后交给 KodaX adapter。KodaX V1 通过 `kodax --mode json` 单次子进程执行，没有原生图片参数，因此不走 Codex 的 `--image` 分支。
 
+### 2026-06-11 更新
+
+新增 `opencode` runtime。opencode CLI（`opencode run --format json`）目前无原生 `--image` flag，图片策略沿用 Cursor / KodaX 路径：dispatch 层的 `("cursor-cli" | "kodax")` match arm 扩展为 `("cursor-cli" | "kodax" | "opencode")`，先将 `file_id` 转为 `[Attached image: <path>]` prompt 前缀，再把 `file_id` 清空后交给 opencode adapter。如果 opencode 未来支持 `--file` / `--image` 原生图片参数，可将其迁移到 Codex 路径并删除该注入分支。
+
 ## 测试覆盖
 
 在 `runtime/mod.rs` 的单元测试中验证 Cursor / KodaX 路径注入格式；在 `runtime/codex_tests.rs` 中验证：

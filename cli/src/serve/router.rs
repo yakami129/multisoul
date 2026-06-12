@@ -152,6 +152,10 @@ pub async fn build_router(state: AppState) -> Router {
             axum::routing::get(uploads::get_uploaded_image),
         )
         .route("/api/v1/files", axum::routing::get(files::get_file))
+        .route(
+            "/api/v1/telemetry",
+            axum::routing::post(telemetry::post_telemetry),
+        )
         .layer(middleware::from_fn_with_state(
             state.clone(),
             auth::bearer_auth,

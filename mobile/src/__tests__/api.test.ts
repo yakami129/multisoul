@@ -2,6 +2,7 @@ jest.mock('axios', () => ({
   create: jest.fn(() => ({
     interceptors: {
       request: { use: jest.fn() },
+      response: { use: jest.fn() },
     },
     defaults: { baseURL: '', headers: { common: {} } },
   })),
@@ -32,7 +33,10 @@ describe('api client', () => {
   it('configures baseURL and Authorization header from settings', () => {
     const axios = require('axios');
     const mockInstance = {
-      interceptors: { request: { use: jest.fn() } },
+      interceptors: {
+        request: { use: jest.fn() },
+        response: { use: jest.fn() },
+      },
       defaults: { baseURL: '', headers: { common: {} } },
     };
     axios.create.mockReturnValue(mockInstance);

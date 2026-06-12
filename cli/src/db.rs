@@ -123,6 +123,7 @@ fn init_schema(conn: &Connection) -> Result<()> {
     let _ = conn.execute_batch("ALTER TABLE push_tokens ADD COLUMN endpoint_id TEXT;");
     let _ = conn.execute_batch("ALTER TABLE conversations ADD COLUMN cursor_session_id TEXT;");
     let _ = conn.execute_batch("ALTER TABLE conversations ADD COLUMN model_id TEXT;");
+    let _ = conn.execute_batch("ALTER TABLE conversations ADD COLUMN opencode_session_id TEXT;");
     // plugin_agents: plugin 可执行文件注册表
     let _ = conn.execute_batch(
         "CREATE TABLE IF NOT EXISTS plugin_agents (

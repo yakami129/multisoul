@@ -38,6 +38,8 @@ function displayRuntime(runtime: Agent['runtime']) {
       return 'Codex';
     case 'cursor-cli':
       return 'Cursor CLI';
+    case 'opencode':
+      return 'OpenCode';
     case 'custom':
       return 'Custom';
   }
