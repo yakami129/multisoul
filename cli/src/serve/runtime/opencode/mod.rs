@@ -8,10 +8,7 @@
 //!   - `step_start`      — new agent step begins (ignore)
 //!   - `text`            — `part.text` fragment; accumulate into reply buffer
 //!   - `tool_use`        — `part.state.status == "completed"` → emit tool_call + tool_result
-//!   - `step_finish`     — `part.reason`:
-//!       `"stop"`        → final answer; save text, complete turn
-//!       `"tool-calls"`  → more steps; continue reading
-//!       `"error"`       → turn failed
+//!   - `step_finish` — `part.reason`: `"stop"` (final answer), `"tool-calls"` (more steps), or `"error"` (turn failed)
 //!
 //! Session ID (`sessionID` field on every event) is stored in `conversations.opencode_session_id`
 //! and passed as `--session <id>` on subsequent turns.

@@ -41,7 +41,7 @@ pub(super) fn parse_tool_event(v: &Value) -> Option<OpenCodeToolEvent> {
         input.to_string()
     };
 
-    let ok = state.get("error").map_or(true, |e| e.is_null());
+    let ok = state.get("error").is_none_or(|e| e.is_null());
     let raw_output = state["output"].as_str().unwrap_or("");
     let summary = truncate_output(raw_output, 500);
 
