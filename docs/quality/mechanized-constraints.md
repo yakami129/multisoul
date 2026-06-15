@@ -132,15 +132,15 @@
 | 当前 pilot | [`docs/design-docs/2026-05-03-new-cli-runtime-integration-guide.md`](../design-docs/2026-05-03-new-cli-runtime-integration-guide.md) 追踪 runtime 分发、adapter、DB 与 mobile 类型文件 |
 | 修复方式 | 先阅读 tracked file 的 diff，按需更新设计文档正文；若语义无需改动，须在**同一篇**设计文档中写明原因（仍视为文档已审阅），再对该文档单独执行 `python3 scripts/check-doc-code-hashes.py --update-doc <basename>.md` 刷新 `index.json` 中该条目的 hash（**禁止**无审查地批量刷新多篇文档） |
 
-### R12 · iOS Info.plist 权限声明对齐
+### R12 · iOS Info.plist 权限与后台能力声明对齐
 
 | | |
 |---|---|
 | 脚本 | [`scripts/check-ios-permissions.sh`](../../scripts/check-ios-permissions.sh) |
-| 起因 | `feat(chat): multi-image upload` 引入 `expo-image-picker` 后未添加 `NSPhotoLibraryUsageDescription`，iOS 直接崩溃 |
-| 检测 | 扫描 `mobile/package.json` 中的 Expo 权限模块；若存在 `mobile/ios/MultiSoul/Info.plist` 则对比 plist，否则对比 `mobile/app.json` 的 `expo.ios.infoPlist`（`ios/` 被 gitignore 时） |
+| 起因 | `feat(chat): multi-image upload` 引入 `expo-image-picker` 后未添加 `NSPhotoLibraryUsageDescription`，iOS 直接崩溃；`expo-audio` 默认启用 background audio，App Store Review 2.5.4 会拒绝没有持续后台可听音频的 App |
+| 检测 | 扫描 `mobile/package.json` 中的 Expo 权限模块；若存在 `mobile/ios/MultiSoul/Info.plist` 则对比 plist，否则对比 `mobile/app.json` 的 `expo.ios.infoPlist`（`ios/` 被 gitignore 时）；同时禁止 `expo-audio` 默认插件配置或 `UIBackgroundModes.audio` 声明 |
 | 触发 | pre-commit（staged 含 `mobile/package.json`、`mobile/app.json` 或 `mobile/ios/**`）；CI `repo-checks` 全量 |
-| 修复方式 | 在 plist 或 `app.json` 的 `expo.ios.infoPlist` 添加缺失的 `NSXxxUsageDescription`（非空 string）；同步更新脚本映射表与本文档 |
+| 修复方式 | 在 plist 或 `app.json` 的 `expo.ios.infoPlist` 添加缺失的 `NSXxxUsageDescription`（非空 string）；`expo-audio` 必须显式设置 `enableBackgroundPlayback: false` 和 `enableBackgroundRecording: false`，除非产品真的提供可审核的持续后台音频能力；同步更新脚本映射表与本文档 |
 
 **模块→key 映射表：**
 
