@@ -1,4 +1,4 @@
-import { CircleCheck, MessageCircle, SlidersHorizontal, Sparkles } from 'lucide-react-native';
+import { CircleCheck, MessageCircle, /* SlidersHorizontal, */ Sparkles } from 'lucide-react-native';
 import React, { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -217,9 +217,10 @@ export default function ActivityScreen({
             </View>
             <Text style={s.titleSub}>{t('activity.missionLog')}</Text>
           </View>
-          <View style={s.filterBtn}>
+          {/* Mock filter button — hidden until filter UI is implemented */}
+          {/* <View style={s.filterBtn}>
             <SlidersHorizontal size={17} color={brandColors.ink} />
-          </View>
+          </View> */}
         </View>
 
         <View style={s.segment} testID="activity-filter-segment">
