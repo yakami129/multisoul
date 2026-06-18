@@ -1,6 +1,6 @@
 import {
   AlertCircle,
-  ChevronRight,
+  // ChevronRight,
   Filter,
   Plus,
   Play,
@@ -175,12 +175,12 @@ export function AgentList({
       <>
         <SectionTitle
           title={t('agents.fleetTitle')}
-          action={
-            <View style={s.viewAll}>
-              <Text style={s.viewAllText}>{t('agents.viewAll')}</Text>
-              <ChevronRight size={18} color={brandColors.textSoft} />
-            </View>
-          }
+          // action={
+          //   <View style={s.viewAll}>
+          //     <Text style={s.viewAllText}>{t('agents.viewAll')}</Text>
+          //     <ChevronRight size={18} color={brandColors.textSoft} />
+          //   </View>
+          // }
         />
         <View testID="projects-group" style={s.projectGroup}>
           {filteredProjects.map((project, index) => (

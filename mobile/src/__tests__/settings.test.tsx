@@ -83,9 +83,10 @@ describe('SettingsScreen', () => {
     expect(screen.getByText('Settings')).toBeTruthy();
     expect(screen.getByText('Endpoints')).toBeTruthy();
     expect(screen.getByText('Home Server')).toBeTruthy();
-    expect(screen.getByText('Preferences')).toBeTruthy();
-    expect(screen.getByText('Security')).toBeTruthy();
+    expect(screen.getByText('Language')).toBeTruthy();
     expect(screen.getByText('Scan setup QR')).toBeTruthy();
+    expect(screen.queryByText('Preferences')).toBeNull();
+    expect(screen.queryByText('Security')).toBeNull();
     expect(screen.queryByText('DIAGNOSTICS')).toBeNull();
     expect(screen.queryByText('Open logs')).toBeNull();
   });

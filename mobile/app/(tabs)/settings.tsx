@@ -1,19 +1,19 @@
 import { useFocusEffect } from 'expo-router';
 import {
-  Bell,
-  CheckCircle2,
+  // Bell,
+  // CheckCircle2,
   ChevronRight,
   Globe,
-  KeyRound,
+  // KeyRound,
   Plus,
   QrCode,
-  ShieldCheck,
-  Sparkles,
-  Trash2,
+  // ShieldCheck,
+  // Sparkles,
+  // Trash2,
 } from 'lucide-react-native';
 import React, { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, Image, ScrollView, Switch, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Image, ScrollView, /* Switch, */ Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AddEndpointModal } from '@/features/settings/components/AddEndpointModal';
 import { EndpointList } from '@/features/settings/components/EndpointList';
@@ -22,74 +22,75 @@ import { countOnlineEndpoints } from '@/features/settings/services/endpointLiven
 import { pingAllEndpoints } from '@/features/settings/services/endpointService';
 import { useEndpointStore } from '@/store/endpointStore';
 import { useLanguageStore } from '@/store/languageStore';
-import { brandAssets, brandColors, brandRgba } from '@/theme/brandRefresh';
+import { brandAssets, brandColors /* , brandRgba */ } from '@/theme/brandRefresh';
 
-function StaticToggleRow({
-  title,
-  subtitle,
-  color,
-  icon,
-  value,
-  divided,
-}: {
-  title: string;
-  subtitle: string;
-  color: string;
-  icon: React.ReactNode;
-  value: boolean;
-  divided?: boolean;
-}) {
-  return (
-    <View style={[s.row, divided && s.divider, s.disabledRow]}>
-      <View style={[s.iconCircle, { backgroundColor: color }]}>{icon}</View>
-      <View style={s.rowCopy}>
-        <Text style={s.rowTitle} numberOfLines={1}>
-          {title}
-        </Text>
-        <Text style={s.rowSubtitle} numberOfLines={2}>
-          {subtitle}
-        </Text>
-      </View>
-      <Switch
-        disabled
-        value={value}
-        trackColor={{ false: brandRgba.ink18, true: color }}
-        thumbColor={brandColors.white}
-      />
-    </View>
-  );
-}
-
-function StaticLinkRow({
-  title,
-  subtitle,
-  color,
-  icon,
-  destructive,
-  divided,
-}: {
-  title: string;
-  subtitle: string;
-  color: string;
-  icon: React.ReactNode;
-  destructive?: boolean;
-  divided?: boolean;
-}) {
-  return (
-    <View style={[s.row, divided && s.divider, s.disabledRow]}>
-      <View style={[s.iconCircle, { backgroundColor: color }]}>{icon}</View>
-      <View style={s.rowCopy}>
-        <Text style={s.rowTitle} numberOfLines={1}>
-          {title}
-        </Text>
-        <Text style={[s.rowSubtitle, destructive && s.destructiveSubtitle]} numberOfLines={2}>
-          {subtitle}
-        </Text>
-      </View>
-      <ChevronRight size={18} color={brandColors.textSoft} />
-    </View>
-  );
-}
+// Mock UI helpers — restore when preferences/security are backed by real settings.
+// function StaticToggleRow({
+//   title,
+//   subtitle,
+//   color,
+//   icon,
+//   value,
+//   divided,
+// }: {
+//   title: string;
+//   subtitle: string;
+//   color: string;
+//   icon: React.ReactNode;
+//   value: boolean;
+//   divided?: boolean;
+// }) {
+//   return (
+//     <View style={[s.row, divided && s.divider, s.disabledRow]}>
+//       <View style={[s.iconCircle, { backgroundColor: color }]}>{icon}</View>
+//       <View style={s.rowCopy}>
+//         <Text style={s.rowTitle} numberOfLines={1}>
+//           {title}
+//         </Text>
+//         <Text style={s.rowSubtitle} numberOfLines={2}>
+//           {subtitle}
+//         </Text>
+//       </View>
+//       <Switch
+//         disabled
+//         value={value}
+//         trackColor={{ false: brandRgba.ink18, true: color }}
+//         thumbColor={brandColors.white}
+//       />
+//     </View>
+//   );
+// }
+//
+// function StaticLinkRow({
+//   title,
+//   subtitle,
+//   color,
+//   icon,
+//   destructive,
+//   divided,
+// }: {
+//   title: string;
+//   subtitle: string;
+//   color: string;
+//   icon: React.ReactNode;
+//   destructive?: boolean;
+//   divided?: boolean;
+// }) {
+//   return (
+//     <View style={[s.row, divided && s.divider, s.disabledRow]}>
+//       <View style={[s.iconCircle, { backgroundColor: color }]}>{icon}</View>
+//       <View style={s.rowCopy}>
+//         <Text style={s.rowTitle} numberOfLines={1}>
+//           {title}
+//         </Text>
+//         <Text style={[s.rowSubtitle, destructive && s.destructiveSubtitle]} numberOfLines={2}>
+//           {subtitle}
+//         </Text>
+//       </View>
+//       <ChevronRight size={18} color={brandColors.textSoft} />
+//     </View>
+//   );
+// }
 
 export default function SettingsScreen() {
   const { t } = useTranslation();
@@ -186,11 +187,12 @@ export default function SettingsScreen() {
           }}
         />
 
-        <View style={s.sectionHeader}>
+        {/* Mock preferences — hidden until backed by real settings */}
+        {/* <View style={s.sectionHeader}>
           <Text style={s.sectionLabel}>{t('settings.preferences')}</Text>
-        </View>
+        </View> */}
         <View style={s.sectionCard}>
-          <StaticToggleRow
+          {/* <StaticToggleRow
             title={t('settings.decisionNotifications')}
             subtitle={t('settings.decisionNotificationsSubtitle')}
             color={brandColors.lime}
@@ -213,9 +215,9 @@ export default function SettingsScreen() {
             icon={<Sparkles size={20} color={brandColors.ink} />}
             value
             divided
-          />
+          /> */}
           <TouchableOpacity
-            style={[s.row, s.divider]}
+            style={s.row}
             onPress={handleLanguagePress}
             accessibilityRole="button"
             accessibilityLabel={t('settings.language')}
@@ -235,7 +237,8 @@ export default function SettingsScreen() {
           </TouchableOpacity>
         </View>
 
-        <View style={s.sectionHeader}>
+        {/* Mock security — hidden until backed by real settings */}
+        {/* <View style={s.sectionHeader}>
           <Text style={s.sectionLabel}>{t('settings.security')}</Text>
         </View>
         <View style={s.sectionCard}>
@@ -261,7 +264,7 @@ export default function SettingsScreen() {
             icon={<Trash2 size={20} color={brandColors.coral} />}
             destructive
           />
-        </View>
+        </View> */}
       </ScrollView>
 
       <AddEndpointModal
