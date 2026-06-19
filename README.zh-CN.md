@@ -2,6 +2,11 @@
   <h1 align="center">MultiSoul</h1>
   <p align="center">本地 AI Agent 的手机控制台。</p>
   <p align="center">
+    <a href="https://apps.apple.com/sg/app/multisoul/id6763881771">
+      <img alt="在 App Store 下载" src="https://toolbox.marketingtools.apple.com/api/v2/badges/download-on-the-app-store/black/zh-cn?size=250x83" height="50">
+    </a>
+  </p>
+  <p align="center">
     <a href="ARCHITECTURE.md">系统架构</a>
     ·
     <a href="docs/product-specs/">产品规格</a>
@@ -61,13 +66,17 @@ msctl serve (Rust，本机服务)
 
 ## 快速开始
 
-### 1. 安装 `msctl`
+### 1. 安装手机 App
+
+在 [App Store](https://apps.apple.com/sg/app/multisoul/id6763881771) 免费下载 **MultiSoul**（支持 iPhone / iPad）。
+
+### 2. 安装 `msctl`
 
 ```bash
 npm install -g @yakami129/msctl
 ```
 
-### 2. 启动服务
+### 3. 启动服务
 
 ```bash
 msctl daemon quickstart
@@ -88,7 +97,7 @@ msctl daemon restart
 msctl daemon stop
 ```
 
-### 3. 注册 Agent
+### 4. 注册 Agent
 
 在要控制的项目目录里：
 
@@ -152,21 +161,6 @@ msctl agent register \
 msctl agent list
 ```
 
-### 4. 本地运行手机 App
-
-```bash
-cd mobile
-pnpm install
-pnpm start
-```
-
-模拟器：
-
-```bash
-pnpm ios
-pnpm android
-```
-
 ## 扩展模式：Tailscale（可选）
 
 默认 relay 隧道无需 VPN。若需要 **Tailnet 私有访问** 或 **Tailscale Funnel 公网 HTTPS**，可改用 Tailscale。
@@ -206,6 +200,21 @@ msctl serve --funnel --port 8765 --token YOUR_TOKEN
 ```
 
 ## 开发
+
+### 从源码运行手机 App
+
+```bash
+cd mobile
+pnpm install
+pnpm start
+```
+
+模拟器：
+
+```bash
+pnpm ios
+pnpm android
+```
 
 CLI：
 
