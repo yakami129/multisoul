@@ -2,6 +2,11 @@
   <h1 align="center">MultiSoul</h1>
   <p align="center">A mobile console for local AI agents.</p>
   <p align="center">
+    <a href="https://apps.apple.com/sg/app/multisoul/id6763881771">
+      <img alt="Download on the App Store" src="https://toolbox.marketingtools.apple.com/api/v2/badges/download-on-the-app-store/black/en-us?size=250x83" height="50">
+    </a>
+  </p>
+  <p align="center">
     <a href="ARCHITECTURE.md">Architecture</a>
     ·
     <a href="docs/product-specs/">Product Specs</a>
@@ -65,13 +70,17 @@ msctl serve (Rust, local machine)
 
 ## Quick Start
 
-### 1. Install `msctl`
+### 1. Install the mobile app
+
+Download **MultiSoul** from the [App Store](https://apps.apple.com/sg/app/multisoul/id6763881771) (iPhone / iPad, free).
+
+### 2. Install `msctl`
 
 ```bash
 npm install -g @yakami129/msctl
 ```
 
-### 2. Start the service
+### 3. Start the service
 
 ```bash
 msctl daemon quickstart
@@ -92,7 +101,7 @@ msctl daemon restart
 msctl daemon stop
 ```
 
-### 3. Register an Agent
+### 4. Register an Agent
 
 From the project you want to control:
 
@@ -156,21 +165,6 @@ Check registered agents:
 msctl agent list
 ```
 
-### 4. Run the mobile app locally
-
-```bash
-cd mobile
-pnpm install
-pnpm start
-```
-
-Native simulators:
-
-```bash
-pnpm ios
-pnpm android
-```
-
 ## Extended mode: Tailscale (optional)
 
 The default relay tunnel works without a VPN. Use Tailscale when you want a **private Tailnet** or **public HTTPS via Tailscale Funnel** instead.
@@ -210,6 +204,21 @@ msctl serve --funnel --port 8765 --token YOUR_TOKEN
 ```
 
 ## Development
+
+### Run the mobile app from source
+
+```bash
+cd mobile
+pnpm install
+pnpm start
+```
+
+Native simulators:
+
+```bash
+pnpm ios
+pnpm android
+```
 
 CLI:
 
