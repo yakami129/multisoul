@@ -273,7 +273,7 @@ export function AgentList({
           </View>
         </View>
 
-        <View style={s.heroCard}>
+        <View testID="agents-hero-card" style={s.heroCard}>
           <View style={s.heroOrbit} />
           <View style={s.heroSparkle}>
             <Sparkles size={15} color={brandColors.white} />
@@ -289,7 +289,8 @@ export function AgentList({
             </View>
           </View>
           <Image
-            source={brandAssets.mascotPhoneStanding}
+            testID="agents-hero-mascot"
+            source={brandAssets.mascotPhoneStandingHero}
             style={s.heroMascot}
             resizeMode="contain"
           />

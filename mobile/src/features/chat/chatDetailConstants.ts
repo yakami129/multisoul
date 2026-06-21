@@ -11,10 +11,36 @@ export const WAITING_MESSAGE: WsMessage = {
   created_at: 0,
 };
 
-export const STATUS_BADGE: Record<string, { label: string; bg: string; dot: string }> = {
-  running: { label: 'RUNNING', bg: brandRgba.white88, dot: brandColors.cyan },
-  awaiting_question: { label: 'AWAITING', bg: brandRgba.white88, dot: brandColors.coral },
-  completed: { label: 'COMPLETED', bg: brandRgba.white88, dot: brandColors.lime },
-  failed: { label: 'FAILED', bg: brandRgba.white88, dot: brandColors.error },
-  idle: { label: 'IDLE', bg: brandRgba.white88, dot: brandColors.textMuted },
-};
+export const STATUS_BADGE: Record<string, { label: string; bg: string; dot: string; fg: string }> =
+  {
+    running: {
+      label: 'Running',
+      bg: brandRgba.limeSoft,
+      dot: brandColors.successCompat,
+      fg: brandColors.successCompat,
+    },
+    awaiting_question: {
+      label: 'Awaiting',
+      bg: brandRgba.coralSoft,
+      dot: brandColors.coral,
+      fg: brandColors.coral,
+    },
+    completed: {
+      label: 'Completed',
+      bg: brandRgba.limeSoft,
+      dot: brandColors.successCompat,
+      fg: brandColors.successCompat,
+    },
+    failed: {
+      label: 'Failed',
+      bg: brandRgba.white88,
+      dot: brandColors.error,
+      fg: brandColors.error,
+    },
+    idle: {
+      label: 'Idle',
+      bg: brandRgba.white88,
+      dot: brandColors.textMuted,
+      fg: brandColors.ink,
+    },
+  };

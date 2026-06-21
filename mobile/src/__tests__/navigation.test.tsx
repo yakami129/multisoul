@@ -6,51 +6,82 @@ import * as Clipboard from 'expo-clipboard';
 import type React from 'react';
 import { Alert } from 'react-native';
 import TabLayout, {
+  ACTIVE_ICON_IMAGE_SIZE,
+  ACTIVE_ICON_TRAY_SIZE,
+  INACTIVE_ICON_SIZE,
   TAB_BAR_HEIGHT,
   TAB_BAR_SAFE_AREA_BOTTOM,
+  TAB_BAR_SHOW_ACTIVE_LABEL,
+  TAB_ITEM_FLEX,
+  TAB_ITEM_GAP,
+  TAB_ROUTE_ICON_KEYS,
   tabScreenOptions,
 } from '../../app/(tabs)/_layout';
+import i18n from '../i18n';
 import { clearDiagnosticsEntries, recordDiagnosticsEvent } from '../services/diagnosticsLog';
 import { useEndpointStore } from '../store/endpointStore';
 
 jest.mock('expo-router', () => {
   const React = require('react');
-  const { View, Text, TouchableOpacity } = require('react-native');
+  const { View, Text } = require('react-native');
 
-  function Tabs({ children }: any) {
+  function Tabs({ children, screenOptions = {}, tabBar }: any) {
     const screens = React.Children.toArray(children).map((child: any) => ({
       name: child.props.name,
       title: child.props.options?.title ?? child.props.name,
       href: child.props.options?.href,
+      options: child.props.options ?? {},
       listeners: child.props.listeners,
     }));
-    const visibleScreens = screens.filter(
-      (screen: { href?: string | null }) => screen.href !== null,
-    );
     const [tab, setTab] = React.useState('index');
+    const routes = screens.map((screen: { name: string }) => ({
+      key: `${screen.name}-key`,
+      name: screen.name,
+      params: undefined,
+    }));
+    const descriptors = routes.reduce((acc: any, route: { key: string; name: string }) => {
+      const screen = screens.find((candidate: { name: string }) => candidate.name === route.name);
+      acc[route.key] = {
+        options: {
+          ...screenOptions,
+          ...screen?.options,
+          title: screen?.title ?? route.name,
+        },
+      };
+      return acc;
+    }, {});
+    const navigation = {
+      emit: (event: { type: string; target?: string }) => {
+        const route = routes.find((candidate: { key: string }) => candidate.key === event.target);
+        const screen = screens.find(
+          (candidate: { name: string }) => candidate.name === route?.name,
+        );
+        const listeners =
+          typeof screen?.listeners === 'function'
+            ? screen.listeners({ navigation: {}, route })
+            : screen?.listeners;
+        if (event.type === 'tabLongPress') {
+          listeners?.tabLongPress?.({ navigation: {}, route });
+        }
+        return { defaultPrevented: false };
+      },
+      navigate: (name: string) => setTab(name),
+    };
+    const customTabBar = tabBar({
+      state: {
+        index: routes.findIndex((route: { name: string }) => route.name === tab),
+        routes,
+      },
+      descriptors,
+      navigation,
+    });
+
     return (
       <View>
         <Text testID="registered-tabs">
           {screens.map((screen: { name: string }) => screen.name)}
         </Text>
-        <View testID="tab-bar">
-          {visibleScreens.map((screen: { name: string; title: string; listeners?: any }) => (
-            <TouchableOpacity
-              key={screen.name}
-              testID={`tab-${screen.name}`}
-              onPress={() => setTab(screen.name)}
-              onLongPress={() => {
-                const listeners =
-                  typeof screen.listeners === 'function'
-                    ? screen.listeners({ navigation: {}, route: { name: screen.name } })
-                    : screen.listeners;
-                listeners?.tabLongPress?.({ navigation: {}, route: { name: screen.name } });
-              }}
-            >
-              <Text>{screen.title}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
+        {customTabBar}
         <Text testID="active-tab">{tab}</Text>
       </View>
     );
@@ -70,10 +101,7 @@ jest.mock('lucide-react-native', () => {
 
   return {
     Activity: ({ color }: { color: string }) => <Text>{`Activity ${color}`}</Text>,
-    FileText: ({ color }: { color: string }) => <Text>{`FileText ${color}`}</Text>,
-    Inbox: ({ color }: { color: string }) => <Text>{`Inbox ${color}`}</Text>,
-    Layers: ({ color }: { color: string }) => <Text>{`Layers ${color}`}</Text>,
-    LayoutGrid: ({ color }: { color: string }) => <Text>{`LayoutGrid ${color}`}</Text>,
+    MessageCircle: ({ color }: { color: string }) => <Text>{`MessageCircle ${color}`}</Text>,
     Settings: ({ color }: { color: string }) => <Text>{`Settings ${color}`}</Text>,
   };
 });
@@ -131,24 +159,25 @@ async function openReleaseLogsFromSettingsTab() {
   });
 }
 
-/// Tab navigation: Agents, Specs, Activity, and Settings tabs are accessible
+/// Tab navigation: 中文 tab 文案保持现有信息架构，workflows 仍只注册不展示
 ///
 /// Execution:
 ///   1. Render TabLayout
-///   2. Verify new tab labels visible
+///   2. Verify current Chinese tab labels are preserved on visible tab buttons
 ///   3. Verify old global tab labels hidden
 ///   4. Press Activity tab
 ///   5. Verify Activity tab active
 ///
 /// Expected:
-///   - 'Agents' tab label visible
-///   - 'Specs' tab label visible
-///   - 'Activity' tab label visible
-///   - 'Settings' tab label visible
+///   - '智能体' tab label is kept as the Agent tab accessibility label
+///   - '规格' tab label is kept as the Specs tab accessibility label
+///   - '动态' tab label is kept as the Activity tab accessibility label
+///   - '设置' tab label is kept as the Settings tab accessibility label
 ///   - 'Workflows' route registered but hidden from the tab rail
 ///   - 'Projects', 'Chat', and 'Inbox' tab labels hidden
 describe('Tab navigation', () => {
   beforeEach(async () => {
+    await i18n.changeLanguage('zh');
     jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
     (Clipboard.setStringAsync as jest.Mock).mockClear();
     MockReleaseLogWebSocket.instances = [];
@@ -182,10 +211,10 @@ describe('Tab navigation', () => {
 
   it('renders only the public app tabs', () => {
     render(<TabLayout />, { wrapper });
-    expect(screen.getByText('Agents')).toBeTruthy();
-    expect(screen.getByText('Specs')).toBeTruthy();
-    expect(screen.getByText('Activity')).toBeTruthy();
-    expect(screen.getByText('Settings')).toBeTruthy();
+    expect(screen.getByTestId('tab-index').props.accessibilityLabel).toBe('智能体');
+    expect(screen.getByTestId('tab-specs').props.accessibilityLabel).toBe('规格');
+    expect(screen.getByTestId('tab-activity').props.accessibilityLabel).toBe('动态');
+    expect(screen.getByTestId('tab-settings').props.accessibilityLabel).toBe('设置');
     expect(screen.queryByText('Workflows')).toBeNull();
     expect(screen.getByTestId('registered-tabs').props.children).toContain('workflows');
 
@@ -347,93 +376,103 @@ describe('Tab navigation', () => {
     expect(screen.queryByText('Log stream closed.')).toBeNull();
   });
 
-  /// iOS tab bar labels: safe-area padding must not consume the 50px content rail
+  /// iOS tab bar capsule: safe-area 留白必须在黑色胶囊外部
   ///
   /// Data construction:
-  ///   visible rail = 48px, keeping the brand refresh capsule compact
-  ///   iOS home indicator inset = 28px, preserving room without over-covering content
-  ///   total height must be 48 + 28 = 76px so labels keep their own vertical space
+  ///   visible capsule = 58px，匹配目标图的短胶囊
+  ///   iOS bottom gap = 16px，用作胶囊外部悬浮距离
+  ///   total black height must stay 58px；safe-area 不进入黑色区域
   ///
   /// Execution:
   ///   1. Read the exported tab screen options used by expo-router Tabs
   ///   2. Flatten the tabBarStyle configuration
-  ///   3. Compare height and label-position choices against the iOS-safe layout contract
+  ///   3. Compare height and bottom placement against the custom floating contract
   ///
   /// Expected:
-  ///   - tab bar height includes bottom safe-area space, so label text is not clipped
-  ///   - no hard-coded marginBottom remains, so safe-area is not double-counted
-  ///   - labels stay below icons, matching the product design
-  it('keeps iOS tab labels visible above the home indicator inset', () => {
+  ///   - Positive: visual capsule height is 58px
+  ///   - Positive: bottom offset remains outside the capsule
+  ///   - Negative: capsule height no longer equals 72 + safe-area
+  it('keeps the black capsule separate from the iOS bottom safe area', () => {
     const style = tabScreenOptions.tabBarStyle;
 
-    expect(TAB_BAR_HEIGHT).toBe(48, 'visible tab rail should remain compact at 48px');
+    expect(TAB_BAR_HEIGHT).toBe(58, 'visible black capsule should be 58px tall');
     expect(TAB_BAR_SAFE_AREA_BOTTOM).toBe(
-      28,
-      'bottom inset should preserve the iOS home indicator area',
+      16,
+      'bottom inset should sit outside the black capsule as floating room',
     );
     expect(style.height).toBe(
-      76,
-      'tabBarStyle.height should be 48 + 28 so iOS safe-area padding does not clip labels',
+      58,
+      'tabBarStyle.height should describe only the black capsule, not capsule + safe-area',
     );
-    expect(style.marginBottom).toBe(
-      undefined,
-      'tabBarStyle.marginBottom should not hard-code the same iOS inset outside the tab bar',
+    expect(style.bottom).toBe(
+      16,
+      'tabBarStyle.bottom should keep the capsule lifted above the device edge',
     );
-    expect(tabScreenOptions.tabBarLabelPosition).toBe(
-      'below-icon',
-      'tab labels should render below icons instead of being auto-positioned away',
+    expect(style.paddingBottom).toBe(
+      0,
+      'black capsule must not add safe-area padding inside itself',
     );
-    expect(tabScreenOptions.tabBarShowLabel).toBe(true, 'tab labels should be explicitly enabled');
+  });
+
+  /// Brand refresh tab rail: active 为紧凑 icon-only column，inactive 为图标上/标题下
+  ///
+  /// Data: initial index active；specs 文案仍为「规格」，icon key = iconChat。
+  /// Execution: render → inspect active/inactive IDs → press Activity。
+  /// Expected: active label hidden；active/inactive share the same slot width；inactive column shows labels below icons。
+  it('renders target-style active and inactive tab layouts', () => {
+    render(<TabLayout />, { wrapper });
+
+    expect(TAB_BAR_SHOW_ACTIVE_LABEL).toBe(false);
+    expect(TAB_ITEM_FLEX).toBe(1);
+    expect(screen.getByTestId('bottom-tab-index-active-column')).toBeTruthy();
+    expect(screen.queryByTestId('bottom-tab-index-active-label')).toBeNull();
+    expect(screen.queryByTestId('bottom-tab-index-active-row')).toBeNull();
+    expect(screen.queryByTestId('bottom-tab-index-inactive-column')).toBeNull();
+    expect(screen.getByTestId('bottom-tab-specs-inactive-column')).toBeTruthy();
+    expect(screen.getByText('规格')).toBeTruthy();
+    expect(screen.queryByText('智能体')).toBeNull();
+    expect(TAB_ROUTE_ICON_KEYS.specs).toBe('iconChat');
+    expect(TAB_ROUTE_ICON_KEYS.specs).not.toBe('iconAgent');
+
+    fireEvent.press(screen.getByTestId('tab-activity'));
+
+    expect(screen.getByTestId('bottom-tab-activity-active-column')).toBeTruthy();
+    expect(screen.queryByTestId('bottom-tab-activity-active-label')).toBeNull();
+    expect(screen.getByTestId('bottom-tab-index-inactive-column')).toBeTruthy();
+    expect(screen.getByText('智能体')).toBeTruthy();
+    expect(screen.queryByText('动态')).toBeNull();
   });
 
   /// Brand refresh tab rail: bottom navigation uses the black floating capsule.
   ///
-  /// Data construction:
-  ///   Target source = brand refresh prototype:
-  ///     background #0D0D0D, no divider, active white, inactive soft white, label size 10
-  ///
-  /// Execution:
-  ///   1. Read exported tabScreenOptions.
-  ///   2. Compare surface, divider, tint, and label sizing values.
-  ///
-  /// Expected:
-  ///   - Positive: tab rail matches the brand refresh visual tokens.
-  ///   - Negative: the old orange pencli tab state does not remain.
+  /// Data: target tokens include 46px active tray；icons shrink to 70% = active 34*0.7≈24, inactive 28*0.7≈20。
+  /// Execution: read exported tabScreenOptions and exported icon constants。
+  /// Expected: target token bundle matches；old orange/default tab state does not remain。
   it('matches the brand refresh floating tab rail tokens', () => {
     expect({
-      actual: tabScreenOptions.tabBarStyle.backgroundColor,
-      reason: 'tab rail should use the brand refresh ink capsule',
+      activeTint: tabScreenOptions.tabBarActiveTintColor,
+      activeIconImageSize: ACTIVE_ICON_IMAGE_SIZE,
+      activeTraySize: ACTIVE_ICON_TRAY_SIZE,
+      backgroundColor: tabScreenOptions.tabBarStyle.backgroundColor,
+      borderTopWidth: tabScreenOptions.tabBarStyle.borderTopWidth,
+      inactiveIconSize: INACTIVE_ICON_SIZE,
+      inactiveTint: tabScreenOptions.tabBarInactiveTintColor,
+      itemFlex: TAB_ITEM_FLEX,
+      itemGap: TAB_ITEM_GAP,
+      labelFontSize: tabScreenOptions.tabBarLabelStyle.fontSize,
+      reason: 'tab rail visual tokens should match the target capsule',
     }).toEqual({
-      actual: '#0D0D0D',
-      reason: 'tab rail should use the brand refresh ink capsule',
-    });
-    expect({
-      actual: tabScreenOptions.tabBarStyle.borderTopWidth,
-      reason: 'floating tab rail should not draw a top divider',
-    }).toEqual({
-      actual: 0,
-      reason: 'floating tab rail should not draw a top divider',
-    });
-    expect({
-      actual: tabScreenOptions.tabBarActiveTintColor,
-      reason: 'active tab text should use white on the ink capsule',
-    }).toEqual({
-      actual: '#FFFFFF',
-      reason: 'active tab text should use white on the ink capsule',
-    });
-    expect({
-      actual: tabScreenOptions.tabBarInactiveTintColor,
-      reason: 'inactive tab icons should use soft white',
-    }).toEqual({
-      actual: 'rgba(255, 255, 255, 0.70)',
-      reason: 'inactive tab icons should use soft white',
-    });
-    expect({
-      actual: tabScreenOptions.tabBarLabelStyle.fontSize,
-      reason: 'tab labels should match the brand refresh caption size',
-    }).toEqual({
-      actual: 10,
-      reason: 'tab labels should match the brand refresh caption size',
+      activeTint: '#00E5FF',
+      activeIconImageSize: 24,
+      activeTraySize: 46,
+      backgroundColor: '#0D0D0D',
+      borderTopWidth: 0,
+      inactiveIconSize: 20,
+      inactiveTint: 'rgba(255, 255, 255, 0.70)',
+      itemFlex: 1,
+      itemGap: 30,
+      labelFontSize: 11,
+      reason: 'tab rail visual tokens should match the target capsule',
     });
   });
 });

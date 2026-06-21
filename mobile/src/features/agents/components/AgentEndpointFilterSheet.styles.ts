@@ -8,6 +8,9 @@ export const endpointSheetStyles = StyleSheet.create({
   },
   scrim: {
     ...StyleSheet.absoluteFillObject,
+  },
+  scrimVisual: {
+    ...StyleSheet.absoluteFillObject,
     backgroundColor: brandRgba.ink72,
   },
   sheet: {
