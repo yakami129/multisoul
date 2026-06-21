@@ -39,6 +39,7 @@ MultiSoul 是个人 AI Agent 随身控制台。它不是营销页，也不是普
 | `surface.app` | `#F6F3EC` | 页面底色、状态栏底色 |
 | `surface.card` | `#FFFFFF` / 70-88% | 主内容卡片、列表行、输入框 |
 | `surface.brandWash` | `signal.live` 14-24% | Hero、快捷工作流、轻提示 |
+| `surface.agentsHero` | `#A9DDF8` | Agents 首页 Hero 卡片背景，承载 phone-standing mascot |
 | `surface.panel` | `#141414` | 深色工具卡、代码块、需要高对比的局部区域 |
 | `surface.raised` | `#1A1A1A` | 深色浮层、兼容旧 Bottom Sheet |
 | `surface.deep` | `#111111` | 压暗区域、代码块 |
@@ -178,7 +179,7 @@ Fallback 色板：`#FF5A3C`、`#00E5FF`、`#C6FF00`、`#B7C9AE`、`#7C3AED`、`#
 | 导航栏 | `[0, 16]` | 左右安全区内对齐 |
 | 聊天区域 | `[12, 16]` 或 `16px` | 消息区 |
 | 输入框区域 | `[8, 16, 34, 16]` | 包含 Home Indicator |
-| Tab 包装 | `[0, 14, 28, 14]` | 紧凑浮动胶囊 |
+| Tab 包装 | `[0, 6, 0, 6]` | 黑色胶囊本体；底部 16px 悬浮距离在胶囊外 |
 | AskQuestion 卡片 | `24px` | 高优先级决策容器 |
 | AskQuestion 选项 | `[12, 16]` | 便于触控 |
 | Inbox 卡片 | `16px` | 信息密度适中 |
@@ -198,7 +199,7 @@ Fallback 色板：`#FF5A3C`、`#00E5FF`、`#C6FF00`、`#B7C9AE`、`#7C3AED`、`#
 | 高优先级卡片 | 16px | `surface.raised` + signal 边 |
 | 按钮 | 8-12px | 根据密度决定，不超过 12px |
 | 输入框 | 21-26px | 胶囊 |
-| Tab Bar | 30-32px | 浮动胶囊 |
+| Tab Bar | 29px | 浮动胶囊 |
 | Bottom Sheet | `[20, 20, 0, 0]` | 仅顶部圆角 |
 
 材质规则：
@@ -273,13 +274,13 @@ Floating Tab Bar
 
 ### 7.1 Tab Bar
 
-- 高度：56px visible rail + 28px safe-area padding，cornerRadius 36px
+- 高度：58px 黑色胶囊本体；safe-area / Home Indicator 留白放在胶囊外，底部悬浮距离 16px
 - 背景：`brand.ink`
-- 位置：浮动胶囊，左右约 48px，底部避开 Home Indicator
-- 布局：horizontal，space_between，padding `[0, 4]`，每 item flex:1
-- 图标：Lucide 或 brand-refresh transparent icon，22-34px，托盘 40×40px
-- 标签：Inter 10px/600
-- 激活：浅蓝圆形托盘 + `text.onCream`
+- 位置：浮动胶囊，左右约 30px，底部避开 Home Indicator
+- 布局：horizontal，四个 item 槽位始终 `flex:1` 等宽，item 间距 30px；active 为紧凑 icon-only 选中态，inactive 为纵向“图标 / 标签”
+- 图标：active Agent 使用 brand-refresh 头像，托盘 46×46px、图标 24px；inactive 使用浅色线性图标，约 20px
+- 标签：active 隐藏；inactive Inter 11px/500，标题显示在图标下方
+- 激活：浅蓝圆形托盘
 - 非激活：白色 70% 或 muted 图标
 
 ### 7.2 搜索框
@@ -452,7 +453,7 @@ Floating Tab Bar
 - [ ] Signal 色是否只表达状态，不做无语义装饰？
 - [ ] 字体是否只使用 Space Grotesk / Inter / SF Mono？
 - [ ] 页面是否仍是可扫描的工具界面，而非营销页？
-- [ ] Tab Bar 是否保持 50px visible rail + 28px safe-area padding、cornerRadius 30px？
+- [ ] Tab Bar 是否保持 58px 黑色胶囊、16px 外部底部留白、cornerRadius 29px？
 - [ ] 输入框是否在 42-46px 高、cornerRadius 21-23px 范围内？
 - [ ] Agent Fleet 列表行是否稳定在 62-70px 范围内，动态内容不会撑开布局？
 - [ ] AskQuestion 是否明确突出“需要用户决策”？

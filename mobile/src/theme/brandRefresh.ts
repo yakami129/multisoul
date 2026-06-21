@@ -8,6 +8,7 @@ import iconToolCall from '../../assets/brand-refresh/icon-tool-call.png';
 import mascotAppIconBadge from '../../assets/brand-refresh/mascot-app-icon-badge.png';
 import mascotDecisionPointing from '../../assets/brand-refresh/mascot-decision-pointing.png';
 import mascotLaptopWorking from '../../assets/brand-refresh/mascot-laptop-working.png';
+import mascotPhoneStandingHero from '../../assets/brand-refresh/mascot-phone-standing-hero.png';
 import mascotPhoneStanding from '../../assets/brand-refresh/mascot-phone-standing.png';
 
 export const brandColors = {
@@ -18,6 +19,7 @@ export const brandColors = {
   lime: '#C6FF00',
   sage: '#B7C9AE',
   silver: '#E6E6E8',
+  agentsHeroBlue: '#A9DDF8',
   white: '#FFFFFF',
   textSoft: '#555555',
   textMuted: '#888888',
@@ -100,6 +102,7 @@ export const brandAssets: Record<
   | 'mascotAppIconBadge'
   | 'mascotDecisionPointing'
   | 'mascotLaptopWorking'
+  | 'mascotPhoneStandingHero'
   | 'mascotPhoneStanding',
   ImageSourcePropType
 > = {
@@ -112,5 +115,6 @@ export const brandAssets: Record<
   mascotAppIconBadge,
   mascotDecisionPointing,
   mascotLaptopWorking,
+  mascotPhoneStandingHero,
   mascotPhoneStanding,
 };

@@ -1776,7 +1776,7 @@ test('switches model from a deep-linked chat without a seeded conversation row',
 test('updates the status badge when conversation metadata changes', async () => {
   const { getByTestId } = render(<ChatDetailScreen />);
 
-  await waitFor(() => expect(getByTestId('status-badge-text').props.children).toBe('IDLE'));
+  await waitFor(() => expect(getByTestId('status-badge-text').props.children).toBe('Idle'));
 
   act(() => {
     useChatStore.setState((state) => ({
@@ -1786,7 +1786,7 @@ test('updates the status badge when conversation metadata changes', async () => 
     }));
   });
 
-  await waitFor(() => expect(getByTestId('status-badge-text').props.children).toBe('RUNNING'));
+  await waitFor(() => expect(getByTestId('status-badge-text').props.children).toBe('Running'));
 });
 
 test('syncs stale running badge from task_status embedded in fetched history', async () => {
@@ -1813,7 +1813,7 @@ test('syncs stale running badge from task_status embedded in fetched history', a
   const { getByTestId } = render(<ChatDetailScreen />);
 
   await waitFor(() => {
-    expect(getByTestId('status-badge-text').props.children).toBe('COMPLETED');
+    expect(getByTestId('status-badge-text').props.children).toBe('Completed');
   });
 
   await waitFor(() => {
@@ -2442,7 +2442,7 @@ describe('Header status badge', () => {
     (fetchMessages as jest.Mock).mockResolvedValue([]);
     const { getByTestId } = render(<ChatDetailScreen />);
     await waitFor(() => {
-      expect(getByTestId('status-badge-text').props.children).toBe('RUNNING');
+      expect(getByTestId('status-badge-text').props.children).toBe('Running');
     });
   });
 
@@ -2465,7 +2465,7 @@ describe('Header status badge', () => {
     (fetchMessages as jest.Mock).mockResolvedValue([]);
     const { getByTestId } = render(<ChatDetailScreen />);
     await waitFor(() => {
-      expect(getByTestId('status-badge-text').props.children).toBe('AWAITING');
+      expect(getByTestId('status-badge-text').props.children).toBe('Awaiting');
     });
   });
 
@@ -2488,7 +2488,7 @@ describe('Header status badge', () => {
     (fetchMessages as jest.Mock).mockResolvedValue([]);
     const { getByTestId } = render(<ChatDetailScreen />);
     await waitFor(() => {
-      expect(getByTestId('status-badge-text').props.children).toBe('IDLE');
+      expect(getByTestId('status-badge-text').props.children).toBe('Idle');
     });
   });
 });

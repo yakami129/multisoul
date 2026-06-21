@@ -25,6 +25,17 @@ import { useChatDetailServerTranscript } from './useChatDetailServerTranscript';
 import { useChatDetailTranscriptScroll } from './useChatDetailTranscriptScroll';
 import { usePendingImageUploads } from './usePendingImageUploads';
 
+function getEndpointDisplayName(endpoint: { base_url: string; label: string } | undefined) {
+  if (!endpoint) return 'No endpoint';
+  try {
+    const hostname = new URL(endpoint.base_url).hostname;
+    if (hostname) return hostname;
+  } catch {
+    // Fall through to the user-facing label for non-URL input.
+  }
+  return endpoint.label.trim() || 'Local endpoint';
+}
+
 export default function ChatDetailScreen() {
   const {
     id: conv_id,
@@ -193,6 +204,24 @@ export default function ChatDetailScreen() {
   };
 
   const isOffline = !endpoint || status === 'closed';
+  const endpointName = getEndpointDisplayName(endpoint);
+  const connectionMeta = isOffline
+    ? {
+        label: 'Disconnected',
+        dot: brandColors.error,
+        textColor: brandColors.error,
+      }
+    : status === 'open'
+      ? {
+          label: 'Connected',
+          dot: brandColors.cyan,
+          textColor: brandColors.cyan,
+        }
+      : {
+          label: 'Connecting',
+          dot: brandColors.textMuted,
+          textColor: brandColors.textMuted,
+        };
   const composerDisabled = isOffline || isAgentRunning;
   const modelSelector = useChatModelSelector({
     endpoint,
@@ -206,7 +235,7 @@ export default function ChatDetailScreen() {
     updateConversation,
   });
   const badge = isOffline
-    ? { label: 'OFFLINE', bg: brandRgba.white88, dot: brandColors.error }
+    ? { label: 'Offline', bg: brandRgba.white88, dot: brandColors.error, fg: brandColors.error }
     : (STATUS_BADGE[conversation?.status ?? 'idle'] ?? STATUS_BADGE.idle);
 
   return (
@@ -215,7 +244,19 @@ export default function ChatDetailScreen() {
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <ChatHeader title={navTitle} badge={badge} onBack={() => router.back()} />
+        <ChatHeader
+          title={navTitle}
+          badge={badge}
+          endpointName={endpointName}
+          connectionLabel={connectionMeta.label}
+          connectionDot={connectionMeta.dot}
+          connectionTextColor={connectionMeta.textColor}
+          onBack={() => router.back()}
+          onMore={() => {
+            setComposerSheetMode('actions');
+            setComposerSheetVisible(true);
+          }}
+        />
         <ModelSelector
           visible={modelSelector.visible}
           models={modelSelector.runtimeModels}

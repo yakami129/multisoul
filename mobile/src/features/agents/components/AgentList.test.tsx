@@ -2,6 +2,7 @@ import { render, fireEvent } from '@testing-library/react-native';
 import React from 'react';
 import { RefreshControl, StyleSheet, TextInput } from 'react-native';
 import { useChatStore } from '@/store/chatStore';
+import { brandAssets } from '@/theme/brandRefresh';
 import { type Agent } from '@/types';
 import { AgentList } from './AgentList';
 
@@ -84,6 +85,43 @@ describe('AgentList', () => {
     expect(searchInput.props.placeholderTextColor).toBe('#555555');
     expect(groupStyle.gap).toBe(6);
     expect(groupStyle.borderColor).toBeUndefined();
+  });
+
+  /// Agents hero card: only the marked hero area uses the requested robot and blue background.
+  ///
+  /// Data construction:
+  ///   agents          = two loaded Agent fixtures, so the normal Agents page renders.
+  ///   expected bg     = #A9DDF8 from the user-marked hero card.
+  ///   expected mascot = mascotPhoneStandingHero, processed from the supplied green-screen robot.
+  ///
+  /// Execution process:
+  ///   1. Render AgentList with loaded agents.
+  ///   2. Read only the hero card by testID.
+  ///   3. Read only the hero mascot image by testID.
+  ///
+  /// Expected result:
+  ///   - Positive: hero card background is exactly #A9DDF8.
+  ///   - Positive: hero mascot uses mascotPhoneStandingHero.
+  ///   - Negative: hero mascot does not fall back to the previous mascotPhoneStanding asset.
+  it('renders the requested phone robot and blue background inside the Agents hero card', () => {
+    const { getByTestId } = render(
+      <AgentList
+        agents={agents}
+        isLoading={false}
+        isError={false}
+        error={null}
+        isFetching={false}
+        onRefetch={() => {}}
+        onAgentPress={() => {}}
+      />,
+    );
+
+    const heroStyle = StyleSheet.flatten(getByTestId('agents-hero-card').props.style);
+    const heroMascot = getByTestId('agents-hero-mascot');
+
+    expect(heroStyle.backgroundColor).toBe('#A9DDF8');
+    expect(heroMascot.props.source).toBe(brandAssets.mascotPhoneStandingHero);
+    expect(heroMascot.props.source).not.toBe(brandAssets.mascotPhoneStanding);
   });
 
   it('calls route callbacks for add endpoint and workflow shortcuts', () => {

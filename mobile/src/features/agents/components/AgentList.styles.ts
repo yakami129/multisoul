@@ -48,7 +48,7 @@ export const s = StyleSheet.create({
   heroCard: {
     height: 226,
     borderRadius: 22,
-    backgroundColor: brandRgba.cyanWash,
+    backgroundColor: brandColors.agentsHeroBlue,
     padding: 16,
     overflow: 'hidden',
     ...strongBrandShadow,

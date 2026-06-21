@@ -26,15 +26,21 @@ export function AgentEndpointFilterSheet({
   const insets = useSafeAreaInsets();
 
   return (
-    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
+    <Modal visible={visible} animationType="fade" transparent onRequestClose={onClose}>
       <View style={s.overlay}>
         <Pressable
+          testID="endpoint-filter-scrim"
           accessibilityLabel="Close endpoint filter"
           accessibilityRole="button"
           onPress={onClose}
           style={s.scrim}
-        />
-        <View style={[s.sheet, { paddingBottom: Math.max(insets.bottom, 16) }]}>
+        >
+          <View testID="endpoint-filter-scrim-visual" pointerEvents="none" style={s.scrimVisual} />
+        </Pressable>
+        <View
+          testID="endpoint-filter-panel"
+          style={[s.sheet, { paddingBottom: Math.max(insets.bottom, 16) }]}
+        >
           <View style={s.handle} />
           <View style={s.header}>
             <Text style={s.title}>Filter by Machine</Text>
