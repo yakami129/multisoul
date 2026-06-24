@@ -16,6 +16,34 @@ pub struct Config {
     pub relay_url: String,
     pub log_file: String,
     pub env_path: String,
+    pub proxy_env: Vec<(String, String)>,
+}
+
+/// Proxy variables checked by Rust's http client crates and most CLIs.
+#[cfg(target_os = "macos")]
+const PROXY_ENV_VARS: [&str; 8] = [
+    "HTTPS_PROXY",
+    "https_proxy",
+    "HTTP_PROXY",
+    "http_proxy",
+    "ALL_PROXY",
+    "all_proxy",
+    "NO_PROXY",
+    "no_proxy",
+];
+
+/// launchd does not inherit the installing shell's environment, so proxy
+/// variables must be captured here and baked into the service's plist.
+#[cfg(target_os = "macos")]
+pub fn capture_proxy_env() -> Vec<(String, String)> {
+    PROXY_ENV_VARS
+        .iter()
+        .filter_map(|name| {
+            std::env::var(name)
+                .ok()
+                .map(|value| (name.to_string(), value))
+        })
+        .collect()
 }
 
 pub struct Status {

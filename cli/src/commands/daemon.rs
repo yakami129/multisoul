@@ -213,6 +213,7 @@ fn install(cfg: &Config, force: bool, print_pairing: bool) -> Result<()> {
             relay_url: cfg.relay_url.clone(),
             log_file: log_file.clone(),
             env_path,
+            proxy_env: daemon::capture_proxy_env(),
         })?;
     }
 
