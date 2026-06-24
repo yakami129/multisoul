@@ -29,8 +29,30 @@ fn mode_args(cfg: &Config) -> String {
     }
 }
 
+fn xml_escape(s: &str) -> String {
+    s.replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+}
+
+/// Extra `<key>/<string>` pairs for proxy variables, so launchd-spawned
+/// child processes (e.g. claude) can reach the network through a proxy.
+fn proxy_env_xml(cfg: &Config) -> String {
+    cfg.proxy_env
+        .iter()
+        .map(|(name, value)| {
+            format!(
+                "        <key>{}</key>\n        <string>{}</string>\n",
+                xml_escape(name),
+                xml_escape(value)
+            )
+        })
+        .collect()
+}
+
 fn build_plist(cfg: &Config) -> String {
     let mode_arg = mode_args(cfg);
+    let proxy_env = proxy_env_xml(cfg);
     format!(
         r#"<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -58,7 +80,7 @@ fn build_plist(cfg: &Config) -> String {
     <dict>
         <key>PATH</key>
         <string>{path}</string>
-    </dict>
+{proxy_env}    </dict>
     <key>StandardOutPath</key>
     <string>{log}</string>
     <key>StandardErrorPath</key>
@@ -72,6 +94,7 @@ fn build_plist(cfg: &Config) -> String {
         port = cfg.port,
         mode_arg = mode_arg,
         path = cfg.env_path,
+        proxy_env = proxy_env,
         log = cfg.log_file,
     )
 }
@@ -290,6 +313,7 @@ mod tests {
             relay_url: "https://relay.example.dev".into(),
             log_file: "/tmp/msctl.log".into(),
             env_path: "/usr/bin:/bin".into(),
+            proxy_env: Vec::new(),
         }
     }
 
@@ -362,6 +386,42 @@ mod tests {
     }
 
     #[test]
+    fn test_build_plist_includes_proxy_env_vars() {
+        let mut cfg = sample_cfg(ServeMode::Tailnet);
+        cfg.proxy_env = vec![("HTTPS_PROXY".into(), "http://127.0.0.1:7890".into())];
+        let plist = build_plist(&cfg);
+        assert!(
+            plist.contains("<key>HTTPS_PROXY</key>"),
+            "plist must carry proxy env var name: {plist}"
+        );
+        assert!(
+            plist.contains("<string>http://127.0.0.1:7890</string>"),
+            "plist must carry proxy env var value: {plist}"
+        );
+    }
+
+    #[test]
+    fn test_build_plist_escapes_proxy_env_values() {
+        let mut cfg = sample_cfg(ServeMode::Tailnet);
+        cfg.proxy_env = vec![("NO_PROXY".into(), "a&b<c>d".into())];
+        let plist = build_plist(&cfg);
+        assert!(
+            plist.contains("a&amp;b&lt;c&gt;d"),
+            "plist must XML-escape proxy env values: {plist}"
+        );
+    }
+
+    #[test]
+    fn test_build_plist_omits_proxy_env_dict_entries_when_absent() {
+        let cfg = sample_cfg(ServeMode::Tailnet);
+        let plist = build_plist(&cfg);
+        assert!(
+            !plist.contains("PROXY"),
+            "plist must not mention proxy vars when none are set: {plist}"
+        );
+    }
+
+    #[test]
     fn test_build_plist_keepalive_successful_exit() {
         let cfg = Config {
             binary_path: "/bin/msctl".into(),
@@ -371,6 +431,7 @@ mod tests {
             relay_url: "https://relay.example.dev".into(),
             log_file: "/tmp/msctl.log".into(),
             env_path: "/usr/bin".into(),
+            proxy_env: Vec::new(),
         };
         let plist = build_plist(&cfg);
         assert!(
