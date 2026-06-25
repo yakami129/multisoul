@@ -2,6 +2,7 @@ import type { TranscriptItem } from '@/features/chat/types';
 import type { WsMessage } from '@/types';
 import {
   collapseTodoToolCallSnapshots,
+  groupAdjacentUserImageMessages,
   type ChatTranscriptDisplayItem,
   isRenderableInChatTranscript,
 } from './chatRenderState';
@@ -45,5 +46,5 @@ export function buildServerTranscriptDisplayItems(
     }
   }
 
-  return displayItems;
+  return groupAdjacentUserImageMessages(displayItems);
 }

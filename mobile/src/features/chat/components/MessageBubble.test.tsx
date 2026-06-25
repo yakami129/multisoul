@@ -132,6 +132,36 @@ describe('MessageBubble image rendering', () => {
     expect(getByTestId('user-image-thumb')).toBeTruthy();
   });
 
+  /// 多图消息组：连续图片 user_text 在 UI 上应共用一个气泡，气泡内显示多张缩略图。
+  ///
+  /// 数据构造：
+  ///   display msg payload.text = "compare these"
+  ///   imageAttachments = file-1 + file-2
+  ///
+  /// 执行过程：
+  ///   1. render MessageBubble with imageAttachments
+  ///   2. 查询图片网格和缩略图数量
+  ///
+  /// 预期结果：
+  ///   - 正断言：一个 user-image-grid 包含 2 个 user-image-thumb
+  ///   - 正断言：caption 文本仍显示在同一个气泡中
+  it('renders multiple image attachments in one user bubble', () => {
+    const msg = makeUserMsg({ text: 'compare these', file_id: 'file-2.jpg' });
+    const { getByTestId, getAllByTestId, getByText } = render(
+      <MessageBubble
+        msg={msg}
+        imageAttachments={[
+          { seq: 1, fileId: 'file-1.jpg', imageUri: 'file:///local/one.jpg' },
+          { seq: 2, fileId: 'file-2.jpg', imageUri: 'file:///local/two.jpg' },
+        ]}
+      />,
+    );
+
+    expect(getByTestId('user-image-grid')).toBeTruthy();
+    expect(getAllByTestId('user-image-thumb')).toHaveLength(2);
+    expect(getByText('compare these')).toBeTruthy();
+  });
+
   it('renders attachment placeholder when file_id present but no imageUri', () => {
     const msg = makeUserMsg({ text: '', file_id: 'abc.jpg' });
     const { getByText } = render(<MessageBubble msg={msg} />);

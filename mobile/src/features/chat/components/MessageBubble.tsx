@@ -1,7 +1,5 @@
-import { X } from 'lucide-react-native';
 import React, { memo, useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Easing, View, Text, StyleSheet, Image, Modal, Pressable } from 'react-native';
-import { recordDiagnosticsEvent } from '@/services/diagnosticsLog';
+import { Animated, Easing, View, Text, StyleSheet } from 'react-native';
 import { brandColors, brandRgba } from '@/theme/brandRefresh';
 import {
   type WsMessage,
@@ -15,6 +13,7 @@ import AskQuestionCard from './AskQuestionCard';
 import { MarkdownMessage } from './MarkdownMessage';
 import MultiAskQuestionCard from './MultiAskQuestionCard';
 import { ToolCallRow } from './ToolCallRow';
+import { UserImageAttachments, type UserImageAttachment } from './UserImageAttachments';
 
 const TYPEWRITER_INTERVAL_MS = 18;
 const TYPEWRITER_BULK_GAP_MIN = 140;
@@ -79,26 +78,6 @@ function nextTypewriterCount(units: string[], current: number) {
   return useBulk ? bulkAdvanceEndUnits(units, current) : current + stepForGap(gap);
 }
 
-async function probeFailedImageUri(imageUri: string, fileId: string | undefined, seq: number) {
-  try {
-    const res = await fetch(imageUri, { method: 'GET' });
-    recordDiagnosticsEvent('warn', 'chat.image.probe', 'image url probe completed', {
-      file_id: fileId,
-      seq,
-      status: res.status,
-      ok: res.ok,
-      content_type: res.headers.get('content-type'),
-      content_length: res.headers.get('content-length'),
-    });
-  } catch (error: unknown) {
-    recordDiagnosticsEvent('error', 'chat.image.probe', 'image url probe failed', {
-      file_id: fileId,
-      seq,
-      error,
-    });
-  }
-}
-
 interface Props {
   msg: WsMessage;
   onAnswer?: (ask_id: string, choice_id?: string, freeform?: string) => void;
@@ -107,6 +86,7 @@ interface Props {
   forceComplete?: boolean;
   waiting?: boolean;
   imageUri?: string;
+  imageAttachments?: UserImageAttachment[];
   serverUrl?: string;
   token?: string;
 }
@@ -119,6 +99,7 @@ export const MessageBubble = memo(function MessageBubble({
   forceComplete = false,
   waiting = false,
   imageUri,
+  imageAttachments,
   serverUrl = '',
   token = '',
 }: Props) {
@@ -130,8 +111,6 @@ export const MessageBubble = memo(function MessageBubble({
   const prevAgentTextRef = useRef(agentText);
   const prevAgentSeqRef = useRef(msg.seq);
   const visibleUnitsRef = useRef(typewriter ? 0 : agentUnitCount);
-  const [previewVisible, setPreviewVisible] = useState(false);
-  const [imageLoadFailed, setImageLoadFailed] = useState(false);
   const dot1 = useRef(new Animated.Value(0.3)).current;
   const dot2 = useRef(new Animated.Value(0.3)).current;
   const dot3 = useRef(new Animated.Value(0.3)).current;
@@ -177,23 +156,6 @@ export const MessageBubble = memo(function MessageBubble({
   useEffect(() => {
     prevTypewriterRef.current = typewriter;
   });
-
-  useEffect(() => {
-    setImageLoadFailed(false);
-  }, [imageUri]);
-
-  const markImageLoadFailed = React.useCallback(() => {
-    if (msg.role === 'user_text') {
-      const payload = msg.payload as UserTextPayload;
-      recordDiagnosticsEvent('warn', 'chat.image', 'image load failed', {
-        file_id: payload.file_id,
-        uri: imageUri,
-        seq: msg.seq,
-      });
-      if (imageUri) void probeFailedImageUri(imageUri, payload.file_id, msg.seq);
-    }
-    setImageLoadFailed(true);
-  }, [imageUri, msg]);
 
   useEffect(() => {
     if (!waiting) return undefined;
@@ -254,61 +216,19 @@ export const MessageBubble = memo(function MessageBubble({
   switch (msg.role) {
     case 'user_text': {
       const payload = msg.payload as UserTextPayload;
-      const hasImage = !!payload.file_id;
+      const attachments =
+        imageAttachments ??
+        (payload.file_id ? [{ seq: msg.seq, fileId: payload.file_id, imageUri }] : []);
+      const hasImages = attachments.length > 0;
 
       return (
         <View style={s.userWrap}>
-          {hasImage && imageUri && !imageLoadFailed ? (
-            <Modal
-              testID="fullscreen-modal"
-              visible={previewVisible}
-              transparent
-              animationType="fade"
-              onRequestClose={() => setPreviewVisible(false)}
-            >
-              <View style={s.modalOverlay}>
-                <Pressable
-                  testID="fullscreen-close-btn"
-                  style={s.fullscreenClose}
-                  onPress={() => setPreviewVisible(false)}
-                >
-                  <X size={18} color={brandColors.white} />
-                </Pressable>
-                <Image
-                  source={{ uri: imageUri }}
-                  style={s.previewImage}
-                  resizeMode="contain"
-                  onError={markImageLoadFailed}
-                />
-                <Text style={s.previewFilename}>{payload.file_id}</Text>
-              </View>
-            </Modal>
-          ) : null}
           <View style={s.userBubble}>
-            {hasImage ? (
-              imageUri && !imageLoadFailed ? (
-                <Pressable testID="user-image-thumb" onPress={() => setPreviewVisible(true)}>
-                  <Image
-                    testID="user-image"
-                    source={{ uri: imageUri }}
-                    style={s.thumbImage}
-                    resizeMode="cover"
-                    onError={markImageLoadFailed}
-                  />
-                </Pressable>
-              ) : (
-                <Text testID="user-image-placeholder" style={s.attachmentPlaceholder}>
-                  {imageLoadFailed ? 'Image unavailable' : '📎 Image'}
-                </Text>
-              )
-            ) : null}
+            {hasImages ? <UserImageAttachments attachments={attachments} /> : null}
             {payload.text ? (
-              <Text selectable style={[s.userText, hasImage ? s.imageCaption : null]}>
+              <Text selectable style={[s.userText, hasImages ? s.imageCaption : null]}>
                 {payload.text}
               </Text>
-            ) : null}
-            {hasImage && imageUri && !imageLoadFailed ? (
-              <Text style={s.enlargeHint}>Tap to enlarge →</Text>
             ) : null}
           </View>
         </View>
@@ -454,35 +374,7 @@ const s = StyleSheet.create({
   dot: { width: 7, height: 7, borderRadius: 4, backgroundColor: brandColors.textMuted },
   userText: { fontFamily: 'Inter', fontSize: 15, color: brandColors.ink, lineHeight: 22 },
   aiText: { fontFamily: 'Inter', fontSize: 15, color: brandColors.ink, lineHeight: 22 },
-  thumbImage: { width: 120, height: 120, borderRadius: 8, marginBottom: 4 },
-  attachmentPlaceholder: {
-    fontFamily: 'Inter',
-    fontSize: 12,
-    color: brandColors.ink,
-    marginBottom: 4,
-  },
   imageCaption: { marginTop: 4 },
-  enlargeHint: { fontFamily: 'Inter', fontSize: 10, color: brandColors.textSoft, marginTop: 4 },
-  fullscreenClose: {
-    position: 'absolute',
-    top: 56,
-    right: 20,
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: brandColors.darkPanel,
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 10,
-  },
-  previewFilename: { fontFamily: 'Inter', fontSize: 11, color: brandColors.silver, marginTop: 12 },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: brandRgba.ink72,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  previewImage: { width: '100%', height: '80%' },
   systemEventWrap: { width: '100%', alignItems: 'center', paddingVertical: 4 },
   systemEventText: {
     fontFamily: 'Inter',

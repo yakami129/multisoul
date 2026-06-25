@@ -2,6 +2,7 @@ import type { Conversation, WsMessage } from '@/types';
 import {
   buildCompletedTranscriptDisplayItems,
   collapseTodoToolCallSnapshots,
+  getChatTranscriptDisplayItemKey,
   getLatestAgentActivitySeq,
   getLatestAgentTextSeq,
   isRenderableInChatTranscript,
@@ -284,6 +285,85 @@ test('running transcript keeps earlier completed-looking turns unfolded', () => 
     items.some((item) => item.kind === 'worked'),
     false,
     'running transcript must not generate worked rows for prior turns',
+  );
+});
+
+/// Multi-image user input: consecutive image user_text rows are one visual user
+/// bubble even though the wire protocol stores one file_id per message.
+///
+/// Data construction:
+///   seq 1 user_text file-1 with empty text
+///   seq 2 user_text file-2 with caption "compare these"
+///   seq 3 agent_text response
+///
+/// Execution process:
+///   1. Build display items while the conversation is still running.
+///   2. Inspect display item shape and key.
+///
+/// Expected result:
+///   - Positive: seq 1 and 2 become one user_image_group display item.
+///   - Negative: the two image rows do not become separate top-level bubbles.
+test('running transcript groups consecutive user image messages into one visual item', () => {
+  const messages = [
+    message(1, 'user_text', { payload: { text: '', file_id: 'file-1.jpg' } }),
+    message(2, 'user_text', { payload: { text: 'compare these', file_id: 'file-2.jpg' } }),
+    message(3, 'agent_text'),
+  ];
+
+  const items = buildCompletedTranscriptDisplayItems(messages, 'running');
+
+  expectEqualWithReason(
+    displaySeqs(items),
+    [[1, 2], 3],
+    'adjacent user image messages should collapse into one display item in running state',
+  );
+  expectMatchObjectWithReason(
+    items[0],
+    { kind: 'user_image_group', messages: [messages[0], messages[1]] },
+    'the grouped item should preserve both original user image messages',
+  );
+  expectEqualWithReason(
+    getChatTranscriptDisplayItemKey(items[0]),
+    'user-images-1-2',
+    'image group keys should be stable and derived from the grouped seq range',
+  );
+});
+
+/// Completed multi-image input: completed turn folding must not split the image
+/// set into separate user bubbles before the worked row.
+///
+/// Data construction:
+///   seq 1 empty image user_text
+///   seq 2 image user_text with prompt text
+///   seq 3 tool_call hidden as worked row
+///   seq 4 final agent_text
+///
+/// Execution process:
+///   1. Build display items with completed status.
+///   2. Check order after turn folding and image grouping both run.
+///
+/// Expected result:
+///   - Positive: image seq 1 and 2 are grouped before worked seq 3.
+///   - Negative: seq 1 does not remain as a standalone bubble.
+test('completed transcript groups multi-image user input before worked folding output', () => {
+  const messages = [
+    message(1, 'user_text', { payload: { text: '', file_id: 'file-1.jpg' } }),
+    message(2, 'user_text', { payload: { text: 'compare these', file_id: 'file-2.jpg' } }),
+    message(3, 'tool_call'),
+    message(4, 'agent_text'),
+  ];
+
+  const items = buildCompletedTranscriptDisplayItems(messages, 'completed');
+
+  expectEqualWithReason(
+    displaySeqs(items),
+    [[1, 2], [3], 4],
+    'completed transcript should render one image group, then worked row, then final agent',
+  );
+  expectMatchObjectWithReason(
+    items[0],
+    { kind: 'user_image_group', messages: [messages[0], messages[1]] },
+    'completed transcript should not leave the first uploaded image as a standalone bubble',
   );
 });
 

@@ -1,7 +1,8 @@
-import type { Conversation, WsMessage } from '@/types';
+import type { Conversation, UserTextPayload, WsMessage } from '@/types';
 
 export type ChatTranscriptDisplayItem =
   | { kind: 'message'; message: WsMessage }
+  | { kind: 'user_image_group'; id: string; messages: WsMessage[] }
   | { kind: 'worked'; id: string; label: string; messages: WsMessage[] }
   | {
       kind: 'server_worked';
@@ -15,6 +16,51 @@ export type ChatTranscriptDisplayItem =
 
 export function getChatTranscriptDisplayItemKey(item: ChatTranscriptDisplayItem): string {
   return item.kind === 'message' ? `message-${item.message.seq}` : item.id;
+}
+
+function isUserImageMessage(msg: WsMessage): boolean {
+  return msg.role === 'user_text' && !!(msg.payload as UserTextPayload).file_id;
+}
+
+function userImageMessagesFromItem(item: ChatTranscriptDisplayItem): WsMessage[] | null {
+  if (item.kind === 'user_image_group') return item.messages;
+  if (item.kind === 'message' && isUserImageMessage(item.message)) return [item.message];
+  return null;
+}
+
+export function groupAdjacentUserImageMessages(
+  items: ChatTranscriptDisplayItem[],
+): ChatTranscriptDisplayItem[] {
+  const grouped: ChatTranscriptDisplayItem[] = [];
+  let imageMessages: WsMessage[] = [];
+
+  function flushImageMessages() {
+    if (imageMessages.length === 1) {
+      grouped.push({ kind: 'message', message: imageMessages[0] });
+    } else if (imageMessages.length > 1) {
+      const firstSeq = imageMessages[0].seq;
+      const lastSeq = imageMessages[imageMessages.length - 1].seq;
+      grouped.push({
+        kind: 'user_image_group',
+        id: `user-images-${firstSeq}-${lastSeq}`,
+        messages: imageMessages,
+      });
+    }
+    imageMessages = [];
+  }
+
+  for (const item of items) {
+    const itemImageMessages = userImageMessagesFromItem(item);
+    if (itemImageMessages) {
+      imageMessages.push(...itemImageMessages);
+      continue;
+    }
+    flushImageMessages();
+    grouped.push(item);
+  }
+  flushImageMessages();
+
+  return grouped;
 }
 
 function isTodoToolCall(msg: WsMessage): boolean {
@@ -104,7 +150,9 @@ export function buildCompletedTranscriptDisplayItems(
   const renderableMessages = messages.filter(isRenderableInChatTranscript);
 
   if (status !== 'completed') {
-    return renderableMessages.map((msg) => ({ kind: 'message', message: msg }));
+    return groupAdjacentUserImageMessages(
+      renderableMessages.map((msg) => ({ kind: 'message', message: msg })),
+    );
   }
 
   const displayItems: ChatTranscriptDisplayItem[] = [];
@@ -120,7 +168,7 @@ export function buildCompletedTranscriptDisplayItems(
   }
   displayItems.push(...buildCompletedTurnDisplayItems(currentTurn));
 
-  return displayItems;
+  return groupAdjacentUserImageMessages(displayItems);
 }
 
 export function collapseTodoToolCallSnapshots(messages: WsMessage[]): WsMessage[] {

@@ -7,6 +7,7 @@ import type { TranscriptItem, TranscriptPage } from '@/features/chat/types';
 import { getMaxMessageSeq, hydrateAnswered } from '@/features/chat/utils/chatMessageWindows';
 import {
   collapseTodoToolCallSnapshots,
+  groupAdjacentUserImageMessages,
   getLatestAgentActivitySeq,
   getLatestAgentTextSeq,
   isRenderableInChatTranscript,
@@ -361,10 +362,10 @@ export function useChatDetailServerTranscript({
         ),
       };
     });
-    return [
+    return groupAdjacentUserImageMessages([
       ...baseItems,
       ...liveTailMessages.map((message) => ({ kind: 'message' as const, message })),
-    ];
+    ]);
   }, [hiddenByTurnId, liveTailMessages, pageItems]);
 
   const transcriptMessages = useMemo(

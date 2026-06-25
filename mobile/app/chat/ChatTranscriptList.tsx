@@ -13,6 +13,7 @@ import {
 import { WAITING_MESSAGE } from '@/features/chat/chatDetailConstants';
 import { MessageBubble } from '@/features/chat/components/MessageBubble';
 import { ToolCallRow } from '@/features/chat/components/ToolCallRow';
+import type { UserImageAttachment } from '@/features/chat/components/UserImageAttachments';
 import { getAskId } from '@/features/chat/utils/chatMessageWindows';
 import {
   buildCompletedTranscriptDisplayItems,
@@ -24,6 +25,7 @@ import {
   type Conversation,
   type ToolCallPayload,
   type ToolResultPayload,
+  type UserTextPayload,
   type WsMessage,
 } from '@/types';
 import { s } from './styles';
@@ -95,8 +97,10 @@ export default function ChatTranscriptList({
   );
   const displayItems = providedDisplayItems ?? computedDisplayItems;
 
+  type WorkedDisplayItem = Extract<ChatTranscriptDisplayItem, { kind: 'worked' | 'server_worked' }>;
+
   const toggleWorkedItem = React.useCallback(
-    (item: Exclude<ChatTranscriptDisplayItem, { kind: 'message' }>) => {
+    (item: WorkedDisplayItem) => {
       setExpandedWorkedIds((current) => {
         const next = new Set(current);
         if (next.has(item.id)) {
@@ -112,6 +116,22 @@ export default function ChatTranscriptList({
     },
     [onLoadServerWorkedMessages],
   );
+
+  const imageGroupDisplayMessage = (messages: WsMessage[]) =>
+    [...messages]
+      .reverse()
+      .find((message) => ((message.payload as UserTextPayload).text ?? '').trim().length > 0) ??
+    messages[messages.length - 1];
+
+  const imageAttachmentsForMessages = (imageMessages: WsMessage[]): UserImageAttachment[] =>
+    imageMessages.map((message) => {
+      const payload = message.payload as UserTextPayload;
+      return {
+        seq: message.seq,
+        fileId: payload.file_id,
+        imageUri: imageUriForMessage(message),
+      };
+    });
 
   const renderMessage = (msg: WsMessage) => {
     const askId = getAskId(msg);
@@ -142,6 +162,18 @@ export default function ChatTranscriptList({
 
   const renderDisplayItem = ({ item }: { item: ChatTranscriptDisplayItem }) => {
     if (item.kind === 'message') return renderMessage(item.message);
+    if (item.kind === 'user_image_group') {
+      const msg = imageGroupDisplayMessage(item.messages);
+      return (
+        <MessageBubble
+          msg={msg}
+          imageAttachments={imageAttachmentsForMessages(item.messages)}
+          waiting={false}
+          serverUrl={serverUrl}
+          token={token}
+        />
+      );
+    }
 
     const expanded = expandedWorkedIds.has(item.id);
     return (
