@@ -107,6 +107,14 @@
       "title": "iOS 埋点与错误追踪 SPEC"
     },
     {
+      "file": "2026-06-25-SPEC-project-session-resource-model-e2e.md",
+      "title": "Project / Session / Resource 模型重构 E2E 功能测试用例"
+    },
+    {
+      "file": "2026-06-25-SPEC-project-session-resource-model.md",
+      "title": "Project / Session / Resource 模型重构 SPEC"
+    },
+    {
       "file": "SPEC-activity-pagination.md",
       "title": "Activity 模块分页滚动加载优化 SPEC"
     },

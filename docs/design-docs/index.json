@@ -3,6 +3,10 @@
   "version": 1,
   "documents": [
     {
+      "file": "2026-06-25-project-session-resource-model-design.md",
+      "title": "Project / Session / Resource 模型重构设计"
+    },
+    {
       "file": "2026-06-09-spec-idea-cli-authority-design.md",
       "title": "Spec Idea CLI 权威存储与同步设计"
     },

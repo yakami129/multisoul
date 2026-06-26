@@ -3,7 +3,7 @@
     "name": "MultiSoul",
     "slug": "multisoul",
     "scheme": "multisoul",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/ios-icon.png",
     "userInterfaceStyle": "light",
@@ -14,7 +14,7 @@
       "icon": "./assets/ios-icon.png",
       "supportsTablet": true,
       "bundleIdentifier": "com.yakami0129.multisoul",
-      "buildNumber": "138",
+      "buildNumber": "140",
       "splash": {
         "backgroundColor": "#ffffff"
       },
