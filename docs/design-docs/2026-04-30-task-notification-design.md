@@ -25,6 +25,8 @@ Notification ownership is centralized in the CLI to avoid duplicate local + remo
 
 2026-06-11 iOS telemetry update: `useWebSocket` now records `ws_error` telemetry on connection failures via `TelemetryService`. This is observability-only and does not schedule local notifications or change chat/inbox state handling.
 
+2026-06-26 project/session/resource update: task and ask-question pushes now load conversation context from `conversations -> agents -> projects`. Titles prefer the project name and fall back to the resource/agent name. Payloads preserve legacy `agentId` / `agent_id` while also carrying `resourceId` / `resource_id` and optional `projectId` / `project_id`, so notification taps can deep-link into the exact project conversation or pending decision card without breaking older mobile clients.
+
 ---
 
 ## Architecture
@@ -67,9 +69,9 @@ Mobile sends WS answer
 
 `addNotificationResponseReceivedListener` in `app/_layout.tsx` reads `userInfo` and calls:
 ```
-router.push(`/chat/${convId}?endpoint_id=${endpointId}&agent_id=${agentId}`)
+router.push(`/chat/${convId}?endpoint_id=${endpointId}&agent_id=${resourceId}&project_id=${projectId}&focus_ask_id=${askId}`)
 ```
-This handles both foreground tap and cold-start tap (via `getLastNotificationResponseAsync` on mount).
+`project_id` and `focus_ask_id` are optional. `focus_ask_id` is only present for ask-question pushes. This handles both foreground tap and cold-start tap (via `getLastNotificationResponseAsync` on mount).
 
 ### Foreground suppression fix
 
@@ -91,17 +93,30 @@ When active, the service plays the sound directly; the notification handler supp
 
 ```json
 {
-  "title": "[AgentName] 任务完成",
+  "title": "[ProjectName] 任务完成",
   "body": "summary text (≤100 chars, fallback: '点击查看详情')",
   "sound": "default",
   "data": {
     "type": "task_completed",
     "agentId": "string",
+    "agent_id": "string",
+    "resourceId": "string",
+    "resource_id": "string",
+    "resourceName": "string",
+    "resource_name": "string",
     "convId": "string",
-    "endpointId": "string"
+    "conversation_id": "string",
+    "endpointId": "string",
+    "endpoint_id": "string",
+    "projectId": "string (optional)",
+    "project_id": "string (optional)",
+    "projectName": "string (optional)",
+    "project_name": "string (optional)"
   }
 }
 ```
+
+For `ask_question`, the same conversation/resource/project identity fields are sent with `type=ask_question`, `kind=pending_question`, `inbox_id=<ask_id>`, and `payload=<AskQuestionPayload JSON string>`.
 
 ---
 
@@ -120,7 +135,7 @@ When active, the service plays the sound directly; the notification handler supp
 
 ## Files changed
 
-1. `cli/src/serve/push.rs` — task/ask push payload construction, token fan-out, mutual exclusion（2026-06-07：watch workflow 结束时新增 `watch_completed` 推送，复用 token fan-out）
+1. `cli/src/serve/push.rs` — task/ask push payload construction, token fan-out, mutual exclusion（2026-06-07：watch workflow 结束时新增 `watch_completed` 推送，复用 token fan-out；2026-06-26：task/ask push payload 新增 project/resource 上下文，保留 agent 字段兼容旧客户端）
 2. `cli/src/serve/runtime/claude/stream.rs` + `cli/src/serve/ask_question.rs` — register pending ask before ask-question push/broadcast（2026-05-31：`record_ask_question` 抽到 `ask_question.rs`，推送时机与 payload 不变；2026-06-04：terminal `task_status` 后追加 Activity refresh signal，推送 payload 不变；2026-06-07：terminal result 完成 workflow run 后会触发 watch stop/schedule 检查，task_status 推送语义不变；2026-06-10：`process_turn` 内新增 session_id 捕获与 stale resume 处理，AskUserQuestion / task push 语义不变）
 3. `src/hooks/useWebSocket.ts` — remove local completion notification scheduling and apply answered state only after `answer_status(ok=true)`
 4. `app/_layout.tsx` — token registration, handler, tap listener, cold-start navigation

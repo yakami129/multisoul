@@ -12,6 +12,10 @@ interface NotifyTaskCompleteArgs {
   agentId: string;
   convId: string;
   endpointId: string;
+  projectId?: string;
+  projectName?: string;
+  resourceId?: string;
+  resourceName?: string;
 }
 
 export async function notifyTaskComplete(args: NotifyTaskCompleteArgs): Promise<void> {
@@ -46,6 +50,10 @@ async function scheduleBackgroundNotification({
   agentId,
   convId,
   endpointId,
+  projectId,
+  projectName,
+  resourceId,
+  resourceName,
 }: NotifyTaskCompleteArgs): Promise<void> {
   const body =
     summary.length === 0
@@ -62,8 +70,17 @@ async function scheduleBackgroundNotification({
       data: {
         type: 'task_completed',
         agentId,
+        agent_id: agentId,
+        resourceId: resourceId ?? agentId,
+        resource_id: resourceId ?? agentId,
+        resourceName: resourceName ?? agentName,
+        resource_name: resourceName ?? agentName,
         convId,
+        conversation_id: convId,
         endpointId,
+        endpoint_id: endpointId,
+        ...(projectId ? { projectId, project_id: projectId } : {}),
+        ...(projectName ? { projectName, project_name: projectName } : {}),
       },
     },
     trigger: null,

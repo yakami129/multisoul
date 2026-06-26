@@ -30,6 +30,7 @@ const endpoints: Endpoint[] = [
 const agents: Agent[] = [
   {
     id: 'agent-1',
+    project_id: 'project-1',
     name: 'MultiSoul iOS',
     project_path: '/repo/multisoul',
     runtime: 'claude-code',
@@ -39,6 +40,7 @@ const agents: Agent[] = [
   },
   {
     id: 'agent-2',
+    project_id: 'project-2',
     name: 'Backend Agent',
     project_path: '/repo/backend',
     runtime: 'codex',
@@ -97,6 +99,8 @@ test('sheet select agent then save succeeds', () => {
   expect(onSave).toHaveBeenCalledWith(
     expect.objectContaining({
       agent_id: 'agent-2',
+      project_id: 'project-2',
+      resource_id: 'agent-2',
       name: 'Morning report',
       prompt: 'Summarize repository',
     }),
@@ -159,6 +163,8 @@ test('edit mode pre-fills workflow values before saving', () => {
     initialValues: {
       name: 'Friday Review',
       agent_id: 'agent-2',
+      project_id: 'project-2',
+      resource_id: 'agent-2',
       prompt: 'Review release risk',
       schedule_kind: 'weekly',
       time_of_day: '17:30',
@@ -171,7 +177,7 @@ test('edit mode pre-fills workflow values before saving', () => {
   expect(screen.getByDisplayValue('Review release risk')).toBeTruthy();
   expect(screen.getByDisplayValue('17:30')).toBeTruthy();
   expect(screen.getByText('Weekday')).toBeTruthy();
-  expect(screen.getByText('Backend Agent')).toBeTruthy();
+  expect(screen.getByText('/repo/backend · Backend Agent')).toBeTruthy();
 
   fireEvent.press(screen.getByText('Save'));
 
@@ -182,6 +188,8 @@ test('edit mode pre-fills workflow values before saving', () => {
     actual: {
       name: 'Friday Review',
       agent_id: 'agent-2',
+      project_id: 'project-2',
+      resource_id: 'agent-2',
       prompt: 'Review release risk',
       mode: 'recurring',
       schedule_kind: 'weekly',

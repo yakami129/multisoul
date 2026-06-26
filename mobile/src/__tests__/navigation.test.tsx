@@ -211,7 +211,7 @@ describe('Tab navigation', () => {
 
   it('renders only the public app tabs', () => {
     render(<TabLayout />, { wrapper });
-    expect(screen.getByTestId('tab-index').props.accessibilityLabel).toBe('智能体');
+    expect(screen.getByTestId('tab-index').props.accessibilityLabel).toBe('项目');
     expect(screen.getByTestId('tab-specs').props.accessibilityLabel).toBe('规格');
     expect(screen.getByTestId('tab-activity').props.accessibilityLabel).toBe('动态');
     expect(screen.getByTestId('tab-settings').props.accessibilityLabel).toBe('设置');
@@ -430,7 +430,7 @@ describe('Tab navigation', () => {
     expect(screen.queryByTestId('bottom-tab-index-inactive-column')).toBeNull();
     expect(screen.getByTestId('bottom-tab-specs-inactive-column')).toBeTruthy();
     expect(screen.getByText('规格')).toBeTruthy();
-    expect(screen.queryByText('智能体')).toBeNull();
+    expect(screen.queryByText('项目')).toBeNull();
     expect(TAB_ROUTE_ICON_KEYS.specs).toBe('iconChat');
     expect(TAB_ROUTE_ICON_KEYS.specs).not.toBe('iconAgent');
 
@@ -439,7 +439,7 @@ describe('Tab navigation', () => {
     expect(screen.getByTestId('bottom-tab-activity-active-column')).toBeTruthy();
     expect(screen.queryByTestId('bottom-tab-activity-active-label')).toBeNull();
     expect(screen.getByTestId('bottom-tab-index-inactive-column')).toBeTruthy();
-    expect(screen.getByText('智能体')).toBeTruthy();
+    expect(screen.getByText('项目')).toBeTruthy();
     expect(screen.queryByText('动态')).toBeNull();
   });
 

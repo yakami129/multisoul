@@ -10,6 +10,11 @@ export interface ActivityApiItem {
   conversation_id: string;
   agent_id: string;
   agent_name: string;
+  project_id?: string | null;
+  project_name?: string | null;
+  project_path?: string | null;
+  resource_id?: string | null;
+  resource_name?: string | null;
   title: string;
   subtitle: string;
   status_label: string;
@@ -128,6 +133,11 @@ function legacyConversationToActivityItem(
     conversation_id: conversation.id,
     agent_id: agent.id,
     agent_name: agent.name,
+    project_id: conversation.project_id ?? agent.project_id ?? null,
+    project_name: agent.project_path,
+    project_path: agent.project_path,
+    resource_id: agent.id,
+    resource_name: agent.name,
     title: legacyConversationTitle(conversation),
     subtitle: legacyConversationSubtitle(conversation),
     timestamp: conversation.last_message_at,

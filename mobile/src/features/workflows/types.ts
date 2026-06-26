@@ -9,6 +9,11 @@ export interface Workflow {
   id: string;
   name: string;
   agent_id: string;
+  project_id?: string | null;
+  project_name?: string | null;
+  project_path?: string | null;
+  resource_id: string;
+  resource_name: string;
   prompt: string;
   enabled: boolean;
   mode: WorkflowMode;
@@ -35,6 +40,8 @@ export interface Workflow {
 export interface WorkflowInput {
   name: string;
   agent_id: string;
+  project_id?: string | null;
+  resource_id?: string | null;
   prompt: string;
   mode: WorkflowMode;
   // recurring fields

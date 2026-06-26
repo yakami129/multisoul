@@ -88,12 +88,12 @@
         },
         {
           "path": "cli/src/db.rs",
-          "sha256": "7186c362a821af7861b1dc74e609f6e439b1e8d0b665dae736996b820fa3e422",
+          "sha256": "d8119b9200528c66108c75497efcec9e7826919ab68d11191d6d9eea11e31a59",
           "reason": "文档说明 runtime 持久化字段和 migration 纪律；DB schema 演进会影响该章节。"
         },
         {
           "path": "mobile/src/types.ts",
-          "sha256": "8f1a3d561bfe702d453b459b0f44f506069c8080560351cb5582747638fc6deb",
+          "sha256": "19d3babbad1052cdd33a17bbd8dcab9c47190957583982e19a1390d731cba808",
           "reason": "文档说明 mobile Agent.runtime 类型展示联动；类型变化会影响该说明。"
         }
       ]
@@ -120,7 +120,7 @@
       "trackedFiles": [
         {
           "path": "cli/src/serve/push.rs",
-          "sha256": "035e5777621bf1ad9f1abfda154ab5498ba3688527721993fb072f4d036602bb",
+          "sha256": "f3af4f8d886f7c51eff4e8bc3e9942bcb406abb657377c420dda46e80ea68f0f",
           "reason": "通知发送权、payload 结构、问答/完成互斥逻辑由本文档定义。"
         },
         {

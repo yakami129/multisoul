@@ -3,7 +3,9 @@ import { brandColors } from '@/theme/brandRefresh';
 export interface ActivityItem {
   id: string;
   section: 'attention' | 'running' | 'done';
+  projectId?: string | null;
   projectName: string;
+  projectPath?: string | null;
   title: string;
   subtitle: string;
   statusLabel: string;
@@ -14,6 +16,8 @@ export interface ActivityItem {
   conversationId: string;
   agentId: string;
   agentName: string;
+  resourceId: string;
+  resourceName: string;
   workflowId?: string;
   workflowRunId?: string;
   workflowName?: string;

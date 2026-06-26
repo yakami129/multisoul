@@ -22,7 +22,9 @@ function toScreenItem(item: AggregatedActivityItem): ActivityItem {
   return {
     id: item.id,
     section: item.section,
-    projectName: item.agent_name || item.endpoint_label,
+    projectId: item.project_id,
+    projectName: item.project_name || item.agent_name || item.endpoint_label,
+    projectPath: item.project_path,
     title: item.title,
     subtitle: item.subtitle,
     statusLabel: item.status_label,
@@ -33,6 +35,8 @@ function toScreenItem(item: AggregatedActivityItem): ActivityItem {
     conversationId: item.conversation_id,
     agentId: item.agent_id,
     agentName: item.agent_name,
+    resourceId: item.resource_id || item.agent_id,
+    resourceName: item.resource_name || item.agent_name,
     workflowId: item.workflow_id,
     workflowRunId: item.workflow_run_id,
     workflowName: item.workflow_name,
@@ -179,6 +183,7 @@ export default function ActivityTab() {
         endpointId: item.endpointId,
         agentId: item.agentId,
         agentName: item.agentName,
+        projectId: item.projectId ?? undefined,
         focusAskId: item.section === 'attention' ? item.askId : undefined,
       }),
     );

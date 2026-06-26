@@ -10,6 +10,7 @@ pub(super) struct AgentTarget {
     pub id: String,
     pub name: String,
     pub project_path: String,
+    pub project_id: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -21,6 +22,10 @@ pub(super) struct IdeaBase {
     pub target_endpoint_id: String,
     pub target_repo_path: String,
     pub target_agent_name: String,
+    pub target_project_id: Option<String>,
+    pub target_project_name: Option<String>,
+    pub target_resource_id: Option<String>,
+    pub target_resource_name: Option<String>,
     pub body: String,
     pub interview_conversation_id: Option<String>,
     pub converted_spec_id: Option<String>,
@@ -45,6 +50,10 @@ pub(super) fn idea_detail_json(
         "target_endpoint_id": base.target_endpoint_id,
         "target_repo_path": base.target_repo_path,
         "target_agent_name": base.target_agent_name,
+        "target_project_id": base.target_project_id,
+        "target_project_name": base.target_project_name,
+        "target_resource_id": base.target_resource_id,
+        "target_resource_name": base.target_resource_name,
         "body": base.body,
         "notes": load_notes(db, idea_id)?,
         "attachments": load_attachments(db, idea_id)?,
@@ -63,7 +72,8 @@ pub(super) fn load_idea_base(
 ) -> Result<Option<IdeaBase>, SaveSpecError> {
     db.query_row(
         "SELECT id, title, status, target_agent_id, target_endpoint_id, target_repo_path,
-                target_agent_name, body, interview_conversation_id, converted_spec_id,
+                target_agent_name, target_project_id, target_project_name, target_resource_id,
+                target_resource_name, body, interview_conversation_id, converted_spec_id,
                 error_message, created_at, updated_at, archived_at
          FROM spec_ideas WHERE id = ?1",
         [idea_id],
@@ -76,13 +86,17 @@ pub(super) fn load_idea_base(
                 target_endpoint_id: row.get(4)?,
                 target_repo_path: row.get(5)?,
                 target_agent_name: row.get(6)?,
-                body: row.get(7)?,
-                interview_conversation_id: row.get(8)?,
-                converted_spec_id: row.get(9)?,
-                error_message: row.get(10)?,
-                created_at: row.get(11)?,
-                updated_at: row.get(12)?,
-                archived_at: row.get(13)?,
+                target_project_id: row.get(7)?,
+                target_project_name: row.get(8)?,
+                target_resource_id: row.get(9)?,
+                target_resource_name: row.get(10)?,
+                body: row.get(11)?,
+                interview_conversation_id: row.get(12)?,
+                converted_spec_id: row.get(13)?,
+                error_message: row.get(14)?,
+                created_at: row.get(15)?,
+                updated_at: row.get(16)?,
+                archived_at: row.get(17)?,
             })
         },
     )
@@ -95,13 +109,14 @@ pub(super) fn load_agent_target(
     agent_id: &str,
 ) -> Result<AgentTarget, SaveSpecError> {
     db.query_row(
-        "SELECT id, name, project_path FROM agents WHERE id = ?1",
+        "SELECT id, name, project_path, project_id FROM agents WHERE id = ?1",
         [agent_id],
         |row| {
             Ok(AgentTarget {
                 id: row.get(0)?,
                 name: row.get(1)?,
                 project_path: row.get(2)?,
+                project_id: row.get(3)?,
             })
         },
     )

@@ -67,6 +67,10 @@ export default function NewIdeaRoute() {
         targetEndpointId: target?.endpointId,
         targetRepoPath: target?.repoPath,
         targetAgentName: target?.agentName,
+        targetProjectId: target?.projectId ?? undefined,
+        targetProjectName: target?.projectName ?? target?.repoPath,
+        targetResourceId: target?.resourceId ?? target?.agentId,
+        targetResourceName: target?.resourceName ?? target?.agentName,
       });
       router.replace(`/idea/${idea.id}` as `/${string}`);
     },

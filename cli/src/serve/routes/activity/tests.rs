@@ -24,8 +24,15 @@ async fn make_app() -> Router {
 
 fn seed_activity_rows(conn: &rusqlite::Connection) {
     conn.execute(
-        "INSERT INTO agents (id, name, project_path, runtime, created_at)
-             VALUES ('agent-1', 'Deploy Project', '/tmp/project', 'claude-code', 1)",
+        "INSERT INTO projects
+             (id, name, project_path, normalized_project_path, default_agent_id, created_at, updated_at)
+             VALUES ('project-1', 'MultiSoul', '/tmp/project', '/tmp/project', 'agent-1', 1, 1)",
+        [],
+    )
+    .unwrap();
+    conn.execute(
+        "INSERT INTO agents (id, name, project_path, runtime, project_id, created_at)
+             VALUES ('agent-1', 'Deploy Resource', '/tmp/project', 'claude-code', 'project-1', 1)",
         [],
     )
     .unwrap();
@@ -155,8 +162,8 @@ fn insert_conversation(
     last: i64,
 ) {
     conn.execute(
-        "INSERT INTO conversations (id, agent_id, title, created_at, last_message_at, status)
-             VALUES (?1, 'agent-1', ?2, ?3, ?4, ?5)",
+        "INSERT INTO conversations (id, agent_id, project_id, title, created_at, last_message_at, status)
+             VALUES (?1, 'agent-1', 'project-1', ?2, ?3, ?4, ?5)",
         rusqlite::params![id, format!("Title {}", id), created, last, status],
     )
     .unwrap();
@@ -311,6 +318,26 @@ async fn activity_attention_filters_answered_and_completed_asks() {
         open["title"].as_str(),
         Some("Deploy now?"),
         "attention title should come from the ask_question prompt"
+    );
+    assert_eq!(
+        open["project_id"].as_str(),
+        Some("project-1"),
+        "activity should expose the owning project id for deep links"
+    );
+    assert_eq!(
+        open["project_name"].as_str(),
+        Some("MultiSoul"),
+        "activity should expose the owning project name for project-first UI"
+    );
+    assert_eq!(
+        open["resource_id"].as_str(),
+        Some("agent-1"),
+        "activity should expose the execution resource id while preserving agent_id"
+    );
+    assert_eq!(
+        open["resource_name"].as_str(),
+        Some("Deploy Resource"),
+        "activity should expose the execution resource name"
     );
     assert!(
         find_item(&json, "attention:conv-attn-answered:ask-answered").is_none(),

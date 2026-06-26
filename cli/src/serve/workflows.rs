@@ -76,6 +76,7 @@ struct DueWorkflow {
     id: String,
     name: String,
     agent_id: String,
+    project_id: Option<String>,
     prompt: String,
     schedule_kind: String,
     time_of_day: String,
@@ -100,7 +101,8 @@ fn load_due_workflows(state: &AppState, now: i64) -> Result<Vec<DueWorkflow>, St
         .map_err(|_| "db lock poisoned".to_string())?;
     let mut stmt = db
         .prepare(
-            "SELECT w.id, w.name, w.agent_id, w.prompt, w.schedule_kind, w.time_of_day,
+            "SELECT w.id, w.name, w.agent_id, COALESCE(w.project_id, a.project_id),
+                    w.prompt, w.schedule_kind, w.time_of_day,
                     w.day_of_week, w.next_run_at, a.project_path, a.runtime, a.mode,
                     w.mode as workflow_mode,
                     w.interval_minutes, w.max_runs, w.expires_at, w.stop_condition, w.run_count
@@ -116,20 +118,21 @@ fn load_due_workflows(state: &AppState, now: i64) -> Result<Vec<DueWorkflow>, St
                 id: row.get(0)?,
                 name: row.get(1)?,
                 agent_id: row.get(2)?,
-                prompt: row.get(3)?,
-                schedule_kind: row.get(4)?,
-                time_of_day: row.get(5)?,
-                day_of_week: row.get(6)?,
-                scheduled_for: row.get(7)?,
-                project_path: row.get(8)?,
-                runtime: row.get(9)?,
-                mode: row.get(10)?,
-                workflow_mode: row.get(11)?,
-                interval_minutes: row.get(12)?,
-                max_runs: row.get(13)?,
-                expires_at: row.get(14)?,
-                stop_condition: row.get(15)?,
-                run_count: row.get(16)?,
+                project_id: row.get(3)?,
+                prompt: row.get(4)?,
+                schedule_kind: row.get(5)?,
+                time_of_day: row.get(6)?,
+                day_of_week: row.get(7)?,
+                scheduled_for: row.get(8)?,
+                project_path: row.get(9)?,
+                runtime: row.get(10)?,
+                mode: row.get(11)?,
+                workflow_mode: row.get(12)?,
+                interval_minutes: row.get(13)?,
+                max_runs: row.get(14)?,
+                expires_at: row.get(15)?,
+                stop_condition: row.get(16)?,
+                run_count: row.get(17)?,
             })
         })
         .map_err(|err| err.to_string())?
@@ -195,11 +198,12 @@ fn process_due_recurring(
             let conversation_id = Uuid::new_v4().to_string();
             db.execute(
                 "INSERT INTO conversations
-                 (id, agent_id, title, created_at, last_message_at, status)
-                 VALUES (?1, ?2, ?3, ?4, ?4, 'idle')",
+                 (id, agent_id, project_id, title, created_at, last_message_at, status)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?5, 'idle')",
                 rusqlite::params![
                     conversation_id,
                     workflow.agent_id,
+                    workflow.project_id,
                     format!("Workflow: {}", workflow.name),
                     now
                 ],

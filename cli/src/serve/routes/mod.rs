@@ -13,6 +13,7 @@ pub mod messages;
 #[cfg(test)]
 #[path = "../../../tests/serve/routes/messages_tests.rs"]
 mod messages_tests;
+pub mod projects;
 pub mod push_tokens;
 pub mod runtime_models;
 pub use crate::serve::spec::routes::{ideas as spec_ideas, implement as spec_implement, specs};

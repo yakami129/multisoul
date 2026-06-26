@@ -69,8 +69,10 @@ describe('AgentDetail', () => {
       />,
     );
     expect(getByText('My Agent')).toBeTruthy();
-    expect(getAllByText('Running on Local · Claude Code').length).toBeGreaterThanOrEqual(1);
-    expect(getByText('Recent Chats')).toBeTruthy();
+    expect(getAllByText('Resource running on Local · Claude Code').length).toBeGreaterThanOrEqual(
+      1,
+    );
+    expect(getByText('Recent Sessions')).toBeTruthy();
     expect(getByText('Add a dark mode toggle')).toBeTruthy();
     expect(getByText('The dark mode toggle is wired up')).toBeTruthy();
     expect(queryByText('INVOKE')).toBeNull();
@@ -132,7 +134,7 @@ describe('AgentDetail', () => {
         onNewChat={onNewChat}
       />,
     );
-    fireEvent.press(getByText('New Chat'));
+    fireEvent.press(getByText('New Session'));
     expect(onNewChat).toHaveBeenCalledTimes(1);
   });
 
@@ -183,7 +185,7 @@ describe('AgentDetail', () => {
     );
 
     expect(getAllByText('DELETE')).toHaveLength(1);
-    expect(queryByText('No recent chats yet.')).toBeNull();
+    expect(queryByText('No recent sessions yet.')).toBeNull();
   });
 
   /// Recent chat deletion: tapping the revealed DELETE action reports the exact conversation.

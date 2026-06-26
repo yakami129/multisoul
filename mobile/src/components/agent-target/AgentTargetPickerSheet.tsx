@@ -67,8 +67,12 @@ export function AgentTargetPickerSheet({
     onDone({
       endpointId: selectedEndpoint.id,
       endpointLabel: selectedEndpoint.label,
+      projectId: selectedAgent.project_id,
+      projectName: selectedAgent.project_path,
       agentId: selectedAgent.id,
       agentName: selectedAgent.name,
+      resourceId: selectedAgent.id,
+      resourceName: selectedAgent.name,
       repoPath: selectedAgent.project_path,
     });
   };

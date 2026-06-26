@@ -77,10 +77,36 @@ describe('notifyTaskComplete', () => {
     expect(call.content.data).toMatchObject({
       type: 'task_completed',
       agentId: 'agent-1',
+      agent_id: 'agent-1',
+      resourceId: 'agent-1',
+      resource_id: 'agent-1',
       convId: 'conv-1',
+      conversation_id: 'conv-1',
       endpointId: 'ep-1',
+      endpoint_id: 'ep-1',
     });
     expect(call.trigger).toBeNull();
+  });
+
+  it('includes project context when scheduling notification data', async () => {
+    setAppState('background');
+
+    await notifyTaskComplete({
+      ...baseArgs,
+      projectId: 'project-1',
+      projectName: 'MultiSoul',
+      resourceName: 'Codex Runtime',
+    });
+
+    const call = (Notifications.scheduleNotificationAsync as jest.Mock).mock.calls[0][0];
+    expect(call.content.data).toMatchObject({
+      projectId: 'project-1',
+      project_id: 'project-1',
+      projectName: 'MultiSoul',
+      project_name: 'MultiSoul',
+      resourceName: 'Codex Runtime',
+      resource_name: 'Codex Runtime',
+    });
   });
 
   it('truncates summary to 100 chars in notification body', async () => {

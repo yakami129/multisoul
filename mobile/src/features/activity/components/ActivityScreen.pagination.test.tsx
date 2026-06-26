@@ -30,6 +30,8 @@ function item(overrides: Partial<ActivityItem> = {}): ActivityItem {
     conversationId: 'conv-1',
     agentId: 'agent-1',
     agentName: 'Deploy Project',
+    resourceId: 'agent-1',
+    resourceName: 'Deploy Project',
     askId: 'ask-1',
     readAt: null,
     ...overrides,

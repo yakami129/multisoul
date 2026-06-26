@@ -1,5 +1,8 @@
 use crate::commands::inject::inject_context;
 use crate::db::{now_ms, open};
+use crate::serve::projects::{
+    project_id_for_agent, set_default_resource_if_empty, upsert_project_for_path,
+};
 use anyhow::{Context, Result};
 use clap::Subcommand;
 use rusqlite::Connection;
@@ -132,10 +135,23 @@ pub fn insert_agent(
     mode: &str,
 ) -> Result<String> {
     let id = Uuid::new_v4().to_string();
+    let now = now_ms();
+    let project = upsert_project_for_path(conn, project_path, now)?;
     conn.execute(
-        "INSERT INTO agents (id, name, project_path, runtime, mode, created_at) VALUES (?1,?2,?3,?4,?5,?6)",
-        rusqlite::params![id, name, project_path, runtime, mode, now_ms()],
-    ).context("Failed to insert agent")?;
+        "INSERT INTO agents (id, name, project_path, runtime, mode, project_id, created_at)
+         VALUES (?1,?2,?3,?4,?5,?6,?7)",
+        rusqlite::params![
+            id,
+            name,
+            project.project_path,
+            runtime,
+            mode,
+            project.id,
+            now
+        ],
+    )
+    .context("Failed to insert agent")?;
+    set_default_resource_if_empty(conn, &project.id, &id)?;
     Ok(id)
 }
 
@@ -233,10 +249,12 @@ fn update(
         )?;
     }
     if let Some(p) = project {
+        let project = upsert_project_for_path(conn, &p, now_ms())?;
         conn.execute(
-            "UPDATE agents SET project_path = ?1 WHERE id = ?2",
-            rusqlite::params![p, id],
+            "UPDATE agents SET project_path = ?1, project_id = ?2 WHERE id = ?3",
+            rusqlite::params![project.project_path, project.id, id],
         )?;
+        set_default_resource_if_empty(conn, &project.id, id)?;
     }
     if let Some(r) = runtime {
         conn.execute(
@@ -267,20 +285,16 @@ fn delete(conn: &Connection, id: &str) -> Result<()> {
 }
 
 fn invoke(conn: &Connection, agent_id: &str, message: &str) -> Result<()> {
-    let _: String = conn
-        .query_row("SELECT id FROM agents WHERE id = ?1", [agent_id], |r| {
-            r.get(0)
-        })
-        .context("Agent not found")?;
-
     let conv_id = Uuid::new_v4().to_string();
     let msg_id = Uuid::new_v4().to_string();
     let now = now_ms();
+    let project_id = project_id_for_agent(conn, agent_id, now)?.context("Agent not found")?;
     let title = message.chars().take(60).collect::<String>();
 
     conn.execute(
-        "INSERT INTO conversations (id, agent_id, title, created_at, last_message_at, status) VALUES (?1,?2,?3,?4,?5,'idle')",
-        rusqlite::params![conv_id, agent_id, title, now, now],
+        "INSERT INTO conversations (id, agent_id, project_id, title, created_at, last_message_at, status)
+         VALUES (?1,?2,?3,?4,?5,?6,'idle')",
+        rusqlite::params![conv_id, agent_id, project_id, title, now, now],
     )?;
     conn.execute(
         "INSERT INTO messages (id, conversation_id, role, payload, created_at, seq) VALUES (?1,?2,'user_text',?3,?4,1)",

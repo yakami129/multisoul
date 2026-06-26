@@ -9,15 +9,25 @@ mod tests {
     };
     use tempfile::tempdir;
 
+    fn agent_project_id(conn: &rusqlite::Connection, agent_id: &str) -> String {
+        conn.query_row(
+            "SELECT project_id FROM agents WHERE id = ?1",
+            [agent_id],
+            |row| row.get::<_, String>(0),
+        )
+        .unwrap()
+    }
+
     #[test]
     fn build_task_status_push_includes_conversation_and_endpoint_data() {
         let dir = tempdir().unwrap();
         let conn = db::open_at(&dir.path().join("t.db")).unwrap();
         let agent_id = insert_agent(&conn, "Deploy Bot", "/p", "codex", "full-auto").unwrap();
+        let project_id = agent_project_id(&conn, &agent_id);
         conn.execute(
-            "INSERT INTO conversations (id, agent_id, title, created_at, last_message_at, status)
-             VALUES ('conv-1', ?1, 'Deploy', 1, 1, 'completed')",
-            [&agent_id],
+            "INSERT INTO conversations (id, agent_id, project_id, title, created_at, last_message_at, status)
+             VALUES ('conv-1', ?1, ?2, 'Deploy', 1, 1, 'completed')",
+            [&agent_id, &project_id],
         )
         .unwrap();
         conn.execute(
@@ -31,11 +41,21 @@ mod tests {
             .expect("completed conversation should produce a push payload");
         let push = push.expect("completed status should be push-worthy");
 
-        assert_eq!(push.title, "Deploy Bot 任务完成");
+        assert_eq!(push.title, "p 任务完成");
         assert_eq!(push.body, "Build succeeded");
         assert_eq!(push.data["type"], "task_completed");
         assert_eq!(push.data["agentId"], agent_id);
         assert_eq!(push.data["agent_id"], agent_id);
+        assert_eq!(push.data["resourceId"], agent_id);
+        assert_eq!(push.data["resource_id"], agent_id);
+        assert_eq!(push.data["resourceName"], "Deploy Bot");
+        assert_eq!(push.data["resource_name"], "Deploy Bot");
+        assert_eq!(push.data["projectId"], project_id);
+        assert_eq!(push.data["project_id"], project_id);
+        assert_eq!(push.data["projectName"], "p");
+        assert_eq!(push.data["project_name"], "p");
+        assert_eq!(push.data["projectPath"], "/p");
+        assert_eq!(push.data["project_path"], "/p");
         assert_eq!(push.data["convId"], "conv-1");
         assert_eq!(push.data["conversation_id"], "conv-1");
 
@@ -70,10 +90,11 @@ mod tests {
         let dir = tempdir().unwrap();
         let conn = db::open_at(&dir.path().join("t.db")).unwrap();
         let agent_id = insert_agent(&conn, "Deploy Bot", "/p", "codex", "full-auto").unwrap();
+        let project_id = agent_project_id(&conn, &agent_id);
         conn.execute(
-            "INSERT INTO conversations (id, agent_id, title, created_at, last_message_at, status)
-             VALUES ('conv-1', ?1, 'Deploy', 1, 1, 'completed')",
-            [&agent_id],
+            "INSERT INTO conversations (id, agent_id, project_id, title, created_at, last_message_at, status)
+             VALUES ('conv-1', ?1, ?2, 'Deploy', 1, 1, 'completed')",
+            [&agent_id, &project_id],
         )
         .unwrap();
         conn.execute(
@@ -120,10 +141,11 @@ mod tests {
         let dir = tempdir().unwrap();
         let conn = db::open_at(&dir.path().join("t.db")).unwrap();
         let agent_id = insert_agent(&conn, "Deploy Bot", "/p", "claude", "full-auto").unwrap();
+        let project_id = agent_project_id(&conn, &agent_id);
         conn.execute(
-            "INSERT INTO conversations (id, agent_id, title, created_at, last_message_at, status)
-             VALUES ('conv-1', ?1, 'Deploy', 1, 1, 'awaiting_question')",
-            [&agent_id],
+            "INSERT INTO conversations (id, agent_id, project_id, title, created_at, last_message_at, status)
+             VALUES ('conv-1', ?1, ?2, 'Deploy', 1, 1, 'awaiting_question')",
+            [&agent_id, &project_id],
         )
         .unwrap();
 
@@ -141,13 +163,17 @@ mod tests {
         let push = build_ask_question_push(&conn, "conv-1", &ask_payload)
             .expect("conversation should produce ask push payload");
 
-        assert_eq!(push.title, "Deploy Bot 需要你确认");
+        assert_eq!(push.title, "p 需要你确认");
         assert_eq!(push.body, "Deploy now?");
         assert_eq!(push.data["type"], "ask_question");
         assert_eq!(push.data["kind"], "pending_question");
         assert_eq!(push.data["inbox_id"], "ask-1");
         assert_eq!(push.data["agentId"], agent_id);
         assert_eq!(push.data["agent_id"], agent_id);
+        assert_eq!(push.data["resourceId"], agent_id);
+        assert_eq!(push.data["resource_id"], agent_id);
+        assert_eq!(push.data["projectId"], project_id);
+        assert_eq!(push.data["project_id"], project_id);
         assert_eq!(push.data["convId"], "conv-1");
         assert_eq!(push.data["conversation_id"], "conv-1");
         assert_eq!(push.data["payload"], ask_payload.to_string());
@@ -158,10 +184,11 @@ mod tests {
         let dir = tempdir().unwrap();
         let conn = db::open_at(&dir.path().join("t.db")).unwrap();
         let agent_id = insert_agent(&conn, "Deploy Bot", "/p", "claude", "full-auto").unwrap();
+        let project_id = agent_project_id(&conn, &agent_id);
         conn.execute(
-            "INSERT INTO conversations (id, agent_id, title, created_at, last_message_at, status)
-             VALUES ('conv-1', ?1, 'Deploy', 1, 1, 'awaiting_question')",
-            [&agent_id],
+            "INSERT INTO conversations (id, agent_id, project_id, title, created_at, last_message_at, status)
+             VALUES ('conv-1', ?1, ?2, 'Deploy', 1, 1, 'awaiting_question')",
+            [&agent_id, &project_id],
         )
         .unwrap();
         conn.execute(

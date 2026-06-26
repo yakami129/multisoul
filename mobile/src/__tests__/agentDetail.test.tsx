@@ -160,8 +160,8 @@ describe('AgentDetailScreen', () => {
       expect(screen.getByText('Weather Agent')).toBeTruthy();
     });
 
-    expect(screen.getByText('Running on Local · Claude Code')).toBeTruthy();
-    expect(screen.getByText('Recent Chats')).toBeTruthy();
+    expect(screen.getByText('Resource running on Local · Claude Code')).toBeTruthy();
+    expect(screen.getByText('Recent Sessions')).toBeTruthy();
     expect(screen.getByText('Look for severe weather warnings')).toBeTruthy();
     expect(screen.getByText('There are no severe warnings right now')).toBeTruthy();
   });
@@ -185,17 +185,17 @@ describe('AgentDetailScreen', () => {
       expect(screen.getByText('Weather Agent')).toBeTruthy();
     });
 
-    expect(screen.getByText('No recent chats yet.')).toBeTruthy();
+    expect(screen.getByText('No recent sessions yet.')).toBeTruthy();
   });
 
-  it('opens the canonical chat detail screen from New Chat', async () => {
+  it('opens the canonical chat detail screen from New Session', async () => {
     render(<AgentDetailScreen />);
 
     await waitFor(() => {
       expect(screen.getByText('Weather Agent')).toBeTruthy();
     });
 
-    fireEvent.press(screen.getByText('New Chat'));
+    fireEvent.press(screen.getByText('New Session'));
 
     await waitFor(() =>
       expect(mockPush).toHaveBeenCalledWith(

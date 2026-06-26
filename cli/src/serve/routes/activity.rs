@@ -24,6 +24,14 @@ pub struct ActivityItem {
     pub conversation_id: String,
     pub agent_id: String,
     pub agent_name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub project_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub project_name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub project_path: Option<String>,
+    pub resource_id: String,
+    pub resource_name: String,
     pub title: String,
     pub subtitle: String,
     pub status_label: String,
@@ -176,6 +184,11 @@ fn load_attention_items(
                 c.id AS conversation_id,
                 c.agent_id,
                 a.name AS agent_name,
+                c.project_id,
+                p.name AS project_name,
+                p.project_path AS project_path,
+                c.agent_id AS resource_id,
+                a.name AS resource_name,
                 COALESCE(json_extract(m.payload, '$.questions[0].text'), c.title) AS title,
                 COALESCE(
                     (SELECT json_extract(mu.payload, '$.text')
@@ -198,6 +211,7 @@ fn load_attention_items(
              FROM messages m
              JOIN conversations c ON c.id = m.conversation_id
              JOIN agents a ON a.id = c.agent_id
+             LEFT JOIN projects p ON p.id = c.project_id
              LEFT JOIN workflow_runs wr ON wr.conversation_id = c.id
              LEFT JOIN workflows w ON w.id = wr.workflow_id
              LEFT JOIN ask_answers aa
@@ -226,6 +240,11 @@ fn load_running_items(
                 c.id AS conversation_id,
                 c.agent_id,
                 a.name AS agent_name,
+                c.project_id,
+                p.name AS project_name,
+                p.project_path AS project_path,
+                c.agent_id AS resource_id,
+                a.name AS resource_name,
                 COALESCE(
                     (SELECT json_extract(mu.payload, '$.text')
                      FROM messages mu
@@ -249,6 +268,7 @@ fn load_running_items(
                 w.name AS workflow_name
              FROM conversations c
              JOIN agents a ON a.id = c.agent_id
+             LEFT JOIN projects p ON p.id = c.project_id
              LEFT JOIN workflow_runs wr ON wr.conversation_id = c.id
              LEFT JOIN workflows w ON w.id = wr.workflow_id
              WHERE c.status = 'running'
@@ -268,6 +288,11 @@ fn load_done_items(db: &rusqlite::Connection, limit: i64) -> Result<Vec<Activity
                 c.id AS conversation_id,
                 c.agent_id,
                 a.name AS agent_name,
+                c.project_id,
+                p.name AS project_name,
+                p.project_path AS project_path,
+                c.agent_id AS resource_id,
+                a.name AS resource_name,
                 COALESCE(
                     (SELECT json_extract(mu.payload, '$.text')
                      FROM messages mu
@@ -320,6 +345,7 @@ fn load_done_items(db: &rusqlite::Connection, limit: i64) -> Result<Vec<Activity
                 ar.read_at AS read_at
              FROM conversations c
              JOIN agents a ON a.id = c.agent_id
+             LEFT JOIN projects p ON p.id = c.project_id
              LEFT JOIN workflow_runs wr ON wr.conversation_id = c.id
              LEFT JOIN workflows w ON w.id = wr.workflow_id
              LEFT JOIN activity_reads ar ON ar.conversation_id = c.id
@@ -359,15 +385,20 @@ fn row_to_activity_item(row: &rusqlite::Row<'_>) -> rusqlite::Result<ActivityIte
         conversation_id: row.get(2)?,
         agent_id: row.get(3)?,
         agent_name: row.get(4)?,
-        title: row.get(5)?,
-        subtitle: row.get(6)?,
-        status_label: row.get(7)?,
-        tone: row.get(8)?,
-        timestamp: row.get(9)?,
-        ask_id: row.get(10)?,
-        workflow_id: row.get(11)?,
-        workflow_run_id: row.get(12)?,
-        workflow_name: row.get(13)?,
+        project_id: row.get(5)?,
+        project_name: row.get(6)?,
+        project_path: row.get(7)?,
+        resource_id: row.get(8)?,
+        resource_name: row.get(9)?,
+        title: row.get(10)?,
+        subtitle: row.get(11)?,
+        status_label: row.get(12)?,
+        tone: row.get(13)?,
+        timestamp: row.get(14)?,
+        ask_id: row.get(15)?,
+        workflow_id: row.get(16)?,
+        workflow_run_id: row.get(17)?,
+        workflow_name: row.get(18)?,
         read_at: None,
     })
 }
@@ -379,16 +410,21 @@ fn row_to_done_activity_item(row: &rusqlite::Row<'_>) -> rusqlite::Result<Activi
         conversation_id: row.get(2)?,
         agent_id: row.get(3)?,
         agent_name: row.get(4)?,
-        title: row.get(5)?,
-        subtitle: row.get(6)?,
-        status_label: row.get(7)?,
-        tone: row.get(8)?,
-        timestamp: row.get(9)?,
-        ask_id: row.get(10)?,
-        workflow_id: row.get(11)?,
-        workflow_run_id: row.get(12)?,
-        workflow_name: row.get(13)?,
-        read_at: Some(row.get(14)?),
+        project_id: row.get(5)?,
+        project_name: row.get(6)?,
+        project_path: row.get(7)?,
+        resource_id: row.get(8)?,
+        resource_name: row.get(9)?,
+        title: row.get(10)?,
+        subtitle: row.get(11)?,
+        status_label: row.get(12)?,
+        tone: row.get(13)?,
+        timestamp: row.get(14)?,
+        ask_id: row.get(15)?,
+        workflow_id: row.get(16)?,
+        workflow_run_id: row.get(17)?,
+        workflow_name: row.get(18)?,
+        read_at: Some(row.get(19)?),
     })
 }
 

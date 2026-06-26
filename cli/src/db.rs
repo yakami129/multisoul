@@ -147,6 +147,11 @@ fn init_schema(conn: &Connection) -> Result<()> {
         "20260607_workflow_watch_mode",
         include_str!("../migrations/20260607_workflow_watch_mode.sql"),
     )?;
+    apply_migration(
+        conn,
+        "20260626_project_session_resource_model",
+        include_str!("../migrations/20260626_project_session_resource_model.sql"),
+    )?;
     Ok(())
 }
 
@@ -468,3 +473,7 @@ mod tests {
         assert_eq!(version, "0.2.0", "version should be updated by upsert");
     }
 }
+
+#[cfg(test)]
+#[path = "../tests/db/project_model_tests.rs"]
+mod db_project_model_tests;

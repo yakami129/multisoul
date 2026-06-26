@@ -114,9 +114,13 @@ export function ActivityRow({
   const icon = toneIconProps(item);
   const tag = tagStyle(item);
   const isUnreadDone = item.section === 'done' && item.readAt == null;
-  const displayName = item.workflowName
-    ? `${item.agentName || item.projectName} · ${item.workflowName}`
-    : item.agentName || item.projectName;
+  const contextName = item.workflowName
+    ? `${item.projectName} · ${item.workflowName}`
+    : item.projectName;
+  const displayName =
+    item.resourceName && item.resourceName !== item.projectName
+      ? `${contextName} · ${item.resourceName}`
+      : contextName;
   const subBg = item.section === 'done' ? 'rgba(250,255,239,0.88)' : 'rgba(255,252,247,0.78)';
 
   const renderDeleteAction = () => (

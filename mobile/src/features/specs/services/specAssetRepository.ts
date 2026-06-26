@@ -21,6 +21,10 @@ interface IdeaRow {
   target_endpoint_id: string;
   target_repo_path: string;
   target_agent_name: string;
+  target_project_id?: string | null;
+  target_project_name?: string | null;
+  target_resource_id?: string | null;
+  target_resource_name?: string | null;
   body: string;
   notes_json: string;
   attachments_json: string;
@@ -43,6 +47,10 @@ interface SpecRow {
   target_endpoint_id: string;
   target_repo_path: string;
   target_agent_name?: string;
+  target_project_id?: string | null;
+  target_project_name?: string | null;
+  target_resource_id?: string | null;
+  target_resource_name?: string | null;
   target_runtime?: string;
   questions_json?: string;
   answers_json?: string;
@@ -96,6 +104,10 @@ function rowToIdea(row: IdeaRow): SpecIdea {
     targetEndpointId: row.target_endpoint_id,
     targetRepoPath: row.target_repo_path,
     targetAgentName: row.target_agent_name,
+    targetProjectId: optional(row.target_project_id),
+    targetProjectName: optional(row.target_project_name),
+    targetResourceId: optional(row.target_resource_id),
+    targetResourceName: optional(row.target_resource_name),
     body: row.body,
     notes: parseJson<SpecIdeaNote[]>(row.notes_json, []),
     attachments: parseJson<SpecIdeaAttachment[]>(row.attachments_json, []),
@@ -119,6 +131,10 @@ function rowToSpec(row: SpecRow): SpecArtifact {
     targetAgentId: row.target_agent_id,
     targetEndpointId: row.target_endpoint_id,
     targetRepoPath: row.target_repo_path,
+    targetProjectId: optional(row.target_project_id),
+    targetProjectName: optional(row.target_project_name),
+    targetResourceId: optional(row.target_resource_id),
+    targetResourceName: optional(row.target_resource_name),
     repoSpecPath: row.repo_spec_path ?? '',
     latestVersionId: row.latest_version_id ?? '',
     sourceIdeaId: optional(row.source_idea_id),
@@ -152,9 +168,10 @@ export async function saveIdea(
   await db.runAsync(
     `INSERT OR REPLACE INTO spec_ideas (
       id, title, status, target_agent_id, target_endpoint_id, target_repo_path, target_agent_name,
+      target_project_id, target_project_name, target_resource_id, target_resource_name,
       body, notes_json, attachments_json, interview_conversation_id, converted_spec_id,
       error_message, pending_mutation, last_sync_error, created_at, updated_at, archived_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       idea.id,
       idea.title,
@@ -163,6 +180,10 @@ export async function saveIdea(
       idea.targetEndpointId,
       idea.targetRepoPath,
       idea.targetAgentName,
+      idea.targetProjectId ?? null,
+      idea.targetProjectName ?? null,
+      idea.targetResourceId ?? null,
+      idea.targetResourceName ?? null,
       idea.body,
       JSON.stringify(idea.notes),
       JSON.stringify(idea.attachments),
@@ -265,9 +286,10 @@ export async function saveSpecArtifact(spec: SpecArtifact): Promise<void> {
   await getDb().runAsync(
     `INSERT OR REPLACE INTO spec_artifacts (
       id, title, slug, status, target_agent_id, target_endpoint_id, target_repo_path,
+      target_project_id, target_project_name, target_resource_id, target_resource_name,
       repo_spec_path, latest_version_id, source_idea_id, interview_conversation_id,
       latest_implementation_conversation_id, linked_activity_item_id, created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       spec.id,
       spec.title,
@@ -276,6 +298,10 @@ export async function saveSpecArtifact(spec: SpecArtifact): Promise<void> {
       spec.targetAgentId,
       spec.targetEndpointId,
       spec.targetRepoPath,
+      spec.targetProjectId ?? null,
+      spec.targetProjectName ?? null,
+      spec.targetResourceId ?? null,
+      spec.targetResourceName ?? null,
       spec.repoSpecPath,
       spec.latestVersionId,
       spec.sourceIdeaId ?? null,

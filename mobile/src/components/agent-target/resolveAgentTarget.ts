@@ -13,8 +13,12 @@ export function resolveAgentTarget(
   return {
     endpointId: agent.endpoint_id,
     endpointLabel: endpoint?.label ?? agent.endpoint_label,
+    projectId: agent.project_id,
+    projectName: agent.project_path,
     agentId: agent.id,
     agentName: agent.name,
+    resourceId: agent.id,
+    resourceName: agent.name,
     repoPath: agent.project_path,
   };
 }

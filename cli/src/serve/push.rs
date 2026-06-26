@@ -22,6 +22,14 @@ pub struct TaskStatusPush {
     pub data: serde_json::Value,
 }
 
+struct ConversationPushContext {
+    resource_id: String,
+    resource_name: String,
+    project_id: Option<String>,
+    project_name: Option<String>,
+    project_path: Option<String>,
+}
+
 #[derive(Deserialize, Debug)]
 struct ExpoResponse {
     data: Vec<ExpoTicket>,
@@ -181,17 +189,15 @@ pub fn build_task_status_push(
         return Ok(None);
     }
 
-    let (agent_id, agent_name): (String, String) = db.query_row(
-        "SELECT a.id, a.name
-         FROM conversations c
-         JOIN agents a ON a.id = c.agent_id
-         WHERE c.id = ?1",
-        [conv_id],
-        |r| Ok((r.get(0)?, r.get(1)?)),
-    )?;
+    let context = load_conversation_push_context(db, conv_id)?;
+    let title_name = context
+        .project_name
+        .as_deref()
+        .filter(|name| !name.trim().is_empty())
+        .unwrap_or(&context.resource_name);
     let (title, kind) = match status {
-        "completed" => (format!("{} 任务完成", agent_name), "task_completed"),
-        "failed" => (format!("{} 任务失败", agent_name), "task_failed"),
+        "completed" => (format!("{} 任务完成", title_name), "task_completed"),
+        "failed" => (format!("{} 任务失败", title_name), "task_failed"),
         _ => return Ok(None),
     };
     let body = if summary.is_empty() {
@@ -204,14 +210,72 @@ pub fn build_task_status_push(
     Ok(Some(TaskStatusPush {
         title,
         body,
-        data: serde_json::json!({
-            "type": kind,
-            "agentId": agent_id,
-            "agent_id": agent_id,
-            "convId": conv_id,
-            "conversation_id": conv_id,
-        }),
+        data: conversation_push_data(kind, conv_id, &context, None, None),
     }))
+}
+
+fn load_conversation_push_context(
+    db: &rusqlite::Connection,
+    conv_id: &str,
+) -> rusqlite::Result<ConversationPushContext> {
+    db.query_row(
+        "SELECT a.id, a.name, c.project_id, p.name, p.project_path
+         FROM conversations c
+         JOIN agents a ON a.id = c.agent_id
+         LEFT JOIN projects p ON p.id = c.project_id
+         WHERE c.id = ?1",
+        [conv_id],
+        |r| {
+            Ok(ConversationPushContext {
+                resource_id: r.get(0)?,
+                resource_name: r.get(1)?,
+                project_id: r.get(2)?,
+                project_name: r.get(3)?,
+                project_path: r.get(4)?,
+            })
+        },
+    )
+}
+
+fn conversation_push_data(
+    push_type: &str,
+    conv_id: &str,
+    context: &ConversationPushContext,
+    inbox_id: Option<&str>,
+    ask_payload: Option<&serde_json::Value>,
+) -> serde_json::Value {
+    let mut data = serde_json::json!({
+        "type": push_type,
+        "agentId": context.resource_id.clone(),
+        "agent_id": context.resource_id.clone(),
+        "resourceId": context.resource_id.clone(),
+        "resource_id": context.resource_id.clone(),
+        "resourceName": context.resource_name.clone(),
+        "resource_name": context.resource_name.clone(),
+        "convId": conv_id,
+        "conversation_id": conv_id,
+    });
+    if let Some(project_id) = &context.project_id {
+        data["projectId"] = serde_json::Value::String(project_id.clone());
+        data["project_id"] = serde_json::Value::String(project_id.clone());
+    }
+    if let Some(project_name) = &context.project_name {
+        data["projectName"] = serde_json::Value::String(project_name.clone());
+        data["project_name"] = serde_json::Value::String(project_name.clone());
+    }
+    if let Some(project_path) = &context.project_path {
+        data["projectPath"] = serde_json::Value::String(project_path.clone());
+        data["project_path"] = serde_json::Value::String(project_path.clone());
+    }
+    if let Some(inbox_id) = inbox_id {
+        data["kind"] = serde_json::Value::String("pending_question".to_string());
+        data["inbox_id"] = serde_json::Value::String(inbox_id.to_string());
+        data["endpoint_id"] = serde_json::Value::String(String::new());
+    }
+    if let Some(ask_payload) = ask_payload {
+        data["payload"] = serde_json::Value::String(ask_payload.to_string());
+    }
+    data
 }
 
 fn has_ask_question_in_current_turn(
@@ -240,14 +304,7 @@ pub fn build_ask_question_push(
     conv_id: &str,
     ask_payload: &serde_json::Value,
 ) -> rusqlite::Result<TaskStatusPush> {
-    let (agent_id, agent_name): (String, String) = db.query_row(
-        "SELECT a.id, a.name
-         FROM conversations c
-         JOIN agents a ON a.id = c.agent_id
-         WHERE c.id = ?1",
-        [conv_id],
-        |r| Ok((r.get(0)?, r.get(1)?)),
-    )?;
+    let context = load_conversation_push_context(db, conv_id)?;
     let ask_id = ask_payload["ask_id"].as_str().unwrap_or(conv_id);
     let first_question = ask_payload["questions"]
         .as_array()
@@ -260,20 +317,21 @@ pub fn build_ask_question_push(
         first_question.to_string()
     };
 
+    let title_name = context
+        .project_name
+        .as_deref()
+        .filter(|name| !name.trim().is_empty())
+        .unwrap_or(&context.resource_name);
     Ok(TaskStatusPush {
-        title: format!("{} 需要你确认", agent_name),
+        title: format!("{} 需要你确认", title_name),
         body,
-        data: serde_json::json!({
-            "type": "ask_question",
-            "kind": "pending_question",
-            "inbox_id": ask_id,
-            "endpoint_id": "",
-            "agentId": agent_id,
-            "agent_id": agent_id,
-            "convId": conv_id,
-            "conversation_id": conv_id,
-            "payload": ask_payload.to_string(),
-        }),
+        data: conversation_push_data(
+            "ask_question",
+            conv_id,
+            &context,
+            Some(ask_id),
+            Some(ask_payload),
+        ),
     })
 }
 

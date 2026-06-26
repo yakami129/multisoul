@@ -51,6 +51,8 @@ function workflowToFormValues(wf: Workflow): WorkflowFormInitialValues {
   return {
     name: wf.name,
     agent_id: wf.agent_id,
+    project_id: wf.project_id,
+    resource_id: wf.resource_id,
     prompt: wf.prompt,
     mode: wf.mode,
     schedule_kind: wf.schedule_kind,

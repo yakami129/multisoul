@@ -40,6 +40,10 @@ export interface SpecIdea {
   targetEndpointId?: string;
   targetRepoPath?: string;
   targetAgentName?: string;
+  targetProjectId?: string;
+  targetProjectName?: string;
+  targetResourceId?: string;
+  targetResourceName?: string;
   body: string;
   notes: SpecIdeaNote[];
   attachments: SpecIdeaAttachment[];
@@ -71,6 +75,10 @@ export interface SpecArtifact {
   targetEndpointId?: string;
   targetRepoPath: string;
   targetAgentName?: string;
+  targetProjectId?: string;
+  targetProjectName?: string;
+  targetResourceId?: string;
+  targetResourceName?: string;
   repoSpecPath: string;
   latestVersionId: string;
   latestVersion?: SpecArtifactVersion;

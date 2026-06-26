@@ -62,6 +62,10 @@ export default function SpecsTab() {
           targetEndpointId: value.target?.endpointId,
           targetRepoPath: value.target?.repoPath,
           targetAgentName: value.target?.agentName,
+          targetProjectId: value.target?.projectId ?? undefined,
+          targetProjectName: value.target?.projectName ?? value.target?.repoPath,
+          targetResourceId: value.target?.resourceId ?? value.target?.agentId,
+          targetResourceName: value.target?.resourceName ?? value.target?.agentName,
         });
       }}
       onOpenIdea={(id) => router.push(`/idea/${encodeURIComponent(id)}` as `/${string}`)}

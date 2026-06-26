@@ -130,6 +130,19 @@ export async function initDb(): Promise<SQLite.SQLiteDatabase> {
       ON spec_artifact_versions(spec_id, revision DESC);
   `,
   );
+  await applyMigration(
+    'spec_project_resource_target_v1',
+    `
+    ALTER TABLE spec_ideas ADD COLUMN target_project_id TEXT;
+    ALTER TABLE spec_ideas ADD COLUMN target_project_name TEXT;
+    ALTER TABLE spec_ideas ADD COLUMN target_resource_id TEXT;
+    ALTER TABLE spec_ideas ADD COLUMN target_resource_name TEXT;
+    ALTER TABLE spec_artifacts ADD COLUMN target_project_id TEXT;
+    ALTER TABLE spec_artifacts ADD COLUMN target_project_name TEXT;
+    ALTER TABLE spec_artifacts ADD COLUMN target_resource_id TEXT;
+    ALTER TABLE spec_artifacts ADD COLUMN target_resource_name TEXT;
+  `,
+  );
   // Migrate: add choice columns if upgrading from an older schema
   await _db
     .execAsync(

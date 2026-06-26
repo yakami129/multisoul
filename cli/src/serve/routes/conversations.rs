@@ -4,6 +4,7 @@ use super::activity_events::{
 use crate::{
     db::now_ms,
     serve::{
+        projects::project_id_for_agent,
         routes::runtime_models::model_provider_status,
         runtime::models::{list_models, validate_model},
         state::AppState,
@@ -22,6 +23,7 @@ use uuid::Uuid;
 pub struct ConversationRow {
     pub id: String,
     pub agent_id: String,
+    pub project_id: Option<String>,
     pub title: String,
     pub created_at: i64,
     pub last_message_at: i64,
@@ -47,6 +49,7 @@ pub async fn list_conversations(
     let mut stmt = db
         .prepare(
             "SELECT c.id, c.agent_id, c.title, c.created_at, c.last_message_at, c.status, c.model_id,
+                c.project_id,
                 (SELECT json_extract(m.payload, '$.text')
                  FROM messages m
                  WHERE m.conversation_id = c.id AND m.role = 'user_text'
@@ -68,8 +71,9 @@ pub async fn list_conversations(
                 last_message_at: r.get(4)?,
                 status: r.get(5)?,
                 model_id: r.get(6)?,
-                first_user_message: r.get(7)?,
-                last_ai_reply: r.get(8)?,
+                project_id: r.get(7)?,
+                first_user_message: r.get(8)?,
+                last_ai_reply: r.get(9)?,
             })
         })
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
@@ -218,6 +222,7 @@ fn load_conversation_row(state: &AppState, conv_id: &str) -> Result<Conversation
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     db.query_row(
         "SELECT c.id, c.agent_id, c.title, c.created_at, c.last_message_at, c.status, c.model_id,
+            c.project_id,
             (SELECT json_extract(m.payload, '$.text')
              FROM messages m
              WHERE m.conversation_id = c.id AND m.role = 'user_text'
@@ -237,8 +242,9 @@ fn load_conversation_row(state: &AppState, conv_id: &str) -> Result<Conversation
                 last_message_at: row.get(4)?,
                 status: row.get(5)?,
                 model_id: row.get(6)?,
-                first_user_message: row.get(7)?,
-                last_ai_reply: row.get(8)?,
+                project_id: row.get(7)?,
+                first_user_message: row.get(8)?,
+                last_ai_reply: row.get(9)?,
             })
         },
     )
@@ -287,25 +293,16 @@ pub async fn create_conversation(
         .db
         .lock()
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-    let exists: bool = db
-        .query_row(
-            "SELECT COUNT(*) FROM agents WHERE id = ?1",
-            [&agent_id],
-            |r| r.get::<_, i64>(0),
-        )
-        .map(|c| c > 0)
-        .map_err(|_| StatusCode::NOT_FOUND)?;
-    if !exists {
-        return Err(StatusCode::NOT_FOUND);
-    }
-
     let id = Uuid::new_v4().to_string();
     let now = now_ms();
+    let project_id = project_id_for_agent(&db, &agent_id, now)
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+        .ok_or(StatusCode::NOT_FOUND)?;
     let title = body.title.unwrap_or_else(|| "New conversation".to_string());
     db.execute(
-        "INSERT INTO conversations (id, agent_id, title, created_at, last_message_at, status)
-         VALUES (?1,?2,?3,?4,?5,'idle')",
-        rusqlite::params![id, agent_id, title, now, now],
+        "INSERT INTO conversations (id, agent_id, project_id, title, created_at, last_message_at, status)
+         VALUES (?1,?2,?3,?4,?5,?6,'idle')",
+        rusqlite::params![id, agent_id, project_id, title, now, now],
     )
     .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     drop(db);
@@ -316,6 +313,7 @@ pub async fn create_conversation(
         Json(ConversationRow {
             id,
             agent_id,
+            project_id: Some(project_id),
             title,
             created_at: now,
             last_message_at: now,
