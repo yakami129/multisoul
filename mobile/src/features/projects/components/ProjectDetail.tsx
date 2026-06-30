@@ -1,26 +1,22 @@
-import { ChevronLeft, ChevronRight, Folder, Plus, Terminal } from 'lucide-react-native';
+import { ChevronLeft } from 'lucide-react-native';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import {
-  ActivityIndicator,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { conversationDisplaySummary, conversationDisplayTitle } from '@/features/chat';
-import { brandColors, brandRgba, brandTypography } from '@/theme/brandRefresh';
+import { brandColors, brandRgba } from '@/theme/brandRefresh';
 import { type Project, type ProjectResource, type ProjectSession } from '../types';
+import { projectDetailStyles as s } from './ProjectDetail.styles';
 import {
   displayRuntime,
   formatProjectPath,
   relativeAge,
   resourceNameForSession,
+  totalSessions,
 } from './projectUi';
 
 type Segment = 'sessions' | 'resources' | 'settings';
+type Tone = 'coral' | 'cyan' | 'lime' | 'sage' | 'default';
 
 interface Props {
   project: Project | undefined;
@@ -34,110 +30,163 @@ interface Props {
   onOpenResource: (resource: ProjectResource) => void;
 }
 
-function Header({ onBack, label }: { onBack: () => void; label: string }) {
+function sessionTone(status: string): Tone {
+  if (status === 'awaiting_question') return 'coral';
+  if (status === 'running') return 'cyan';
+  if (status === 'completed') return 'lime';
+  return 'sage';
+}
+
+function toneColor(tone: Tone): string {
+  if (tone === 'coral') return brandColors.coral;
+  if (tone === 'cyan') return brandColors.cyan;
+  if (tone === 'lime') return brandColors.lime;
+  if (tone === 'sage') return brandColors.sage;
+  return brandColors.silver;
+}
+
+function resourceAvatarInfo(runtime: ProjectResource['runtime']): { abbr: string; tone: Tone } {
+  if (runtime === 'codex') return { abbr: 'CX', tone: 'cyan' };
+  if (runtime === 'claude-code') return { abbr: 'CC', tone: 'lime' };
+  if (runtime === 'cursor-cli') return { abbr: 'CR', tone: 'sage' };
+  if (runtime === 'opencode') return { abbr: 'OC', tone: 'cyan' };
+  return { abbr: 'CT', tone: 'coral' };
+}
+
+const PILL_BG: Record<Tone, string> = {
+  coral: brandColors.activityTagOrangeBg,
+  cyan: brandColors.activityTagBlueBg,
+  lime: brandRgba.limeSoft,
+  sage: brandRgba.ink08,
+  default: brandRgba.ink08,
+};
+const PILL_TEXT: Record<Tone, string> = {
+  coral: brandColors.activityTagOrangeText,
+  cyan: brandColors.activityTagBlueText,
+  lime: brandColors.activityTagGreenText,
+  sage: brandColors.textSoft,
+  default: brandColors.textSoft,
+};
+
+function StatusPill({ label, tone }: { label: string; tone: Tone }) {
   return (
-    <View style={s.nav}>
-      <TouchableOpacity
-        accessibilityLabel="Back to Projects"
-        accessibilityRole="button"
-        onPress={onBack}
-        style={s.backLink}
-      >
-        <ChevronLeft size={20} color={brandColors.ink} />
-        <Text style={s.backText}>{label}</Text>
-      </TouchableOpacity>
+    <View style={[s.pill, { backgroundColor: PILL_BG[tone] }]}>
+      <View style={[s.pillDot, { backgroundColor: PILL_TEXT[tone] }]} />
+      <Text style={[s.pillText, { color: PILL_TEXT[tone] }]}>{label}</Text>
     </View>
   );
 }
 
-function SegmentButton({
-  active,
-  label,
-  onPress,
-}: {
-  active: boolean;
-  label: string;
-  onPress: () => void;
-}) {
-  return (
-    <TouchableOpacity
-      accessibilityRole="button"
-      accessibilityState={{ selected: active }}
-      onPress={onPress}
-      style={[s.segmentButton, active && s.segmentButtonActive]}
-    >
-      <Text style={[s.segmentText, active && s.segmentTextActive]}>{label}</Text>
-    </TouchableOpacity>
-  );
-}
-
-function SessionRow({
+function SessionCard({
   session,
+  index,
   resourceName,
+  stateLabel,
   onPress,
 }: {
   session: ProjectSession;
+  index: number;
   resourceName: string;
+  stateLabel: string;
   onPress: () => void;
 }) {
-  const active = session.status === 'running' || session.status === 'awaiting_question';
+  const tone = sessionTone(session.status);
+  const summary = conversationDisplaySummary(session);
   return (
     <TouchableOpacity
       accessibilityLabel={`Open ${conversationDisplayTitle(session)}`}
       accessibilityRole="button"
       onPress={onPress}
-      style={s.row}
+      style={s.card}
     >
-      <View style={[s.statusDot, active && s.statusDotActive]} />
-      <View style={s.rowCopy}>
-        <Text numberOfLines={1} style={s.rowTitle}>
-          {conversationDisplayTitle(session)}
-        </Text>
-        <Text numberOfLines={1} style={s.rowSubtitle}>
-          {conversationDisplaySummary(session)}
-        </Text>
-        <Text numberOfLines={1} style={s.rowMeta}>
-          {resourceName} · {session.status} · {relativeAge(session.last_message_at)}
-        </Text>
+      <View style={s.cardTop}>
+        <View style={[s.avatar, { backgroundColor: toneColor(tone) }]}>
+          <Text style={s.avatarNumText}>{index + 1}</Text>
+        </View>
+        <View style={s.cardBody}>
+          <Text numberOfLines={1} style={s.cardTitle}>
+            {conversationDisplayTitle(session)}
+          </Text>
+          <Text numberOfLines={1} style={s.cardMeta}>
+            {relativeAge(session.last_message_at)}
+          </Text>
+          {summary ? (
+            <Text numberOfLines={2} style={s.cardPreview}>
+              {summary}
+            </Text>
+          ) : null}
+          <View style={s.chips}>
+            <View style={[s.chip, tone === 'cyan' && s.chipCyan]}>
+              <Text style={s.chipText}>{resourceName}</Text>
+            </View>
+          </View>
+        </View>
+        <StatusPill label={stateLabel} tone={tone === 'sage' ? 'default' : tone} />
       </View>
-      <ChevronRight size={14} color={brandColors.textSoft} />
     </TouchableOpacity>
   );
 }
 
-function ResourceRow({
+function ResourceCard({
   resource,
+  sessionCount,
   defaultLabel,
+  sessionCountLabel,
+  availableLabel,
+  configLabel,
   onPress,
 }: {
   resource: ProjectResource;
+  sessionCount: number;
   defaultLabel: string;
+  sessionCountLabel: string;
+  availableLabel: string;
+  configLabel: string;
   onPress: () => void;
 }) {
+  const { abbr, tone } = resourceAvatarInfo(resource.runtime);
   return (
-    <TouchableOpacity
-      accessibilityLabel={`Open resource ${resource.name}`}
-      accessibilityRole="button"
-      onPress={onPress}
-      style={s.row}
-    >
-      <View style={s.resourceIcon}>
-        <Terminal size={17} color={brandColors.ink} />
+    <View style={s.card}>
+      <View style={s.cardTop}>
+        <View style={[s.avatar, { backgroundColor: toneColor(tone) }]}>
+          <Text style={s.avatarAbbrText}>{abbr}</Text>
+        </View>
+        <View style={s.cardBody}>
+          <Text numberOfLines={1} style={s.cardTitle}>
+            {resource.name}
+          </Text>
+          <Text numberOfLines={1} style={s.cardMeta}>
+            {displayRuntime(resource.runtime)}
+          </Text>
+          <View style={s.chips}>
+            {resource.is_default && (
+              <View style={[s.chip, s.chipCyan]}>
+                <Text style={s.chipText}>{defaultLabel}</Text>
+              </View>
+            )}
+            {sessionCount > 0 && (
+              <View style={s.chip}>
+                <Text style={s.chipText}>{sessionCountLabel}</Text>
+              </View>
+            )}
+            <View style={s.chip}>
+              <Text style={s.chipText}>{formatProjectPath(resource.project_path)}</Text>
+            </View>
+          </View>
+        </View>
+        <View style={s.resourceRight}>
+          <StatusPill label={availableLabel} tone="lime" />
+          <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityLabel={`Configure ${resource.name}`}
+            onPress={onPress}
+            style={s.configBtn}
+          >
+            <Text style={s.configBtnText}>{configLabel}</Text>
+          </TouchableOpacity>
+        </View>
       </View>
-      <View style={s.rowCopy}>
-        <Text numberOfLines={1} style={s.rowTitle}>
-          {resource.name}
-        </Text>
-        <Text numberOfLines={1} style={s.rowSubtitle}>
-          {displayRuntime(resource.runtime)}
-          {resource.is_default ? ` · ${defaultLabel}` : ''}
-        </Text>
-        <Text numberOfLines={1} style={s.rowMeta}>
-          {formatProjectPath(resource.project_path)}
-        </Text>
-      </View>
-      <ChevronRight size={14} color={brandColors.textSoft} />
-    </TouchableOpacity>
+    </View>
   );
 }
 
@@ -155,18 +204,35 @@ export function ProjectDetail({
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const [segment, setSegment] = React.useState<Segment>('sessions');
-  const resourceById = React.useMemo(
-    () => new Map(resources.map((resource) => [resource.id, resource])),
-    [resources],
+
+  const resourceById = React.useMemo(() => new Map(resources.map((r) => [r.id, r])), [resources]);
+  const sessionCountByResource = React.useMemo(() => {
+    const map = new Map<string, number>();
+    for (const sess of sessions) map.set(sess.agent_id, (map.get(sess.agent_id) ?? 0) + 1);
+    return map;
+  }, [sessions]);
+  const defaultResource =
+    resources.find((r) => r.id === project?.default_resource_id) ?? resources[0];
+
+  const navRow = (
+    <View style={s.navRow}>
+      <TouchableOpacity
+        onPress={onBack}
+        style={s.circleBtn}
+        accessibilityRole="button"
+        accessibilityLabel="Back"
+      >
+        <ChevronLeft size={22} color={brandColors.ink} />
+      </TouchableOpacity>
+    </View>
   );
 
   if (isLoading) {
     return (
       <View style={[s.root, { paddingTop: insets.top }]}>
-        <Header onBack={onBack} label={t('projects.detailBack')} />
+        {navRow}
         <View style={s.centered}>
           <ActivityIndicator size="large" color={brandColors.cyan} />
-          <Text style={s.loadingText}>{t('projects.loadingDetail')}</Text>
         </View>
       </View>
     );
@@ -175,269 +241,179 @@ export function ProjectDetail({
   if (isError || !project) {
     return (
       <View style={[s.root, { paddingTop: insets.top }]}>
-        <Header onBack={onBack} label={t('projects.detailBack')} />
+        {navRow}
         <View style={s.centered}>
           <Text style={s.errorTitle}>{t('projects.failedToLoad')}</Text>
-          <TouchableOpacity style={s.backBtn} onPress={onBack}>
-            <Text style={s.backBtnText}>{t('projects.detailBack')}</Text>
+          <TouchableOpacity style={s.errorBtn} onPress={onBack}>
+            <Text style={s.errorBtnText}>{t('projects.detailBack')}</Text>
           </TouchableOpacity>
         </View>
       </View>
     );
   }
 
+  const pendingCount = project.session_counts.awaiting_question;
+  const segLabels: Record<Segment, string> = {
+    sessions: t('projects.detailSessions'),
+    resources: t('projects.detailResources'),
+    settings: t('projects.detailSettings'),
+  };
+  const sessionStatusLabels: Record<string, string> = {
+    awaiting_question: t('projects.statsNeedsYou'),
+    running: t('projects.statusRunning'),
+    completed: t('projects.statusCompleted'),
+    failed: t('projects.statusFailed'),
+    idle: t('projects.statusIdle'),
+  };
+
   return (
     <View style={[s.root, { paddingTop: insets.top }]}>
-      <Header onBack={onBack} label={t('projects.detailBack')} />
-      <ScrollView contentContainerStyle={s.scroll} showsVerticalScrollIndicator={false}>
-        <View style={s.hero}>
-          <Text numberOfLines={2} style={s.projectName}>
-            {project.name}
+      {navRow}
+      <ScrollView
+        contentContainerStyle={[s.scroll, { paddingBottom: (insets.bottom || 16) + 24 }]}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Project hero card */}
+        <View style={s.heroCard}>
+          <Text style={s.heroEyebrow}>{t('projects.detailHeroLabel')}</Text>
+          <Text style={s.heroTitle}>{project.name}</Text>
+          <Text numberOfLines={1} style={s.heroMeta}>
+            {formatProjectPath(project.project_path)} · {project.endpoint_label}
           </Text>
-          <View style={s.pathRow}>
-            <Folder size={14} color={brandColors.textSoft} />
-            <Text numberOfLines={1} selectable style={s.workspacePath}>
-              {project.endpoint_label} · {formatProjectPath(project.project_path)}
-            </Text>
+          <View style={s.statsRow}>
+            <View style={s.statItem}>
+              <Text style={s.statNum}>{totalSessions(project)}</Text>
+              <Text style={s.statLabel}>{t('projects.sessions')}</Text>
+            </View>
+            <View style={s.statDivider} />
+            <View style={s.statItem}>
+              <Text style={s.statNum}>{pendingCount}</Text>
+              <Text style={s.statLabel}>{t('projects.pending')}</Text>
+            </View>
+            <View style={s.statDivider} />
+            <View style={s.statItem}>
+              <Text style={s.statNum}>{project.resource_count}</Text>
+              <Text style={s.statLabel}>{t('projects.resources')}</Text>
+            </View>
           </View>
         </View>
 
-        <TouchableOpacity accessibilityRole="button" onPress={onNewSession} style={s.newSessionBtn}>
-          <Plus size={16} color={brandColors.white} />
-          <Text style={s.newSessionText}>{t('projects.newSession')}</Text>
-        </TouchableOpacity>
-
-        <View style={s.segmentControl}>
-          <SegmentButton
-            active={segment === 'sessions'}
-            label={t('projects.detailSessions')}
-            onPress={() => setSegment('sessions')}
-          />
-          <SegmentButton
-            active={segment === 'resources'}
-            label={t('projects.detailResources')}
-            onPress={() => setSegment('resources')}
-          />
-          <SegmentButton
-            active={segment === 'settings'}
-            label={t('projects.detailSettings')}
-            onPress={() => setSegment('settings')}
-          />
+        {/* Segment tabs */}
+        <View style={s.segmented}>
+          {(['sessions', 'resources', 'settings'] as Segment[]).map((seg) => (
+            <TouchableOpacity
+              key={seg}
+              accessibilityRole="button"
+              accessibilityState={{ selected: segment === seg }}
+              onPress={() => setSegment(seg)}
+              style={[s.segment, segment === seg && s.segmentActive]}
+            >
+              <Text style={[s.segmentText, segment === seg && s.segmentTextActive]}>
+                {segLabels[seg]}
+              </Text>
+            </TouchableOpacity>
+          ))}
         </View>
 
-        {segment === 'sessions' ? (
-          <View style={s.group}>
-            {sessions.length === 0 ? (
-              <Text style={s.emptyText}>{t('projects.noSessions')}</Text>
-            ) : (
-              sessions.map((session) => {
-                const resource = resourceById.get(session.agent_id);
-                return (
-                  <SessionRow
+        {segment === 'sessions' && (
+          <>
+            <View style={s.sectionRow}>
+              <Text style={s.sectionTitle}>{t('projects.detailSessions')}</Text>
+              <Text style={s.sectionMeta}>{t('projects.sortByStatus')}</Text>
+            </View>
+            <View style={s.list}>
+              {sessions.length === 0 ? (
+                <Text style={s.emptyText}>{t('projects.noSessions')}</Text>
+              ) : (
+                sessions.map((session, i) => (
+                  <SessionCard
                     key={session.id}
                     session={session}
+                    index={i}
                     resourceName={resourceNameForSession(session, resourceById)}
-                    onPress={() => onOpenSession(session, resource)}
+                    stateLabel={sessionStatusLabels[session.status] ?? t('projects.statusIdle')}
+                    onPress={() => onOpenSession(session, resourceById.get(session.agent_id))}
                   />
-                );
-              })
-            )}
-          </View>
-        ) : null}
+                ))
+              )}
+            </View>
+            <View style={s.composerHint}>
+              <View style={s.composerBody}>
+                <Text style={s.composerTitle}>
+                  {t('projects.newSessionUsing', { name: defaultResource?.name ?? '...' })}
+                </Text>
+                <Text style={s.composerSub}>{t('projects.newSessionRuntimeHint')}</Text>
+              </View>
+              <TouchableOpacity
+                accessibilityRole="button"
+                onPress={onNewSession}
+                style={s.composerBtn}
+              >
+                <Text style={s.composerBtnText}>{t('projects.newSession')}</Text>
+              </TouchableOpacity>
+            </View>
+          </>
+        )}
 
-        {segment === 'resources' ? (
-          <View style={s.group}>
-            {resources.length === 0 ? (
-              <Text style={s.emptyText}>{t('projects.noResources')}</Text>
-            ) : (
-              resources.map((resource) => (
-                <ResourceRow
-                  key={resource.id}
-                  resource={resource}
-                  defaultLabel={t('projects.defaultResource')}
-                  onPress={() => onOpenResource(resource)}
-                />
-              ))
-            )}
-          </View>
-        ) : null}
+        {segment === 'resources' && (
+          <>
+            <View style={s.resourceHeroCard}>
+              <Text style={s.resourceEyebrow}>{project.name}</Text>
+              <Text style={s.resourceHeroTitle}>{t('projects.runtimeResourcesTitle')}</Text>
+              <Text style={s.resourceHeroDesc}>{t('projects.runtimeResourcesDesc')}</Text>
+            </View>
+            <View style={s.sectionRow}>
+              <Text style={s.sectionTitle}>{t('projects.availableRuntimes')}</Text>
+              {defaultResource && (
+                <Text style={s.sectionMeta}>
+                  {t('projects.defaultResourceName', { name: defaultResource.name })}
+                </Text>
+              )}
+            </View>
+            <View style={s.list}>
+              {resources.length === 0 ? (
+                <Text style={s.emptyText}>{t('projects.noResources')}</Text>
+              ) : (
+                resources.map((resource) => (
+                  <ResourceCard
+                    key={resource.id}
+                    resource={resource}
+                    sessionCount={sessionCountByResource.get(resource.id) ?? 0}
+                    defaultLabel={t('projects.defaultResource')}
+                    sessionCountLabel={t('projects.resourceSessionCount', {
+                      count: sessionCountByResource.get(resource.id) ?? 0,
+                    })}
+                    availableLabel={t('projects.resourceAvailable')}
+                    configLabel={t('projects.resourceSettings')}
+                    onPress={() => onOpenResource(resource)}
+                  />
+                ))
+              )}
+            </View>
+            <View style={[s.composerHint, s.composerHintInfo]}>
+              <View style={s.composerBody}>
+                <Text style={s.composerTitle}>{t('projects.runtimesInfoTitle')}</Text>
+                <Text style={s.composerSub}>{t('projects.runtimesInfoBody')}</Text>
+              </View>
+            </View>
+          </>
+        )}
 
-        {segment === 'settings' ? (
+        {segment === 'settings' && (
           <View style={s.settingsPanel}>
-            <Text style={s.settingsLabel}>Path</Text>
+            <Text style={s.settingsLabel}>{t('projects.pathLabel')}</Text>
             <Text selectable style={s.settingsValue}>
               {project.project_path}
             </Text>
-            <Text style={s.settingsLabel}>Default resource</Text>
+            <Text style={s.settingsLabel}>{t('projects.defaultResourceLabel')}</Text>
             <Text style={s.settingsValue}>
-              {resources.find((resource) => resource.id === project.default_resource_id)?.name ??
+              {resources.find((r) => r.id === project.default_resource_id)?.name ??
                 project.default_resource_id ??
-                'None'}
+                t('projects.noDefaultResource')}
             </Text>
           </View>
-        ) : null}
+        )}
       </ScrollView>
     </View>
   );
 }
-
-const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: brandColors.cream },
-  nav: {
-    height: 44,
-    backgroundColor: brandColors.cream,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-  },
-  backLink: { flexDirection: 'row', alignItems: 'center', gap: 2 },
-  backText: {
-    fontFamily: brandTypography.body,
-    fontSize: 15,
-    fontWeight: '700',
-    color: brandColors.ink,
-  },
-  centered: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 16 },
-  loadingText: { fontFamily: brandTypography.body, fontSize: 13, color: brandColors.textSoft },
-  errorTitle: {
-    fontFamily: brandTypography.display,
-    fontSize: 22,
-    lineHeight: 27,
-    fontWeight: '700',
-    color: brandColors.error,
-  },
-  backBtn: {
-    borderWidth: 1,
-    borderColor: brandColors.coral,
-    paddingHorizontal: 24,
-    paddingVertical: 8,
-    borderRadius: 10,
-  },
-  backBtnText: {
-    fontFamily: brandTypography.body,
-    fontSize: 14,
-    fontWeight: '600',
-    color: brandColors.coral,
-  },
-  scroll: { paddingBottom: 110 },
-  hero: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 14, gap: 8 },
-  projectName: {
-    fontFamily: brandTypography.display,
-    fontSize: 28,
-    lineHeight: 34,
-    fontWeight: '700',
-    color: brandColors.ink,
-  },
-  pathRow: { flexDirection: 'row', alignItems: 'center', gap: 5, minWidth: 0 },
-  workspacePath: {
-    flex: 1,
-    minWidth: 0,
-    fontFamily: brandTypography.body,
-    fontSize: 13,
-    lineHeight: 18,
-    color: brandColors.textSoft,
-  },
-  newSessionBtn: {
-    marginHorizontal: 16,
-    height: 44,
-    backgroundColor: brandColors.ink,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexDirection: 'row',
-    gap: 6,
-  },
-  newSessionText: {
-    fontFamily: brandTypography.body,
-    fontSize: 14,
-    fontWeight: '700',
-    color: brandColors.white,
-  },
-  segmentControl: {
-    marginHorizontal: 16,
-    marginTop: 16,
-    height: 40,
-    borderRadius: 20,
-    padding: 3,
-    backgroundColor: brandRgba.white88,
-    borderWidth: 1,
-    borderColor: brandColors.silver,
-    flexDirection: 'row',
-  },
-  segmentButton: { flex: 1, borderRadius: 17, alignItems: 'center', justifyContent: 'center' },
-  segmentButtonActive: { backgroundColor: brandColors.ink },
-  segmentText: {
-    fontFamily: brandTypography.body,
-    fontSize: 12,
-    fontWeight: '800',
-    color: brandColors.textSoft,
-  },
-  segmentTextActive: { color: brandColors.white },
-  group: {
-    marginHorizontal: 16,
-    marginTop: 12,
-    borderRadius: 12,
-    backgroundColor: brandRgba.white88,
-    borderWidth: 1,
-    borderColor: brandColors.silver,
-    overflow: 'hidden',
-  },
-  row: {
-    minHeight: 66,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingHorizontal: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: brandRgba.silver78,
-  },
-  statusDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: brandColors.textMuted },
-  statusDotActive: { backgroundColor: brandColors.coral },
-  resourceIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 10,
-    backgroundColor: brandRgba.sageSoft,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  rowCopy: { flex: 1, minWidth: 0, gap: 2 },
-  rowTitle: {
-    fontFamily: brandTypography.body,
-    fontSize: 15,
-    fontWeight: '800',
-    color: brandColors.ink,
-  },
-  rowSubtitle: { fontFamily: brandTypography.body, fontSize: 12, color: brandColors.textSoft },
-  rowMeta: { fontFamily: brandTypography.body, fontSize: 11, color: brandColors.textMuted },
-  emptyText: {
-    fontFamily: brandTypography.body,
-    fontSize: 13,
-    color: brandColors.textSoft,
-    paddingHorizontal: 14,
-    paddingVertical: 18,
-  },
-  settingsPanel: {
-    marginHorizontal: 16,
-    marginTop: 12,
-    borderRadius: 12,
-    backgroundColor: brandRgba.white88,
-    borderWidth: 1,
-    borderColor: brandColors.silver,
-    padding: 14,
-    gap: 6,
-  },
-  settingsLabel: {
-    marginTop: 6,
-    fontFamily: brandTypography.body,
-    fontSize: 11,
-    fontWeight: '800',
-    color: brandColors.textMuted,
-  },
-  settingsValue: {
-    fontFamily: brandTypography.body,
-    fontSize: 13,
-    lineHeight: 18,
-    color: brandColors.ink,
-  },
-});

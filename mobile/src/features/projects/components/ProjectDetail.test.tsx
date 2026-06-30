@@ -116,7 +116,7 @@ describe('ProjectDetail', () => {
 
   it('shows resources as a secondary segment', () => {
     const onOpenResource = jest.fn();
-    const { getByText } = render(
+    const { getByText, getAllByText } = render(
       <ProjectDetail
         project={project}
         sessions={sessions}
@@ -131,17 +131,18 @@ describe('ProjectDetail', () => {
     );
 
     fireEvent.press(getByText('Resources'));
-    fireEvent.press(getByText('claude-resource'));
+    const configBtns = getAllByText('Configure');
+    fireEvent.press(configBtns[1]);
 
     expect(getByText('codex-resource')).toBeTruthy();
-    expect(getByText('Codex · Default')).toBeTruthy();
+    expect(getByText('Default')).toBeTruthy();
     expect(onOpenResource).toHaveBeenCalledWith(resources[1]);
   });
 
   it('calls new session and back callbacks', () => {
     const onNewSession = jest.fn();
     const onBack = jest.fn();
-    const { getByText } = render(
+    const { getByText, getByLabelText } = render(
       <ProjectDetail
         project={project}
         sessions={sessions}
@@ -156,7 +157,7 @@ describe('ProjectDetail', () => {
     );
 
     fireEvent.press(getByText('New Session'));
-    fireEvent.press(getByText('Projects'));
+    fireEvent.press(getByLabelText('Back'));
 
     expect(onNewSession).toHaveBeenCalledTimes(1);
     expect(onBack).toHaveBeenCalledTimes(1);
