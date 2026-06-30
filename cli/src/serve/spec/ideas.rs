@@ -21,6 +21,10 @@ pub struct SpecIdeaMutation {
     pub target_endpoint_id: Option<String>,
     pub target_repo_path: Option<String>,
     pub target_agent_name: Option<String>,
+    pub target_project_id: Option<String>,
+    pub target_project_name: Option<String>,
+    pub target_resource_id: Option<String>,
+    pub target_resource_name: Option<String>,
     pub body: Option<String>,
     pub notes: Option<Vec<SpecIdeaNoteMutation>>,
     pub attachments: Option<Vec<SpecIdeaAttachmentMutation>>,
@@ -138,12 +142,37 @@ pub fn create_spec_idea(
         .map(clean_string)
         .filter(|value| !value.is_empty())
         .unwrap_or_else(|| agent.name.clone());
+    let project_id = mutation
+        .target_project_id
+        .as_deref()
+        .map(clean_string)
+        .filter(|value| !value.is_empty())
+        .or(agent.project_id.clone());
+    let project_name = mutation
+        .target_project_name
+        .as_deref()
+        .map(clean_string)
+        .filter(|value| !value.is_empty())
+        .unwrap_or_else(|| target_repo_path.clone());
+    let resource_id = mutation
+        .target_resource_id
+        .as_deref()
+        .map(clean_string)
+        .filter(|value| !value.is_empty())
+        .unwrap_or_else(|| agent.id.clone());
+    let resource_name = mutation
+        .target_resource_name
+        .as_deref()
+        .map(clean_string)
+        .filter(|value| !value.is_empty())
+        .unwrap_or_else(|| agent.name.clone());
     db.execute(
         "INSERT INTO spec_ideas (
             id, title, status, target_agent_id, target_endpoint_id, target_repo_path,
-            target_agent_name, body, interview_conversation_id, converted_spec_id,
+            target_agent_name, target_project_id, target_project_name, target_resource_id,
+            target_resource_name, body, interview_conversation_id, converted_spec_id,
             error_message, created_at, updated_at, archived_at
-         ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?12, ?13)",
+         ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?16, ?17)",
         params![
             id,
             title,
@@ -152,6 +181,10 @@ pub fn create_spec_idea(
             endpoint_id,
             target_repo_path,
             agent_name,
+            project_id,
+            project_name,
+            resource_id,
+            resource_name,
             body,
             mutation.interview_conversation_id,
             mutation.converted_spec_id,
@@ -213,13 +246,42 @@ pub fn update_spec_idea(
         .map(clean_string)
         .filter(|value| !value.is_empty())
         .unwrap_or_else(|| clean_title(None, &body));
+    let project_id = mutation
+        .target_project_id
+        .as_deref()
+        .map(clean_string)
+        .filter(|value| !value.is_empty())
+        .or(current.target_project_id)
+        .or(agent.project_id.clone());
+    let project_name = mutation
+        .target_project_name
+        .as_deref()
+        .map(clean_string)
+        .filter(|value| !value.is_empty())
+        .or(current.target_project_name)
+        .unwrap_or_else(|| target_repo_path.clone());
+    let resource_id = mutation
+        .target_resource_id
+        .as_deref()
+        .map(clean_string)
+        .filter(|value| !value.is_empty())
+        .or(current.target_resource_id)
+        .unwrap_or_else(|| agent.id.clone());
+    let resource_name = mutation
+        .target_resource_name
+        .as_deref()
+        .map(clean_string)
+        .filter(|value| !value.is_empty())
+        .or(current.target_resource_name)
+        .unwrap_or_else(|| agent.name.clone());
     db.execute(
         "UPDATE spec_ideas
          SET title = ?1, status = ?2, target_agent_id = ?3, target_endpoint_id = ?4,
              target_repo_path = ?5, target_agent_name = ?6, body = ?7,
-             interview_conversation_id = ?8, converted_spec_id = ?9,
-             error_message = ?10, updated_at = ?11, archived_at = ?12
-         WHERE id = ?13",
+             target_project_id = ?8, target_project_name = ?9, target_resource_id = ?10,
+             target_resource_name = ?11, interview_conversation_id = ?12, converted_spec_id = ?13,
+             error_message = ?14, updated_at = ?15, archived_at = ?16
+         WHERE id = ?17",
         params![
             title,
             status,
@@ -237,6 +299,10 @@ pub fn update_spec_idea(
                 .filter(|value| !value.is_empty())
                 .unwrap_or(agent.name),
             body,
+            project_id,
+            project_name,
+            resource_id,
+            resource_name,
             mutation
                 .interview_conversation_id
                 .or(current.interview_conversation_id),

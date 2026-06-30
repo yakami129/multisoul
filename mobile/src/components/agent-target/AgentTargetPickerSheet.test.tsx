@@ -121,13 +121,17 @@ test('returns endpoint, agent, and repo target on Done', () => {
   fireEvent.press(getByText('Codex Runner'));
   fireEvent.press(getByText('Done'));
 
-  expect(onDone).toHaveBeenCalledWith({
-    endpointId: 'ep-online',
-    endpointLabel: 'Office Mac',
-    agentId: 'agent-1',
-    agentName: 'Codex Runner',
-    repoPath: '/repo/multisoul',
-  });
+  expect(onDone).toHaveBeenCalledWith(
+    expect.objectContaining({
+      endpointId: 'ep-online',
+      endpointLabel: 'Office Mac',
+      agentId: 'agent-1',
+      agentName: 'Codex Runner',
+      resourceId: 'agent-1',
+      resourceName: 'Codex Runner',
+      repoPath: '/repo/multisoul',
+    }),
+  );
 });
 
 test('lockedEndpointId shows only agents on that endpoint and endpoint is read-only', () => {

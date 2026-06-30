@@ -37,6 +37,8 @@ function normalizeTimeOfDay(value: string): string | null {
 export interface WorkflowFormInitialValues {
   name?: string;
   agent_id?: string;
+  project_id?: string | null;
+  resource_id?: string | null;
   prompt?: string;
   mode?: WorkflowMode;
   schedule_kind?: WorkflowScheduleKind | null;
@@ -151,6 +153,8 @@ export function WorkflowFormScreen({
       onSave({
         name: name.trim(),
         agent_id: selectedTarget.agentId,
+        project_id: selectedTarget.projectId ?? undefined,
+        resource_id: selectedTarget.resourceId ?? selectedTarget.agentId,
         prompt: prompt.trim(),
         mode: 'watch',
         interval_minutes: effectiveInterval,
@@ -163,6 +167,8 @@ export function WorkflowFormScreen({
       onSave({
         name: name.trim(),
         agent_id: selectedTarget.agentId,
+        project_id: selectedTarget.projectId ?? undefined,
+        resource_id: selectedTarget.resourceId ?? selectedTarget.agentId,
         prompt: prompt.trim(),
         mode: 'recurring',
         schedule_kind: scheduleKind,

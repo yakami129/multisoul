@@ -7,6 +7,14 @@ pub struct WorkflowRow {
     pub id: String,
     pub name: String,
     pub agent_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub project_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub project_name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub project_path: Option<String>,
+    pub resource_id: String,
+    pub resource_name: String,
     pub prompt: String,
     pub enabled: bool,
     pub schedule_kind: String,
@@ -45,7 +53,9 @@ pub struct WorkflowRunRow {
 #[derive(Debug, Deserialize)]
 pub struct WorkflowWriteBody {
     pub name: String,
-    pub agent_id: String,
+    pub agent_id: Option<String>,
+    pub project_id: Option<String>,
+    pub resource_id: Option<String>,
     pub prompt: String,
     pub schedule_kind: Option<String>,
     pub time_of_day: Option<String>,
@@ -57,18 +67,26 @@ pub struct WorkflowWriteBody {
     pub stop_condition: Option<String>,
 }
 
+pub(super) struct WorkflowTarget {
+    pub agent_id: String,
+    pub project_id: Option<String>,
+}
+
 pub(super) fn load_workflow(state: &AppState, id: &str) -> Result<WorkflowRow, StatusCode> {
     let db = state
         .db
         .lock()
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     db.query_row(
-        "SELECT id, name, agent_id, prompt, enabled, schedule_kind, time_of_day,
-                day_of_week, next_run_at, last_run_at, created_at, updated_at,
-                mode, interval_minutes, max_runs, expires_at, stop_condition,
-                watch_status, run_count
-         FROM workflows
-         WHERE id = ?1",
+        "SELECT w.id, w.name, w.agent_id, COALESCE(w.project_id, a.project_id),
+                p.name, p.project_path, w.agent_id, a.name, w.prompt, w.enabled,
+                w.schedule_kind, w.time_of_day, w.day_of_week, w.next_run_at,
+                w.last_run_at, w.created_at, w.updated_at, w.mode, w.interval_minutes,
+                w.max_runs, w.expires_at, w.stop_condition, w.watch_status, w.run_count
+         FROM workflows w
+         JOIN agents a ON a.id = w.agent_id
+         LEFT JOIN projects p ON p.id = COALESCE(w.project_id, a.project_id)
+         WHERE w.id = ?1",
         [id],
         row_to_workflow,
     )
@@ -79,47 +97,64 @@ pub(super) fn load_workflow(state: &AppState, id: &str) -> Result<WorkflowRow, S
 }
 
 pub(super) fn row_to_workflow(row: &rusqlite::Row<'_>) -> rusqlite::Result<WorkflowRow> {
-    let enabled: i64 = row.get(4)?;
+    let enabled: i64 = row.get(9)?;
     Ok(WorkflowRow {
         id: row.get(0)?,
         name: row.get(1)?,
         agent_id: row.get(2)?,
-        prompt: row.get(3)?,
+        project_id: row.get(3)?,
+        project_name: row.get(4)?,
+        project_path: row.get(5)?,
+        resource_id: row.get(6)?,
+        resource_name: row.get(7)?,
+        prompt: row.get(8)?,
         enabled: enabled != 0,
-        schedule_kind: row.get(5)?,
-        time_of_day: row.get(6)?,
-        day_of_week: row.get(7)?,
-        next_run_at: row.get(8)?,
-        last_run_at: row.get(9)?,
-        created_at: row.get(10)?,
-        updated_at: row.get(11)?,
-        mode: row.get(12)?,
-        interval_minutes: row.get(13)?,
-        max_runs: row.get(14)?,
-        expires_at: row.get(15)?,
-        stop_condition: row.get(16)?,
-        watch_status: row.get(17)?,
-        run_count: row.get(18)?,
+        schedule_kind: row.get(10)?,
+        time_of_day: row.get(11)?,
+        day_of_week: row.get(12)?,
+        next_run_at: row.get(13)?,
+        last_run_at: row.get(14)?,
+        created_at: row.get(15)?,
+        updated_at: row.get(16)?,
+        mode: row.get(17)?,
+        interval_minutes: row.get(18)?,
+        max_runs: row.get(19)?,
+        expires_at: row.get(20)?,
+        stop_condition: row.get(21)?,
+        watch_status: row.get(22)?,
+        run_count: row.get(23)?,
     })
 }
 
-pub(super) fn ensure_agent_exists(
+pub(super) fn resolve_workflow_target(
     db: &rusqlite::Connection,
-    agent_id: &str,
-) -> Result<(), StatusCode> {
-    let exists = db
+    body: &WorkflowWriteBody,
+) -> Result<WorkflowTarget, StatusCode> {
+    let agent_id = body
+        .resource_id
+        .as_deref()
+        .or(body.agent_id.as_deref())
+        .ok_or(StatusCode::BAD_REQUEST)?;
+    let agent_project_id: Option<String> = db
         .query_row(
-            "SELECT EXISTS(SELECT 1 FROM agents WHERE id = ?1)",
+            "SELECT project_id FROM agents WHERE id = ?1",
             [agent_id],
-            |row| row.get::<_, i64>(0),
+            |row| row.get(0),
         )
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
-        != 0;
-    if exists {
-        Ok(())
-    } else {
-        Err(StatusCode::NOT_FOUND)
+        .map_err(|err| match err {
+            rusqlite::Error::QueryReturnedNoRows => StatusCode::NOT_FOUND,
+            _ => StatusCode::INTERNAL_SERVER_ERROR,
+        })?;
+    if body.project_id.is_some()
+        && agent_project_id.is_some()
+        && body.project_id.as_ref() != agent_project_id.as_ref()
+    {
+        return Err(StatusCode::BAD_REQUEST);
     }
+    Ok(WorkflowTarget {
+        agent_id: agent_id.to_string(),
+        project_id: body.project_id.clone().or(agent_project_id),
+    })
 }
 
 pub(super) fn validate_watch_body(body: &WorkflowWriteBody, now: i64) -> Result<(), StatusCode> {

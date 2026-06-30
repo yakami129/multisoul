@@ -43,6 +43,10 @@ interface EditIdeaInput {
   targetEndpointId?: string;
   targetRepoPath?: string;
   targetAgentName?: string;
+  targetProjectId?: string;
+  targetProjectName?: string;
+  targetResourceId?: string;
+  targetResourceName?: string;
 }
 
 interface SpecState {
@@ -196,6 +200,10 @@ export const useSpecStore = create<SpecState>((set, get) => ({
       targetEndpointId: input.targetEndpointId ?? targetAgent?.endpoint_id ?? '',
       targetRepoPath: input.targetRepoPath ?? targetAgent?.project_path ?? '',
       targetAgentName: input.targetAgentName ?? targetAgent?.name ?? '',
+      targetProjectId: input.targetProjectId ?? targetAgent?.project_id ?? undefined,
+      targetProjectName: input.targetProjectName ?? targetAgent?.project_path ?? undefined,
+      targetResourceId: input.targetResourceId ?? targetAgent?.id ?? undefined,
+      targetResourceName: input.targetResourceName ?? targetAgent?.name ?? undefined,
       body: input.body,
       notes: input.notes ?? [],
       attachments: input.attachments ?? [],
@@ -223,6 +231,10 @@ export const useSpecStore = create<SpecState>((set, get) => ({
         targetEndpointId: input.targetEndpointId ?? idea.targetEndpointId,
         targetRepoPath: input.targetRepoPath ?? idea.targetRepoPath,
         targetAgentName: input.targetAgentName ?? idea.targetAgentName,
+        targetProjectId: input.targetProjectId ?? idea.targetProjectId,
+        targetProjectName: input.targetProjectName ?? idea.targetProjectName,
+        targetResourceId: input.targetResourceId ?? idea.targetResourceId,
+        targetResourceName: input.targetResourceName ?? idea.targetResourceName,
         updatedAt: now,
       };
     });

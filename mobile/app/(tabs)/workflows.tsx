@@ -27,6 +27,8 @@ function workflowToFormValues(wf: Workflow): WorkflowFormInitialValues {
   return {
     name: wf.name,
     agent_id: wf.agent_id,
+    project_id: wf.project_id,
+    resource_id: wf.resource_id,
     prompt: wf.prompt,
     mode: wf.mode,
     schedule_kind: wf.schedule_kind,
@@ -94,7 +96,7 @@ export default function WorkflowsTab() {
 
   const createMutation = useMutation({
     mutationFn: async (input: WorkflowInput) => {
-      const agent = agents.find((a) => a.id === input.agent_id);
+      const agent = agents.find((a) => a.id === (input.resource_id ?? input.agent_id));
       if (!agent) throw new Error('Agent not found');
       const ep = endpoints.find((e) => e.id === agent.endpoint_id);
       if (!ep) throw new Error('Endpoint not found');

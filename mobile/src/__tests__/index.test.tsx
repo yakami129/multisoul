@@ -1,9 +1,9 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import React from 'react';
-import AgentListScreen from '../../app/(tabs)/index';
+import ProjectListScreen from '../../app/(tabs)/index';
 import { useEndpointStore } from '../../src/store/endpointStore';
-import { type Agent } from '../types';
+import { type Project } from '../features/projects';
 
 jest.mock('expo-camera', () => ({
   CameraView: () => null,
@@ -17,26 +17,17 @@ jest.mock('../../src/api/endpointClient', () => ({
   clearEndpointClients: jest.fn(),
 }));
 
-jest.mock('../../src/features/agents/services/agentService', () => ({
-  fetchAllAgents: jest.fn(),
-}));
-
-jest.mock('../../src/features/chat/services/chatService', () => ({
-  fetchConversations: jest.fn().mockResolvedValue([]),
-}));
+jest.mock('../../src/features/projects', () => {
+  const actual = jest.requireActual('../../src/features/projects');
+  return {
+    ...actual,
+    fetchAllProjects: jest.fn(),
+  };
+});
 
 jest.mock('expo-router', () => ({
   useRouter: () => ({ push: jest.fn() }),
   Link: ({ children }: any) => children,
-  useFocusEffect: (cb: () => (() => void) | void) => {
-    const { useEffect } = require('react');
-    useEffect(() => {
-      const cleanup = cb();
-      return () => {
-        if (typeof cleanup === 'function') cleanup();
-      };
-    }, [cb]);
-  },
 }));
 
 jest.mock('react-native-safe-area-context', () => ({
@@ -45,31 +36,44 @@ jest.mock('react-native-safe-area-context', () => ({
   SafeAreaView: ({ children }: any) => children,
 }));
 
-const mockAgents: Agent[] = [
+const mockProjects: Project[] = [
   {
-    id: 'uuid-1',
-    name: 'Weather Agent',
+    id: 'project-weather',
+    name: 'Weather Project',
     project_path: '/home/user/weather',
-    runtime: 'claude-code',
+    normalized_project_path: '/home/user/weather',
+    default_resource_id: 'uuid-1',
     created_at: 0,
+    updated_at: 1,
+    last_activity_at: 2,
+    session_counts: {
+      idle: 1,
+      running: 0,
+      awaiting_question: 0,
+      completed: 2,
+      failed: 0,
+    },
+    resource_count: 2,
     endpoint_id: 'ep-1',
     endpoint_label: 'Local',
   },
   {
-    id: 'uuid-2',
-    name: 'Broken Agent',
+    id: 'project-broken',
+    name: 'Broken Project',
     project_path: '/home/user/broken',
-    runtime: 'codex',
+    normalized_project_path: '/home/user/broken',
+    default_resource_id: 'uuid-2',
     created_at: 0,
-    endpoint_id: 'ep-1',
-    endpoint_label: 'Local',
-  },
-  {
-    id: 'uuid-3',
-    name: 'Idle Agent',
-    project_path: '/home/user/idle',
-    runtime: 'custom',
-    created_at: 0,
+    updated_at: 1,
+    last_activity_at: 3,
+    session_counts: {
+      idle: 0,
+      running: 1,
+      awaiting_question: 0,
+      completed: 0,
+      failed: 0,
+    },
+    resource_count: 1,
     endpoint_id: 'ep-1',
     endpoint_label: 'Local',
   },
@@ -81,26 +85,13 @@ function wrapper({ children }: { children: React.ReactNode }) {
   return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
 }
 
-/// Project list: renders projects returned by fetchAllAgents
-///
-/// Data: 3 agents with different runtimes
-///
-/// Execution:
-///   1. Seed endpointStore with one endpoint so query is enabled
-///   2. Mock fetchAllAgents to resolve with mockAgents
-///   3. Render AgentListScreen inside QueryClientProvider
-///   4. Wait for data to load
-///
-/// Expected:
-///   - All three agent names visible with their source casing
-describe('AgentListScreen', () => {
-  const { fetchAllAgents } = require('../../src/features/agents/services/agentService');
+describe('ProjectListScreen', () => {
+  const { fetchAllProjects } = require('../../src/features/projects');
 
   beforeEach(() => {
     queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false, gcTime: Infinity } },
     });
-    // Seed the endpoint store so the query is enabled
     useEndpointStore.setState({
       endpoints: [
         {
@@ -112,7 +103,7 @@ describe('AgentListScreen', () => {
         },
       ],
     });
-    fetchAllAgents.mockResolvedValue(mockAgents);
+    fetchAllProjects.mockResolvedValue(mockProjects);
   });
 
   afterEach(() => {
@@ -120,108 +111,53 @@ describe('AgentListScreen', () => {
     act(() => {
       useEndpointStore.setState({ endpoints: [] });
     });
-    fetchAllAgents.mockReset();
-    const { fetchConversations } = require('../../src/features/chat/services/chatService');
-    fetchConversations.mockReset();
-    fetchConversations.mockResolvedValue([]);
+    fetchAllProjects.mockReset();
   });
 
-  it('renders project list with runtime badges', async () => {
-    render(<AgentListScreen />, { wrapper });
+  it('renders projects returned by fetchAllProjects', async () => {
+    render(<ProjectListScreen />, { wrapper });
 
     await waitFor(() => {
-      expect(screen.getByText('Weather Agent')).toBeTruthy();
+      expect(screen.getByText('Weather Project')).toBeTruthy();
     });
 
-    expect(screen.getByText('Broken Agent')).toBeTruthy();
-    expect(screen.getByText('Idle Agent')).toBeTruthy();
+    expect(screen.getByText('Broken Project')).toBeTruthy();
+    expect(screen.getByText('3 sessions · 2 resources')).toBeTruthy();
   });
 
-  it('keeps the Agents page visible while only the fleet loads initially', () => {
-    fetchAllAgents.mockImplementation(() => new Promise(() => {}));
+  it('keeps the Projects page visible while project data loads', () => {
+    fetchAllProjects.mockImplementation(() => new Promise(() => {}));
 
-    render(<AgentListScreen />, { wrapper });
+    render(<ProjectListScreen />, { wrapper });
 
     expect(screen.getByText('MultiSoul')).toBeTruthy();
-    expect(screen.getByText(/Your agents/)).toBeTruthy();
-    expect(screen.getByPlaceholderText('Search agents...')).toBeTruthy();
-    expect(screen.getByText('Agent Fleet')).toBeTruthy();
-    expect(screen.getByText('Loading agents...')).toBeTruthy();
+    expect(screen.getByText(/Your projects/)).toBeTruthy();
+    expect(screen.getByPlaceholderText('Search projects...')).toBeTruthy();
+    expect(screen.getByText('Projects')).toBeTruthy();
+    expect(screen.getByText('Loading projects...')).toBeTruthy();
     expect(screen.getByText('Quick Workflows')).toBeTruthy();
-    expect(screen.queryByText('Weather Agent')).toBeNull();
+    expect(screen.queryByText('Weather Project')).toBeNull();
   });
 
-  it('shows empty state when no projects', async () => {
-    fetchAllAgents.mockResolvedValue([]);
+  it('shows empty state when no projects are available', async () => {
+    fetchAllProjects.mockResolvedValue([]);
 
-    render(<AgentListScreen />, { wrapper });
+    render(<ProjectListScreen />, { wrapper });
     await waitFor(() => {
       expect(screen.getByText('Connect a machine')).toBeTruthy();
     });
   });
 
-  /// Agents route add endpoint: header plus opens Add Endpoint directly on QR mode.
-  ///
-  /// Data construction:
-  ///   endpointStore = one configured endpoint, so Agents route renders loaded list state.
-  ///   fetchAllAgents = mockAgents, so the header plus is available above project rows.
-  ///   camera permission = false, so QR mode displays the permission CTA.
-  ///
-  /// Execution:
-  ///   1. Render AgentListScreen inside QueryClientProvider.
-  ///   2. Wait for project data.
-  ///   3. Press the "Add endpoint" header button.
-  ///
-  /// Expected:
-  ///   - Positive: full-screen Add Endpoint copy is visible.
-  ///   - Positive: QR mode is active via "TAP TO ALLOW CAMERA".
-  ///   - Negative: legacy centered-card "ADD ENDPOINT" heading is not shown.
-  it('opens the add endpoint modal in QR mode from the Agents header plus', async () => {
-    render(<AgentListScreen />, { wrapper });
+  it('opens the add endpoint modal in QR mode from the Projects header plus', async () => {
+    render(<ProjectListScreen />, { wrapper });
 
     await waitFor(() => {
-      expect(screen.getByText('Weather Agent')).toBeTruthy();
+      expect(screen.getByText('Weather Project')).toBeTruthy();
     });
     fireEvent.press(screen.getByLabelText('Add endpoint'));
 
     expect(screen.getByText('Connect a machine')).toBeTruthy();
     expect(screen.getByText('TAP TO ALLOW CAMERA')).toBeTruthy();
     expect(screen.queryByText('ADD ENDPOINT')).toBeNull();
-  });
-
-  /// Agents tab focus refresh: fetchConversations is called for each agent on tab focus
-  ///
-  /// Data:
-  ///   3 agents on ep-1
-  ///   fetchAllAgents resolves with mockAgents
-  ///   fetchConversations resolves with []
-  ///
-  /// Execution:
-  ///   1. Render AgentListScreen (focus triggers useFocusEffect, but data=undefined initially)
-  ///   2. Wait for agents to load (fetchAllAgents resolves → data set → useFocusEffect re-runs)
-  ///   3. Assert fetchConversations called for each agent
-  ///
-  /// Expected:
-  ///   - Positive: fetchConversations called once per agent (3 times total)
-  ///   - Positive: each call passes the correct agent_id
-  ///
-  /// Regression: before fix, Agents tab had no useFocusEffect so conversations were never refreshed
-  it('fetches conversations for all agents on tab focus', async () => {
-    const { fetchConversations } = require('../../src/features/chat/services/chatService');
-
-    render(<AgentListScreen />, { wrapper });
-
-    await waitFor(() => {
-      expect(screen.getByText('Weather Agent')).toBeTruthy();
-    });
-
-    await waitFor(() => {
-      expect(fetchConversations).toHaveBeenCalledTimes(mockAgents.length);
-    });
-
-    const calledAgentIds = fetchConversations.mock.calls.map((call: unknown[]) => call[2]);
-    expect(calledAgentIds).toContain('uuid-1');
-    expect(calledAgentIds).toContain('uuid-2');
-    expect(calledAgentIds).toContain('uuid-3');
   });
 });

@@ -35,6 +35,7 @@ pub struct StartInterviewResponse {
 }
 
 struct AgentRuntimeInfo {
+    project_id: Option<String>,
     project_path: String,
     runtime: String,
     mode: String,
@@ -105,6 +106,7 @@ pub async fn start_interview(
     let (next_seq, created_at, payload) = create_interview_conversation(
         &state,
         &context.target_agent_id,
+        agent.project_id.as_deref(),
         &conversation_id,
         &context.title,
         &instruction,
@@ -151,6 +153,7 @@ pub async fn start_interview(
 fn create_interview_conversation(
     state: &AppState,
     agent_id: &str,
+    project_id: Option<&str>,
     conversation_id: &str,
     title: &str,
     instruction: &str,
@@ -161,9 +164,15 @@ fn create_interview_conversation(
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     let now = now_ms();
     db.execute(
-        "INSERT INTO conversations (id, agent_id, title, created_at, last_message_at, status)
-         VALUES (?1, ?2, ?3, ?4, ?4, 'idle')",
-        rusqlite::params![conversation_id, agent_id, format!("Idea: {title}"), now],
+        "INSERT INTO conversations (id, agent_id, project_id, title, created_at, last_message_at, status)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?5, 'idle')",
+        rusqlite::params![
+            conversation_id,
+            agent_id,
+            project_id,
+            format!("Idea: {title}"),
+            now
+        ],
     )
     .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     let (next_seq, _id, created_at, payload) =
@@ -185,13 +194,14 @@ fn load_agent_runtime_info(
 ) -> Result<AgentRuntimeInfo, SaveSpecError> {
     let db = state.db.lock().map_err(|_| SaveSpecError::Internal)?;
     db.query_row(
-        "SELECT project_path, runtime, mode FROM agents WHERE id = ?1",
+        "SELECT project_id, project_path, runtime, mode FROM agents WHERE id = ?1",
         [agent_id],
         |row| {
             Ok(AgentRuntimeInfo {
-                project_path: row.get(0)?,
-                runtime: row.get(1)?,
-                mode: row.get(2)?,
+                project_id: row.get(0)?,
+                project_path: row.get(1)?,
+                runtime: row.get(2)?,
+                mode: row.get(3)?,
             })
         },
     )

@@ -25,6 +25,11 @@ export function AgentTargetField({
   const fieldTitle = title ?? t('specs.editorProjectAgent');
   const fieldPlaceholder = placeholder ?? t('specs.editorChoose');
   const fieldChangeLabel = changeLabel ?? t('specs.editorChange');
+  const targetSubtitle = value
+    ? value.resourceName && value.resourceName !== value.agentName
+      ? `${value.repoPath} · ${value.resourceName}`
+      : `${value.repoPath} · ${value.agentName}`
+    : fieldPlaceholder;
 
   return (
     <TouchableOpacity
@@ -36,7 +41,7 @@ export function AgentTargetField({
       <View style={s.targetBody}>
         <Text style={s.targetTitle}>{fieldTitle}</Text>
         <Text style={s.targetSubtitle} numberOfLines={1}>
-          {value ? value.agentName : fieldPlaceholder}
+          {targetSubtitle}
         </Text>
       </View>
       <Text style={s.chooseText}>{value ? fieldChangeLabel : fieldPlaceholder}</Text>

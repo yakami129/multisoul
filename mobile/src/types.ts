@@ -10,6 +10,7 @@ export interface Endpoint {
 // ── Agent (from CLI serve.db) ─────────────────────────────────────────────────
 export interface Agent {
   id: string;
+  project_id?: string | null;
   name: string;
   project_path: string;
   runtime: 'claude-code' | 'codex' | 'cursor-cli' | 'opencode' | 'custom';
@@ -25,6 +26,7 @@ export type AgentStatus = 'active' | 'inactive' | 'error';
 export interface Conversation {
   id: string;
   agent_id: string;
+  project_id?: string | null;
   title: string;
   created_at: number;
   last_message_at: number;

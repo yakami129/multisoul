@@ -51,8 +51,12 @@ export default function IdeaDetailRoute() {
       return {
         endpointId: current.targetEndpointId,
         endpointLabel: endpoints.find((ep) => ep.id === current.targetEndpointId)?.label ?? '',
+        projectId: current.targetProjectId,
+        projectName: current.targetProjectName ?? current.targetRepoPath,
         agentId: current.targetAgentId,
         agentName: current.targetAgentName,
+        resourceId: current.targetResourceId ?? current.targetAgentId,
+        resourceName: current.targetResourceName ?? current.targetAgentName,
         repoPath: current.targetRepoPath,
       };
     },
@@ -76,6 +80,10 @@ export default function IdeaDetailRoute() {
         targetEndpointId: target?.endpointId,
         targetRepoPath: target?.repoPath,
         targetAgentName: target?.agentName,
+        targetProjectId: target?.projectId ?? undefined,
+        targetProjectName: target?.projectName ?? target?.repoPath,
+        targetResourceId: target?.resourceId ?? target?.agentId,
+        targetResourceName: target?.resourceName ?? target?.agentName,
       });
       setEditorVisible(false);
     },

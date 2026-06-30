@@ -35,6 +35,23 @@ pub async fn build_router(state: AppState) -> Router {
         )
         .route("/api/v1/agents", axum::routing::get(agents::list_agents))
         .route(
+            "/api/v1/projects",
+            axum::routing::get(projects::list_projects),
+        )
+        .route(
+            "/api/v1/projects/:id",
+            axum::routing::get(projects::get_project),
+        )
+        .route(
+            "/api/v1/projects/:id/conversations",
+            axum::routing::get(projects::list_project_conversations)
+                .post(projects::create_project_conversation),
+        )
+        .route(
+            "/api/v1/projects/:id/resources",
+            axum::routing::get(projects::list_project_resources),
+        )
+        .route(
             "/api/v1/ask-question",
             axum::routing::post(ask_question::post_ask_question),
         )

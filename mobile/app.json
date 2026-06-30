@@ -62,7 +62,8 @@
       ],
       "expo-asset",
       "expo-sqlite",
-      "expo-video"
+      "expo-video",
+      "expo-localization"
     ],
     "extra": {
       "router": {},

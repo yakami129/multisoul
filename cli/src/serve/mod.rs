@@ -8,6 +8,7 @@ pub mod message_rows;
 #[path = "../../tests/serve/message_rows_tests.rs"]
 mod message_rows_tests;
 pub mod plugin;
+pub mod projects;
 pub mod push;
 #[cfg(test)]
 #[path = "../../tests/serve/push_tests.rs"]

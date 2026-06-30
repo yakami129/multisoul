@@ -49,18 +49,24 @@ function projectStatus(agent: Agent, conversations: Conversation[]): ProjectStat
   const machine = agent.endpoint_label;
   if (conversations.some((conv) => conv.status === 'awaiting_question')) {
     return {
-      label: `Awaiting answer on ${machine} · ${displayRuntime(agent.runtime)}`,
+      label: `Resource awaiting answer on ${machine} · ${displayRuntime(agent.runtime)}`,
       tone: 'active',
     };
   }
   if (conversations.some((conv) => conv.status === 'running')) {
-    return { label: `Running on ${machine} · ${displayRuntime(agent.runtime)}`, tone: 'active' };
+    return {
+      label: `Resource running on ${machine} · ${displayRuntime(agent.runtime)}`,
+      tone: 'active',
+    };
   }
   const mostRecent = [...conversations].sort((a, b) => b.last_message_at - a.last_message_at)[0];
   if (mostRecent?.status === 'failed') {
-    return { label: `Failed on ${machine} · ${displayRuntime(agent.runtime)}`, tone: 'failed' };
+    return {
+      label: `Resource failed on ${machine} · ${displayRuntime(agent.runtime)}`,
+      tone: 'failed',
+    };
   }
-  return { label: `Idle on ${machine} · ${displayRuntime(agent.runtime)}`, tone: 'idle' };
+  return { label: `Resource idle on ${machine} · ${displayRuntime(agent.runtime)}`, tone: 'idle' };
 }
 
 function relativeTime(ts: number): string {
@@ -80,10 +86,10 @@ function Header({ onBack }: { onBack: () => void }) {
         onPress={onBack}
         style={s.backLink}
         accessibilityRole="button"
-        accessibilityLabel="Back to Agents"
+        accessibilityLabel="Back to Projects"
       >
         <ChevronLeft size={20} color={brandColors.ink} />
-        <Text style={s.backText}>Agents</Text>
+        <Text style={s.backText}>Projects</Text>
       </TouchableOpacity>
     </View>
   );
@@ -169,13 +175,13 @@ export function AgentDetail({
 
         <TouchableOpacity style={s.newChatBtn} onPress={onNewChat} accessibilityRole="button">
           <Plus size={16} color={brandColors.white} />
-          <Text style={s.newChatBtnText}>New Chat</Text>
+          <Text style={s.newChatBtnText}>New Session</Text>
         </TouchableOpacity>
 
-        <Text style={s.sectionTitle}>Recent Chats</Text>
+        <Text style={s.sectionTitle}>Recent Sessions</Text>
         <View style={s.chatGroup}>
           {recentConversations.length === 0 ? (
-            <Text style={s.emptyRecentText}>No recent chats yet.</Text>
+            <Text style={s.emptyRecentText}>No recent sessions yet.</Text>
           ) : (
             recentConversations.map((conversation, index) => (
               <View key={conversation.id}>

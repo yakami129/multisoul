@@ -449,6 +449,8 @@ InfCode 使用 `infcode --mode json --session <conversation_id> --agent-mode ama
 
 > **2026-06-07（CLI test layout）**：Rust 单元测试从 `cli/src/**/_tests.rs` 迁到 `cli/tests/` 镜像目录（`#[path = "..."]` 引入）；`serve/routes/messages.rs` 中 `broadcast_user_message` / `insert_user_message_and_mark_running` 可见性由 `pub(super)` 放宽为 `pub(crate)` 以便跨模块测试复用。HTTP 消息路由与 runtime 分发语义不变，本文 §2 架构图与 Step 1–4 正文无需改动。
 
+> **2026-06-26（Project / Session / Resource ownership）**：`cli/src/db.rs` 注册 `20260626_project_session_resource_model` migration，为 `projects` 以及 `agents` / `conversations` / `workflows` 的 `project_id` ownership 回填提供 schema 演进；这符合本文 Step 5 的 migration 纪律。Mobile 的 `Agent` / `Conversation` 类型新增可选 `project_id` 以承接兼容字段。Runtime adapter 仍通过 conversation 的执行 resource/agent 分发，`SessionMessage`、runtime CLI 参数和 abort 契约不变。
+
 完成实现后，按 `CLAUDE.md §5` 跑：
 
 ```bash

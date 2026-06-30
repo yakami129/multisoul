@@ -17,7 +17,8 @@ mod support;
 pub use support::{WorkflowRow, WorkflowRunRow, WorkflowWriteBody};
 
 use support::{
-    ensure_agent_exists, load_workflow, parse_schedule_kind, row_to_workflow, validate_watch_body,
+    load_workflow, parse_schedule_kind, resolve_workflow_target, row_to_workflow,
+    validate_watch_body,
 };
 
 pub async fn list_workflows(
@@ -29,12 +30,15 @@ pub async fn list_workflows(
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     let mut stmt = db
         .prepare(
-            "SELECT id, name, agent_id, prompt, enabled, schedule_kind, time_of_day,
-                    day_of_week, next_run_at, last_run_at, created_at, updated_at,
-                    mode, interval_minutes, max_runs, expires_at, stop_condition,
-                    watch_status, run_count
-             FROM workflows
-             ORDER BY updated_at DESC",
+            "SELECT w.id, w.name, w.agent_id, COALESCE(w.project_id, a.project_id),
+                    p.name, p.project_path, w.agent_id, a.name, w.prompt, w.enabled,
+                    w.schedule_kind, w.time_of_day, w.day_of_week, w.next_run_at,
+                    w.last_run_at, w.created_at, w.updated_at, w.mode, w.interval_minutes,
+                    w.max_runs, w.expires_at, w.stop_condition, w.watch_status, w.run_count
+             FROM workflows w
+             JOIN agents a ON a.id = w.agent_id
+             LEFT JOIN projects p ON p.id = COALESCE(w.project_id, a.project_id)
+             ORDER BY w.updated_at DESC",
         )
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     let rows = stmt
@@ -62,18 +66,19 @@ pub async fn create_workflow(
                 .db
                 .lock()
                 .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-            ensure_agent_exists(&db, &body.agent_id)?;
+            let target = resolve_workflow_target(&db, &body)?;
             db.execute(
                 "INSERT INTO workflows
-                 (id, name, agent_id, prompt, enabled, schedule_kind, time_of_day, day_of_week,
+                 (id, name, agent_id, project_id, prompt, enabled, schedule_kind, time_of_day, day_of_week,
                   next_run_at, last_run_at, created_at, updated_at,
                   mode, interval_minutes, max_runs, expires_at, stop_condition,
                   watch_status, run_count)
-                 VALUES (?1,?2,?3,?4,1,?5,?6,NULL,?7,NULL,?8,?8,'watch',?9,?10,?11,?12,'active',0)",
+                 VALUES (?1,?2,?3,?4,?5,1,?6,?7,NULL,?8,NULL,?9,?9,'watch',?10,?11,?12,?13,'active',0)",
                 rusqlite::params![
                     id,
                     body.name.trim(),
-                    body.agent_id,
+                    target.agent_id,
+                    target.project_id,
                     body.prompt.trim(),
                     sk,
                     tod,
@@ -103,18 +108,19 @@ pub async fn create_workflow(
                 .db
                 .lock()
                 .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-            ensure_agent_exists(&db, &body.agent_id)?;
+            let target = resolve_workflow_target(&db, &body)?;
             db.execute(
                 "INSERT INTO workflows
-                 (id, name, agent_id, prompt, enabled, schedule_kind, time_of_day, day_of_week,
+                 (id, name, agent_id, project_id, prompt, enabled, schedule_kind, time_of_day, day_of_week,
                   next_run_at, last_run_at, created_at, updated_at,
                   mode, interval_minutes, max_runs, expires_at, stop_condition,
                   watch_status, run_count)
-                 VALUES (?1,?2,?3,?4,1,?5,?6,?7,?8,NULL,?9,?9,'recurring',NULL,NULL,NULL,NULL,NULL,0)",
+                 VALUES (?1,?2,?3,?4,?5,1,?6,?7,?8,?9,NULL,?10,?10,'recurring',NULL,NULL,NULL,NULL,NULL,0)",
                 rusqlite::params![
                     id,
                     body.name.trim(),
-                    body.agent_id,
+                    target.agent_id,
+                    target.project_id,
                     body.prompt.trim(),
                     sk,
                     tod,
@@ -148,19 +154,20 @@ pub async fn update_workflow(
                 .db
                 .lock()
                 .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-            ensure_agent_exists(&db, &body.agent_id)?;
+            let target = resolve_workflow_target(&db, &body)?;
             let changed = db
                 .execute(
                     "UPDATE workflows
-                     SET name=?1, agent_id=?2, prompt=?3, schedule_kind='none',
+                     SET name=?1, agent_id=?2, project_id=?3, prompt=?4, schedule_kind='none',
                          time_of_day='00:00', day_of_week=NULL,
-                         mode='watch', interval_minutes=?4, max_runs=?5,
-                         expires_at=?6, stop_condition=?7,
-                         next_run_at=?8, updated_at=?9
-                     WHERE id=?10",
+                         mode='watch', interval_minutes=?5, max_runs=?6,
+                         expires_at=?7, stop_condition=?8,
+                         next_run_at=?9, updated_at=?10
+                     WHERE id=?11",
                     rusqlite::params![
                         body.name.trim(),
-                        body.agent_id,
+                        target.agent_id,
+                        target.project_id,
                         body.prompt.trim(),
                         interval,
                         body.max_runs,
@@ -198,16 +205,17 @@ pub async fn update_workflow(
                 .db
                 .lock()
                 .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-            ensure_agent_exists(&db, &body.agent_id)?;
+            let target = resolve_workflow_target(&db, &body)?;
             let changed = db
                 .execute(
                     "UPDATE workflows
-                     SET name=?1, agent_id=?2, prompt=?3, schedule_kind=?4,
-                         time_of_day=?5, day_of_week=?6, next_run_at=?7, updated_at=?8
-                     WHERE id=?9",
+                     SET name=?1, agent_id=?2, project_id=?3, prompt=?4, schedule_kind=?5,
+                         time_of_day=?6, day_of_week=?7, next_run_at=?8, updated_at=?9
+                     WHERE id=?10",
                     rusqlite::params![
                         body.name.trim(),
-                        body.agent_id,
+                        target.agent_id,
+                        target.project_id,
                         body.prompt.trim(),
                         sk,
                         tod,

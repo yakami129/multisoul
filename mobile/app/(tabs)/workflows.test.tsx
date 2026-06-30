@@ -23,6 +23,7 @@ const endpoint = {
 
 const agent = {
   id: 'agent-1',
+  project_id: 'project-1',
   name: 'MultiSoul Agent',
   project_path: '/repo/multisoul',
   runtime: 'claude-code',
@@ -149,6 +150,8 @@ test('blank workflow creation goes through the existing create payload', async (
   expect(payload).toEqual({
     name: 'Custom Morning Run',
     agent_id: 'agent-1',
+    project_id: 'project-1',
+    resource_id: 'agent-1',
     prompt: 'Summarize repo',
     mode: 'recurring',
     schedule_kind: 'daily',
@@ -196,6 +199,8 @@ test('template workflow creation pre-fills form but saves plain workflow input',
   expect(payload).toEqual({
     ...template.initial_values,
     agent_id: 'agent-1',
+    project_id: 'project-1',
+    resource_id: 'agent-1',
   });
   expect(payload.template_id).toBeUndefined();
   expect(payload.boundary).toBeUndefined();

@@ -184,7 +184,7 @@ export default function TabLayout() {
         <Tabs.Screen
           name="index"
           options={{
-            title: t('tabs.agents'),
+            title: t('tabs.projects'),
           }}
         />
         <Tabs.Screen
